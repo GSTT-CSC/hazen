@@ -122,24 +122,24 @@ imnoise = image_noise(idata)
 sig = [None]*5
 noise = [None]*5
 
-sig[0] = np.mean(idata[(cenx-9):(cenx+10),(ceny-9):(ceny+10)])
-sig[1] = np.mean(idata[(cenx-49):(cenx-30),(ceny-49):(ceny-30)])
-sig[2] = np.mean(idata[(cenx+31):(cenx+50),(ceny-49):(ceny-30)])
-sig[3] = np.mean(idata[(cenx-49):(cenx-10),(ceny+31):(ceny+50)])
-sig[4] = np.mean(idata[(cenx+31):(cenx+50),(ceny+31):(ceny+50)])
+sig[0] = np.mean(idata[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
+sig[1] = np.mean(idata[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
+sig[2] = np.mean(idata[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
+sig[3] = np.mean(idata[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
+sig[4] = np.mean(idata[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
 
-noise[0] = np.std(imnoise[(cenx-9):(cenx+10),(ceny-9):(ceny+10)])
-noise[1] = np.std(imnoise[(cenx-49):(cenx-30),(ceny-49):(ceny-30)])
-noise[2] = np.std(imnoise[(cenx+31):(cenx+50),(ceny-49):(ceny-30)])
-noise[3] = np.std(imnoise[(cenx-49):(cenx-10),(ceny+31):(ceny+50)])
-noise[4] = np.std(imnoise[(cenx+31):(cenx+50),(ceny+31):(ceny+50)])
+noise[0] = np.std(imnoise[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
+noise[1] = np.std(imnoise[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
+noise[2] = np.std(imnoise[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
+noise[3] = np.std(imnoise[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
+noise[4] = np.std(imnoise[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
 
 # Draw regions for testing
-cv.rectangle(idown,((cenx-9),(ceny-9)),((cenx+10),(ceny+10)),30,2)
-cv.rectangle(idown,((cenx-49),(ceny-49)),((cenx-30),(ceny-30)),30,2)
-cv.rectangle(idown,((cenx+31),(ceny-49)),((cenx+50),(ceny-30)),30,2)
-cv.rectangle(idown,((cenx-49),(ceny+31)),((cenx-30),(ceny+50)),30,2)
-cv.rectangle(idown,((cenx+31),(ceny+31)),((cenx+50),(ceny+50)),30,2)
+cv.rectangle(idown,((cenx-10),(ceny-10)),((cenx+10),(ceny+10)),30,2)
+cv.rectangle(idown,((cenx-50),(ceny-50)),((cenx-30),(ceny-30)),30,2)
+cv.rectangle(idown,((cenx+30),(ceny-50)),((cenx+50),(ceny-30)),30,2)
+cv.rectangle(idown,((cenx-50),(ceny+30)),((cenx-30),(ceny+50)),30,2)
+cv.rectangle(idown,((cenx+30),(ceny+30)),((cenx+50),(ceny+50)),30,2)
 
 # Plot annotated image for user
 fig = plt.figure(1)
