@@ -1,9 +1,12 @@
-# Uniformity
+# Uniformity & Ghosting
 #
 # Calculates uniformity for a single-slice image of a uniform MRI phantom
 #
 # This script implements the IPEM/MAGNET method of measuring fractional uniformity.
 # It also calculates integral uniformity using a 75% area FOV ROI and CoV for the same ROI.
+#
+# This script also measures Ghosting within a single image of a uniform phantom.
+# This follows the guidance from ACR for testing their large phantom
 #
 # Created by Neil Heraghty
 #
@@ -138,5 +141,18 @@ roimin = np.amin(idata[mask])
 cov = 100*roistd/roimean
 intuniform = (1-(roimax-roimin)/(roimax+roimin))*100
 
-print("CoV: ",np.round(cov,2),"%")
-print("Integral Uniformity (ACR): ",np.round(intuniform,2),"%")
+print("CoV: ",np.round(cov,1),"%")
+print("Integral Uniformity (ACR): ",np.round(intuniform,1),"%")
+
+# ------ Ghosting -------
+
+# Measure mean pixel value within rectangular ROIs slightly outside the top/bottonm/left/right of phantom
+meantop = np.mean(idata[(cenx-50):(cenx+50),(ceny-cradius-20):(ceny-cradius-10)])
+meanbot = np.mean(idata[(cenx-50):(cenx+50),(ceny+cradius+10):(ceny+cradius+20)])
+meanl = np.mean(idata[(cenx-cradius-20):(cenx-cradius-10),(ceny-50):(ceny+50)])
+meanr = np.mean(idata[(cenx+cradius+10):(cenx+cradius+20),(ceny-50):(ceny+50)])
+
+# Calculate percentage ghosting
+ghosting = np.abs(((meantop+meanbot)-(meanl+meanr))/(2*roimean))*100
+
+print("Ghosting: ",np.round(ghosting,1), "%")
