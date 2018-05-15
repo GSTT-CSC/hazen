@@ -9,8 +9,9 @@
 # This follows the guidance from ACR for testing their large phantom
 #
 # Created by Neil Heraghty
+# neil.heraghty@nhs.net
 #
-# 09/05/2018
+# 14/05/2018
 
 import cv2 as cv
 import numpy as np
@@ -144,9 +145,9 @@ intuniform = (1-(roimax-roimin)/(roimax+roimin))*100
 print("CoV: ",np.round(cov,1),"%")
 print("Integral Uniformity (ACR): ",np.round(intuniform,1),"%")
 
-# ------ Ghosting -------
+# ------ Ghosting ------
 
-# Measure mean pixel value within rectangular ROIs slightly outside the top/bottonm/left/right of phantom
+# Measure mean pixel value within rectangular ROIs slightly outside the top/bottom/left/right of phantom
 meantop = np.mean(idata[(cenx-50):(cenx+50),(ceny-cradius-20):(ceny-cradius-10)])
 meanbot = np.mean(idata[(cenx-50):(cenx+50),(ceny+cradius+10):(ceny+cradius+20)])
 meanl = np.mean(idata[(cenx-cradius-20):(cenx-cradius-10),(ceny-50):(ceny+50)])
@@ -156,3 +157,17 @@ meanr = np.mean(idata[(cenx+cradius+10):(cenx+cradius+20),(ceny-50):(ceny+50)])
 ghosting = np.abs(((meantop+meanbot)-(meanl+meanr))/(2*roimean))*100
 
 print("Ghosting: ",np.round(ghosting,1), "%")
+
+# ------ Distortion ------
+
+# Threshold using half of roimin as a cutoff
+#ithresh = [0 if i > 500 for i in idata]
+thresh = idata < roimin/2
+ithresh = idata
+ithresh[thresh] = 0
+
+# Find the indices of thresholded pixels
+bbox = np.argwhere(ithresh)
+(bbystart, bbxstart), (bbystop, bbxstop) = bbox.min(0), bbox.max(0) + 1
+
+idistort = (bbxstop-bbxstart)/(bbystop-bbystart)
