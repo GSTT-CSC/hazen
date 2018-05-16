@@ -1,14 +1,12 @@
 # Spatial Resolution
 #
-# This script determines the spatial resolution of image by calculating the MTF from the curved
-# edge of a uniform phantom.
-#
-# Spatial resolution is reported at MTF50
+# This script determines the spatial resolution of image by measuring the FWHM across the edges of
+# a uniform phantom
 #
 # Created by Neil Heraghty
 # neil.heraghty@nhs.net
 #
-# 15/05/2018
+# 16/05/2018
 
 import cv2 as cv
 import numpy as np
