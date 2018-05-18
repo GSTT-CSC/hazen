@@ -32,23 +32,24 @@ def find_circle(a):
     """
 
     # Perform Hough transform to find circle
-    circles = cv.HoughCircles(idown, cv.HOUGH_GRADIENT, 1, 100, param1=50,
+    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
                               param2=30, minRadius=0, maxRadius=0)
 
     # Check that a single phantom was found
     if len(circles) == 1:
-        errCircle = "1 circle found."
+        pass
+        #errCircle = "1 circle found."
     else:
         errCircle = "Wrong number of circles detected, check image."
-    print(errCircle)
+        print(errCircle)
 
     # Draw circle onto original image
     circles = np.uint16(np.around(circles))
     for i in circles[0,:]:
         # draw the outer circle
-        cv.circle(idown,(i[0],i[1]),i[2],30,2)
+        cv.circle(a,(i[0],i[1]),i[2],30,2)
         # draw the center of the circle
-        cv.circle(idown,(i[0],i[1]),2,30,2)
+        cv.circle(a,(i[0],i[1]),2,30,2)
 
     cenx = i[0]
     ceny = i[1]
@@ -104,51 +105,57 @@ def image_noise(a):
     return imnoise
 
 
-# Read DICOM image
-image = dcmread('uniformCRFA.dcm')     # Read the DICOM file
+def main(image):
 
-# Prepare image for processing
-idata = image.pixel_array              # Read the pixel values into an array
-idata = np.array(idata)                # Make it a numpy array
-idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
+    # Read DICOM image
+    #image = dcmread('uniformCRFA.dcm')     # Read the DICOM file - not needed if called from parent script
 
-# Find phantom centre and radius
-(cenx, ceny, cradius) = find_circle(idown)
+    # Prepare image for processing
+    idata = image.pixel_array              # Read the pixel values into an array
+    idata = np.array(idata)                # Make it a numpy array
+    idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
 
-# Create noise image
-imnoise = image_noise(idata)
+    # Find phantom centre and radius
+    (cenx, ceny, cradius) = find_circle(idown)
 
-# Measure signal and noise within 5 20x20 pixel ROIs (central and +-40pixels in x & y)
-sig = [None]*5
-noise = [None]*5
+    # Create noise image
+    imnoise = image_noise(idata)
 
-sig[0] = np.mean(idata[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
-sig[1] = np.mean(idata[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
-sig[2] = np.mean(idata[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
-sig[3] = np.mean(idata[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
-sig[4] = np.mean(idata[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
+    # Measure signal and noise within 5 20x20 pixel ROIs (central and +-40pixels in x & y)
+    sig = [None]*5
+    noise = [None]*5
 
-noise[0] = np.std(imnoise[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
-noise[1] = np.std(imnoise[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
-noise[2] = np.std(imnoise[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
-noise[3] = np.std(imnoise[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
-noise[4] = np.std(imnoise[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
+    sig[0] = np.mean(idata[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
+    sig[1] = np.mean(idata[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
+    sig[2] = np.mean(idata[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
+    sig[3] = np.mean(idata[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
+    sig[4] = np.mean(idata[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
 
-# Draw regions for testing
-cv.rectangle(idown,((cenx-10),(ceny-10)),((cenx+10),(ceny+10)),30,2)
-cv.rectangle(idown,((cenx-50),(ceny-50)),((cenx-30),(ceny-30)),30,2)
-cv.rectangle(idown,((cenx+30),(ceny-50)),((cenx+50),(ceny-30)),30,2)
-cv.rectangle(idown,((cenx-50),(ceny+30)),((cenx-30),(ceny+50)),30,2)
-cv.rectangle(idown,((cenx+30),(ceny+30)),((cenx+50),(ceny+50)),30,2)
+    noise[0] = np.std(imnoise[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
+    noise[1] = np.std(imnoise[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
+    noise[2] = np.std(imnoise[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
+    noise[3] = np.std(imnoise[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
+    noise[4] = np.std(imnoise[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
 
-# Plot annotated image for user
-fig = plt.figure(1)
-plt.imshow(idown, cmap='gray')
-plt.show()
+    # Draw regions for testing
+    cv.rectangle(idown,((cenx-10),(ceny-10)),((cenx+10),(ceny+10)),30,2)
+    cv.rectangle(idown,((cenx-50),(ceny-50)),((cenx-30),(ceny-30)),30,2)
+    cv.rectangle(idown,((cenx+30),(ceny-50)),((cenx+50),(ceny-30)),30,2)
+    cv.rectangle(idown,((cenx-50),(ceny+30)),((cenx-30),(ceny+50)),30,2)
+    cv.rectangle(idown,((cenx+30),(ceny+30)),((cenx+50),(ceny+50)),30,2)
 
-# Calculate SNR for each ROI and average
-snr=np.divide(sig,noise)
-mean_snr = np.mean(snr)
+    # Plot annotated image for user
+    fig = plt.figure(1)
+    plt.imshow(idown, cmap='gray')
+    plt.show()
 
-print("Measured SNR: ",int(round(mean_snr)))
+    # Calculate SNR for each ROI and average
+    snr=np.divide(sig,noise)
+    mean_snr = np.mean(snr)
+
+    #print("Measured SNR: ",int(round(mean_snr)))
+
+    return mean_snr
+
+
 

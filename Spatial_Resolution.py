@@ -31,23 +31,24 @@ def find_circle(a):
     """
 
     # Perform Hough transform to find circle
-    circles = cv.HoughCircles(idown, cv.HOUGH_GRADIENT, 1, 100, param1=50,
+    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
                               param2=30, minRadius=0, maxRadius=0)
 
     # Check that a single phantom was found
     if len(circles) == 1:
-        errCircle = "1 circle found."
+        pass
+        # errCircle = "1 circle found."
     else:
         errCircle = "Wrong number of circles detected, check image."
-    print(errCircle)
+        print(errCircle)
 
     # Draw circle onto original image
     circles = np.uint16(np.around(circles))
     for i in circles[0, :]:
         # draw the outer circle
-        cv.circle(idown, (i[0], i[1]), i[2], 30, 2)
+        cv.circle(a, (i[0], i[1]), i[2], 30, 2)
         # draw the center of the circle
-        cv.circle(idown, (i[0], i[1]), 2, 30, 2)
+        cv.circle(a, (i[0], i[1]), 2, 30, 2)
 
     cenx = i[0]
     ceny = i[1]
@@ -103,33 +104,35 @@ def calc_fwhm(lsf):
     return fwhm
 
 
-# Read DICOM image
-image = dcmread('uniformCNSA.dcm')     # Read the DICOM file
+def main(image):
+    # Read DICOM image
+    #image = dcmread('uniformCNSA.dcm')     # Read the DICOM file
 
-# Read pixel size
-pixelsize = image[0x28,0x30].value
+    # Read pixel size
+    pixelsize = image[0x28,0x30].value
 
-# Prepare image for processing
-idata = image.pixel_array              # Read the pixel values into an array
-idata = np.array(idata)                # Make it a numpy array
-idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
+    # Prepare image for processing
+    idata = image.pixel_array              # Read the pixel values into an array
+    idata = np.array(idata)                # Make it a numpy array
+    idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
 
-# Find phantom centre and radius
-(cenx, ceny, cradius) = find_circle(idown)
+    # Find phantom centre and radius
+    (cenx, ceny, cradius) = find_circle(idown)
 
-# Create profile through edges
-lprof = idata[(cenx-cradius-20):(cenx-cradius+20),ceny]
-bprof = idata[cenx,(ceny+cradius-20):(ceny+cradius+20)]
-bprof = np.flipud(bprof)
+    # Create profile through edges
+    lprof = idata[(cenx-cradius-20):(cenx-cradius+20),ceny]
+    bprof = idata[cenx,(ceny+cradius-20):(ceny+cradius+20)]
+    bprof = np.flipud(bprof)
 
-# Differentiate profiles to obtain LSF
-llsf = np.gradient(lprof)
-blsf = np.gradient(bprof)
+    # Differentiate profiles to obtain LSF
+    llsf = np.gradient(lprof)
+    blsf = np.gradient(bprof)
 
-# Calculate FWHM of LSFs
-hor_fwhm = calc_fwhm(llsf)*pixelsize[0]
-ver_fwhm = calc_fwhm(blsf)*pixelsize[0]
+    # Calculate FWHM of LSFs
+    hor_fwhm = calc_fwhm(llsf)*pixelsize[0]
+    ver_fwhm = calc_fwhm(blsf)*pixelsize[0]
 
-print("Horizontal FWHM: ", np.round(hor_fwhm,2),"mm")
-print("Vertical FWHM: ", np.round(ver_fwhm,2),"mm")
+    #print("Horizontal FWHM: ", np.round(hor_fwhm,2),"mm")
+    #print("Vertical FWHM: ", np.round(ver_fwhm,2),"mm")
 
+    return hor_fwhm, ver_fwhm
