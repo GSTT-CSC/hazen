@@ -52,9 +52,9 @@ def find_circle(a):
     circles = np.uint16(np.around(circles))
     for i in circles[0, :]:
         # draw the outer circle
-        cv.circle(a, (i[0], i[1]), i[2], 30, 2)
+        cv.circle(a, (i[0], i[1]), i[2], 128, 2)
         # draw the center of the circle
-        cv.circle(a, (i[0], i[1]), 2, 30, 2)
+        cv.circle(a, (i[0], i[1]), 2, 128, 2)
 
     cenx = i[0]
     ceny = i[1]
@@ -99,7 +99,7 @@ def main(image):
     # Prepare image for processing
     idata = image.pixel_array              # Read the pixel values into an array
     idata = np.array(idata)                # Make it a numpy array
-    idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
+    idown = ((idata / idata.max()) * 256).astype('uint8')  # Downscale to uint8 for openCV techniques
 
     # Find phantom centre and radius
     (cenx, ceny, cradius) = find_circle(idown)

@@ -15,7 +15,7 @@ import numpy as np
 import mrqa_functions as qa
 
 # Read in DICOM files within this directory
-ext = ('.dcm','.ima')
+ext = ('.dcm','.IMA')
 imagelist = [i for i in os.listdir('.') if i.endswith(ext)]
 
 # Define output lists

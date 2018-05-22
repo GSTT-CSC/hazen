@@ -34,7 +34,7 @@ def snr(image):
     # Prepare image for processing
     idata = image.pixel_array  # Read the pixel values into an array
     idata = np.array(idata)  # Make it a numpy array
-    idown = (idata / 256).astype('uint8')  # Downscale to uint8 for openCV techniques
+    idown = ((idata / idata.max()) * 256).astype('uint8')  # Downscale to uint8 for openCV techniques
 
     # Find phantom centre and radius
     (cenx, ceny, cradius) = find_circle(idown)
@@ -59,11 +59,11 @@ def snr(image):
     noise[4] = np.std(imnoise[(cenx + 30):(cenx + 50), (ceny + 30):(ceny + 50)])
 
     # Draw regions for testing
-    cv.rectangle(idown, ((cenx - 10), (ceny - 10)), ((cenx + 10), (ceny + 10)), 30, 2)
-    cv.rectangle(idown, ((cenx - 50), (ceny - 50)), ((cenx - 30), (ceny - 30)), 30, 2)
-    cv.rectangle(idown, ((cenx + 30), (ceny - 50)), ((cenx + 50), (ceny - 30)), 30, 2)
-    cv.rectangle(idown, ((cenx - 50), (ceny + 30)), ((cenx - 30), (ceny + 50)), 30, 2)
-    cv.rectangle(idown, ((cenx + 30), (ceny + 30)), ((cenx + 50), (ceny + 50)), 30, 2)
+    cv.rectangle(idown, ((cenx - 10), (ceny - 10)), ((cenx + 10), (ceny + 10)), 128, 2)
+    cv.rectangle(idown, ((cenx - 50), (ceny - 50)), ((cenx - 30), (ceny - 30)), 128, 2)
+    cv.rectangle(idown, ((cenx + 30), (ceny - 50)), ((cenx + 50), (ceny - 30)), 128, 2)
+    cv.rectangle(idown, ((cenx - 50), (ceny + 30)), ((cenx - 30), (ceny + 50)), 128, 2)
+    cv.rectangle(idown, ((cenx + 30), (ceny + 30)), ((cenx + 50), (ceny + 50)), 128, 2)
 
     # Plot annotated image for user
     fig = plt.figure(1)
@@ -107,7 +107,7 @@ def uniformity(image):
     # Prepare image for processing
     idata = image.pixel_array              # Read the pixel values into an array
     idata = np.array(idata)                # Make it a numpy array
-    idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
+    idown = ((idata / idata.max()) * 256).astype('uint8') # Downscale to uint8 for openCV techniques
 
     # Find phantom centre and radius
     (cenx, ceny, cradius) = find_circle(idown)
@@ -143,6 +143,9 @@ def uniformity(image):
     dist_from_center = np.sqrt((x - cenx)**2 + (y-ceny)**2)
 
     mask = dist_from_center <= r
+
+    # Draw new area for checking
+    cv.circle(idown, (cenx.astype('int'), ceny.astype('int')), r.astype('int'), 128, 2)
 
     # Calculate stats for masked region
     roimean = np.mean(idata[mask])
@@ -186,7 +189,12 @@ def uniformity(image):
 
     #print("Distortion: ", np.round(idistort,2),"%")
 
-    return fract_uniformity_hor, fract_uniformity_ver, intuniform, cov, ghosting, idistort
+    # Plot annotated image for user
+    fig = plt.figure(1)
+    plt.imshow(idown, cmap='gray')
+    plt.show()
+
+    return fract_uniformity_hor, fract_uniformity_ver, cov, intuniform, ghosting, idistort
 
 
 def fwhm(image):
@@ -210,7 +218,7 @@ def fwhm(image):
     # Prepare image for processing
     idata = image.pixel_array              # Read the pixel values into an array
     idata = np.array(idata)                # Make it a numpy array
-    idown = (idata/256).astype('uint8')    # Downscale to uint8 for openCV techniques
+    idown = ((idata / idata.max()) * 256).astype('uint8')  # Downscale to uint8 for openCV techniques
 
     # Find phantom centre and radius
     (cenx, ceny, cradius) = find_circle(idown)
@@ -220,6 +228,10 @@ def fwhm(image):
     bprof = idata[cenx,(ceny+cradius-20):(ceny+cradius+20)]
     bprof = np.flipud(bprof)
 
+    # Draw lines on image for checking
+    cv.line(idown,((cenx-cradius-20),ceny),((cenx-cradius+20),ceny),128,2)
+    cv.line(idown, (cenx, (ceny+cradius-20)), (cenx, (ceny+cradius+20)), 128, 2)
+
     # Differentiate profiles to obtain LSF
     llsf = np.gradient(lprof.astype(int))
     blsf = np.gradient(bprof.astype(int))
@@ -227,6 +239,11 @@ def fwhm(image):
     # Calculate FWHM of LSFs
     hor_fwhm = calc_fwhm(llsf)*pixelsize[0]
     ver_fwhm = calc_fwhm(blsf)*pixelsize[0]
+
+    # Plot annotated image for user
+    fig = plt.figure(1)
+    plt.imshow(idown, cmap='gray')
+    plt.show()
 
     #print("Horizontal FWHM: ", np.round(hor_fwhm,2),"mm")
     #print("Vertical FWHM: ", np.round(ver_fwhm,2),"mm")
@@ -265,9 +282,9 @@ def find_circle(a):
     circles = np.uint16(np.around(circles))
     for i in circles[0, :]:
         # draw the outer circle
-        cv.circle(a, (i[0], i[1]), i[2], 30, 2)
+        cv.circle(a, (i[0], i[1]), i[2], 128, 2)
         # draw the center of the circle
-        cv.circle(a, (i[0], i[1]), 2, 30, 2)
+        cv.circle(a, (i[0], i[1]), 2, 128, 2)
 
     cenx = i[0]
     ceny = i[1]
