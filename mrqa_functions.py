@@ -3,8 +3,6 @@
 # This file contains python modules required to perform a range of MRI QA functions.
 # Importing this file is a requirement of the Daily_MR_QA.py script
 #
-# The script importing this file should also include at least the following packages:
-#
 #
 # Last updated 18/05/2018
 #
@@ -223,8 +221,8 @@ def fwhm(image):
     bprof = np.flipud(bprof)
 
     # Differentiate profiles to obtain LSF
-    llsf = np.gradient(lprof)
-    blsf = np.gradient(bprof)
+    llsf = np.gradient(lprof.astype(int))
+    blsf = np.gradient(bprof.astype(int))
 
     # Calculate FWHM of LSFs
     hor_fwhm = calc_fwhm(llsf)*pixelsize[0]
@@ -252,8 +250,8 @@ def find_circle(a):
     """
 
     # Perform Hough transform to find circle
-    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
-                              param2=30, minRadius=0, maxRadius=0)
+    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 200, param1=30,
+                              param2=45, minRadius=0, maxRadius=0)
 
     # Check that a single phantom was found
     if len(circles) == 1:

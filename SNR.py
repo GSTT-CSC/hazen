@@ -32,8 +32,8 @@ def find_circle(a):
     """
 
     # Perform Hough transform to find circle
-    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
-                              param2=30, minRadius=0, maxRadius=0)
+    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 200, param1=30,
+                              param2=45, minRadius=0, maxRadius=0)
 
     # Check that a single phantom was found
     if len(circles) == 1:
@@ -108,7 +108,7 @@ def image_noise(a):
 def main(image):
 
     # Read DICOM image
-    #image = dcmread('uniformCRFA.dcm')     # Read the DICOM file - not needed if called from parent script
+    #image = dcmread('ZZZ_PHYSICS_ACCEPTANCE_TEST.MR.ACCEPTANCE_ACCEPTANCE_TESTING.0002.0001.2016.09.13.13.39.58.142140.5264463.IMA')     # Read the DICOM file - not needed if called from parent script
 
     # Prepare image for processing
     idata = image.pixel_array              # Read the pixel values into an array
@@ -153,7 +153,7 @@ def main(image):
     snr=np.divide(sig,noise)
     mean_snr = np.mean(snr)
 
-    #print("Measured SNR: ",int(round(mean_snr)))
+    print("Measured SNR: ",int(round(mean_snr)))
 
     return mean_snr
 

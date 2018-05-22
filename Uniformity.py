@@ -37,8 +37,8 @@ def find_circle(a):
     """
 
     # Perform Hough transform to find circle
-    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
-                              param2=30, minRadius=0, maxRadius=0)
+    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 200, param1=30,
+                              param2=45, minRadius=0, maxRadius=0)
 
     # Check that a single phantom was found
     if len(circles) == 1:
