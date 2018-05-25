@@ -1,0 +1,3 @@
+Scanner ID,Site Name,Date,SNR,Horizontal Fractional Uniformity,Vertical Fractional Uniformity,CoV/%,Integral Uniformity (ACR)/%,Ghosting/%,Distortion/%,Horizontal FWHM/mm,Vertical FWHM/mm
+AWP141028,Guy's Hospital Cancer Centre MRI,20160913,182,1.0,1.0,2.3,92.7,0.2,0.01,1.85,1.8
+AWP141028,Guy's Hospital Cancer Centre MRI,20160913,182,1.0,1.0,2.3,92.7,0.2,0.01,1.85,1.8

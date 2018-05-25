@@ -13,6 +13,7 @@ from pydicom.filereader import dcmread
 import os
 import numpy as np
 import mrqa_functions as qa
+import csv
 
 # Read in DICOM files within this directory
 ext = ('.dcm','.IMA')
@@ -59,7 +60,35 @@ for i in range(len(imagelist)):
     print("Horizontal FWHM: ", np.round(hor_fwhm[i], 2), "mm")
     print("Vertical FWHM: ", np.round(ver_fwhm[i], 2), "mm")
 
-# Save data to file
+# Generate list of output file names based on scanner ID
+csvnames = [None] * len(scanner)
+for i in range(len(scanner)):
+    csvnames[i] = scanner[i]+'.csv'
 
+# Check if previous data exists and, if not, create a csv file to store data in
+os.chdir('datalog')
+for i in range(len(csvnames)):
+    if os.path.isfile(csvnames[i]):
+        pass
+    else:
+        with open(csvnames[i], 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Scanner ID', 'Site Name', 'Date', 'SNR', 'Horizontal Fractional Uniformity',
+                            'Vertical Fractional Uniformity', 'CoV/%', 'Integral Uniformity (ACR)/%',
+                            'Ghosting/%', 'Distortion/%', 'Horizontal FWHM/mm', 'Vertical FWHM/mm'])
+
+# Write output to csv file
+for i in range(len(csvnames)):
+    with open(csvnames[i], 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([scanner[i], site[i], date[i], int(round(mean_snr[i])),
+                         np.round(fract_uniformity_hor[i], 2), np.round(fract_uniformity_ver[i], 2),
+                         np.round(cov[i], 1), np.round(intuniform[i], 1), np.round(ghosting[i], 1),
+                         np.round(idistort[i], 2), np.round(hor_fwhm[i], 2), np.round(ver_fwhm[i], 2)])
 
 # Send images to archive folder
+os.chdir('..')
+archnames = [None] * len(imagelist)
+for i in range(len(imagelist)):
+    archnames[i] = 'archive/' + imagelist[i]
+    os.rename(imagelist[i],archnames[i])
