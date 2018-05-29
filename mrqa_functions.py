@@ -224,8 +224,8 @@ def fwhm(image):
     (cenx, ceny, cradius) = find_circle(idown)
 
     # Create profile through edges
-    lprof = idata[(cenx-cradius-20):(cenx-cradius+20),ceny]
-    bprof = idata[cenx,(ceny+cradius-20):(ceny+cradius+20)]
+    lprof = idata[ceny,(cenx-cradius-20):(cenx-cradius+20)]
+    bprof = idata[(ceny+cradius-20):(ceny+cradius+20), cenx]
     bprof = np.flipud(bprof)
 
     # Draw lines on image for checking
@@ -368,9 +368,6 @@ def mode(a, axis=0):
         oldmostfreq = mostfrequent
 
     return mostfrequent, oldcounts
-
-
-
 
 
 def calc_fwhm(lsf):
