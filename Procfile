@@ -1,1 +1,1 @@
-web: gunicorn hazen:app
+web: gunicorn app:app
