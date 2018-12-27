@@ -1,18 +1,18 @@
-# Spatial Resolution
-#
-# This script determines the spatial resolution of image by measuring the FWHM across the edges of
-# a uniform phantom
-#
-# Created by Neil Heraghty
-# neil.heraghty@nhs.net
-#
-# 16/05/2018
+"""
+Spatial Resolution
 
+This script determines the spatial resolution of image by measuring the FWHM across the edges of
+a uniform phantom
+
+Created by Neil Heraghty
+neil.heraghty@nhs.net
+
+16/05/2018
+
+"""
 import cv2 as cv
 import numpy as np
 import numpy.polynomial.polynomial as poly
-import matplotlib.pyplot as plt
-from pydicom.filereader import dcmread
 
 
 def find_circle(a):
