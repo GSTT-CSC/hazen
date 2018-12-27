@@ -15,7 +15,7 @@ pipelines:
           - apt-get install unzip
           - pip install --upgrade pip
           - pip install -r requirements.txt
-          - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip
+          - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
           - unzip sonar-scanner-3.0.3.778-linux.zip
           - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.host.url=https://sonarcloud.io -Dsonar.branch=$BITBUCKET_BRANCH
           - pytest --cov=./ tests/
