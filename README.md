@@ -1,6 +1,6 @@
 ## Contributors
 
-Reading CONTRIBUTING.md
+Read CONTRIBUTING.md
 
 ---
 
