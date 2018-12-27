@@ -5,3 +5,4 @@ matplotlib==2.1.1
 setuptools==39.0.1
 pydicom==1.2.1
 coverage
+pytest-cov
