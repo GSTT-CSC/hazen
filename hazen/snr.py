@@ -143,9 +143,9 @@ def main(image):
     cv.rectangle(idown, ((cenx+30), (ceny+30)), ((cenx+50), (ceny+50)), 128, 2)
 
     # Plot annotated image for user
-    fig = plt.figure(1)
-    plt.imshow(idown, cmap='gray')
-    plt.show()
+    # fig = plt.figure(1)
+    # plt.imshow(idown, cmap='gray')
+    # plt.show()
 
     # Calculate SNR for each ROI and average
     snr = np.divide(sig, noise)
