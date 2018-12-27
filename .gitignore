@@ -1,1 +1,3 @@
 hazen-venv
+hazen/__pycache__
+tests/__pycache__

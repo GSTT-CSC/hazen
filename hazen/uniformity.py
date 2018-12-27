@@ -1,20 +1,22 @@
-# Uniformity + Ghosting & Distortion
-# #
-# # Calculates uniformity for a single-slice image of a uniform MRI phantom
-# #
-# # This script implements the IPEM/MAGNET method of measuring fractional uniformity.
-# # It also calculates integral uniformity using a 75% area FOV ROI and CoV for the same ROI.
-# #
-# # This script also measures Ghosting within a single image of a uniform phantom.
-# # This follows the guidance from ACR for testing their large phantom.
-# #
-# # A simple measurement of distortion is also made by comparing the height and width of the circular phantom.
-# #
-# # Created by Neil Heraghty
-# # neil.heraghty@nhs.net
-# #
-# # 14/05/2018
+"""
+Uniformity + Ghosting & Distortion
 
+Calculates uniformity for a single-slice image of a uniform MRI phantom
+
+This script implements the IPEM/MAGNET method of measuring fractional uniformity.
+It also calculates integral uniformity using a 75% area FOV ROI and CoV for the same ROI.
+
+This script also measures Ghosting within a single image of a uniform phantom.
+This follows the guidance from ACR for testing their large phantom.
+
+A simple measurement of distortion is also made by comparing the height and width of the circular phantom.
+
+Created by Neil Heraghty
+neil.heraghty@nhs.net
+
+14/05/2018
+
+"""
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt

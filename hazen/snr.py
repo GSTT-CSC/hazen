@@ -1,19 +1,20 @@
-# SNR(Im)
-#
-# Calculates the SNR for a single-slice image of a uniform MRI phantom
-#
-# This script utilises the smoothed subtraction method described in McCann 2013:
-# A quick and robust method for measurement of signal-to-noise ratio in MRI, Phys. Med. Biol. 58 (2013) 3775:3790
-#
-#
-# Created by Neil Heraghty
-#
-# 04/05/2018
+"""
+SNR(Im)
+
+Calculates the SNR for a single-slice image of a uniform MRI phantom
+
+This script utilises the smoothed subtraction method described in McCann 2013:
+A quick and robust method for measurement of signal-to-noise ratio in MRI, Phys. Med. Biol. 58 (2013) 3775:3790
+
+
+Created by Neil Heraghty
+
+04/05/2018
+"""
 
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
-from pydicom.filereader import dcmread
 
 
 def find_circle(a):
@@ -107,9 +108,6 @@ def image_noise(a):
 
 def main(image):
 
-    # Read DICOM image
-    #image = dcmread('ZZZ_PHYSICS_ACCEPTANCE_TEST.MR.ACCEPTANCE_ACCEPTANCE_TESTING.0002.0001.2016.09.13.13.39.58.142140.5264463.IMA')     # Read the DICOM file - not needed if called from parent script
-
     # Prepare image for processing
     idata = image.pixel_array              # Read the pixel values into an array
     idata = np.array(idata)                # Make it a numpy array
@@ -125,24 +123,24 @@ def main(image):
     sig = [None]*5
     noise = [None]*5
 
-    sig[0] = np.mean(idata[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
-    sig[1] = np.mean(idata[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
-    sig[2] = np.mean(idata[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
-    sig[3] = np.mean(idata[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
-    sig[4] = np.mean(idata[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
+    sig[0] = np.mean(idata[(cenx-10):(cenx+10), (ceny-10):(ceny+10)])
+    sig[1] = np.mean(idata[(cenx-50):(cenx-30), (ceny-50):(ceny-30)])
+    sig[2] = np.mean(idata[(cenx+30):(cenx+50), (ceny-50):(ceny-30)])
+    sig[3] = np.mean(idata[(cenx-50):(cenx-10), (ceny+30):(ceny+50)])
+    sig[4] = np.mean(idata[(cenx+30):(cenx+50), (ceny+30):(ceny+50)])
 
-    noise[0] = np.std(imnoise[(cenx-10):(cenx+10),(ceny-10):(ceny+10)])
-    noise[1] = np.std(imnoise[(cenx-50):(cenx-30),(ceny-50):(ceny-30)])
-    noise[2] = np.std(imnoise[(cenx+30):(cenx+50),(ceny-50):(ceny-30)])
-    noise[3] = np.std(imnoise[(cenx-50):(cenx-10),(ceny+30):(ceny+50)])
-    noise[4] = np.std(imnoise[(cenx+30):(cenx+50),(ceny+30):(ceny+50)])
+    noise[0] = np.std(imnoise[(cenx-10):(cenx+10), (ceny-10):(ceny+10)])
+    noise[1] = np.std(imnoise[(cenx-50):(cenx-30), (ceny-50):(ceny-30)])
+    noise[2] = np.std(imnoise[(cenx+30):(cenx+50), (ceny-50):(ceny-30)])
+    noise[3] = np.std(imnoise[(cenx-50):(cenx-10), (ceny+30):(ceny+50)])
+    noise[4] = np.std(imnoise[(cenx+30):(cenx+50), (ceny+30):(ceny+50)])
 
     # Draw regions for testing
-    cv.rectangle(idown,((cenx-10),(ceny-10)),((cenx+10),(ceny+10)),128,2)
-    cv.rectangle(idown,((cenx-50),(ceny-50)),((cenx-30),(ceny-30)),128,2)
-    cv.rectangle(idown,((cenx+30),(ceny-50)),((cenx+50),(ceny-30)),128,2)
-    cv.rectangle(idown,((cenx-50),(ceny+30)),((cenx-30),(ceny+50)),128,2)
-    cv.rectangle(idown,((cenx+30),(ceny+30)),((cenx+50),(ceny+50)),128,2)
+    cv.rectangle(idown, ((cenx-10), (ceny-10)), ((cenx+10), (ceny+10)), 128, 2)
+    cv.rectangle(idown, ((cenx-50), (ceny-50)), ((cenx-30), (ceny-30)), 128, 2)
+    cv.rectangle(idown, ((cenx+30), (ceny-50)), ((cenx+50), (ceny-30)), 128, 2)
+    cv.rectangle(idown, ((cenx-50), (ceny+30)), ((cenx-30), (ceny+50)), 128, 2)
+    cv.rectangle(idown, ((cenx+30), (ceny+30)), ((cenx+50), (ceny+50)), 128, 2)
 
     # Plot annotated image for user
     fig = plt.figure(1)
@@ -150,10 +148,8 @@ def main(image):
     plt.show()
 
     # Calculate SNR for each ROI and average
-    snr=np.divide(sig,noise)
+    snr = np.divide(sig, noise)
     mean_snr = np.mean(snr)
-
-    print("Measured SNR: ",int(round(mean_snr)))
 
     return mean_snr
 

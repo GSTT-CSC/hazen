@@ -3,7 +3,7 @@
 # Only use spaces to indent your .yml configuration.
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
-image: python:3.5.1
+image: python:3.6
 
 pipelines:
   default:
@@ -12,3 +12,8 @@ pipelines:
           - pip
         script: # Modify the commands below to build your repository.
           - pip install -r requirements.txt
+          - sonar:sonar -Dsonar.host.url=https://sonarcloud.io \
+            -Dsonar.projectKey=gsttmri_hazen \
+            -Dsonar.organization=gsttmri \
+            -Dsonar.login=$SONAR_TOKEN
+          - pytest tests/
