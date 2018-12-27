@@ -1,0 +1,9 @@
+# 1) install codecov
+pip install codecov
+
+# 2) next call "codecov" at end of CI build
+# public repo using Travis, CircleCI or AppVeyor
+codecov
+
+# all other CI and private repositories
+codecov --token=e09c7bef-d0f0-4661-8f08-e5e93e15edee

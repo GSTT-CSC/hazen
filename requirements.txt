@@ -1,0 +1,4 @@
+opencv_python==3.4.0.12
+matplotlib==2.1.1
+numpy==1.13.3
+pydicom==1.2.1
