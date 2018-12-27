@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('Agg')
 import os
 import signal
 
@@ -6,8 +8,7 @@ import pydicom
 
 from tests import TEST_DATA_DIR
 from hazen import snr
-import matplotlib
-matplotlib.use('Agg')
+
 # have to hack matplotlib like this to make Heroku happy
 
 app = Flask(__name__)
