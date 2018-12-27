@@ -13,7 +13,7 @@ pipelines:
         script: # Modify the commands below to build your repository.
           - pip install --upgrade pip
           - pip install -r requirements.txt
-          - pytest --cov=hazen tests/
+          - pytest --cov-report xml:coverage.xml tests/
           - apt-get update
           - apt-get install unzip
           - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
