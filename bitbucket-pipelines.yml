@@ -17,6 +17,6 @@ pipelines:
           - pip install -r requirements.txt
           - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
           - unzip sonar-scanner-3.0.3.778-linux.zip
-          - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.host.url=https://sonarcloud.io -Dsonar.branch=$BITBUCKET_BRANCH
-          - pytest --cov=./ tests/
+          - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.host.url=https://sonarcloud.io -Dsonar.branch.name=$BITBUCKET_BRANCH
+          - pytest --cov=hazen tests/
           - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
