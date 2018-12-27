@@ -7,3 +7,4 @@ pydicom==1.2.1
 coverage
 pytest-cov
 gunicorn
+flask
