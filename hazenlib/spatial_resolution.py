@@ -105,8 +105,6 @@ def calc_fwhm(lsf):
 
 
 def main(image):
-    # Read DICOM image
-    #image = dcmread('uniformCNSA.dcm')     # Read the DICOM file
 
     # Read pixel size
     pixelsize = image[0x28,0x30].value

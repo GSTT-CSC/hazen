@@ -7,6 +7,8 @@
 - Check a running instance of your app by locally running the latest Docker image:docker run --rm -p5000:5000 -it
 - If you’re satisfied with the new feature, open a Pull Request.
 
+### Changing DB models
+Remember to to genereate migration script by running: __flask db migrate__
 
 ### Sonarcube
 To run local, install sonar-scanner. Edit properties file in conf so that url is pointing to cloud instance.

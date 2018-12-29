@@ -1,6 +1,7 @@
 hazen-venv
-hazen/__pycache__
-tests/__pycache__
 .scannerwork
 .coverage
 coverage.xml
+**/__pycache__
+.idea
+logs

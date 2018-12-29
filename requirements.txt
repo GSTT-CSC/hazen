@@ -8,3 +8,12 @@ coverage
 pytest-cov
 gunicorn
 flask
+flask-wtf
+flask-sqlalchemy
+flask-migrate
+flask-login
+flask-bootstrap
+flask-mail
+flask-moment
+pyjwt
+psycopg2-binary
