@@ -4,7 +4,7 @@ import pathlib
 import pytest
 import pydicom
 
-import hazen.snr
+import hazenlib.snr
 from tests import TEST_DATA_DIR
 
 
@@ -17,7 +17,7 @@ class TestSnr(unittest.TestCase):
         self.image = pydicom.read_file(test_file)
 
     def test_image_snr(self):
-        val = hazen.snr.main(self.image)
+        val = hazenlib.snr.main(self.image)
         # have to test against rounded value as true float doesn't pass for some reason.
 
         assert round(val) == 182
