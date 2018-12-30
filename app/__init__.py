@@ -10,6 +10,7 @@ from flask_login import LoginManager
 from flask_bootstrap import Bootstrap
 from flask_mail import Mail
 from flask_moment import Moment
+from flask_dropzone import Dropzone
 
 from config import Config
 
@@ -21,6 +22,7 @@ login.login_view = 'auth.login'
 mail = Mail()
 bootstrap = Bootstrap()
 moment = Moment()
+dropzone = Dropzone()
 
 
 def create_app(config_class=Config):
@@ -33,6 +35,7 @@ def create_app(config_class=Config):
     mail.init_app(app)
     bootstrap.init_app(app)
     moment.init_app(app)
+    dropzone.init_app(app)
 
     from app.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
@@ -42,6 +45,11 @@ def create_app(config_class=Config):
 
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
+
+    from app.uploader import bp as uploader_bp
+    app.register_blueprint(uploader_bp)
+
+    os.makedirs(app.config['UPLOADED_PATH'], exist_ok=True)
 
     if not app.debug:
         if app.config['MAIL_SERVER']:

@@ -18,4 +18,4 @@ class Config:
 
     LANGUAGES = ['en-GB', 'fr']
 
-
+    UPLOADED_PATH = os.path.join(basedir, 'uploads')

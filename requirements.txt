@@ -15,5 +15,6 @@ flask-login
 flask-bootstrap
 flask-mail
 flask-moment
+flask-dropzone
 pyjwt
 psycopg2-binary
