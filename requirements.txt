@@ -18,3 +18,4 @@ flask-moment
 flask-dropzone
 pyjwt
 psycopg2-binary
+scikit-image
