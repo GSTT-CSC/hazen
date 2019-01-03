@@ -1,0 +1,90 @@
+<head>
+    {{ moment.include_jquery() }}
+    {{ moment.include_moment() }}
+    <link href={{ url_for('static', filename='assets/css/material-kit.css') }} rel="stylesheet" />
+    <!--     Fonts and icons     -->
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700|Roboto+Slab:400,700|Material+Icons" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/latest/css/font-awesome.min.css">
+    <meta content='width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0, shrink-to-fit=no' name='viewport' />
+    <title>
+        {% if title %}{{ title }} - Hazen{% else %}Welcome to Hazen{% endif %}
+    </title>
+</head>
+
+{% block navbar %}
+
+    <nav class="navbar sticky-top navbar-expand-lg bg-primary">
+
+        <div class="container">
+
+            <div class="collapse navbar-collapse">
+
+                <ul class="navbar-nav">
+
+                    {% if not current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.index') }}">Home</a>
+                        </li>
+                    {% endif %}
+
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.explore') }}">Explore</a>
+                    </li>
+
+                    {% if not current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('uploader.upload') }}">Upload</a>
+                        </li>
+                    {% endif %}
+
+                </ul>
+
+            </div>
+
+        <div>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="navbar-brand mx-auto" href="{{ url_for('main.index') }}">Hazen</a>
+                </li>
+
+
+            </ul>
+        </div>
+
+
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ml-auto">
+                    {% if current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.user', username=current_user.username) }}">Profile</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+{% endblock %}
+
+
+{% block content %}
+    <div class="container">
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+            <div class="alert alert-info" role="alert">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {# application content needs to be provided in the app_content block #}
+        {% block app_content %}
+        {% endblock %}
+    </div>
+{% endblock %}

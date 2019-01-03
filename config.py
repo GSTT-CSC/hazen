@@ -19,3 +19,10 @@ class Config:
     LANGUAGES = ['en-GB', 'fr']
 
     UPLOADED_PATH = os.path.join(basedir, 'uploads')
+    DROPZONE_MAX_FILE_SIZE = 3
+    DROPZONE_MAX_FILES = 20
+    DROPZONE_UPLOAD_ON_CLICK = True
+    DROPZONE_ALLOWED_FILE_TYPE = 'application/dicom, .IMA'
+    DROPZONE_ALLOWED_FILE_CUSTOM = True
+
+

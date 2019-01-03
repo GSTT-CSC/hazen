@@ -12,10 +12,12 @@ flask-wtf
 flask-sqlalchemy
 flask-migrate
 flask-login
-flask-bootstrap
+Flask-Bootstrap4
 flask-mail
 flask-moment
 flask-dropzone
 pyjwt
 psycopg2-binary
 scikit-image
+sqlalchemy_utils
+arrow

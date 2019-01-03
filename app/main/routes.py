@@ -29,13 +29,13 @@ def index():
         return redirect(url_for('main.index'))
 
     page = request.args.get('page', 1, type=int)
-    acquisitions = current_user.followed_acquisitions().paginate(
-        page, current_app.config['ACQUISITIONS_PER_PAGE'], False)
+    acquisitions = current_user.acquisitions.paginate(page, current_app.config['ACQUISITIONS_PER_PAGE'], False)
 
     next_url = url_for('main.index', page=acquisitions.next_num) \
         if acquisitions.has_next else None
     prev_url = url_for('main.index', page=acquisitions.prev_num) \
         if acquisitions.has_prev else None
+    print([x for x in acquisitions.items])
 
     return render_template('index.html', title='Home', form=form, acquisitions=acquisitions.items, next_url=next_url,
                            prev_url=prev_url)
@@ -47,7 +47,7 @@ def user(username):
     user = User.query.filter_by(username=username).first_or_404()
     page = request.args.get('page', 1, type=int)
 
-    acquisitions = user.acquisitions.order_by(Acquisition.timestamp.desc()).paginate(
+    acquisitions = user.acquisitions.order_by(Acquisition.created_at.desc()).paginate(
         page, current_app.config['ACQUISITIONS_PER_PAGE'], False)
 
     next_url = url_for('main.user', username=user.username, page=acquisitions.next_num) \
@@ -75,43 +75,11 @@ def edit_profile():
     return render_template('edit_profile.html', title='Edit Profile', form=form)
 
 
-@bp.route('/follow/<username>')
-@login_required
-def follow(username):
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('User {} not found.'.format(username))
-        return redirect(url_for('main.index'))
-    if user == current_user:
-        flash('You cannot follow yourself!')
-        return redirect(url_for('main.user', username=username))
-    current_user.follow(user)
-    db.session.commit()
-    flash('You are following {}!'.format(username))
-    return redirect(url_for('user', username=username))
-
-
-@bp.route('/unfollow/<username>')
-@login_required
-def unfollow(username):
-    user = User.query.filter_by(username=username).first()
-    if user is None:
-        flash('User {} not found.'.format(username))
-        return redirect(url_for('main.index'))
-    if user == current_user:
-        flash('You cannot unfollow yourself!')
-        return redirect(url_for('main.user', username=username))
-    current_user.unfollow(user)
-    db.session.commit()
-    flash('You are not following {}.'.format(username))
-    return redirect(url_for('main.user', username=username))
-
-
 @bp.route('/explore')
 @login_required
 def explore():
     page = request.args.get('page', 1, type=int)
-    acquisitions = Acquisition.query.order_by(Acquisition.timestamp.desc()).paginate(
+    acquisitions = Acquisition.query.order_by(Acquisition.created_at.desc()).paginate(
         page, current_app.config['ACQUISITIONS_PER_PAGE'], False)
 
     next_url = url_for('main.explore', page=acquisitions.next_num) \
