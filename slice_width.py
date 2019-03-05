@@ -10,13 +10,16 @@
 
 import pydicom
 import numpy as np
+from math import pi
 from scipy import ndimage
+from scipy.interpolate import interp1d
+from scipy.optimize import curve_fit
 import sys
 import matplotlib.pyplot as plt
 
 # Read DICOM image
 # Read the DICOM file - not needed if called from parent script
-image = pydicom.dcmread( 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
+image = pydicom.dcmread('ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
 # Prepare image for processing
 idata = image.pixel_array  # Read the pixel values into an array
 idata = np.array(idata)  # Make it a numpy array
@@ -117,12 +120,98 @@ Bot_Profile_av = np.mean(Bot_Profile, axis=0)
 
 # FOR NOW JUST DO ONE PROFILE AND THE CLEAN SCRIPT UP
 # First fit a quadratic curve to outer edges (30 pixels each side)
-length_profile = len(Top_Profile_av)
-print(length_profile)
-test = np.array(Top_Profile_av)
-test2 = test[0:10:1, 100:110:1]
 
-# Plot annotated image for user
+length_profile = len(Top_Profile_av)
+left = np.array(Top_Profile_av[0:30])
+right = np.array(Top_Profile_av[90:])
+outer_profile = np.concatenate([left, right])
+
+# create the x axis for the outer profile
+x_left = np.arange(30)
+x_right = np.arange(30)+90
+x_outer = np.concatenate([x_left, x_right])
+
+# seconds order poly fit of the outer profile
+Pfit = np.poly1d(np.polyfit(x_outer, outer_profile, 2))
+
+# use the poly fit to generate a quadratric curve with 0.25 space (high res)
+sample_spacing = 0.25
+x_interp = np.arange(0, 120, sample_spacing)
+x = np.arange(0, 120)
+baseline_interp = Pfit(x_interp)
+baseline = Pfit(x)
+
+# Remove the baseline effects from the profiles
+Profile_corrected = Top_Profile_av - baseline
+
+f = interp1d(x, Profile_corrected, fill_value="extrapolate")
+Profile_corrected_interp = f(x_interp)
+
+Profile_interp = Profile_corrected_interp + baseline_interp
+
+
+# Slice thinkness - need to get from dicom metadata
+def traps_ss(x, base, start, stop, topleft, topright):
+    # n_ramp
+    # n_plateau
+    # n_left_baseline
+    # n_right_baseline
+    # plateau_amplitude
+
+    y = np.zeros(len(x))
+
+    # gradient from bottom left to top left
+    a = np.float((topleft - start) / topleft)
+    # range of values on the slope up
+    z = np.arange(int(topleft) - int(start))
+    print("start = ", int(start),"Top left = ", int(topleft),"Top right =", int(topright),"stop = ", int(stop))
+    # print("a =", a)
+    # print("z length = ", len(z))
+    # print("base = ", base)
+
+    # need to set some conditions on start and stop, top left and top right so they are the same length.
+    stop = int(topright) + (int(topleft) - int(start))
+    y[:int(start)] = base
+
+    y[int(start):int(topleft)] = base + (a * z)
+
+    y[int(topleft):int(topright)] = base + (a * z[-1])
+
+    y[int(topright):int(stop)] = (base + (a * z[-1])) - (z * a)
+
+    y[int(stop):] = base
+
+    fwhm = (topright - topleft) + (0.5 * (topleft-start))
+
+    print(fwhm)
+
+    return y
+
+
+
+xdata = np.linspace(0, len(Profile_corrected_interp),len(Profile_corrected_interp))
+
+popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
+                       bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='dogbox')
+
+
+# now to convert to slice width from fit.
+fwhm = (int(popt[4]) - int(popt[3])) + 0.5 * (int(popt[3]) - int(popt[1]))
+
+
+Slice_Width_mm = fwhm * sample_spacing * PixelSpace[0] * np.tan((11.3 * pi) / 180)
+Slice_Width_mm_Geometry_Corrected = Slice_Width_mm / Correction_Coeff[0]
+Slice_Width_mm_AAPM = fwhm * sample_spacing * PixelSpace[0]
+Slice_Width_mm_AAPM_Corrected = (fwhm * sample_spacing * PixelSpace[0]) / Correction_Coeff[0]
+
+##
+
+fit = traps_ss(xdata,*popt)
+
 fig = plt.figure(1)
-plt.plot(Bot_Profile_av)
+plt.plot(fit)
+plt.plot(abs(Profile_corrected_interp))
 plt.show()
+
+
+
