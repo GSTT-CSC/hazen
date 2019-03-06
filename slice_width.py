@@ -120,98 +120,158 @@ Bot_Profile_av = np.mean(Bot_Profile, axis=0)
 
 # FOR NOW JUST DO ONE PROFILE AND THE CLEAN SCRIPT UP
 # First fit a quadratic curve to outer edges (30 pixels each side)
+# concat the top and bottom profiles
+combined = np.row_stack((Top_Profile_av, Bot_Profile_av))
+# test = [Top_Profile_av],[Bot_Profile_av]
+# test = np.array(test).astype(float)
+# print("wtf", combined)
+# print(combined[:][0])
+# print("Top ", Top_Profile_av)
+TrapzFit = np.zeros((2,5))
+for ii in range(0,2):
+    Profile_tmp = combined[:][ii]
+    # print(Profile_tmp)
+    length_profile = len(Profile_tmp)
+    left = np.array(Profile_tmp[0:30])
+    right = np.array(Profile_tmp[90:])
+    outer_profile = np.concatenate([left, right])
 
-length_profile = len(Top_Profile_av)
-left = np.array(Top_Profile_av[0:30])
-right = np.array(Top_Profile_av[90:])
-outer_profile = np.concatenate([left, right])
+    # create the x axis for the outer profile
+    x_left = np.arange(30)
+    x_right = np.arange(30)+90
+    x_outer = np.concatenate([x_left, x_right])
 
-# create the x axis for the outer profile
-x_left = np.arange(30)
-x_right = np.arange(30)+90
-x_outer = np.concatenate([x_left, x_right])
+    # seconds order poly fit of the outer profile
+    Pfit = np.poly1d(np.polyfit(x_outer, outer_profile, 2))
 
-# seconds order poly fit of the outer profile
-Pfit = np.poly1d(np.polyfit(x_outer, outer_profile, 2))
+    # use the poly fit to generate a quadratric curve with 0.25 space (high res)
+    sample_spacing = 0.25
+    x_interp = np.arange(0, 120, sample_spacing)
+    x = np.arange(0, 120)
+    baseline_interp = Pfit(x_interp)
+    baseline = Pfit(x)
 
-# use the poly fit to generate a quadratric curve with 0.25 space (high res)
-sample_spacing = 0.25
-x_interp = np.arange(0, 120, sample_spacing)
-x = np.arange(0, 120)
-baseline_interp = Pfit(x_interp)
-baseline = Pfit(x)
+    # Remove the baseline effects from the profiles
+    Profile_corrected = Profile_tmp - baseline
 
-# Remove the baseline effects from the profiles
-Profile_corrected = Top_Profile_av - baseline
+    f = interp1d(x, Profile_corrected, fill_value="extrapolate")
+    Profile_corrected_interp = f(x_interp)
 
-f = interp1d(x, Profile_corrected, fill_value="extrapolate")
-Profile_corrected_interp = f(x_interp)
-
-Profile_interp = Profile_corrected_interp + baseline_interp
+    Profile_interp = Profile_corrected_interp + baseline_interp
 
 
-# Slice thinkness - need to get from dicom metadata
-def traps_ss(x, base, start, stop, topleft, topright):
-    # n_ramp
-    # n_plateau
-    # n_left_baseline
-    # n_right_baseline
-    # plateau_amplitude
+    # Slice thinkness - need to get from dicom metadata
+    def traps_ss(x, base, start, stop, topleft, topright):
+        # n_ramp
+        # n_plateau
+        # n_left_baseline
+        # n_right_baseline
+        # plateau_amplitude
 
-    y = np.zeros(len(x))
+        y = np.zeros(len(x))
 
-    # gradient from bottom left to top left
-    a = np.float((topleft - start) / topleft)
-    # range of values on the slope up
-    z = np.arange(int(topleft) - int(start))
-    print("start = ", int(start),"Top left = ", int(topleft),"Top right =", int(topright),"stop = ", int(stop))
-    # print("a =", a)
-    # print("z length = ", len(z))
-    # print("base = ", base)
+        # gradient from bottom left to top left
+        a = np.float((topleft - start) / topleft)
+        # range of values on the slope up
+        z = np.arange(int(topleft) - int(start))
+        # print("start = ", int(start),"Top left = ", int(topleft),"Top right =", int(topright),"stop = ", int(stop))
+        # print("a =", a)
+        # print("z length = ", len(z))
+        # print("base = ", base)
 
-    # need to set some conditions on start and stop, top left and top right so they are the same length.
-    stop = int(topright) + (int(topleft) - int(start))
-    y[:int(start)] = base
+        # need to set some conditions on start and stop, top left and top right so they are the same length.
+        stop = int(topright) + (int(topleft) - int(start))
+        y[:int(start)] = base
 
-    y[int(start):int(topleft)] = base + (a * z)
+        y[int(start):int(topleft)] = base + (a * z)
 
-    y[int(topleft):int(topright)] = base + (a * z[-1])
+        y[int(topleft):int(topright)] = base + (a * z[-1])
 
-    y[int(topright):int(stop)] = (base + (a * z[-1])) - (z * a)
+        y[int(topright):int(stop)] = (base + (a * z[-1])) - (z * a)
 
-    y[int(stop):] = base
+        y[int(stop):] = base
 
-    fwhm = (topright - topleft) + (0.5 * (topleft-start))
+        fwhm = (topright - topleft) + (topleft-start)
 
+        print(fwhm)
+
+        return y
+
+
+
+    xdata = np.linspace(0, len(Profile_corrected_interp),len(Profile_corrected_interp))
+
+    popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
+                           bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='dogbox')
+
+
+    print(popt)
+    TrapzFit[ii][:] = popt
+
+    fit = traps_ss(xdata,*popt)
+
+    fig = plt.figure(ii)
+    plt.plot(fit)
+    plt.plot(abs(Profile_corrected_interp))
+    plt.show()
+
+
+
+#
+print(TrapzFit)
+# # now to convert to slice width from fit.
+fwhm = [None]*2
+Slice_Width_mm = [None]*2
+Slice_Width_mm_Geometry_Corrected = [None]*2
+Slice_Width_mm_AAPM = [None]*2
+Slice_Width_mm_AAPM_Corrected = [None]*2
+for ii in range(0,2):
+
+    fwhm[ii] = ((TrapzFit[ii][4]) - (TrapzFit[ii][3])) + ((TrapzFit[ii][3]) - (TrapzFit[ii][1]))
     print(fwhm)
+    Slice_Width_mm[ii] = fwhm[ii] * sample_spacing * PixelSpace[0] * np.tan((11.3 * pi) / 180)
+    Slice_Width_mm_Geometry_Corrected[ii] = Slice_Width_mm[ii] / Correction_Coeff[ii]
+    Slice_Width_mm_AAPM[ii] = fwhm[ii] * sample_spacing * PixelSpace[0]
+    Slice_Width_mm_AAPM_Corrected[ii] = (fwhm[ii] * sample_spacing * PixelSpace[0]) / Correction_Coeff[ii]
 
-    return y
-
-
-
-xdata = np.linspace(0, len(Profile_corrected_interp),len(Profile_corrected_interp))
-
-popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
-                       bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='dogbox')
-
-
-# now to convert to slice width from fit.
-fwhm = (int(popt[4]) - int(popt[3])) + 0.5 * (int(popt[3]) - int(popt[1]))
-
-
-Slice_Width_mm = fwhm * sample_spacing * PixelSpace[0] * np.tan((11.3 * pi) / 180)
-Slice_Width_mm_Geometry_Corrected = Slice_Width_mm / Correction_Coeff[0]
-Slice_Width_mm_AAPM = fwhm * sample_spacing * PixelSpace[0]
-Slice_Width_mm_AAPM_Corrected = (fwhm * sample_spacing * PixelSpace[0]) / Correction_Coeff[0]
-
+# %Geometric mean of slice widths (pg 34 of IPEM Report 80)
+slicewidth_geo_mean_mm = (Slice_Width_mm[0] * Slice_Width_mm[1])**(0.5)
+slicewidth_Geometry_Corrected_geo_mean_mm = (Slice_Width_mm_Geometry_Corrected[0] * Slice_Width_mm_Geometry_Corrected[1])**(0.5)
+#
+# %AAPM method directly incorporating phantom tilt
+theta = (180.0 - 2.0 * 11.3) * pi/180.0
+term1 = (np.cos(theta))**2.0 * (Slice_Width_mm_AAPM[1] - Slice_Width_mm_AAPM[0])**2.0 + (4.0 * Slice_Width_mm_AAPM[1] * Slice_Width_mm_AAPM[0])
+term2 = (Slice_Width_mm_AAPM[1] + Slice_Width_mm_AAPM[0]) * np.cos(theta)
+term3 = 2.0 * np.sin(theta)
+#
+slicewidth_mean_mm_alternative = ((term1**0.5) + term2)/term3
+phantom_tilt = np.arctan(slicewidth_mean_mm_alternative/Slice_Width_mm_AAPM[1]) + (theta/2.0) - pi/2.0
+phantom_tilt_deg = phantom_tilt * (180.0/pi)
+#
+phantom_tilt_check = -np.arctan(slicewidth_mean_mm_alternative/Slice_Width_mm_AAPM[0]) - (theta/2.0) + pi/2.0
+phantom_tilt_check_deg = phantom_tilt_check * (180.0/pi)
+#
+# %AAPM method directly incorporating phantom tilt and independent of geometric linearity
+theta = (180.0 - 2.0 * 11.3) * pi/180.0
+term1 = (np.cos(theta))**2.0 * (Slice_Width_mm_AAPM_Corrected[1] - Slice_Width_mm_AAPM_Corrected[0])**2.0 + \
+        (4.0 * Slice_Width_mm_AAPM_Corrected[1] * Slice_Width_mm_AAPM_Corrected[0])
+term2 = (Slice_Width_mm_AAPM_Corrected[1] + Slice_Width_mm_AAPM_Corrected[0]) * np.cos(theta)
+term3 = 2.0 * np.sin(theta)
+#
+slicewidth_mean_mm_geo_corr = ((term1**0.5) + term2)/term3
+phantom_tilt_corr = np.arctan(slicewidth_mean_mm_geo_corr/Slice_Width_mm_AAPM_Corrected[1]) + (theta/2.0) - pi/2.0
+phantom_tilt_deg_corr = phantom_tilt_corr * (180.0/pi)
+#
+phantom_tilt_check_corr = -np.arctan(slicewidth_mean_mm_geo_corr/Slice_Width_mm_AAPM_Corrected[0]) - (theta/2.0) + pi/2.0
+phantom_tilt_check_deg_corr = phantom_tilt_check_corr * (180.0/pi)
 ##
 
-fit = traps_ss(xdata,*popt)
-
-fig = plt.figure(1)
-plt.plot(fit)
-plt.plot(abs(Profile_corrected_interp))
-plt.show()
-
-
-
+# fit = traps_ss(xdata,*popt)
+#
+# fig = plt.figure(1)
+# plt.plot(fit)
+# plt.plot(abs(Profile_corrected_interp))
+# plt.show()
+#
+#
+#

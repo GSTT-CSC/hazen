@@ -3,6 +3,12 @@
   <component name="ChangeListManager">
     <list default="true" id="fddf1822-dfca-4041-b776-0a3227abe0f8" name="Default" comment="Significant overhaul of the code organisation.&#10;&#10;A parent script (Daily_MR_QA) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules).">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datalog/AWP141028.csv" beforeDir="false" afterPath="$PROJECT_DIR$/datalog/AWP141028.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datalog/CNSCNSA.csv" beforeDir="false" afterPath="$PROJECT_DIR$/datalog/CNSCNSA.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datalog/CNSCNSB.csv" beforeDir="false" afterPath="$PROJECT_DIR$/datalog/CNSCNSB.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datalog/CNSCNSD.csv" beforeDir="false" afterPath="$PROJECT_DIR$/datalog/CNSCNSD.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/datalog/CRFCRFA.csv" beforeDir="false" afterPath="$PROJECT_DIR$/datalog/CRFCRFA.csv" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/slice_width.py" beforeDir="false" afterPath="$PROJECT_DIR$/slice_width.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -11,7 +17,10 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="CoverageDataManager">
+    <SUITE FILE_PATH="coverage/Hazen$SNR.coverage" NAME="SNR Coverage Results" MODIFIED="1539699005050" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/hazen$Daily_MR_QA.coverage" NAME="Daily_MR_QA Coverage Results" MODIFIED="1526639015474" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hazen$slice_width.coverage" NAME="slice_width Coverage Results" MODIFIED="1551890645278" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/Hazen$Uniformity.coverage" NAME="Uniformity Coverage Results" MODIFIED="1539694453450" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/hazen$daily_mr_qa.coverage" NAME="daily_mr_qa Coverage Results" MODIFIED="1526987309955" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/hazen$SNR.coverage" NAME="SNR Coverage Results" MODIFIED="1525857627053" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
@@ -33,51 +42,51 @@
     <session id="1013929271">
       <usages-collector id="statistics.lifecycle.project">
         <counts>
+          <entry key="project.closed" value="9" />
+          <entry key="project.open.time.0" value="1" />
+          <entry key="project.open.time.16" value="1" />
           <entry key="project.open.time.4" value="1" />
-          <entry key="project.opened" value="1" />
+          <entry key="project.open.time.5" value="2" />
+          <entry key="project.open.time.6" value="6" />
+          <entry key="project.open.time.8" value="2" />
+          <entry key="project.opened" value="13" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.open">
         <counts>
-          <entry key="py" value="1" />
+          <entry key="py" value="14" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.open">
         <counts>
-          <entry key="Python" value="1" />
+          <entry key="Python" value="13" />
+          <entry key="UML" value="1" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.extensions.edit">
         <counts>
-          <entry key="py" value="5" />
+          <entry key="Python Console" value="41" />
+          <entry key="SNR" value="97" />
+          <entry key="py" value="10883" />
         </counts>
       </usages-collector>
       <usages-collector id="statistics.file.types.edit">
         <counts>
-          <entry key="Python" value="5" />
+          <entry key="Python" value="11021" />
         </counts>
       </usages-collector>
     </session>
   </component>
+  <component name="FavoritesManager">
+    <favorites_list name="Hazen" />
+  </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/SNR.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1505">
-              <caret line="110" column="201" selection-start-line="110" selection-start-column="5" selection-end-line="110" selection-end-column="201" />
-              <folding>
-                <element signature="e#327#343#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/Uniformity.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="2175">
-              <caret line="148" column="5" selection-start-line="148" selection-start-column="5" selection-end-line="148" selection-end-column="39" />
+            <state relative-caret-position="-25">
+              <caret line="99" column="14" selection-start-line="99" selection-start-column="14" selection-end-line="99" selection-end-column="14" />
               <folding>
                 <element signature="e#654#670#0" expanded="true" />
               </folding>
@@ -86,38 +95,36 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/SNR.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="610">
+              <caret line="152" column="27" selection-start-line="152" selection-start-column="22" selection-end-line="152" selection-end-column="27" />
+              <folding>
+                <element signature="e#327#343#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/mr_coil_snr.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="-978">
+              <caret line="55" selection-start-line="55" selection-end-line="55" />
+              <folding>
+                <element signature="e#176#192#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/mrqa_functions.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="3615">
-              <caret line="417" column="15" selection-start-line="417" selection-start-column="15" selection-end-line="417" selection-end-column="15" />
+            <state relative-caret-position="-959">
+              <caret line="34" column="39" selection-start-line="34" selection-start-column="39" selection-end-line="34" selection-end-column="39" />
               <folding>
                 <element signature="e#247#263#0" expanded="true" />
-                <element signature="e#379#2938#0" />
-                <element signature="e#2968#7580#0" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/Spatial_Resolution.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="30">
-              <caret line="2" column="2" selection-start-line="2" selection-start-column="2" selection-end-line="3" selection-end-column="19" />
-              <folding>
-                <element signature="e#211#227#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/Daily_MR_QA.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="688">
-              <caret line="90" column="35" selection-start-line="90" selection-start-column="35" selection-end-line="90" selection-end-column="35" />
-              <folding>
-                <element signature="e#267#305#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -126,8 +133,36 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/slice_width.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state>
-              <caret column="5" selection-start-column="5" selection-end-column="5" />
+            <state relative-caret-position="563">
+              <caret line="268" column="1" lean-forward="true" selection-start-line="268" selection-start-column="1" selection-end-line="268" selection-end-column="1" />
+              <folding>
+                <element signature="e#159#173#0" expanded="true" />
+                <marker date="1551890557003" expanded="true" signature="3239:3277" ph="..." />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/Spatial_Resolution.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="363">
+              <caret line="131" column="35" lean-forward="true" selection-start-line="131" selection-start-column="35" selection-end-line="131" selection-end-column="35" />
+              <folding>
+                <element signature="e#211#227#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/triangle_thres.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="480">
+              <caret line="35" column="35" selection-start-line="35" selection-start-column="35" selection-end-line="35" selection-end-column="35" />
+              <folding>
+                <element signature="e#0#18#0" expanded="true" />
+              </folding>
             </state>
           </provider>
         </entry>
@@ -158,13 +193,13 @@
     <option name="CHANGED_PATHS">
       <list>
         <option value="$PROJECT_DIR$/Ghosting.py" />
-        <option value="$PROJECT_DIR$/Spatial_Resolution.py" />
         <option value="$PROJECT_DIR$/Daily_MR_QA.py" />
         <option value="$PROJECT_DIR$/mrqa_modules.py" />
         <option value="$PROJECT_DIR$/Uniformity.py" />
+        <option value="$PROJECT_DIR$/daily_mr_qa.py" />
+        <option value="$PROJECT_DIR$/Spatial_Resolution.py" />
         <option value="$PROJECT_DIR$/SNR.py" />
         <option value="$PROJECT_DIR$/mrqa_functions.py" />
-        <option value="$PROJECT_DIR$/daily_mr_qa.py" />
         <option value="$PROJECT_DIR$/slice_width.py" />
       </list>
     </option>
@@ -176,16 +211,16 @@
     <sorting>DEFINITION_ORDER</sorting>
   </component>
   <component name="ProjectFrameBounds" fullScreen="true">
-    <option name="y" value="23" />
-    <option name="width" value="1680" />
-    <option name="height" value="962" />
+    <option name="x" value="-129" />
+    <option name="y" value="-1080" />
+    <option name="width" value="1920" />
+    <option name="height" value="1080" />
   </component>
   <component name="ProjectView">
     <navigator proportions="" version="1">
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -197,6 +232,7 @@
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -204,7 +240,8 @@
     <property name="last_opened_file_path" value="$PROJECT_DIR$" />
     <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
-    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
+    <property name="settings.editor.selected.configurable" value="vcs.Git" />
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -218,7 +255,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="Python.daily_mr_qa">
+  <component name="RunManager" selected="Python.slice_width">
     <configuration name="Daily_MR_QA" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="hazen" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -233,28 +270,6 @@
       <option name="ADD_SOURCE_ROOTS" value="true" />
       <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
       <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Daily_MR_QA.py" />
-      <option name="PARAMETERS" value="" />
-      <option name="SHOW_COMMAND_LINE" value="true" />
-      <option name="EMULATE_TERMINAL" value="false" />
-      <option name="MODULE_MODE" value="false" />
-      <option name="REDIRECT_INPUT" value="false" />
-      <option name="INPUT_FILE" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="Ghosting" type="PythonConfigurationType" factoryName="Python" temporary="true">
-      <module name="hazen" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/Ghosting.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="true" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -329,6 +344,28 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration default="true" type="PythonConfigurationType" factoryName="Python">
+      <module name="hazen" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="" />
+      <option name="IS_MODULE_SDK" value="false" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="true" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <configuration name="daily_mr_qa" type="PythonConfigurationType" factoryName="Python" temporary="true">
       <module name="hazen" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -351,21 +388,43 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
+    <configuration name="slice_width" type="PythonConfigurationType" factoryName="Python" temporary="true">
+      <module name="hazen" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/slice_width.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
     <list>
       <item itemvalue="Python.Uniformity" />
       <item itemvalue="Python.SNR" />
-      <item itemvalue="Python.Ghosting" />
       <item itemvalue="Python.Spatial_Resolution" />
       <item itemvalue="Python.Daily_MR_QA" />
       <item itemvalue="Python.daily_mr_qa" />
+      <item itemvalue="Python.slice_width" />
     </list>
     <recent_temporary>
       <list>
-        <item itemvalue="Python.daily_mr_qa" />
+        <item itemvalue="Python.slice_width" />
         <item itemvalue="Python.SNR" />
+        <item itemvalue="Python.daily_mr_qa" />
         <item itemvalue="Python.Daily_MR_QA" />
         <item itemvalue="Python.Spatial_Resolution" />
-        <item itemvalue="Python.Ghosting" />
       </list>
     </recent_temporary>
   </component>
@@ -443,10 +502,24 @@
       <option name="project" value="LOCAL" />
       <updated>1527001930775</updated>
     </task>
-    <option name="localTasksCounter" value="10" />
+    <task id="LOCAL-00010" summary="Significant overhaul of the code organisation.&#10;&#10;A parent script (Daily_MR_QA) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules).">
+      <created>1546279996152</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1546279996153</updated>
+    </task>
+    <task id="LOCAL-00011" summary="Significant overhaul of the code organisation.&#10;&#10;A parent script (Daily_MR_QA) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules).">
+      <created>1551792111695</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1551792111695</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
-  <component name="TodoView">
+  <component name="TodoView" selected-index="3">
     <todo-panel id="selected-file">
       <is-autoscroll-to-source value="true" />
     </todo-panel>
@@ -456,34 +529,62 @@
     </todo-panel>
   </component>
   <component name="ToolWindowManager">
-    <frame x="0" y="23" width="1680" height="962" extended-state="6" />
+    <frame x="-129" y="-1080" width="1920" height="1080" extended-state="0" />
+    <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.17582418" />
-      <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
-      <window_info id="Favorites" order="2" side_tool="true" />
+      <window_info content_ui="combo" id="Project" order="0" sideWeight="0.4857143" visible="true" weight="0.17412141" />
+      <window_info id="Structure" order="1" sideWeight="0.51428574" side_tool="true" weight="0.1996337" />
+      <window_info id="Favorites" order="2" sideWeight="0.505988" side_tool="true" weight="0.18864469" />
       <window_info anchor="bottom" id="Message" order="0" />
-      <window_info active="true" anchor="bottom" id="Find" order="1" visible="true" weight="0.32900432" />
-      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.33474576" />
-      <window_info anchor="bottom" id="Debug" order="3" weight="0.39935064" />
+      <window_info anchor="bottom" id="Find" order="1" weight="0.32900432" />
+      <window_info anchor="bottom" id="Run" order="2" sideWeight="0.49840257" weight="0.33465347" />
+      <window_info active="true" anchor="bottom" id="Debug" order="3" sideWeight="0.5495208" visible="true" weight="0.2970297" />
       <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
-      <window_info anchor="bottom" id="TODO" order="6" weight="0.32909605" />
+      <window_info anchor="bottom" id="TODO" order="6" sideWeight="0.497558" weight="0.32857144" />
       <window_info anchor="bottom" id="Docker" order="7" show_stripe_button="false" />
       <window_info anchor="bottom" id="Database Changes" order="8" show_stripe_button="false" />
-      <window_info anchor="bottom" id="Version Control" order="9" weight="0.32909605" />
-      <window_info anchor="bottom" id="Python Console" order="10" weight="0.32900432" />
-      <window_info anchor="bottom" id="Terminal" order="11" />
-      <window_info anchor="bottom" id="Event Log" order="12" side_tool="true" />
+      <window_info anchor="bottom" id="Version Control" order="9" sideWeight="0.497558" weight="0.32857144" />
+      <window_info anchor="bottom" id="Python Console" order="10" sideWeight="0.6159951" weight="0.327551" />
+      <window_info anchor="bottom" id="Terminal" order="11" sideWeight="0.47763577" weight="0.2940594" />
+      <window_info anchor="bottom" id="Event Log" order="12" sideWeight="0.45047924" side_tool="true" visible="true" weight="0.2970297" />
+      <window_info anchor="bottom" id="Concurrent Activities Diagram" order="13" weight="0.32970297" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
-      <window_info anchor="right" id="Database" order="3" sideWeight="0.49894738" weight="0.3295302" />
-      <window_info anchor="right" x="996" y="122" width="491" height="326" id="SciView" order="4" sideWeight="0.9447983" visible="true" weight="0.21489622" />
-      <window_info anchor="right" x="0" y="0" width="337" height="638" id="Documentation" order="5" sideWeight="0.055201698" side_tool="true" visible="true" weight="0.31543624" />
+      <window_info anchor="right" id="Database" order="3" sideWeight="0.49335304" weight="0.3290735" />
+      <window_info anchor="right" x="0" y="0" width="1680" height="1050" id="SciView" order="4" sideWeight="0.32053176" visible="true" weight="0.23748669" />
+      <window_info anchor="right" x="0" y="0" width="337" height="638" id="Documentation" order="5" sideWeight="0.6794682" side_tool="true" weight="0.24600638" />
     </layout>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="RECENTLY_FILTERED_USER_GROUPS">
+                <collection />
+              </option>
+              <option name="RECENTLY_FILTERED_BRANCH_GROUPS">
+                <collection />
+              </option>
+              <option name="COLUMN_ORDER">
+                <list>
+                  <option value="0" />
+                  <option value="1" />
+                  <option value="2" />
+                  <option value="3" />
+                </list>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
@@ -498,10 +599,14 @@
     <MESSAGE value="Significant overhaul of the code organisation.&#10;&#10;A parent script (daily_mr_qa) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules).&#10;&#10;The results for each tested image are collated and printed to the screen. Future development will aim to write this data to file and archive the image data." />
     <MESSAGE value="Bug fixes (result of new test image):&#10;&#10;find_circles script now more tolerant of air at the top of the phantom&#10;&#10;fwhm function changed to fix strange results when differentiating edge spread function" />
     <MESSAGE value="Bug fixes&#10;&#10;CoV and Integral uniformity now reported correctly (were swapped)&#10;&#10;Plots now rescaled to full 0-255 range" />
-    <option name="LAST_COMMIT_MESSAGE" value="Bug fixes&#10;&#10;CoV and Integral uniformity now reported correctly (were swapped)&#10;&#10;Plots now rescaled to full 0-255 range" />
+    <MESSAGE value="Significant overhaul of the code organisation.&#10;&#10;A parent script (Daily_MR_QA) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules)." />
+    <option name="LAST_COMMIT_MESSAGE" value="Significant overhaul of the code organisation.&#10;&#10;A parent script (Daily_MR_QA) now loads any dicom images stored in its directory and processes them using the previously developed scripts (now bundled together in mrqa_modules)." />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
+      <breakpoints-dialog>
+        <breakpoints-dialog />
+      </breakpoints-dialog>
       <default-breakpoints>
         <breakpoint type="python-exception">
           <properties notifyOnTerminate="true" exception="BaseException">
@@ -530,10 +635,41 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/mrqa_modules.py" />
     <entry file="file://$PROJECT_DIR$/../testProject/DICOM_Test.py" />
+    <entry file="file://$USER_HOME$/Library/Caches/PyCharm2018.2/python_stubs/-1025165385/cv2/cv2/__init__.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="217">
+          <caret line="9023" column="4" selection-start-line="9023" selection-start-column="4" selection-end-line="9023" selection-end-column="4" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Daily_MR_QA.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="540">
+          <caret line="40" column="26" selection-start-line="40" selection-start-column="26" selection-end-line="40" selection-end-column="47" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/triangle_thres.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="480">
+          <caret line="35" column="35" selection-start-line="35" selection-start-column="35" selection-end-line="35" selection-end-column="35" />
+          <folding>
+            <element signature="e#0#18#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$USER_HOME$/Library/Python/3.6/lib/python/site-packages/scipy/optimize/minpack.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="647">
+          <caret line="791" column="13" selection-start-line="791" selection-start-column="13" selection-end-line="791" selection-end-column="13" />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/Uniformity.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="2175">
-          <caret line="148" column="5" selection-start-line="148" selection-start-column="5" selection-end-line="148" selection-end-column="39" />
+        <state relative-caret-position="-25">
+          <caret line="99" column="14" selection-start-line="99" selection-start-column="14" selection-end-line="99" selection-end-column="14" />
           <folding>
             <element signature="e#654#670#0" expanded="true" />
           </folding>
@@ -542,50 +678,66 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/mrqa_functions.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3615">
-          <caret line="417" column="15" selection-start-line="417" selection-start-column="15" selection-end-line="417" selection-end-column="15" />
+        <state relative-caret-position="-959">
+          <caret line="34" column="39" selection-start-line="34" selection-start-column="39" selection-end-line="34" selection-end-column="39" />
           <folding>
             <element signature="e#247#263#0" expanded="true" />
-            <element signature="e#379#2938#0" />
-            <element signature="e#2968#7580#0" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/Spatial_Resolution.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="30">
-          <caret line="2" column="2" selection-start-line="2" selection-start-column="2" selection-end-line="3" selection-end-column="19" />
-          <folding>
-            <element signature="e#211#227#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/Daily_MR_QA.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="688">
-          <caret line="90" column="35" selection-start-line="90" selection-start-column="35" selection-end-line="90" selection-end-column="35" />
-          <folding>
-            <element signature="e#267#305#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/SNR.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1505">
-          <caret line="110" column="201" selection-start-line="110" selection-start-column="5" selection-end-line="110" selection-end-column="201" />
+        <state relative-caret-position="610">
+          <caret line="152" column="27" selection-start-line="152" selection-start-column="22" selection-end-line="152" selection-end-column="27" />
           <folding>
             <element signature="e#327#343#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/mr_coil_snr.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="-978">
+          <caret line="55" selection-start-line="55" selection-end-line="55" />
+          <folding>
+            <element signature="e#176#192#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/Spatial_Resolution.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="363">
+          <caret line="131" column="35" lean-forward="true" selection-start-line="131" selection-start-column="35" selection-end-line="131" selection-end-column="35" />
+          <folding>
+            <element signature="e#211#227#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="uml://Python/#/Users/simonshah/OneDrive - King's College London/MRphysics/QA/Hazen/slice_width.py">
+      <provider selected="true" editor-type-id="UmlEditorProvider">
+        <state>
+          <ID>Python</ID>
+          <OriginalElement>#/Users/simonshah/OneDrive - King's College London/MRphysics/QA/Hazen/slice_width.py</OriginalElement>
+          <nodes />
+          <notes />
+          <edges />
+          <settings layout="Hierarchic Group" zoom="1.0" x="484.5" y="269.5" />
+          <SelectedNodes />
+          <Categories />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/slice_width.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state>
-          <caret column="5" selection-start-column="5" selection-end-column="5" />
+        <state relative-caret-position="563">
+          <caret line="268" column="1" lean-forward="true" selection-start-line="268" selection-start-column="1" selection-end-line="268" selection-end-column="1" />
+          <folding>
+            <element signature="e#159#173#0" expanded="true" />
+            <marker date="1551890557003" expanded="true" signature="3239:3277" ph="..." />
+          </folding>
         </state>
       </provider>
     </entry>
