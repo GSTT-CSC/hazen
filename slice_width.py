@@ -14,6 +14,7 @@ from math import pi
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
+from scipy.optimize import leastsq
 import sys
 import matplotlib.pyplot as plt
 
@@ -202,7 +203,7 @@ for ii in range(0,2):
     xdata = np.linspace(0, len(Profile_corrected_interp),len(Profile_corrected_interp))
 
     popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
-                           bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='dogbox')
+                           bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='trf')
 
 
     print(popt)
@@ -266,12 +267,61 @@ phantom_tilt_check_corr = -np.arctan(slicewidth_mean_mm_geo_corr/Slice_Width_mm_
 phantom_tilt_check_deg_corr = phantom_tilt_check_corr * (180.0/pi)
 ##
 
-# fit = traps_ss(xdata,*popt)
-#
-# fig = plt.figure(1)
-# plt.plot(fit)
-# plt.plot(abs(Profile_corrected_interp))
-# plt.show()
-#
-#
-#
+f = open("test.txt", "w+")
+f.write('Series Description: \s' + image.SeriesDescription + '\n')
+f.write("Width: %d" % image.Rows + '\n')
+f.write("Height: %d" % image.Columns + '\n')
+f.write("Slice Thinkness (mm): %d" % image.SliceThickness + '\n')
+f.write("Field of View (mm) : %d" % FOVx + '\n')
+f.write("bandwidth (Hz/Px) : %d" % image.PixelBandwidth + '\n')
+f.write("TR  (ms) : %d" % image.RepetitionTime + '\n')
+f.write("TE  (ms) : %d" % image.EchoTime + '\n')
+f.write("Flip Angle  (deg) : %d" % image.FlipAngle + '\n')
+
+
+f.write("Horizontal line bottom (mm) %f" % horz_dist[0] + '\n')
+f.write("Horizontal line middle (mm) %f" % horz_dist[1] + '\n')
+f.write("Horizontal line top (mm) %f" % horz_dist[2] + '\n')
+f.write("Horizontal Linearity (mm)\ %f" % horz_dist_mm + '\n')
+f.write("Horizontal Distortion \ %f" % horz_distortion + '\n')
+
+f.write("Vertical line bottom (mm) %f" % vert_dist[0] + '\n')
+f.write("Vertical line middle (mm) %f" % vert_dist[1] + '\n')
+f.write("Vertical line top (mm) %f" % vert_dist[2] + '\n')
+f.write("Vertical Linearity (mm)\ %f" % vert_dist_mm + '\n')
+f.write("Vertical Distortion \ %f" % vert_distortion + '\n')
+
+f.write("Slice width top (mm) \ %f" % Slice_Width_mm[0] + '\n')
+f.write("Slice width bottom (mm) \ %f" % Slice_Width_mm[1] + '\n')
+f.write("Phantom tilt (deg) \ %f" % phantom_tilt_deg + '\n')
+f.write("Slice width AAPM geometry corrected (mm) %f" % slicewidth_mean_mm_geo_corr + '\n')
+f.close()
+
+f = open("test2.txt", "w+")
+f.write("%d" % image.Rows + '\n')
+f.write("%d" % image.Columns + '\n')
+f.write("%d" % image.SliceThickness + '\n')
+f.write("%d" % FOVx + '\n')
+f.write("%d" % image.PixelBandwidth + '\n')
+f.write("%d" % image.RepetitionTime + '\n')
+f.write("%d" % image.EchoTime + '\n')
+f.write("%d" % image.FlipAngle + '\n')
+
+
+f.write("%f" % horz_dist[0] + '\n')
+f.write("%f" % horz_dist[1] + '\n')
+f.write("%f" % horz_dist[2] + '\n')
+f.write("%f" % horz_dist_mm + '\n')
+f.write("%f" % horz_distortion + '\n')
+
+f.write("%f" % vert_dist[0] + '\n')
+f.write("%f" % vert_dist[1] + '\n')
+f.write("%f" % vert_dist[2] + '\n')
+f.write("%f" % vert_dist_mm + '\n')
+f.write("%f" % vert_distortion + '\n')
+
+f.write("%f" % Slice_Width_mm[0] + '\n')
+f.write("%f" % Slice_Width_mm[1] + '\n')
+f.write("%f" % phantom_tilt_deg + '\n')
+f.write("%f" % slicewidth_mean_mm_geo_corr + '\n')
+f.close()
