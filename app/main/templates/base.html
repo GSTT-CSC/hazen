@@ -1,0 +1,78 @@
+{% extends 'bootstrap/base.html' %}
+{% block head %}
+    {{ super() }}
+{{ moment.include_jquery() }}
+{{ moment.include_moment() }}
+{% endblock %}
+
+<title>{% if title %}{{ title }} - Hazen{% else %}Welcome to Hazen{% endif %}</title>
+
+{% block navbar %}
+    <nav class="navbar sticky-top navbar-expand-md bg-light">
+
+        <div class="container">
+
+            <div class="collapse navbar-collapse">
+
+                <ul class="navbar-nav">
+
+                    {% if not current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('main.user', username=current_user.username) }}">Dashboard</a>
+                        </li>
+                {% endif %}
+
+
+                    {% if not current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('uploader.upload') }}">Upload</a>
+                        </li>
+                    {% endif %}
+
+                </ul>
+
+            </div>
+
+        <div>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="navbar-brand" href="{{ url_for('main.index') }}">Hazen</a>
+                </li>
+
+            </ul>
+        </div>
+
+
+            <div class="collapse navbar-collapse">
+                <ul class="navbar-nav ml-auto">
+                    {% if current_user.is_anonymous %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}">Login</a>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+{% endblock %}
+
+
+{% block content %}
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {# application content needs to be provided in the app_content block #}
+        {% block app_content %}
+        {% endblock %}
+    </div>
+{% endblock %}

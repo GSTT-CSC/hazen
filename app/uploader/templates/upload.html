@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block header %}
+    {{ super() }}
+    {{ dropzone.load_css() }}
+    {{ dropzone.style('border: 10px dashed gray; margin: auto; min-height: 200px; max-width: 500px') }}
+
+
+{% endblock %}
+
+{% block app_content %}
+    <div class="row">
+        {{ dropzone.create(action=url_for('uploader.upload'))}}
+        <hr>
+        <div class="col-md-12 text-center">
+            <button id="upload" class="btn btn-primary">Upload</button>
+        </div>
+{#    <form action="upload" class="dropzone"></form#}
+        {{ dropzone.load_js() }}
+        {{ dropzone.config(redirect_view='main.index', id='uploader') }}
+    </div>
+
+
+{% endblock %}
+
+

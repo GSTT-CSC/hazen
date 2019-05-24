@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block app_content %}
+
+    {% if pending %}
+
+        <table class="table table-striped">
+
+        </table>
+
+
+    {% endif %}
+
+    {% if not facts %}
+        <h3>Generate reports</h3>
+    {% if form %}
+        {{ wtf.quick_form(form) }}
+        <br>
+    {% endif %}
+
+
+    {% else %}
+        <h2>Reports for {{acquisition.id.hex}}</h2>
+        {% for fact in facts %}
+            <table class="table table-striped">
+                <caption>
+                    Status: {{ fact.status }}<br>
+                    {{ fact.process_task.name }}<br>
+                    {{ fact.process_task_variables }}<br>
+                    {{ moment(fact.created_at.naive).fromNow() }}<br>
+                </caption>
+                <thead>
+                <tr>Measure</tr>
+                <tr>Value</tr>
+                </thead>
+
+                <tbody>
+                <tr>
+                {% for key, value in fact.data %}
+                    <td>{{ key }}</td>
+                    <td>{{ value }}</td>
+                {% endfor %}
+                </tr>
+                </tbody>
+            </table>
+
+        {% endfor %}
+
+    {% endif %}
+
+{%  endblock %}

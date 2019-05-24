@@ -4,19 +4,42 @@
 # -----
 # You can specify a custom docker image from Docker Hub as your build environment.
 image: python:3.6
+clone:
+  depth: full
+
+stepdefinitions:
+  - testing: &testing
+      name: Python testing
+      caches:
+        - pip
+      script:
+        - pip install --upgrade pip
+        - pip install -r requirements.txt
+        - pytest --cov=hazen --cov-report xml --junitxml=junit.xml tests/
+
+  - reporting: &reporting
+      name: Uploading reports
+      script:
+        - apt-get update
+        - apt-get install unzip
+        - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
+        - unzip sonar-scanner-3.0.3.778-linux.zip
+        - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
+        - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+
+  - deploying: &deploying
+      name: Deploy to Heroku
+      deployment: staging   # set to test, staging or production
+      # trigger: manual  # uncomment to have a manual step
+      script:
+        - git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git HEAD
 
 pipelines:
+  branches:
+    master:
+      - step: *testing
+      - step: *reporting
+      - step: *deploying
   default:
-    - step:
-        caches:
-          - pip
-        script: # Modify the commands below to build your repository.
-          - pip install --upgrade pip
-          - pip install -r requirements.txt
-          - pytest --cov=hazen --cov-report xml --junitxml=junit.xml tests/
-          - apt-get update
-          - apt-get install unzip
-          - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
-          - unzip sonar-scanner-3.0.3.778-linux.zip
-          - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
-          - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+    - step: *testing
+    - step: *reporting

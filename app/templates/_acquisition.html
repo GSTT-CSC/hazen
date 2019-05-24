@@ -1,0 +1,13 @@
+{#<div class="col-lg-4 col-md-6 col-xs-8">#}
+    <div class="card">
+        <div class="card-header">{{ acquisition.author.username }}</div>
+        <div class="card-body">
+            <p class="card-text">{{ acquisition.description }}</p>
+            <h6 class="card-subtitle mb-2 text-muted">{{ moment(acquisition.created_at.naive).fromNow() }}</h6>
+        </div>
+        <div class="card-footer">
+            <a href="#0" class="card-link">Reports</a>
+            <a href="#0" class="card-link">Share</a>
+        </div>
+    </div>
+{#</div>#}

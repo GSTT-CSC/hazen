@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+
+    <div class="row">
+
+    <div class="col-lg-4 col-md-6 ml-auto mr-auto">
+
+        <div class="card card-login">
+
+            <form class="form" method="post" action="" novalidate>
+                {{ form.hidden_tag() }}
+                <div class="card-header card-header-success text-center">
+                    <h4 class="card-title">Please sign in</h4>
+                </div>
+
+                <div class="card-body">
+                    <span class="bmd-form-group">
+                        <div class="input-group">
+                            {{ form.username(size=32, class="form-control", placeholder="Username") }}
+                            <br>
+                            {% for error in form.username.errors %}
+                                <span style="color: red;">[{{ error }}]</span>
+                            {% endfor %}
+                        </div>
+                    </span>
+
+                    <span class="bmd-form-group">
+                        <div class="input-group">
+                            {{ form.password(size=32, id="inputPassword", class="form-control", placeholder="Password") }}
+                            <br>
+                            {% for error in form.password.errors %}
+                                <span style="color: red;">[{{ error }}]</span>
+                            {% endfor %}
+                        </div>
+                    </span>
+
+                </div>
+
+                <div class="footer text-center">
+                    <p>{{ form.remember_me() }} {{ form.remember_me.label }}</p>
+                    <p>{{ form.submit(class="btn btn-primary bg-success") }}</p>
+                    <p>New User? <a href="{{ url_for('auth.register') }}">Click to Register!</a></p>
+                    <p>Forgot Your Password? <a href="{{ url_for('auth.reset_password_request') }}">Click to Reset It</a></p>
+                </div>
+
+            </form>
+
+          </div>
+
+    </div>
+
+
+    </div>
+
+
+{% endblock %}

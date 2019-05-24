@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block app_content %}
+    <div class="row justify-content-center"><h2 class="text-center">Process Tasks</h2></div>
+
+    <div class="row">
+    <div class="col-3">
+        {% set active_tab = "snr-tab" %}
+        <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+            {%  for task in tasks %}
+                <a data-toggle="pill" id="{{ task.name }}-tab"
+                   {% if id == active_tab %}class="nav-link active" {% else %}class="nav-link" {% endif %}
+                   href="#{{ task.name }}" role="tab">{{ task.name }}</a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-9">
+
+        <div class="tab-content" id="v-pills-tabContent">
+            {%  for task in tasks %}
+            <div class="tab-pane fade" id="{{ task.name }}" role="tabpanel">
+                {% autoescape false %}
+                {{ task.docstring | replace("\\n", "<br/>") }}
+                {% endautoescape %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    </div>
+
+
+    <div class="row justify-content-center">
+
+        <h2>Acquisitions</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                <tr>
+                    <th>Folder</th>
+                    <th>Uploaded</th>
+                    <th>Uploader</th>
+                    <th>Description</th>
+                    <th>Files</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for acquisition in acquisitions%}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('reports.report', acquisition_uuid=acquisition.id) }}">
+                            {{ acquisition.id.hex}}
+                            </a>
+                        </td>
+                        <td>{{ moment(acquisition.created_at.naive).fromNow()}}</td>
+                        <td>{{ acquisition.author.username }}</td>
+                        <td>{{ acquisition.description }}</td>
+                        <td>{{ acquisition.files }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+{% endblock %}
