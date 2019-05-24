@@ -61,7 +61,6 @@ def get_num_of_frames(dcm: pydicom.Dataset) -> int:
 
 
 def get_slice_thickness(dcm: pydicom.Dataset) -> float:
-
     if hazen.is_enhanced_dicom(dcm):
         try:
             slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
@@ -76,10 +75,9 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-
     if dcm.Manufacturer == 'GE':
-        dx = dcm['0019,101e']/dcm.Width
-        dy = dcm['0019,101e']/dcm.Height
+        dx = dcm['0019,101e'] / dcm.Width
+        dy = dcm['0019,101e'] / dcm.Height
 
     elif dcm.Manufacturer == 'SIEMENS':
         dx, dy = dcm.PixelSpacing
@@ -96,7 +94,6 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
-
     if hazen.is_enhanced_dicom(dcm):
         averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
     else:
@@ -121,7 +118,7 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
 
     """
     if hazen.get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4*63.8968/dcm.Private_2001_1022
+        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
     else:
         bandwidth = dcm.PixelBandwidth
 
@@ -158,7 +155,7 @@ def conv2d(dcm: pydicom.Dataset, f) -> np.array:
     a = dcm.pixel_array
     s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
     strd = np.lib.stride_tricks.as_strided
-    subM = strd(a, shape = s, strides = a.strides * 2)
+    subM = strd(a, shape=s, strides=a.strides * 2)
     return np.einsum('ij,ijkl->kl', f, subM)
 
 
@@ -177,8 +174,8 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
     """
     a = dcm.pixel_array
     # Create 3x3 boxcar kernel (recommended size - adjustments will affect results)
-    size = (3,3)
-    kernel = np.ones(size)/9
+    size = (3, 3)
+    kernel = np.ones(size) / 9
 
     # Convolve image with boxcar kernel
     imsmoothed = conv2d(dcm, kernel)
@@ -191,7 +188,6 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
 
 
 def get_roi_samples(dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> list:
-
     if type(dcm) == np.ndarray:
         data = dcm
     else:
@@ -261,7 +257,7 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
     return normalised_snr
 
 
-def main(data: list)->list:
+def main(data: list) -> dict:
     """
 
     Parameters
@@ -272,16 +268,13 @@ def main(data: list)->list:
     -------
     results: list
     """
-    results = []
+    results = {}
 
     if len(data) == 2:
-        results.append(snr_by_subtraction(dcm1=pydicom.read_file(data[0]),
-                                  dcm2=pydicom.read_file(data[1]))
-                       )
-    for f in data:
-        results.append(
-            snr_by_smoothing(dcm=pydicom.read_file(f))
-        )
+        results["snr_by_subtraction"] = snr_by_subtraction(dcm1=pydicom.read_file(data[0]), dcm2=pydicom.read_file(data[1]))
+
+    for idx, f in enumerate(data):
+        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm=pydicom.read_file(f))
 
     return results
     # # Draw regions for testing
@@ -299,6 +292,3 @@ def main(data: list)->list:
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
-

@@ -1,13 +1,13 @@
 
 import pydicom
 
-import hazen.snr
+import hazenlib as hazen
 import tests
 
 
 def main(image):
 
-    cenx, ceny, cradius = hazen.snr.find_circle(image)
+    cenx, ceny, cradius = hazen.find_circle(image)
 
 
 if __name__ == "__main__":

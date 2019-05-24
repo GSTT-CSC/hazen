@@ -13,7 +13,7 @@ from app import db
 from sqlalchemy_utils.types.arrow import ArrowType
 #
 # from backend.extensions import db
-from app.utils import base62_decode, base62_encode
+from app.util.utils import base62_decode, base62_encode
 
 # Alias common SQLAlchemy names
 Column = db.Column

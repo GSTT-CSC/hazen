@@ -14,7 +14,7 @@ class Config:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     ADMINS = [os.environ.get('ADMIN_EMAIL')] or ['haris.shuaib@gmail.com']
 
-    ACQUISITIONS_PER_PAGE = 25
+    ACQUISITIONS_PER_PAGE = 9
 
     LANGUAGES = ['en-GB', 'fr']
 

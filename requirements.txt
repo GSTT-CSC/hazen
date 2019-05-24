@@ -21,3 +21,4 @@ psycopg2-binary
 scikit-image
 sqlalchemy_utils
 arrow
+celery

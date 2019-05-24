@@ -6,3 +6,5 @@ coverage.xml
 .idea
 logs
 uploads
+tests/data/slicepos/results
+tests/data/uniformity/results

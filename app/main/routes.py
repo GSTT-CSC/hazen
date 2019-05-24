@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 from app.main import bp
 from app import db
 from app.main.forms import EditProfileForm, AcquisitionForm
-from app.models import User, Acquisition
+from app.models import User, Acquisition, ProcessTask
 
 
 @bp.before_request
@@ -45,6 +45,7 @@ def index():
 @login_required
 def user(username):
     user = User.query.filter_by(username=username).first_or_404()
+    tasks = ProcessTask.query.all()
     page = request.args.get('page', 1, type=int)
 
     acquisitions = user.acquisitions.order_by(Acquisition.created_at.desc()).paginate(
@@ -56,7 +57,7 @@ def user(username):
         if acquisitions.has_prev else None
 
     return render_template('user.html', user=user, acquisitions=acquisitions.items,
-                           next_url=next_url, prev_url=prev_url)
+                           next_url=next_url, prev_url=prev_url, tasks=tasks)
 
 
 @bp.route('/edit_profile', methods=['GET', 'POST'])

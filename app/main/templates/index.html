@@ -8,7 +8,7 @@
     <br>
     {% endif %}
 
-  <div class="row text-center">
+  <div class="card-columns text-center">
     {% for acquisition in acquisitions %}
         {% include '_acquisition.html' %}
     {% endfor %}
@@ -22,7 +22,7 @@
                 </a>
             </li>
             <li class="page-item{% if not next_url %} disabled{% endif %}">
-                <a class= "page-link" href="{{ next_url or '#' }}"">
+                <a class= "page-link" href="{{ next_url or '#' }}">
                     Older acquisitions <span aria-hidden="true">&rarr;</span>
                 </a>
             </li>

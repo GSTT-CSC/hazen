@@ -1,6 +1,7 @@
 from datetime import datetime
 from hashlib import md5
 from time import time
+import inspect
 
 import jwt
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -9,7 +10,7 @@ from flask_login import UserMixin
 from flask import current_app
 
 from app import db, login
-from app.database import Model, SurrogatePK, CreatedTimestampMixin, UUID
+from app.database import Model, SurrogatePK, CreatedTimestampMixin, UUID, JSONB
 
 
 @login.user_loader
@@ -85,3 +86,25 @@ class Acquisition(Model, SurrogatePK, CreatedTimestampMixin):
     @hybrid_property
     def filesystem_key(self):
         return self.id.hex
+
+
+class Fact(Model, SurrogatePK, CreatedTimestampMixin):
+
+    def __init__(self, **kwargs):
+        db.Model.__init__(self, **kwargs)
+
+    user_id = db.Column(UUID, db.ForeignKey('user.id'))
+    acquisition_id = db.Column(UUID, db.ForeignKey('acquisition.id'))
+    process_task = db.Column(UUID, db.ForeignKey('process_task.id'))
+    process_task_variables = db.Column(JSONB)
+    data = db.Column(JSONB)
+    status = db.Column(db.String)
+
+
+class ProcessTask(Model, SurrogatePK, CreatedTimestampMixin):
+    def __init__(self, **kwargs):
+        db.Model.__init__(self, **kwargs)
+
+    name = db.Column(db.String)
+    signature = db.Column(db.String)
+    docstring = db.Column(db.String)

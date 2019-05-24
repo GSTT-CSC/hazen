@@ -3,7 +3,7 @@ from logging.handlers import SMTPHandler
 from logging.handlers import RotatingFileHandler
 import os
 
-from flask import Flask
+from flask import Flask, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -11,7 +11,7 @@ from flask_bootstrap import Bootstrap
 from flask_mail import Mail
 from flask_moment import Moment
 from flask_dropzone import Dropzone
-
+from celery import Celery
 from config import Config
 
 
@@ -37,9 +37,11 @@ def create_app(config_class=Config):
     moment.init_app(app)
     dropzone.init_app(app)
 
+    from app.reports import bp as reports_bp
+    app.register_blueprint(reports_bp)
+
     from app.errors import bp as errors_bp
     app.register_blueprint(errors_bp)
-
     from app.auth import bp as auth_bp
     app.register_blueprint(auth_bp, url_prefix='/auth')
 
@@ -82,6 +84,21 @@ def create_app(config_class=Config):
     return app
 
 
+def create_celery_app(app=None):
+    app = app or create_app()
+    celery = Celery(__name__, broker='amqp://', backend='rpc://', include=['app.tasks'])
+    celery.conf.update(app.config)
+    TaskBase = celery.Task
+
+    class ContextTask(TaskBase):
+        abstract = True
+
+        def __call__(self, *args, **kwargs):
+            with app.app_context():
+                return TaskBase.__call__(self, *args, **kwargs)
+
+    celery.Task = ContextTask
+    return celery
+
+
 from app import models
-
-
