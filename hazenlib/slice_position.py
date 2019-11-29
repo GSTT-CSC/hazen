@@ -42,7 +42,7 @@ def get_rod_rotation(x_pos: list, y_pos: list) -> float:
         angle of rotation in degrees
 
     """
-    X = np.matrix([[i, 1] for i in y_pos])
+    X = np.array([[i, 1] for i in y_pos])
 
     m, c = np.linalg.lstsq(X, np.array(x_pos))[0]
 
