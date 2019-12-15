@@ -1,6 +1,7 @@
 import unittest
 import pathlib
 
+import numpy as np
 import pydicom
 
 import hazenlib.slice_width as hazen_slice_width
@@ -70,7 +71,12 @@ class TestSliceWidth(unittest.TestCase):
         pass
 
     def test_baseline_correction(self):
+        # matlab top 0.0215   -2.9668  602.4568
+        # matlab bottom [0.0239, -2.9349,  694.9520]
 
+        dcm = pydicom.read_file(self.test_files[0])
+        ramps = hazen_slice_width.get_ramp_profiles(dcm.pixel_array, self.matlab_rods)
+        assert hazen_slice_width.baseline_correction(np.mean(ramps["top"], axis=0), sample_spacing=0.25) == [0.0239, -2.9349,  694.9520]
 
     def test_trapezoid(self):
         # variables from one iteration of the original matlab script

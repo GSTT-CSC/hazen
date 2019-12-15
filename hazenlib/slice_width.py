@@ -1,7 +1,5 @@
-import os
 from math import pi
 import sys
-import itertools
 
 import pydicom
 import numpy as np
@@ -11,7 +9,6 @@ from scipy.optimize import curve_fit
 import matplotlib
 # matplotlib.use("agg")
 import matplotlib.pyplot as plt
-from lmfit import Model
 
 
 class Rod:
@@ -94,6 +91,16 @@ def get_rods(dcm):
     return rods
 
 
+def plot_rods(arr, rods):
+    plt.figure()
+    plt.imshow(arr)
+    mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+
+    for idx, i in enumerate(rods):
+        plt.scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=15, linewidths=0.5)
+    plt.show()
+
+
 def get_rod_distances(rods):
     """
     Calculate horizontal and vertical distances of rods in terms of pixels
@@ -158,38 +165,62 @@ def get_rod_distortions(rods, dcm):
     return horz_distortion, vert_distortion
 
 
-def baseline_correction(profile):
+class Trapezoid(np.ndarray):
+    def __init__(self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude, shape):
+        super().__init__(shape)
+        self.n_ramp, self.n_plateau, self.n_left_baseline, self.n_right_baseline, self.plateau_amplitude = n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
+
+    def __repr__(self):
+        return f'Trapezoid: {self.n_ramp}, {self.n_plateau}, {self.n_left_baseline}, {self.n_right_baseline}, {self.plateau_amplitude}'
+
+
+def baseline_correction(profile, sample_spacing):
     """
     Calculates quadratic fit of the baseline and subtracts from profile
 
     Args:
         profile:
+        sample_spacing:
 
     Returns:
 
     """
     print(f"length of profile: {len(profile)}, shape: {profile.shape}")
-    left = np.array(profile[:30])
-    right = np.array(profile[-30:])
-    outer_profile = np.concatenate([left, right])
-
+    profile_width = len(profile)
+    padding = 30
+    outer_profile = np.concatenate([profile[0:padding], profile[-padding:]])
     # create the x axis for the outer profile
-    x_left = np.arange(30)
-    x_right = np.arange(30) + 90
+    x_left = np.arange(padding)
+    x_right = np.arange(profile_width - padding, profile_width)
     x_outer = np.concatenate([x_left, x_right])
 
     # seconds order poly fit of the outer profile
-    poly_fit = np.poly1d(np.polyfit(x_outer, outer_profile, 2))
+    polynomial_coefficients = np.polyfit(x_outer, outer_profile, 2)
+    polynomial_fit = np.poly1d(polynomial_coefficients)
 
     # use the poly fit to generate a quadratic curve with 0.25 space (high res)
-    sample_spacing = 0.25
-    x_interp = np.arange(0, 120, sample_spacing)
-    x = np.arange(0, 120)
-    baseline_interp = poly_fit(x_interp)
-    plt.figure()
-    plt.plot(baseline_interp)
-    plt.title('Baseline ')
-    baseline = poly_fit(x)
+    x_interp = np.arange(0, profile_width, sample_spacing)
+    x = np.arange(0, profile_width)
+
+    baseline_interp = polynomial_fit(x_interp)
+    baseline = polynomial_fit(x)
+
+    # Remove the baseline effects from the profiles
+    profile_corrected = profile - baseline
+    f = interp1d(x, profile_corrected, fill_value="extrapolate")
+    profile_corrected_interp = f(x_interp)
+    profile_interp = profile_corrected_interp + baseline_interp
+
+    return {"x_interpolated": x_interp,
+            "baseline_fit": polynomial_fit,
+            "baseline_interpolated": baseline_interp,
+            "profile_interpolated": profile_interp,
+            "profile_corrected_interpolated": profile_corrected_interp}
+
+
+def plot_baseline_correction(profile, corrected_profiles):
+    baseline = corrected_profiles["baseline"]
+    profile_corrected_interp = corrected_profiles["profile_corrected_interpolated"]
 
     plt.figure()
     plt.plot(profile, label='profile')
@@ -197,18 +228,9 @@ def baseline_correction(profile):
     plt.legend()
     plt.title('Baseline fitted')
 
-    # Remove the baseline effects from the profiles
-    profile_corrected = profile - baseline
-
-    f = interp1d(x, profile_corrected, fill_value="extrapolate")
     plt.figure()
-
-    profile_corrected_interp = f(x_interp)
     plt.plot(profile_corrected_interp)
     plt.title("profile_corrected_interp")
-    profile_interp = profile_corrected_interp + baseline_interp
-
-    return profile_interp
 
 
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
@@ -240,15 +262,13 @@ def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_ampl
     else:
         right_baseline = np.zeros(n_right_baseline)
 
-    list_of_lists = [left_baseline, left_ramp, plateau, right_ramp, right_baseline]
-
-    trapezoid = list(itertools.chain(*list_of_lists))
+    trap = np.concatenate([left_baseline, left_ramp, plateau, right_ramp, right_baseline])
     fwhm = n_plateau + n_ramp
 
-    return trapezoid, fwhm
+    return trap, fwhm
 
 
-def get_profiles(image_array, rods) -> dict:
+def get_ramp_profiles(image_array, rods) -> dict:
     # Find the central y-axis point for the top and bottom profiles
     # done by finding the distance between the mid-distances of the central rods
 
@@ -268,52 +288,25 @@ def get_profiles(image_array, rods) -> dict:
             "top-centre": top_profile_vertical_centre, "bottom-centre": bottom_profile_vertical_centre}
 
 
-def get_slice_width(dcm):
-    """
-    Calculates slice width using double wedge image
-
-    Args:
-        dcm:
-
-    Returns:
-
-    """
-
-    slice_width = 0.0
-    arr = dcm.pixel_array
-
-    rods = get_rods(dcm)
-    horz_dist, vert_dist = get_rod_distances(rods)
-    correction_coeff = get_rod_distortion_correction_coefficients(horizontal_distances=horz_dist)
-    profiles = get_profiles(arr, rods)
-
-
-
+def plot_ramp_profiles(arr, ramp_profiles):
     plt.figure()
     plt.imshow(arr)
+    top_profile_mean = np.mean(ramp_profiles["top"], axis=0)
+    bottom_profile_mean = np.mean(ramp_profiles['bottom'], axis=0)
+    for i, val in enumerate(ramp_profiles["top"]):
+        plt.plot([ramp_profiles["top"] - 10 + i] * 120, '-', color='red')
 
-    mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-
-    for idx, i in enumerate(rods):
-        plt.scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=15, linewidths=0.5)
-
-    for i, val in enumerate(profiles["top"]):
-        plt.plot(range(int(rods[3].x), int(rods[5].x)), [profiles["top-centre"] - 10 + i] * 120, '-', color='red')
-
-    for i, val in enumerate(profiles["bottom"]):
-        plt.plot(range(int(rods[3].x), int(rods[5].x)), [profiles["bottom-centre"] - 10 + i] * 120, '-', color='red')
+    for i, val in enumerate(ramp_profiles["bottom"]):
+        plt.plot([ramp_profiles["bottom"] - 10 + i] * 120, '-',
+                 color='red')
 
     plt.figure()
-    for i in profiles["top"]:
+    for i in ramp_profiles["top"]:
         plt.plot(i)
-    plt.plot(profiles["top"][1])
-
-    top_profile_mean = np.mean(profiles["top"], axis=0)
+    plt.plot(ramp_profiles["top"][1])
 
     plt.figure()
     plt.plot(top_profile_mean)
-
-    bottom_profile_mean = np.mean(profiles['bottom'], axis=0)
 
     top_profile_mean_corrected = baseline_correction(profile=top_profile_mean)
     plt.figure()
@@ -325,6 +318,213 @@ def get_slice_width(dcm):
     plt.plot(bottom_profile_mean_corrected)
     plt.title('bottom_profile_mean_corrected')
     plt.show()
+
+
+def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
+    n_plateau, n_ramp = None, None
+
+    if slice_thickness == 3:
+        # not sure where these magic numbers are from
+        n_ramp = 8
+        n_plateau = 33
+
+    elif slice_thickness == 5:
+        # not sure where these magic numbers are from
+        n_ramp = 48
+        n_plateau = 56
+
+    trapezoid_centre = np.median(np.argwhere(profile < np.mean(profile)))
+    print(trapezoid_centre)
+    n_total = len(profile)
+
+    n_left_baseline = int(trapezoid_centre - round(n_plateau / 2) - n_ramp - 1)
+    n_right_baseline = n_total - n_left_baseline - 2 * n_ramp - n_plateau
+    plateau_amplitude = np.percentile(profile, 5) - np.percentile(profile, 95)
+    trapezoid_fit_coefficients = [n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude]
+    print(trapezoid_fit_coefficients)
+    trapezoid_fit_initial, _ = trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude)
+
+    return trapezoid_fit_initial, trapezoid_fit_coefficients
+
+
+def fit_trapezoid(profiles, slice_thickness):
+    trapezoid_fit, trapezoid_fit_coefficients = get_initial_trapezoid_fit_and_coefficients(
+        profiles["profile_corrected_interpolated"], slice_thickness)
+
+    x_interp = profiles["x_interpolated"]
+    profile_interp = profiles["profile_interpolated"]
+    baseline_interpolated = profiles["baseline_fit"](x_interp)
+    baseline_fit_coefficients = profiles["baseline_fit"]
+
+    # sum squared differences
+    current_error = sum((profiles["profile_corrected_interpolated"] - (baseline_interpolated + trapezoid_fit)) ** 2)
+
+    def get_error(base, trap):
+        """ Check if fit is improving """
+        trapezoid_fit_temp, _ = trapezoid(*trap)
+
+        baseline_fit_temp = base(x_interp)
+
+        sum_squared_difference = sum((profile_interp - (baseline_fit_temp + trapezoid_fit_temp)) ** 2)
+
+        return sum_squared_difference
+
+    cont = 1
+    j = 0
+    """Go through a series of changes to reduce error, if error doesnt reduced in one entire loop then exit"""
+    while cont == 1:
+        print(f"j={j}")
+        j += 1
+        cont = 0
+        baseline_fit_coefficients_temp = baseline_fit_coefficients
+        trapezoid_fit_coefficients_temp = trapezoid_fit_coefficients
+
+        for i in range(14):
+            if i == 1:
+                baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] - 0.0001
+            elif i == 2:
+                baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] + 0.0001
+            elif i == 3:
+                baseline_fit_coefficients_temp[1] = baseline_fit_coefficients_temp[1] - 0.001
+            elif i == 4:
+                baseline_fit_coefficients_temp[1] = baseline_fit_coefficients_temp[2] + 0.001
+            elif i == 5:
+                baseline_fit_coefficients_temp[2] = baseline_fit_coefficients_temp[2] - 0.1
+            elif i == 6:
+                baseline_fit_coefficients_temp[2] = baseline_fit_coefficients_temp[2] + 0.1
+            elif i == 7:  # Decrease the ramp width
+                trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] - 1
+                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] + 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
+            elif i == 8:  # Increase the ramp width
+                trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] + 1
+                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] - 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
+            elif i == 9:  # Decrease plateau width
+                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] - 2
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
+
+            elif i == 10:  # Increase plateau width
+                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] + 2
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
+
+            elif i == 11:  # Shift centre to the left
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
+
+            elif i == 12:  # Shift centre to the right
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
+                trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
+
+            elif i == 13:  # Reduce amplitude
+                trapezoid_fit_coefficients_temp[4] = trapezoid_fit_coefficients_temp[4] - 0.1
+
+            elif i == 14:  # Increase amplitude
+                trapezoid_fit_coefficients_temp[4] = trapezoid_fit_coefficients_temp[4] + 0.1
+
+            new_error = get_error(base=baseline_fit_coefficients_temp, trap=trapezoid_fit_coefficients_temp)
+            if new_error < current_error:
+                if i > 6:
+                    trapezoid_fit_coefficients = trapezoid_fit_coefficients_temp
+                else:
+                    baseline_fit_coefficients = baseline_fit_coefficients_temp
+                current_error = new_error
+                cont = 1
+
+    return trapezoid_fit_coefficients, baseline_fit_coefficients
+
+
+def get_slice_width(dcm):
+    """
+    Calculates slice width using double wedge image
+
+    Args:
+        dcm:
+
+    Returns:
+
+    """
+    slice_width = {"top": {}, "bottom": {}, "combined": {}}
+    arr = dcm.pixel_array
+    sample_spacing = 0.25
+    pixel_size = dcm.PixelSpacing[0]
+
+    rods = get_rods(dcm)
+    horz_dist, vert_dist = get_rod_distances(rods)
+    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_dist)
+    ramp_profiles = get_ramp_profiles(arr, rods)
+    ramp_profiles_baseline_corrected = {"top": baseline_correction(np.mean(ramp_profiles["top"], axis=0),
+                                                                   sample_spacing),
+                                        "bottom": baseline_correction(np.mean(ramp_profiles["bottom"], axis=0),
+                                                                      sample_spacing)}
+
+    for key, value in ramp_profiles_baseline_corrected["top"].items():
+        print((key, len(value)))
+
+    trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["top"],
+                                                                  dcm.SliceThickness)
+    _, fwhm = trapezoid(*trapezoid_coefficients)
+
+    slice_width["top"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3*pi)/180)
+    # Factor of 4 because interpolated by factor of four
+
+    slice_width["top"]["geometry_corrected"] = slice_width["top"]["default"]/correction_coefficients["top"]
+
+    # AAPM method directly incorporating phantom tilt
+    slice_width["top"]["aapm"] = fwhm * sample_spacing * pixel_size
+
+    # AAPM method directly incorporating phantom tilt and independent of geometric linearity
+    slice_width["top"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients["top"]
+
+    trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["bottom"],
+                                                                  dcm.SliceThickness)
+    _, fwhm = trapezoid(*trapezoid_coefficients)
+
+    slice_width["bottom"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3 * pi) / 180)
+    # Factor of 4 because interpolated by factor of four
+
+    slice_width["bottom"]["geometry_corrected"] = slice_width["bottom"]["default"] / correction_coefficients["bottom"]
+
+    # AAPM method directly incorporating phantom tilt
+    slice_width["bottom"]["aapm"] = fwhm * sample_spacing * pixel_size
+
+    # AAPM method directly incorporating phantom tilt and independent of geometric linearity
+    slice_width["bottom"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients["bottom"]
+
+    # Geometric mean of slice widths (pg 34 of IPEM Report 80)
+    slice_width["combined"]["default"] = (slice_width["top"]["default"] * slice_width["bottom"]["default"]) ** 0.5
+    slice_width["combined"]["geometry_corrected"] = (slice_width["top"]["geometry_corrected"] * slice_width["bottom"]["geometry_corrected"])  **0.5
+
+    # AAPM method directly incorporating phantom tilt
+    theta = (180.0 - 2.0 * 11.3) * pi / 180.0
+    term1 = (np.cos(theta)) ** 2.0 * (slice_width["bottom"]["aapm"] - slice_width["top"]["aapm"])**2.0 + (4.0 * slice_width["bottom"]["aapm"] * slice_width["top"]["aapm"])
+    term2 = (slice_width["bottom"]["aapm"] + slice_width["top"]["aapm"]) * np.cos(theta)
+    term3 = 2.0 * np.sin(theta)
+
+    slice_width["combined"]["aapm_tilt"] = (term1**0.5 + term2)/term3
+    phantom_tilt = np.arctan(slice_width["combined"]["aapm_tilt"]/slice_width["bottom"]["aapm"]) + (theta/2.0) - pi/2.0
+    phantom_tilt_deg = phantom_tilt * (180.0/pi)
+
+    phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt"]/slice_width["top"]["aapm"]) - (theta/2.0) + pi/2.0
+    phantom_tilt_check_deg = phantom_tilt_check * (180.0/pi)
+
+    # AAPM method directly incorporating phantom tilt and independent of geometric linearity
+    theta = (180.0 - 2.0 * 11.3) * pi/180.0
+    term1 = (np.cos(theta)) ** 2.0 * (slice_width["bottom"]["aapm_corrected"] - slice_width["top"]["aapm_corrected"])**2.0 + (4.0 * slice_width["bottom"]["aapm_corrected"] * slice_width["top"]["aapm_corrected"])
+    term2 = (slice_width["bottom"]["aapm_corrected"] + slice_width["top"]["aapm_corrected"]) * np.cos(theta)
+    term3 = 2.0 * np.sin(theta)
+
+    slice_width["combined"]["aapm_tilt_corrected"] = (term1 ** 0.5 + term2) / term3
+    phantom_tilt = np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["bottom"]["aapm_corrected"]) + (theta / 2.0) - pi / 2.0
+    phantom_tilt_deg = phantom_tilt * (180.0 / pi)
+
+    phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["top"]["aapm_corrected"]) - (
+                theta / 2.0) + pi / 2.0
+    phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
+
+
 
     return slice_width
 
@@ -340,198 +540,3 @@ def main(data: list) -> list:
     results = get_slice_width(dcm)
 
     return [results]
-
-
-def simon_slice_width():
-    # Calculate the correction coeff for the top and bottom profiles
-    # divided by 120mm - as this is the distance between the rods
-    Correction_Coeff = [None] * 2
-    Correction_Coeff[0] = np.mean(np.multiply(PixelSpace[0], horz_dist[1:2])) / 120  # Top profile
-    Correction_Coeff[1] = np.mean(np.multiply(PixelSpace[0], horz_dist[0:1])) / 120  # Bottom profile
-
-    # Round the rod positions, so they can be assigned to a pixel
-    rod_rows_int = np.round(rod_rows).astype(int)
-    rod_cols_int = np.round(rod_cols).astype(int)
-
-    # Find the central y-axis point for the top and bottom profiles
-    # done by finding the distance between the mid-distances of the central rods
-    top_profile_centre = np.round(((rod_rows_int[4] - rod_rows_int[1]) / 2) + rod_rows_int[1]).astype(int)
-    bot_profile_centre = np.round(((rod_rows_int[7] - rod_rows_int[4]) / 2) + rod_rows_int[4]).astype(int)
-
-    # Selected 20mm around the mid-distances and take the average to find the line profiles
-    Top_Profile = idown[(top_profile_centre - 10):(top_profile_centre + 9), rod_cols_int[5]:rod_cols_int[3]]
-    Top_Profile_av = np.mean(Top_Profile, axis=0)
-
-    Bot_Profile = idown[(bot_profile_centre - 10):(bot_profile_centre + 9), rod_cols_int[5]:rod_cols_int[3]]
-    Bot_Profile_av = np.mean(Bot_Profile, axis=0)
-
-    # FOR NOW JUST DO ONE PROFILE AND THE CLEAN SCRIPT UP
-    # First fit a quadratic curve to outer edges (30 pixels each side)
-    # concat the top and bottom profiles
-    combined = np.row_stack((Top_Profile_av, Bot_Profile_av))
-    # test = [Top_Profile_av],[Bot_Profile_av]
-    # test = np.array(test).astype(float)
-    # print("wtf", combined)
-    # print(combined[:][0])
-    # print("Top ", Top_Profile_av)
-    TrapzFit = np.zeros((2, 5))
-    for ii in range(0, 2):
-        Profile_tmp = combined[:][ii]
-        # print(Profile_tmp)
-        length_profile = len(Profile_tmp)
-        left = np.array(Profile_tmp[0:30])
-        right = np.array(Profile_tmp[90:])
-        outer_profile = np.concatenate([left, right])
-
-        # create the x axis for the outer profile
-        x_left = np.arange(30)
-        x_right = np.arange(30) + 90
-        x_outer = np.concatenate([x_left, x_right])
-
-        # seconds order poly fit of the outer profile
-        Pfit = np.poly1d(np.polyfit(x_outer, outer_profile, 2))
-
-        # use the poly fit to generate a quadratric curve with 0.25 space (high res)
-        sample_spacing = 0.25
-        x_interp = np.arange(0, 120, sample_spacing)
-        x = np.arange(0, 120)
-        baseline_interp = Pfit(x_interp)
-        baseline = Pfit(x)
-
-        # Remove the baseline effects from the profiles
-        Profile_corrected = Profile_tmp - baseline
-
-        f = interp1d(x, Profile_corrected, fill_value="extrapolate")
-        Profile_corrected_interp = f(x_interp)
-
-        Profile_interp = Profile_corrected_interp + baseline_interp
-
-        # Slice thinkness - need to get from dicom metadata
-
-        xdata = np.linspace(0, len(Profile_corrected_interp), len(Profile_corrected_interp))
-
-        popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
-                               bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]), method='trf')
-
-        print(popt)
-        TrapzFit[ii][:] = popt
-
-        fit = traps_ss(xdata, *popt)
-
-        fig = plt.figure(ii)
-        plt.plot(fit)
-        plt.plot(abs(Profile_corrected_interp))
-        plt.show()
-
-    #
-    print(TrapzFit)
-    # # now to convert to slice width from fit.
-    fwhm = [None] * 2
-    Slice_Width_mm = [None] * 2
-    Slice_Width_mm_Geometry_Corrected = [None] * 2
-    Slice_Width_mm_AAPM = [None] * 2
-    Slice_Width_mm_AAPM_Corrected = [None] * 2
-    for ii in range(0, 2):
-        fwhm[ii] = ((TrapzFit[ii][4]) - (TrapzFit[ii][3])) + ((TrapzFit[ii][3]) - (TrapzFit[ii][1]))
-        print(fwhm)
-        Slice_Width_mm[ii] = fwhm[ii] * sample_spacing * PixelSpace[0] * np.tan((11.3 * pi) / 180)
-        Slice_Width_mm_Geometry_Corrected[ii] = Slice_Width_mm[ii] / Correction_Coeff[ii]
-        Slice_Width_mm_AAPM[ii] = fwhm[ii] * sample_spacing * PixelSpace[0]
-        Slice_Width_mm_AAPM_Corrected[ii] = (fwhm[ii] * sample_spacing * PixelSpace[0]) / Correction_Coeff[ii]
-
-    # %Geometric mean of slice widths (pg 34 of IPEM Report 80)
-    slicewidth_geo_mean_mm = (Slice_Width_mm[0] * Slice_Width_mm[1]) ** (0.5)
-    slicewidth_Geometry_Corrected_geo_mean_mm = (Slice_Width_mm_Geometry_Corrected[0] *
-                                                 Slice_Width_mm_Geometry_Corrected[1]) ** (0.5)
-    #
-    # %AAPM method directly incorporating phantom tilt
-    theta = (180.0 - 2.0 * 11.3) * pi / 180.0
-    term1 = (np.cos(theta)) ** 2.0 * (Slice_Width_mm_AAPM[1] - Slice_Width_mm_AAPM[0]) ** 2.0 + (
-                4.0 * Slice_Width_mm_AAPM[1] * Slice_Width_mm_AAPM[0])
-    term2 = (Slice_Width_mm_AAPM[1] + Slice_Width_mm_AAPM[0]) * np.cos(theta)
-    term3 = 2.0 * np.sin(theta)
-    #
-    slicewidth_mean_mm_alternative = ((term1 ** 0.5) + term2) / term3
-    phantom_tilt = np.arctan(slicewidth_mean_mm_alternative / Slice_Width_mm_AAPM[1]) + (theta / 2.0) - pi / 2.0
-    phantom_tilt_deg = phantom_tilt * (180.0 / pi)
-    #
-    phantom_tilt_check = -np.arctan(slicewidth_mean_mm_alternative / Slice_Width_mm_AAPM[0]) - (theta / 2.0) + pi / 2.0
-    phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
-    #
-    # %AAPM method directly incorporating phantom tilt and independent of geometric linearity
-    theta = (180.0 - 2.0 * 11.3) * pi / 180.0
-    term1 = (np.cos(theta)) ** 2.0 * (Slice_Width_mm_AAPM_Corrected[1] - Slice_Width_mm_AAPM_Corrected[0]) ** 2.0 + \
-            (4.0 * Slice_Width_mm_AAPM_Corrected[1] * Slice_Width_mm_AAPM_Corrected[0])
-    term2 = (Slice_Width_mm_AAPM_Corrected[1] + Slice_Width_mm_AAPM_Corrected[0]) * np.cos(theta)
-    term3 = 2.0 * np.sin(theta)
-    #
-    slicewidth_mean_mm_geo_corr = ((term1 ** 0.5) + term2) / term3
-    phantom_tilt_corr = np.arctan(slicewidth_mean_mm_geo_corr / Slice_Width_mm_AAPM_Corrected[1]) + (
-                theta / 2.0) - pi / 2.0
-    phantom_tilt_deg_corr = phantom_tilt_corr * (180.0 / pi)
-    #
-    phantom_tilt_check_corr = -np.arctan(slicewidth_mean_mm_geo_corr / Slice_Width_mm_AAPM_Corrected[0]) - (
-                theta / 2.0) + pi / 2.0
-    phantom_tilt_check_deg_corr = phantom_tilt_check_corr * (180.0 / pi)
-    ##
-
-    f = open("test.txt", "w+")
-    f.write('Series Description: \s' + image.SeriesDescription + '\n')
-    f.write("Width: %d" % image.Rows + '\n')
-    f.write("Height: %d" % image.Columns + '\n')
-    f.write("Slice Thinkness (mm): %d" % image.SliceThickness + '\n')
-    f.write("Field of View (mm) : %d" % FOVx + '\n')
-    f.write("bandwidth (Hz/Px) : %d" % image.PixelBandwidth + '\n')
-    f.write("TR  (ms) : %d" % image.RepetitionTime + '\n')
-    f.write("TE  (ms) : %d" % image.EchoTime + '\n')
-    f.write("Flip Angle  (deg) : %d" % image.FlipAngle + '\n')
-
-    f.write("Horizontal line bottom (mm) %f" % horz_dist[0] + '\n')
-    f.write("Horizontal line middle (mm) %f" % horz_dist[1] + '\n')
-    f.write("Horizontal line top (mm) %f" % horz_dist[2] + '\n')
-    f.write("Horizontal Linearity (mm)\ %f" % horz_dist_mm + '\n')
-    f.write("Horizontal Distortion \ %f" % horz_distortion + '\n')
-
-    f.write("Vertical line bottom (mm) %f" % vert_dist[0] + '\n')
-    f.write("Vertical line middle (mm) %f" % vert_dist[1] + '\n')
-    f.write("Vertical line top (mm) %f" % vert_dist[2] + '\n')
-    f.write("Vertical Linearity (mm)\ %f" % vert_dist_mm + '\n')
-    f.write("Vertical Distortion \ %f" % vert_distortion + '\n')
-
-    f.write("Slice width top (mm) \ %f" % Slice_Width_mm[0] + '\n')
-    f.write("Slice width bottom (mm) \ %f" % Slice_Width_mm[1] + '\n')
-    f.write("Phantom tilt (deg) \ %f" % phantom_tilt_deg + '\n')
-    f.write("Slice width AAPM geometry corrected (mm) %f" % slicewidth_mean_mm_geo_corr + '\n')
-    f.close()
-
-    f = open("test2.txt", "w+")
-    f.write("%d" % image.Rows + '\n')
-    f.write("%d" % image.Columns + '\n')
-    f.write("%d" % image.SliceThickness + '\n')
-    f.write("%d" % FOVx + '\n')
-    f.write("%d" % image.PixelBandwidth + '\n')
-    f.write("%d" % image.RepetitionTime + '\n')
-    f.write("%d" % image.EchoTime + '\n')
-    f.write("%d" % image.FlipAngle + '\n')
-
-    f.write("%f" % horz_dist[0] + '\n')
-    f.write("%f" % horz_dist[1] + '\n')
-    f.write("%f" % horz_dist[2] + '\n')
-    f.write("%f" % horz_dist_mm + '\n')
-    f.write("%f" % horz_distortion + '\n')
-
-    f.write("%f" % vert_dist[0] + '\n')
-    f.write("%f" % vert_dist[1] + '\n')
-    f.write("%f" % vert_dist[2] + '\n')
-    f.write("%f" % vert_dist_mm + '\n')
-    f.write("%f" % vert_distortion + '\n')
-
-    f.write("%f" % Slice_Width_mm[0] + '\n')
-    f.write("%f" % Slice_Width_mm[1] + '\n')
-    f.write("%f" % phantom_tilt_deg + '\n')
-    f.write("%f" % slicewidth_mean_mm_geo_corr + '\n')
-    f.close()
-
-
-if __name__ == "__main__":
-    main([os.path.join(sys.argv[1], i) for i in os.listdir(sys.argv[1])])
