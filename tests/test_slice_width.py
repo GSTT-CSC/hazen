@@ -13,9 +13,15 @@ class TestSliceWidth(unittest.TestCase):
     # 789
     # 456
     # 123
-    MATLAB_RODS = [[71.2857, 191.5000], [130.5000, 190.5000], [190.6000, 189.4000],
-                   [69.5000, 131.5000], [128.7778, 130.5000], [189.1111, 129.2778],
-                   [69.0000, 71.5000], [128.1176, 70.4118], [188.5000, 69.2222]]
+    matlab_rods = [hazen_slice_width.Rod(71.2857, 191.5000),
+                   hazen_slice_width.Rod(130.5000, 190.5000),
+                   hazen_slice_width.Rod(190.6000, 189.4000),
+                   hazen_slice_width.Rod(69.5000, 131.5000),
+                   hazen_slice_width.Rod(128.7778, 130.5000),
+                   hazen_slice_width.Rod(189.1111, 129.2778),
+                   hazen_slice_width.Rod(69.0000, 71.5000),
+                   hazen_slice_width.Rod(128.1176, 70.4118),
+                   hazen_slice_width.Rod(188.5000, 69.2222)]
 
     # 789
     # 456
@@ -38,17 +44,40 @@ class TestSliceWidth(unittest.TestCase):
         dcm = pydicom.read_file(self.test_files[0])
         rods = hazen_slice_width.get_rods(dcm)
 
-        assert rods[0] == self.rods[0]
+        assert rods == self.rods
+
+    def test_get_rod_distances(self):
+        # From MATLAB Rods
+        # Horizontal_Distance_Pixels = 119.3328 (rod3 - rod1) 119.6318 (rod6 - rod4)  119.5217 (rod9 - rod7)
+        # Vertical_Distance_Pixels = 120.0218 (rod1 - rod7)  120.1119 (rod2 - rod8)  120.1961 (rod3 - rod9)
+
+        distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
+        print(distances)
+        assert distances == ([119.333, 119.632, 119.522], [120.022, 120.112, 120.196])
+
+    def test_get_rod_distortion_correction_coefficients(self):
+        distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
+        print(hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0]))
+        assert hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0]) == {"top": 0.9965,
+                                                                                              "bottom": 0.9957}
 
     def test_rod_distortions(self):
         dcm = pydicom.read_file(self.test_files[0])
         result = hazen_slice_width.get_rod_distortions(self.rods, dcm)
-        print(result)
         assert result == (0.3464633436804712, 0.2880737989705986)
 
-    def test_trapezoid(self):
+    def test_get_profiles(self):
+        pass
 
-        assert hazen_slice_width.trapezoid([]*100, 50, 10, 90, 30, 70) == 10
+    def test_baseline_correction(self):
+
+
+    def test_trapezoid(self):
+        # variables from one iteration of the original matlab script
+        #  n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude =
+        #  55.0000   58.0000  156.0000  153.0000 -136.6194 and fwhm 113
+
+        assert hazen_slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
 
     def test_slice_width(self):
         results = hazen_slice_width.main(self.test_files)

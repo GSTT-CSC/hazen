@@ -1,15 +1,7 @@
-# slice_width.py
-#
-# Reads any DICOM images within the directory and analyses them with the available scripts
-#
-# Slice width
-#
-# Simon Shah
-# 23rd Oct 2018
-
 import os
 from math import pi
 import sys
+import itertools
 
 import pydicom
 import numpy as np
@@ -49,7 +41,7 @@ class Rod:
 
 def get_rods(dcm):
     fig, ax = plt.subplots(nrows=2, ncols=2)
-
+    fig.suptitle("get_rods")
     arr = dcm.pixel_array
     ax[0][0].imshow(arr, cmap='gray')
     # threshold and binaries the image in order to locate the rods.
@@ -96,7 +88,7 @@ def get_rods(dcm):
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
     for idx, i in enumerate(rods):
-        ax[1][1].scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=5, linewidths=0.5)
+        ax[1][1].scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=10, linewidths=0.4)
     # ax[1][1].scatter(x=[i.x for i in rods], y=[i.y for i in rods], marker="+", s=1, linewidths=0.5)
     fig.savefig('rods.png')
     return rods
@@ -104,7 +96,7 @@ def get_rods(dcm):
 
 def get_rod_distances(rods):
     """
-    Calculate horizontal and vertical distances of rods
+    Calculate horizontal and vertical distances of rods in terms of pixels
 
     Args:
         rods:
@@ -114,15 +106,31 @@ def get_rod_distances(rods):
     """
     horz_dist = [None] * 3
     vert_dist = [None] * 3
-    horz_dist[2] = (((rods[2].y - rods[0].y) ** 2) + (rods[2].x - rods[0].x) ** 2) ** 0.5
-    horz_dist[1] = (((rods[5].y - rods[3].y) ** 2) + (rods[5].x - rods[3].x) ** 2) ** 0.5
-    horz_dist[0] = (((rods[8].y - rods[6].y) ** 2) + (rods[8].x - rods[6].x) ** 2) ** 0.5
+    horz_dist[0] = round((((rods[2].y - rods[0].y) ** 2) + (rods[2].x - rods[0].x) ** 2) ** 0.5, 3)
+    horz_dist[1] = round((((rods[5].y - rods[3].y) ** 2) + (rods[5].x - rods[3].x) ** 2) ** 0.5, 3)
+    horz_dist[2] = round((((rods[8].y - rods[6].y) ** 2) + (rods[8].x - rods[6].x) ** 2) ** 0.5, 3)
 
-    vert_dist[0] = (((rods[2].y - rods[8].y) ** 2) + (rods[2].x - rods[8].x) ** 2) ** 0.5
-    vert_dist[1] = (((rods[1].y - rods[7].y) ** 2) + (rods[1].x - rods[7].x) ** 2) ** 0.5
-    vert_dist[2] = (((rods[0].y - rods[6].y) ** 2) + (rods[0].x - rods[6].x) ** 2) ** 0.5
+    vert_dist[2] = round((((rods[2].y - rods[8].y) ** 2) + (rods[2].x - rods[8].x) ** 2) ** 0.5, 3)
+    vert_dist[1] = round((((rods[1].y - rods[7].y) ** 2) + (rods[1].x - rods[7].x) ** 2) ** 0.5, 3)
+    vert_dist[0] = round((((rods[0].y - rods[6].y) ** 2) + (rods[0].x - rods[6].x) ** 2) ** 0.5, 3)
 
     return horz_dist, vert_dist
+
+
+def get_rod_distortion_correction_coefficients(horizontal_distances) -> dict:
+    """
+    To remove the effect of geometric distortion from the slice width measurement. Assumes that rod separation is
+    120 mm.
+    Args:
+        horizontal_distances: list containing horizontal rod distances
+
+    Returns:
+        coefficients: dictionary containing top and bottom distortion corrections
+    """
+    coefficients = {"top": round(np.mean(horizontal_distances[1:3]) / 120, 4),
+                    "bottom": round(np.mean(horizontal_distances[0:2]) / 120, 4)}
+
+    return coefficients
 
 
 def get_rod_distortions(rods, dcm):
@@ -203,44 +211,61 @@ def baseline_correction(profile):
     return profile_interp
 
 
-def trapezoid(x, base, start, stop, topleft, topright):
+def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
     # n_ramp
     # n_plateau
     # n_left_baseline
     # n_right_baseline
     # plateau_amplitude
 
-    y = np.zeros(len(x))
+    if n_left_baseline < 1:
+        left_baseline = []
+    else:
+        left_baseline = np.zeros(n_left_baseline)
 
-    # gradient from bottom left to top left
-    a = np.float((topleft - start) / topleft)
-    # range of values on the slope up
-    z = np.arange(int(topleft) - int(start))
+    if n_ramp < 1:
+        left_ramp = []
+        right_ramp = []
+    else:
+        left_ramp = np.linspace(0, plateau_amplitude, n_ramp)
+        right_ramp = np.linspace(plateau_amplitude, 0, n_ramp)
 
-    # need to set some conditions on start and stop, top left and top right so they are the same length.
-    stop = int(topright) + (int(topleft) - int(start))
-    y[:int(start)] = base
+    if n_plateau < 1:
+        plateau = []
+    else:
+        plateau = plateau_amplitude * np.ones(n_plateau)
 
-    y[int(start):int(topleft)] = base + (a * z)
+    if n_right_baseline < 1:
+        right_baseline = []
+    else:
+        right_baseline = np.zeros(n_right_baseline)
 
-    y[int(topleft):int(topright)] = base + (a * z[-1])
+    list_of_lists = [left_baseline, left_ramp, plateau, right_ramp, right_baseline]
 
-    y[int(topright):int(stop)] = (base + (a * z[-1])) - (z * a)
+    trapezoid = list(itertools.chain(*list_of_lists))
+    fwhm = n_plateau + n_ramp
 
-    y[int(stop):] = base
-
-    plt.figure()
-    plt.plot(y)
-
-    fwhm = (topright - topleft) + (topleft - start)
-
-    print(fwhm)
-
-    return y
+    return trapezoid, fwhm
 
 
-def get_profile(arr, x, y, width, n):
-    pass
+def get_profiles(image_array, rods) -> dict:
+    # Find the central y-axis point for the top and bottom profiles
+    # done by finding the distance between the mid-distances of the central rods
+
+    top_profile_vertical_centre = np.round(((rods[5].y - rods[8].y) / 2) + rods[8].y).astype(int)
+    bottom_profile_vertical_centre = np.round(((rods[2].y - rods[5].y) / 2) + rods[5].y).astype(int)
+
+    # Selected 20mm around the mid-distances and take the average to find the line profiles
+    top_profile = image_array[
+                  (top_profile_vertical_centre - 10):(top_profile_vertical_centre + 10),
+                  int(rods[3].x):int(rods[5].x)]
+
+    bottom_profile = image_array[
+                     (bottom_profile_vertical_centre - 10):(bottom_profile_vertical_centre + 10),
+                     int(rods[3].x):int(rods[5].x)]
+
+    return {"top": top_profile, "bottom": bottom_profile,
+            "top-centre": top_profile_vertical_centre, "bottom-centre": bottom_profile_vertical_centre}
 
 
 def get_slice_width(dcm):
@@ -255,24 +280,14 @@ def get_slice_width(dcm):
     """
 
     slice_width = 0.0
-
     arr = dcm.pixel_array
 
     rods = get_rods(dcm)
     horz_dist, vert_dist = get_rod_distances(rods)
+    correction_coeff = get_rod_distortion_correction_coefficients(horizontal_distances=horz_dist)
+    profiles = get_profiles(arr, rods)
 
-    correction_coeff = [None] * 2
-    correction_coeff[0] = np.mean(np.multiply(dcm.PixelSpacing[0], horz_dist[1:2])) / 120  # Top profile
-    correction_coeff[1] = np.mean(np.multiply(dcm.PixelSpacing[0], horz_dist[0:1])) / 120  # Bottom profile
 
-    # Find the central y-axis point for the top and bottom profiles
-    # done by finding the distance between the mid-distances of the central rods
-
-    top_profile_centre = np.round(((rods[5].y - rods[8].y) / 2) + rods[8].y).astype(int)
-    bottom_profile_centre = np.round(((rods[2].y - rods[5].y) / 2) + rods[5].y).astype(int)
-
-    # Selected 20mm around the mid-distances and take the average to find the line profiles
-    top_profile = arr[(top_profile_centre-10):(top_profile_centre+10), int(rods[3].x):int(rods[5].x)]
 
     plt.figure()
     plt.imshow(arr)
@@ -282,21 +297,23 @@ def get_slice_width(dcm):
     for idx, i in enumerate(rods):
         plt.scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=15, linewidths=0.5)
 
-    for i, val in enumerate(top_profile):
-        plt.plot(range(int(rods[3].x), int(rods[5].x)), [top_profile_centre-10+i]*120, '-', color='red')
+    for i, val in enumerate(profiles["top"]):
+        plt.plot(range(int(rods[3].x), int(rods[5].x)), [profiles["top-centre"] - 10 + i] * 120, '-', color='red')
+
+    for i, val in enumerate(profiles["bottom"]):
+        plt.plot(range(int(rods[3].x), int(rods[5].x)), [profiles["bottom-centre"] - 10 + i] * 120, '-', color='red')
 
     plt.figure()
-    for i in top_profile:
+    for i in profiles["top"]:
         plt.plot(i)
-    plt.plot(top_profile[1])
+    plt.plot(profiles["top"][1])
 
-    top_profile_mean = np.mean(top_profile, axis=0)
+    top_profile_mean = np.mean(profiles["top"], axis=0)
 
     plt.figure()
     plt.plot(top_profile_mean)
 
-    bottom_profile = arr[(bottom_profile_centre-10):(bottom_profile_centre+10), int(rods[0].x):int(rods[2].x)]
-    bottom_profile_mean = np.mean(bottom_profile, axis=0)
+    bottom_profile_mean = np.mean(profiles['bottom'], axis=0)
 
     top_profile_mean_corrected = baseline_correction(profile=top_profile_mean)
     plt.figure()
@@ -328,9 +345,9 @@ def main(data: list) -> list:
 def simon_slice_width():
     # Calculate the correction coeff for the top and bottom profiles
     # divided by 120mm - as this is the distance between the rods
-    Correction_Coeff = [None]*2
-    Correction_Coeff[0] = np.mean(np.multiply(PixelSpace[0], horz_dist[1:2]))/120 # Top profile
-    Correction_Coeff[1] = np.mean(np.multiply(PixelSpace[0], horz_dist[0:1]))/120 # Bottom profile
+    Correction_Coeff = [None] * 2
+    Correction_Coeff[0] = np.mean(np.multiply(PixelSpace[0], horz_dist[1:2])) / 120  # Top profile
+    Correction_Coeff[1] = np.mean(np.multiply(PixelSpace[0], horz_dist[0:1])) / 120  # Bottom profile
 
     # Round the rod positions, so they can be assigned to a pixel
     rod_rows_int = np.round(rod_rows).astype(int)
@@ -342,13 +359,11 @@ def simon_slice_width():
     bot_profile_centre = np.round(((rod_rows_int[7] - rod_rows_int[4]) / 2) + rod_rows_int[4]).astype(int)
 
     # Selected 20mm around the mid-distances and take the average to find the line profiles
-    Top_Profile = idown[(top_profile_centre-10):(top_profile_centre+9),rod_cols_int[5]:rod_cols_int[3]]
+    Top_Profile = idown[(top_profile_centre - 10):(top_profile_centre + 9), rod_cols_int[5]:rod_cols_int[3]]
     Top_Profile_av = np.mean(Top_Profile, axis=0)
 
-    Bot_Profile = idown[(bot_profile_centre-10):(bot_profile_centre+9),rod_cols_int[5]:rod_cols_int[3]]
+    Bot_Profile = idown[(bot_profile_centre - 10):(bot_profile_centre + 9), rod_cols_int[5]:rod_cols_int[3]]
     Bot_Profile_av = np.mean(Bot_Profile, axis=0)
-
-
 
     # FOR NOW JUST DO ONE PROFILE AND THE CLEAN SCRIPT UP
     # First fit a quadratic curve to outer edges (30 pixels each side)
@@ -359,8 +374,8 @@ def simon_slice_width():
     # print("wtf", combined)
     # print(combined[:][0])
     # print("Top ", Top_Profile_av)
-    TrapzFit = np.zeros((2,5))
-    for ii in range(0,2):
+    TrapzFit = np.zeros((2, 5))
+    for ii in range(0, 2):
         Profile_tmp = combined[:][ii]
         # print(Profile_tmp)
         length_profile = len(Profile_tmp)
@@ -370,7 +385,7 @@ def simon_slice_width():
 
         # create the x axis for the outer profile
         x_left = np.arange(30)
-        x_right = np.arange(30)+90
+        x_right = np.arange(30) + 90
         x_outer = np.concatenate([x_left, x_right])
 
         # seconds order poly fit of the outer profile
@@ -391,17 +406,12 @@ def simon_slice_width():
 
         Profile_interp = Profile_corrected_interp + baseline_interp
 
-
         # Slice thinkness - need to get from dicom metadata
 
-
-
-
-        xdata = np.linspace(0, len(Profile_corrected_interp),len(Profile_corrected_interp))
+        xdata = np.linspace(0, len(Profile_corrected_interp), len(Profile_corrected_interp))
 
         popt, pcov = curve_fit(traps_ss, xdata, abs(Profile_corrected_interp), p0=[0, 150, 300, 200, 250],
-                               bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]),method='trf')
-
+                               bounds=([-10., 50., 201., 60., 200.], [10., 200., 400., 280., 400.]), method='trf')
 
         print(popt)
         TrapzFit[ii][:] = popt
@@ -413,18 +423,15 @@ def simon_slice_width():
         plt.plot(abs(Profile_corrected_interp))
         plt.show()
 
-
-
     #
     print(TrapzFit)
     # # now to convert to slice width from fit.
-    fwhm = [None]*2
-    Slice_Width_mm = [None]*2
-    Slice_Width_mm_Geometry_Corrected = [None]*2
-    Slice_Width_mm_AAPM = [None]*2
-    Slice_Width_mm_AAPM_Corrected = [None]*2
-    for ii in range(0,2):
-
+    fwhm = [None] * 2
+    Slice_Width_mm = [None] * 2
+    Slice_Width_mm_Geometry_Corrected = [None] * 2
+    Slice_Width_mm_AAPM = [None] * 2
+    Slice_Width_mm_AAPM_Corrected = [None] * 2
+    for ii in range(0, 2):
         fwhm[ii] = ((TrapzFit[ii][4]) - (TrapzFit[ii][3])) + ((TrapzFit[ii][3]) - (TrapzFit[ii][1]))
         print(fwhm)
         Slice_Width_mm[ii] = fwhm[ii] * sample_spacing * PixelSpace[0] * np.tan((11.3 * pi) / 180)
@@ -433,35 +440,39 @@ def simon_slice_width():
         Slice_Width_mm_AAPM_Corrected[ii] = (fwhm[ii] * sample_spacing * PixelSpace[0]) / Correction_Coeff[ii]
 
     # %Geometric mean of slice widths (pg 34 of IPEM Report 80)
-    slicewidth_geo_mean_mm = (Slice_Width_mm[0] * Slice_Width_mm[1])**(0.5)
-    slicewidth_Geometry_Corrected_geo_mean_mm = (Slice_Width_mm_Geometry_Corrected[0] * Slice_Width_mm_Geometry_Corrected[1])**(0.5)
+    slicewidth_geo_mean_mm = (Slice_Width_mm[0] * Slice_Width_mm[1]) ** (0.5)
+    slicewidth_Geometry_Corrected_geo_mean_mm = (Slice_Width_mm_Geometry_Corrected[0] *
+                                                 Slice_Width_mm_Geometry_Corrected[1]) ** (0.5)
     #
     # %AAPM method directly incorporating phantom tilt
-    theta = (180.0 - 2.0 * 11.3) * pi/180.0
-    term1 = (np.cos(theta))**2.0 * (Slice_Width_mm_AAPM[1] - Slice_Width_mm_AAPM[0])**2.0 + (4.0 * Slice_Width_mm_AAPM[1] * Slice_Width_mm_AAPM[0])
+    theta = (180.0 - 2.0 * 11.3) * pi / 180.0
+    term1 = (np.cos(theta)) ** 2.0 * (Slice_Width_mm_AAPM[1] - Slice_Width_mm_AAPM[0]) ** 2.0 + (
+                4.0 * Slice_Width_mm_AAPM[1] * Slice_Width_mm_AAPM[0])
     term2 = (Slice_Width_mm_AAPM[1] + Slice_Width_mm_AAPM[0]) * np.cos(theta)
     term3 = 2.0 * np.sin(theta)
     #
-    slicewidth_mean_mm_alternative = ((term1**0.5) + term2)/term3
-    phantom_tilt = np.arctan(slicewidth_mean_mm_alternative/Slice_Width_mm_AAPM[1]) + (theta/2.0) - pi/2.0
-    phantom_tilt_deg = phantom_tilt * (180.0/pi)
+    slicewidth_mean_mm_alternative = ((term1 ** 0.5) + term2) / term3
+    phantom_tilt = np.arctan(slicewidth_mean_mm_alternative / Slice_Width_mm_AAPM[1]) + (theta / 2.0) - pi / 2.0
+    phantom_tilt_deg = phantom_tilt * (180.0 / pi)
     #
-    phantom_tilt_check = -np.arctan(slicewidth_mean_mm_alternative/Slice_Width_mm_AAPM[0]) - (theta/2.0) + pi/2.0
-    phantom_tilt_check_deg = phantom_tilt_check * (180.0/pi)
+    phantom_tilt_check = -np.arctan(slicewidth_mean_mm_alternative / Slice_Width_mm_AAPM[0]) - (theta / 2.0) + pi / 2.0
+    phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
     #
     # %AAPM method directly incorporating phantom tilt and independent of geometric linearity
-    theta = (180.0 - 2.0 * 11.3) * pi/180.0
-    term1 = (np.cos(theta))**2.0 * (Slice_Width_mm_AAPM_Corrected[1] - Slice_Width_mm_AAPM_Corrected[0])**2.0 + \
+    theta = (180.0 - 2.0 * 11.3) * pi / 180.0
+    term1 = (np.cos(theta)) ** 2.0 * (Slice_Width_mm_AAPM_Corrected[1] - Slice_Width_mm_AAPM_Corrected[0]) ** 2.0 + \
             (4.0 * Slice_Width_mm_AAPM_Corrected[1] * Slice_Width_mm_AAPM_Corrected[0])
     term2 = (Slice_Width_mm_AAPM_Corrected[1] + Slice_Width_mm_AAPM_Corrected[0]) * np.cos(theta)
     term3 = 2.0 * np.sin(theta)
     #
-    slicewidth_mean_mm_geo_corr = ((term1**0.5) + term2)/term3
-    phantom_tilt_corr = np.arctan(slicewidth_mean_mm_geo_corr/Slice_Width_mm_AAPM_Corrected[1]) + (theta/2.0) - pi/2.0
-    phantom_tilt_deg_corr = phantom_tilt_corr * (180.0/pi)
+    slicewidth_mean_mm_geo_corr = ((term1 ** 0.5) + term2) / term3
+    phantom_tilt_corr = np.arctan(slicewidth_mean_mm_geo_corr / Slice_Width_mm_AAPM_Corrected[1]) + (
+                theta / 2.0) - pi / 2.0
+    phantom_tilt_deg_corr = phantom_tilt_corr * (180.0 / pi)
     #
-    phantom_tilt_check_corr = -np.arctan(slicewidth_mean_mm_geo_corr/Slice_Width_mm_AAPM_Corrected[0]) - (theta/2.0) + pi/2.0
-    phantom_tilt_check_deg_corr = phantom_tilt_check_corr * (180.0/pi)
+    phantom_tilt_check_corr = -np.arctan(slicewidth_mean_mm_geo_corr / Slice_Width_mm_AAPM_Corrected[0]) - (
+                theta / 2.0) + pi / 2.0
+    phantom_tilt_check_deg_corr = phantom_tilt_check_corr * (180.0 / pi)
     ##
 
     f = open("test.txt", "w+")
@@ -474,7 +485,6 @@ def simon_slice_width():
     f.write("TR  (ms) : %d" % image.RepetitionTime + '\n')
     f.write("TE  (ms) : %d" % image.EchoTime + '\n')
     f.write("Flip Angle  (deg) : %d" % image.FlipAngle + '\n')
-
 
     f.write("Horizontal line bottom (mm) %f" % horz_dist[0] + '\n')
     f.write("Horizontal line middle (mm) %f" % horz_dist[1] + '\n')
@@ -503,7 +513,6 @@ def simon_slice_width():
     f.write("%d" % image.RepetitionTime + '\n')
     f.write("%d" % image.EchoTime + '\n')
     f.write("%d" % image.FlipAngle + '\n')
-
 
     f.write("%f" % horz_dist[0] + '\n')
     f.write("%f" % horz_dist[1] + '\n')
