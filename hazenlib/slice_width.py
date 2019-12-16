@@ -1,3 +1,8 @@
+"""
+Assumptions:
+Square voxels, no multi-frame support
+"""
+
 from math import pi
 import sys
 
@@ -9,6 +14,23 @@ from scipy.optimize import curve_fit
 import matplotlib
 # matplotlib.use("agg")
 import matplotlib.pyplot as plt
+
+
+def get_fov(dcm):
+
+    if dcm.Manufacturer == "GE MEDICAL SYSTEMS":
+        return dcm['0019', '101e']
+    elif dcm.Manufacturer == 'SIEMENS':
+        return dcm.Rows*dcm.PixelSpacing[0]
+    elif dcm.Manufacturer =='Philips Medical Systems':
+        if dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4.1':
+        #Enhanced DICOM i.e. Multiframe DICOM
+            return dcm.Rows*dcm.PerFrameFunctionalGroupsSequence.Item_1.PixelMeasuresSequence.Item_1.PixelSpacing[0]
+        elif dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4':
+        #MRImageStorage Class
+            return dcm.Rows*dcm.PixelSpacing[0]
+    else:
+        raise Exception('Unrecognised SOPClassUID')
 
 
 class Rod:
@@ -452,8 +474,10 @@ def get_slice_width(dcm):
     pixel_size = dcm.PixelSpacing[0]
 
     rods = get_rods(dcm)
-    horz_dist, vert_dist = get_rod_distances(rods)
-    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_dist)
+    horz_distances, vert_distances = get_rod_distances(rods)
+    horz_distortion = 100*np.std(horz_distances)/np.mean(horz_distances)
+    vert_distortion = 100 * np.std(vert_distances) / np.mean(vert_distances)
+    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances)
     ramp_profiles = get_ramp_profiles(arr, rods)
     ramp_profiles_baseline_corrected = {"top": baseline_correction(np.mean(ramp_profiles["top"], axis=0),
                                                                    sample_spacing),
@@ -495,7 +519,7 @@ def get_slice_width(dcm):
 
     # Geometric mean of slice widths (pg 34 of IPEM Report 80)
     slice_width["combined"]["default"] = (slice_width["top"]["default"] * slice_width["bottom"]["default"]) ** 0.5
-    slice_width["combined"]["geometry_corrected"] = (slice_width["top"]["geometry_corrected"] * slice_width["bottom"]["geometry_corrected"])  **0.5
+    slice_width["combined"]["geometry_corrected"] = (slice_width["top"]["geometry_corrected"] * slice_width["bottom"]["geometry_corrected"]) ** 0.5
 
     # AAPM method directly incorporating phantom tilt
     theta = (180.0 - 2.0 * 11.3) * pi / 180.0
@@ -524,7 +548,17 @@ def get_slice_width(dcm):
                 theta / 2.0) + pi / 2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
-
+    print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(mm):"
+          f"{dcm.SliceThickness}\nField of View (mm): {get_fov(dcm)}\nbandwidth (Hz/Px) : {dcm.PixelBandwidth}\n"
+          f"TR  (ms) : {dcm.RepetitionTime}\nTE  (ms) : {dcm.EchoTime}\nFlip Angle  (deg) : {dcm.FlipAngle}\n"
+          f"Horizontal line bottom (mm): {horz_distances[0]}\nHorizontal line middle (mm): {horz_distances[2]}\n"
+          f"Horizontal line top (mm): {horz_distances[2]}\nHorizontal Linearity (mm): {np.mean(horz_distances)}\n"
+          f"Horizontal Distortion: {horz_distortion}\nVertical line left (mm): {vert_distances[0]}\n"
+          f"Vertical line middle (mm): {vert_distances[1]}\nVertical line right (mm): {vert_distances[2]}\n"
+          f"Vertical Linearity (mm): {np.mean(vert_distances)}\nVertical Distortion: {vert_distortion}\n"
+          f"Slice width top (mm): {slice_width['top']['default']}\n"
+          f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
+          f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
 
     return slice_width
 

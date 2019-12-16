@@ -190,7 +190,7 @@ def slice_position_error(data: list):
     return results
 
 
-def main(data: list)-> list:
+def main(data: list) -> list:
 
     if len(data) != 60:
         raise Exception('Need 60 DICOM')
