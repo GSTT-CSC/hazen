@@ -330,12 +330,12 @@ def plot_ramp_profiles(arr, ramp_profiles):
     plt.figure()
     plt.plot(top_profile_mean)
 
-    top_profile_mean_corrected = baseline_correction(profile=top_profile_mean)
+    top_profile_mean_corrected = baseline_correction(profile=top_profile_mean, sample_spacing=0.25)
     plt.figure()
     plt.plot(top_profile_mean_corrected)
     plt.title('top_profile_mean_corrected')
 
-    bottom_profile_mean_corrected = baseline_correction(profile=bottom_profile_mean)
+    bottom_profile_mean_corrected = baseline_correction(profile=bottom_profile_mean, sample_spacing=0.25)
     plt.figure()
     plt.plot(bottom_profile_mean_corrected)
     plt.title('bottom_profile_mean_corrected')
@@ -357,12 +357,12 @@ def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
 
     trapezoid_centre = round(np.median(np.argwhere(profile < np.mean(profile)))).astype(int)
 
-    n_total = len(profile) - 3  # because MATLAB misses 0, 0.25, 0.75
+    n_total = len(profile)
     n_left_baseline = int(trapezoid_centre - round(n_plateau / 2) - n_ramp - 1)
     n_right_baseline = n_total - n_left_baseline - 2 * n_ramp - n_plateau
     plateau_amplitude = np.percentile(profile, 5) - np.percentile(profile, 95)
     trapezoid_fit_coefficients = [n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude]
-    print(trapezoid_fit_coefficients)
+
     trapezoid_fit_initial, _ = trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude)
 
     return trapezoid_fit_initial, trapezoid_fit_coefficients
@@ -376,9 +376,11 @@ def fit_trapezoid(profiles, slice_thickness):
     profile_interp = profiles["profile_interpolated"]
     baseline_interpolated = profiles["baseline_fit"](x_interp)
     baseline_fit_coefficients = profiles["baseline_fit"]
-
+    print(profiles["baseline_fit"])
     # sum squared differences
     current_error = sum((profiles["profile_corrected_interpolated"] - (baseline_interpolated + trapezoid_fit)) ** 2)
+
+    print(current_error)
 
     def get_error(base, trap):
         """ Check if fit is improving """
@@ -394,13 +396,13 @@ def fit_trapezoid(profiles, slice_thickness):
     j = 0
     """Go through a series of changes to reduce error, if error doesnt reduced in one entire loop then exit"""
     while cont == 1:
-        print(f"j={j}")
         j += 1
         cont = 0
         baseline_fit_coefficients_temp = baseline_fit_coefficients
         trapezoid_fit_coefficients_temp = trapezoid_fit_coefficients
 
         for i in range(14):
+            print(f"\ti={i}")
             if i == 1:
                 baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] - 0.0001
             elif i == 2:
@@ -415,11 +417,11 @@ def fit_trapezoid(profiles, slice_thickness):
                 baseline_fit_coefficients_temp[2] = baseline_fit_coefficients_temp[2] + 0.1
             elif i == 7:  # Decrease the ramp width
                 trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] - 1
-                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] + 1
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
             elif i == 8:  # Increase the ramp width
                 trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] + 1
-                trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] - 1
+                trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
             elif i == 9:  # Decrease plateau width
                 trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] - 2
@@ -446,13 +448,15 @@ def fit_trapezoid(profiles, slice_thickness):
                 trapezoid_fit_coefficients_temp[4] = trapezoid_fit_coefficients_temp[4] + 0.1
 
             new_error = get_error(base=baseline_fit_coefficients_temp, trap=trapezoid_fit_coefficients_temp)
+
             if new_error < current_error:
+                print(f"\t\t{new_error} is less than {current_error}")
+                cont = 1
                 if i > 6:
                     trapezoid_fit_coefficients = trapezoid_fit_coefficients_temp
                 else:
                     baseline_fit_coefficients = baseline_fit_coefficients_temp
                 current_error = new_error
-                cont = 1
 
     return trapezoid_fit_coefficients, baseline_fit_coefficients
 
