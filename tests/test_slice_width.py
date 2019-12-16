@@ -39,7 +39,8 @@ class TestSliceWidth(unittest.TestCase):
         hazen_slice_width.Rod(188.20809898762656, 67.90438695163104)]
 
     def setUp(self):
-        self.test_files = [str(i) for i in (self.SLICE_WIDTH_DATA / 'SLICEWIDTH').iterdir()]
+        self.dcm = pydicom.read_file(str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' /
+                                         'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA'))
 
     def test_get_rods(self):
         dcm = pydicom.read_file(self.test_files[0])
@@ -67,8 +68,27 @@ class TestSliceWidth(unittest.TestCase):
         result = hazen_slice_width.get_rod_distortions(self.rods, dcm)
         assert result == (0.3464633436804712, 0.2880737989705986)
 
-    def test_get_profiles(self):
-        pass
+    def test_get_ramp_profiles(self):
+        top_centre = 102
+        bottom_centre = 162
+        matlab_profile = [693, 694.75, 688.6, 685.05, 682.2, 677.65, 677.35, 675.5, 668, 665.9, 663.05, 662.05, 662.1,
+                          657.75, 653.65, 654.75, 650.1, 648.65, 646.1, 645.9, 643.1, 639.4, 641.35, 639.1, 635.95,
+                          633.75, 633.9, 630.7, 627.25, 628.2, 628.05, 623.4, 624.35, 622.4, 621.15, 622.45, 615, 615.8,
+                          611.15, 605.2, 602.15, 595.75, 582.75, 573.5, 561.25, 550.4, 538.25, 524.9, 511.65, 499.9,
+                          489.7, 487.3, 477, 476.1, 469.55, 466.9, 467.7, 466, 465.05, 468, 464.7, 467.9, 464.65,
+                          468.85, 467.55, 468, 469.05, 473.25, 479.6, 483.8, 492.3, 500, 512.5, 523, 535.95, 548.3,
+                          561.8, 571.95, 585.35, 593.5, 601.55, 605.45, 609.3, 612.75, 617.1, 618.8, 620.35, 623.15,
+                          621.7, 623.35, 625.25, 628.4, 628.8, 631.55, 632.55, 633.4, 634.35, 638.1, 639.35, 640.3,
+                          641.75, 646.7, 648.1, 647.2, 648.95, 650.2, 653.95, 659.55, 660.8, 661.95, 663, 665.6, 666.15,
+                          670.75, 672.6, 674.15, 675.9, 677.5, 682.45, 684.3]
+
+        ramp_profiles = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods)
+        bottom_profiles = ramp_profiles["bottom"]
+        mean_bottom_profile = np.mean(bottom_profiles, axis=0).tolist()
+
+        assert ramp_profiles["bottom-centre"] == bottom_centre
+        assert ramp_profiles["top-centre"] == top_centre
+        assert mean_bottom_profile == matlab_profile
 
     def test_baseline_correction(self):
         # matlab top 0.0215   -2.9668  602.4568
@@ -76,7 +96,8 @@ class TestSliceWidth(unittest.TestCase):
 
         dcm = pydicom.read_file(self.test_files[0])
         ramps = hazen_slice_width.get_ramp_profiles(dcm.pixel_array, self.matlab_rods)
-        assert hazen_slice_width.baseline_correction(np.mean(ramps["bottom"], axis=0), sample_spacing=0.25)["baseline_fit"] == [0.0239, -2.9349,  694.9520]
+        assert list(hazen_slice_width.baseline_correction(np.mean(ramps["top"], axis=0), sample_spacing=0.25)["f"]) == [
+            0.0239, -2.9349, 694.9520]
 
     def test_trapezoid(self):
         # variables from one iteration of the original matlab script

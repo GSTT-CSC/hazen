@@ -215,7 +215,7 @@ def baseline_correction(profile, sample_spacing):
     x_left = np.arange(padding)
     x_right = np.arange(profile_width - padding, profile_width)
     x_outer = np.concatenate([x_left, x_right])
-
+    # print(outer_profile)
     # seconds order poly fit of the outer profile
     polynomial_coefficients = np.polyfit(x_outer, outer_profile, 2)
     polynomial_fit = np.poly1d(polynomial_coefficients)
@@ -233,7 +233,8 @@ def baseline_correction(profile, sample_spacing):
     profile_corrected_interp = f(x_interp)
     profile_interp = profile_corrected_interp + baseline_interp
 
-    return {"x_interpolated": x_interp,
+    return {"f": polynomial_coefficients,
+            "x_interpolated": x_interp,
             "baseline_fit": polynomial_fit,
             "baseline_interpolated": baseline_interp,
             "profile_interpolated": profile_interp,
@@ -294,8 +295,8 @@ def get_ramp_profiles(image_array, rods) -> dict:
     # Find the central y-axis point for the top and bottom profiles
     # done by finding the distance between the mid-distances of the central rods
 
-    top_profile_vertical_centre = np.round(((rods[5].y - rods[8].y) / 2) + rods[8].y).astype(int)
-    bottom_profile_vertical_centre = np.round(((rods[2].y - rods[5].y) / 2) + rods[5].y).astype(int)
+    top_profile_vertical_centre = np.round(((rods[3].y - rods[6].y) / 2) + rods[6].y).astype(int)
+    bottom_profile_vertical_centre = np.round(((rods[0].y - rods[3].y) / 2) + rods[3].y).astype(int)
 
     # Selected 20mm around the mid-distances and take the average to find the line profiles
     top_profile = image_array[
