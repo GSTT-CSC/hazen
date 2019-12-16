@@ -59,6 +59,17 @@ class Rod:
 
 
 def get_rods(dcm):
+    """
+    The rod indices are ordered as:
+        789
+        456
+        123
+    Args:
+        dcm:
+
+    Returns:
+
+    """
     fig, ax = plt.subplots(nrows=2, ncols=2)
     fig.suptitle("get_rods")
     arr = dcm.pixel_array
@@ -163,37 +174,26 @@ def get_rod_distortion_correction_coefficients(horizontal_distances) -> dict:
 
 
 def get_rod_distortions(rods, dcm):
-    # find the horizontal and vertical distances for the rods (top mid bot and left mid right
-    # the rod indices are ordered as:
-    # 789
-    # 456
-    # 123
-    pixel_spacing = dcm.PixelSpacing
-    getFOV = np.array(dcm[0x0018, 0x1310].value)
-    FOV = np.where(getFOV)[0]
-    FOVx = getFOV[FOV[0]] * pixel_spacing[0]
-    FOVy = getFOV[FOV[1]] * pixel_spacing[1]
+    pixel_spacing = dcm.PixelSpacing[0]
 
     horz_dist, vert_dist = get_rod_distances(rods)
 
     # calculate the horizontal and vertical distances
-    horz_dist_mm = np.mean(np.multiply(pixel_spacing[0], horz_dist))
-    vert_dist_mm = np.mean(np.multiply(pixel_spacing[1], vert_dist))
+    horz_dist_mm = np.multiply(pixel_spacing, horz_dist)
+    vert_dist_mm = np.multiply(pixel_spacing, vert_dist)
 
-    # Calculate the distortion in the horizontal and vertical directions
-    horz_distortion = 100 * (np.std(np.multiply(pixel_spacing[0], horz_dist))) / horz_dist_mm
-    vert_distortion = 100 * (np.std(np.multiply(pixel_spacing[0], vert_dist))) / vert_dist_mm
-
+    horz_distortion = 100 * np.std(horz_dist_mm, ddof=1) / np.mean(horz_dist_mm) # ddof to match MATLAB std
+    vert_distortion = 100 * np.std(vert_dist_mm, ddof=1) / np.mean(vert_dist_mm)
     return horz_distortion, vert_distortion
 
 
-class Trapezoid(np.ndarray):
-    def __init__(self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude, shape):
-        super().__init__(shape)
-        self.n_ramp, self.n_plateau, self.n_left_baseline, self.n_right_baseline, self.plateau_amplitude = n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
-
-    def __repr__(self):
-        return f'Trapezoid: {self.n_ramp}, {self.n_plateau}, {self.n_left_baseline}, {self.n_right_baseline}, {self.plateau_amplitude}'
+# class Trapezoid(np.ndarray):
+#     def __init__(self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude, shape):
+#         super().__init__(shape)
+#         self.n_ramp, self.n_plateau, self.n_left_baseline, self.n_right_baseline, self.plateau_amplitude = n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
+#
+#     def __repr__(self):
+#         return f'Trapezoid: {self.n_ramp}, {self.n_plateau}, {self.n_left_baseline}, {self.n_right_baseline}, {self.plateau_amplitude}'
 
 
 def baseline_correction(profile, sample_spacing):
@@ -207,7 +207,6 @@ def baseline_correction(profile, sample_spacing):
     Returns:
 
     """
-    print(f"length of profile: {len(profile)}, shape: {profile.shape}")
     profile_width = len(profile)
     padding = 30
     outer_profile = np.concatenate([profile[0:padding], profile[-padding:]])
@@ -215,7 +214,7 @@ def baseline_correction(profile, sample_spacing):
     x_left = np.arange(padding)
     x_right = np.arange(profile_width - padding, profile_width)
     x_outer = np.concatenate([x_left, x_right])
-    # print(outer_profile)
+
     # seconds order poly fit of the outer profile
     polynomial_coefficients = np.polyfit(x_outer, outer_profile, 2)
     polynomial_fit = np.poly1d(polynomial_coefficients)
@@ -347,19 +346,18 @@ def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
     n_plateau, n_ramp = None, None
 
     if slice_thickness == 3:
-        # not sure where these magic numbers are from
-        n_ramp = 8
-        n_plateau = 33
+        # not sure where these magic numbers are from, I subtracted 1 from MATLAB numbers
+        n_ramp = 7
+        n_plateau = 32
 
     elif slice_thickness == 5:
-        # not sure where these magic numbers are from
-        n_ramp = 48
-        n_plateau = 56
+        # not sure where these magic numbers are from, I subtracted 1 from MATLAB numbers
+        n_ramp = 47
+        n_plateau = 55
 
-    trapezoid_centre = np.median(np.argwhere(profile < np.mean(profile)))
-    print(trapezoid_centre)
-    n_total = len(profile)
+    trapezoid_centre = round(np.median(np.argwhere(profile < np.mean(profile)))).astype(int)
 
+    n_total = len(profile) - 3  # because MATLAB misses 0, 0.25, 0.75
     n_left_baseline = int(trapezoid_centre - round(n_plateau / 2) - n_ramp - 1)
     n_right_baseline = n_total - n_left_baseline - 2 * n_ramp - n_plateau
     plateau_amplitude = np.percentile(profile, 5) - np.percentile(profile, 95)
@@ -476,17 +474,14 @@ def get_slice_width(dcm):
 
     rods = get_rods(dcm)
     horz_distances, vert_distances = get_rod_distances(rods)
-    horz_distortion = 100*np.std(horz_distances)/np.mean(horz_distances)
-    vert_distortion = 100 * np.std(vert_distances) / np.mean(vert_distances)
+    horz_distortion, vert_distortion = get_rod_distortions(rods, dcm)
     correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances)
+
     ramp_profiles = get_ramp_profiles(arr, rods)
     ramp_profiles_baseline_corrected = {"top": baseline_correction(np.mean(ramp_profiles["top"], axis=0),
                                                                    sample_spacing),
                                         "bottom": baseline_correction(np.mean(ramp_profiles["bottom"], axis=0),
                                                                       sample_spacing)}
-
-    for key, value in ramp_profiles_baseline_corrected["top"].items():
-        print((key, len(value)))
 
     trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["top"],
                                                                   dcm.SliceThickness)

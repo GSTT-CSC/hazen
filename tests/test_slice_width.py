@@ -39,12 +39,11 @@ class TestSliceWidth(unittest.TestCase):
         hazen_slice_width.Rod(188.20809898762656, 67.90438695163104)]
 
     def setUp(self):
-        self.dcm = pydicom.read_file(str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' /
-                                         'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA'))
+        self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
+        self.dcm = pydicom.read_file(self.file)
 
     def test_get_rods(self):
-        dcm = pydicom.read_file(self.test_files[0])
-        rods = hazen_slice_width.get_rods(dcm)
+        rods = hazen_slice_width.get_rods(self.dcm)
 
         assert rods == self.rods
 
@@ -64,9 +63,8 @@ class TestSliceWidth(unittest.TestCase):
                                                                                               "bottom": 0.9957}
 
     def test_rod_distortions(self):
-        dcm = pydicom.read_file(self.test_files[0])
-        result = hazen_slice_width.get_rod_distortions(self.rods, dcm)
-        assert result == (0.3464633436804712, 0.2880737989705986)
+        horizontal_distortion, vertical_distortion = hazen_slice_width.get_rod_distortions(self.matlab_rods, self.dcm)
+        assert (round(horizontal_distortion, 2), round(vertical_distortion, 2)) == (0.13, 0.07)
 
     def test_get_ramp_profiles(self):
         top_centre = 102
@@ -94,10 +92,15 @@ class TestSliceWidth(unittest.TestCase):
         # matlab top 0.0215   -2.9668  602.4568
         # matlab bottom [0.0239, -2.9349,  694.9520]
 
-        dcm = pydicom.read_file(self.test_files[0])
-        ramps = hazen_slice_width.get_ramp_profiles(dcm.pixel_array, self.matlab_rods)
-        assert list(hazen_slice_width.baseline_correction(np.mean(ramps["top"], axis=0), sample_spacing=0.25)["f"]) == [
-            0.0239, -2.9349, 694.9520]
+        ramps = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods)
+
+        top_mean_ramp = np.mean(ramps["top"], axis=0)
+        top_coefficients = list(hazen_slice_width.baseline_correction(top_mean_ramp, sample_spacing=0.25)["f"])
+        assert round(top_coefficients[0], 4) == 0.0215
+
+        bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
+        bottom_coefficients = list(hazen_slice_width.baseline_correction(bottom_mean_ramp, sample_spacing=0.25)["f"])
+        assert round(bottom_coefficients[0], 4) == 0.0239
 
     def test_trapezoid(self):
         # variables from one iteration of the original matlab script
@@ -112,8 +115,35 @@ class TestSliceWidth(unittest.TestCase):
         fwhm = 104
         Returns:
         """
+        sample_spacing = 0.25
+        slice_thickness = self.dcm.SliceThickness
+        ramps = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods)
+        top_mean_ramp = np.mean(ramps["top"], axis=0)
+        bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
+        ramps_baseline_corrected = {
+            "top": hazen_slice_width.baseline_correction(top_mean_ramp, sample_spacing),
+            "bottom": hazen_slice_width.baseline_correction(bottom_mean_ramp, sample_spacing)
+        }
+
+        trapezoid_fit, trapezoid_fit_coefficients = hazen_slice_width.get_initial_trapezoid_fit_and_coefficients(
+            ramps_baseline_corrected["top"]["profile_corrected_interpolated"], slice_thickness)
+        assert trapezoid_fit_coefficients[:4] == [47, 55, 153, 175]
+
+        trapezoid_fit, trapezoid_fit_coefficients = hazen_slice_width.get_initial_trapezoid_fit_and_coefficients(
+            ramps_baseline_corrected["bottom"]["profile_corrected_interpolated"], slice_thickness)
+
+        assert trapezoid_fit_coefficients[:4] == [47, 55, 164, 164]
+
+    def test_fit_trapezoid(self):
+
+
+        trapezoid_fit_coefficients, baseline_fit_coefficients = hazen_slice_width.fit_trapezoid(
+            profiles=None, slice_thickness=self.dcm.SliceThickness)
+
+        assert trapezoid_fit_coefficients == []
+        assert baseline_fit_coefficients == []
 
     # def test_slice_width(self):
-    #     results = hazen_slice_width.main(self.test_files)
+    #     results = hazen_slice_width.main([self.file])
     #
     #     assert results == 5.48
