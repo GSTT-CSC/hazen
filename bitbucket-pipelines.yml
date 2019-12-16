@@ -15,7 +15,7 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazen --cov-report xml --junitxml=junit.xml tests/
+        - pytest --cov=hazenlib --cov-report xml --junitxml=junit.xml tests/
 
   - reporting: &reporting
       name: Uploading reports
