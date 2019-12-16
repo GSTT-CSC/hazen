@@ -71,10 +71,7 @@ def get_rods(dcm):
     Returns:
 
     """
-    fig, ax = plt.subplots(nrows=2, ncols=2)
-    fig.suptitle("get_rods")
     arr = dcm.pixel_array
-    ax[0][0].imshow(arr, cmap='gray')
     # threshold and binaries the image in order to locate the rods.
     # this is achieved by masking the
     img_max = np.max(arr)  # maximum number of img intensity
@@ -99,10 +96,7 @@ def get_rods(dcm):
     # Generate the labeled array with the threshold chosen
     img_threshold = img_tmp <= thres_ind
 
-    ax[0][1].imshow(img_threshold, cmap='gray')
-
     labeled_array, num_features = ndimage.label(img_threshold.astype(np.int))
-    ax[1][0].imshow(labeled_array, cmap='gray')
 
     # check that we have got the 10 rods!
     if num_features != 10:
@@ -114,6 +108,15 @@ def get_rods(dcm):
 
     rods = sorted(rods)
 
+    return rods
+
+
+def plot_rods(arr, rods):
+    fig, ax = plt.subplots(nrows=2, ncols=2)
+    fig.suptitle("get_rods")
+    ax[0][0].imshow(arr, cmap='gray')
+    ax[0][1].imshow(img_threshold, cmap='gray')
+    ax[1][0].imshow(labeled_array, cmap='gray')
     ax[1][1].imshow(arr, cmap='gray')
 
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
@@ -122,17 +125,6 @@ def get_rods(dcm):
         ax[1][1].scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=10, linewidths=0.4)
     # ax[1][1].scatter(x=[i.x for i in rods], y=[i.y for i in rods], marker="+", s=1, linewidths=0.5)
     fig.savefig('rods.png')
-    return rods
-
-
-def plot_rods(arr, rods):
-    plt.figure()
-    plt.imshow(arr)
-    mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-
-    for idx, i in enumerate(rods):
-        plt.scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=15, linewidths=0.5)
-    plt.show()
 
 
 def get_rod_distances(rods):
