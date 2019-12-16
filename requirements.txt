@@ -1,5 +1,5 @@
 opencv_python
-pytest==3.2.5
+pytest==3.6
 numpy
 matplotlib==2.1.1
 setuptools==39.0.1

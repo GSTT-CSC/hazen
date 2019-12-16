@@ -76,7 +76,7 @@ class TestSliceWidth(unittest.TestCase):
 
         dcm = pydicom.read_file(self.test_files[0])
         ramps = hazen_slice_width.get_ramp_profiles(dcm.pixel_array, self.matlab_rods)
-        assert hazen_slice_width.baseline_correction(np.mean(ramps["top"], axis=0), sample_spacing=0.25) == [0.0239, -2.9349,  694.9520]
+        assert hazen_slice_width.baseline_correction(np.mean(ramps["bottom"], axis=0), sample_spacing=0.25)["baseline_fit"] == [0.0239, -2.9349,  694.9520]
 
     def test_trapezoid(self):
         # variables from one iteration of the original matlab script
@@ -85,7 +85,14 @@ class TestSliceWidth(unittest.TestCase):
 
         assert hazen_slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
 
-    def test_slice_width(self):
-        results = hazen_slice_width.main(self.test_files)
-        print(results)
-        assert results == 5.48
+    def test_get_initial_trapezoid_fit_and_coefficients(self):
+        """
+        Trapezoid_Fit_Coefficients_Initial = 48.0000   56.0000  153.0000  172.0000 -116.4920
+        fwhm = 104
+        Returns:
+        """
+
+    # def test_slice_width(self):
+    #     results = hazen_slice_width.main(self.test_files)
+    #
+    #     assert results == 5.48
