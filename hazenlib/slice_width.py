@@ -5,6 +5,7 @@ Square voxels, no multi-frame support
 
 from math import pi
 import sys
+from copy import copy
 
 import pydicom
 import numpy as np
@@ -376,17 +377,15 @@ def fit_trapezoid(profiles, slice_thickness):
     profile_interp = profiles["profile_interpolated"]
     baseline_interpolated = profiles["baseline_fit"](x_interp)
     baseline_fit_coefficients = profiles["baseline_fit"]
-    print(profiles["baseline_fit"])
+    baseline_fit_coefficients = [baseline_fit_coefficients.c[0], baseline_fit_coefficients.c[1], baseline_fit_coefficients.c[2]]
     # sum squared differences
     current_error = sum((profiles["profile_corrected_interpolated"] - (baseline_interpolated + trapezoid_fit)) ** 2)
-
-    print(current_error)
 
     def get_error(base, trap):
         """ Check if fit is improving """
         trapezoid_fit_temp, _ = trapezoid(*trap)
 
-        baseline_fit_temp = base(x_interp)
+        baseline_fit_temp = np.poly1d(base)(x_interp)
 
         sum_squared_difference = sum((profile_interp - (baseline_fit_temp + trapezoid_fit_temp)) ** 2)
 
@@ -398,59 +397,59 @@ def fit_trapezoid(profiles, slice_thickness):
     while cont == 1:
         j += 1
         cont = 0
-        baseline_fit_coefficients_temp = baseline_fit_coefficients
-        trapezoid_fit_coefficients_temp = trapezoid_fit_coefficients
 
         for i in range(14):
-            print(f"\ti={i}")
-            if i == 1:
+            baseline_fit_coefficients_temp = baseline_fit_coefficients
+            trapezoid_fit_coefficients_temp = trapezoid_fit_coefficients
+
+            if i == 0:
                 baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] - 0.0001
-            elif i == 2:
+
+            elif i == 1:
                 baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] + 0.0001
-            elif i == 3:
+            elif i == 2:
                 baseline_fit_coefficients_temp[1] = baseline_fit_coefficients_temp[1] - 0.001
+            elif i == 3:
+                baseline_fit_coefficients_temp[1] = baseline_fit_coefficients_temp[1] + 0.001
             elif i == 4:
-                baseline_fit_coefficients_temp[1] = baseline_fit_coefficients_temp[2] + 0.001
-            elif i == 5:
                 baseline_fit_coefficients_temp[2] = baseline_fit_coefficients_temp[2] - 0.1
-            elif i == 6:
+            elif i == 5:
                 baseline_fit_coefficients_temp[2] = baseline_fit_coefficients_temp[2] + 0.1
-            elif i == 7:  # Decrease the ramp width
+            elif i == 6:  # Decrease the ramp width
                 trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] - 1
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
-            elif i == 8:  # Increase the ramp width
+            elif i == 7:  # Increase the ramp width
                 trapezoid_fit_coefficients_temp[0] = trapezoid_fit_coefficients_temp[0] + 1
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
-            elif i == 9:  # Decrease plateau width
+            elif i == 8:  # Decrease plateau width
                 trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] - 2
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
 
-            elif i == 10:  # Increase plateau width
+            elif i == 9:  # Increase plateau width
                 trapezoid_fit_coefficients_temp[1] = trapezoid_fit_coefficients_temp[1] + 2
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
 
-            elif i == 11:  # Shift centre to the left
+            elif i == 10:  # Shift centre to the left
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] - 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] + 1
 
-            elif i == 12:  # Shift centre to the right
+            elif i == 11:  # Shift centre to the right
                 trapezoid_fit_coefficients_temp[2] = trapezoid_fit_coefficients_temp[2] + 1
                 trapezoid_fit_coefficients_temp[3] = trapezoid_fit_coefficients_temp[3] - 1
 
-            elif i == 13:  # Reduce amplitude
+            elif i == 12:  # Reduce amplitude
                 trapezoid_fit_coefficients_temp[4] = trapezoid_fit_coefficients_temp[4] - 0.1
 
-            elif i == 14:  # Increase amplitude
+            elif i == 13:  # Increase amplitude
                 trapezoid_fit_coefficients_temp[4] = trapezoid_fit_coefficients_temp[4] + 0.1
 
             new_error = get_error(base=baseline_fit_coefficients_temp, trap=trapezoid_fit_coefficients_temp)
 
             if new_error < current_error:
-                print(f"\t\t{new_error} is less than {current_error}")
                 cont = 1
                 if i > 6:
                     trapezoid_fit_coefficients = trapezoid_fit_coefficients_temp
@@ -560,7 +559,7 @@ def get_slice_width(dcm):
           f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
           f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
 
-    return slice_width
+    return slice_width['combined']['aapm_tilt_corrected']
 
 
 def main(data: list) -> list:

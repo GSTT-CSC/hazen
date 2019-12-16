@@ -1,6 +1,6 @@
 opencv_python
 pytest==3.6
-numpy
+numpy==1.17.4
 matplotlib==2.1.1
 setuptools==39.0.1
 pydicom==1.2.1
