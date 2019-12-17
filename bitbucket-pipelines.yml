@@ -16,6 +16,8 @@ stepdefinitions:
         - pip install --upgrade pip
         - pip install -r requirements.txt
         - pytest --cov=hazenlib --cov-report xml --junitxml=junit.xml tests/
+      services:
+        - postgres
 
   - reporting: &reporting
       name: Uploading reports
@@ -43,3 +45,10 @@ pipelines:
   default:
     - step: *testing
     - step: *reporting
+
+definitions:
+  services:
+    postgres:
+      image: postgres
+      variables:
+        POSTGRES_DB: 'hazen_test'
