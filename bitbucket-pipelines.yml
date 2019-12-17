@@ -52,3 +52,5 @@ definitions:
       image: postgres
       variables:
         POSTGRES_DB: 'hazen_test'
+        POSTGRES_USER: 'test_user'
+        POSTGRES_PASSWORD: 'test_user_password'
