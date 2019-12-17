@@ -135,7 +135,6 @@ class TestSliceWidth(unittest.TestCase):
         assert trapezoid_fit_coefficients[:4] == [47, 55, 164, 167]
 
     def test_fit_trapezoid(self):
-
         sample_spacing = 0.25
         slice_thickness = self.dcm.SliceThickness
 
@@ -149,14 +148,30 @@ class TestSliceWidth(unittest.TestCase):
         }
         trapezoid_fit_coefficients, baseline_fit_coefficients = hazen_slice_width.fit_trapezoid(
             profiles=ramps_baseline_corrected["top"], slice_thickness=slice_thickness)
-        # assert trapezoid_fit_coefficients == [50, 54, 153, 170, -111.7920]
-        assert baseline_fit_coefficients == []
 
+        # check top profile first
+        matlab_trapezoid_fit_coefficients = [50, 54, 153, 170, -111.7920]
+        matlab_baseline_fit_coefficients = [0.0216, -2.9658, 602.2568]
+
+        for idx, value in enumerate(trapezoid_fit_coefficients):
+            assert abs(value - matlab_trapezoid_fit_coefficients[idx]) <= 5
+
+        for idx, value in enumerate(matlab_baseline_fit_coefficients):
+            assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
+        # residual error is 3735.6
+
+        ## check bottom profile now
         trapezoid_fit_coefficients, baseline_fit_coefficients = hazen_slice_width.fit_trapezoid(
             profiles=ramps_baseline_corrected["bottom"], slice_thickness=slice_thickness)
-        assert trapezoid_fit_coefficients == []
-        assert baseline_fit_coefficients == []
+
+        matlab_trapezoid_fit_coefficients = [55.0000, 60.0000, 155.0000, 152.0000, -136.6194]
+        matlab_baseline_fit_coefficients = [0.0239, -2.9389, 694.9520]
+        for idx, value in enumerate(trapezoid_fit_coefficients):
+            assert abs(value - matlab_trapezoid_fit_coefficients[idx]) <= 5
+
+        for idx, value in enumerate(matlab_baseline_fit_coefficients):
+            assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
 
     def test_slice_width(self):
         results = hazen_slice_width.main([self.file])
-        assert results == 5.48
+        assert abs(results[0] - 5.48) < 0.1

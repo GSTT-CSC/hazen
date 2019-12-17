@@ -391,8 +391,8 @@ def fit_trapezoid(profiles, slice_thickness):
         cont = 0
 
         for i in range(14):
-            baseline_fit_coefficients_temp = baseline_fit_coefficients
-            trapezoid_fit_coefficients_temp = trapezoid_fit_coefficients
+            baseline_fit_coefficients_temp = copy(baseline_fit_coefficients)
+            trapezoid_fit_coefficients_temp = copy(trapezoid_fit_coefficients)
 
             if i == 0:
                 baseline_fit_coefficients_temp[0] = baseline_fit_coefficients_temp[0] - 0.0001
