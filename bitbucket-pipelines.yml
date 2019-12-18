@@ -17,12 +17,14 @@ stepdefinitions:
   - reporting: &reporting
       name: Uploading reports
       script:
-        - apt-get update
-        - apt-get install unzip
-        - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.2.0.1873-linux.zip -o sonar-scanner-cli-4.2.0.1873-linux.zip
-        - unzip sonar-scanner-cli-4.2.0.1873-linux.zip
-        - sonar-scanner-4.2.0.1873-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
-        - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+      - pipe: sonarsource/sonarcloud-scan:1.0.1
+        variables:
+          SONAR_TOKEN: ${SONAR_TOKEN}
+          EXTRA_ARGS: 'sonar.branch.name=$BITBUCKET_BRANCH'
+        #   SONAR_SCANNER_OPTS: '<string>'  # Optional
+        #   DEBUG: '<boolean>'  # Optional
+
+        #- bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
       name: Deploy to Heroku
