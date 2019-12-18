@@ -21,7 +21,7 @@ stepdefinitions:
         - apt-get install unzip
         - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-4.2.0.1873-linux.zip -o sonar-scanner-cli-4.2.0.1873-linux.zip
         - unzip sonar-scanner-cli-4.2.0.1873-linux.zip
-        - sonar-scanner-cli-4.2.0.1873-linux.zip/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
+        - sonar-scanner-cli-4.2.0.1873-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
         - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
