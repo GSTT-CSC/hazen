@@ -1,13 +1,8 @@
 import os
 import sys
-from copy import copy
-from math import pi
 
 import pydicom
 import numpy as np
-from scipy import ndimage
-from scipy.interpolate import interp1d
-from scipy.optimize import curve_fit
 import matplotlib
 # matplotlib.use("agg")
 import matplotlib.pyplot as plt
