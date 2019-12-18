@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib
 # matplotlib.use("agg")
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 def calculate_ghost_intensity(ghost, phantom, noise) -> float:
@@ -120,49 +121,72 @@ def get_background_slices(background_rois, slice_size=10):
     return slices
 
 
+def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
+    upper_row, lower_row, left_column, right_column = signal_bounding_box
+    padding_from_box = 30  # pixels
+    if get_pe_direction(dcm) == 'ROW':
+        if left_column < dcm.Columns / 2:
+            # signal is in left half
+            eligible_columns = range(right_column + padding_from_box, dcm.Columns - slice_radius)
+            eligible_rows = range(upper_row, lower_row)
+        else:
+            # signal is in right half
+            eligible_columns = range(slice_radius, left_column - padding_from_box)
+            eligible_rows = range(upper_row, lower_row)
+
+    else:
+        if upper_row < dcm.Rows / 2:
+            # signal is in top half
+            eligible_rows = range(lower_row + padding_from_box, dcm.Rows - slice_radius)
+            eligible_columns = range(left_column, right_column)
+        else:
+            # signal is in bottom half
+            eligible_rows = range(slice_radius, upper_row - padding_from_box)
+            eligible_columns = range(left_column, right_column)
+
+    return eligible_rows, eligible_columns
+
+
 def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
     max_mean = 0
     max_index = (0, 0)
     slice_radius = round(slice_size/2)
-    padding_from_box = 30  # pixels
     windows = {}
     arr = dcm.pixel_array
-    eligible_rows = range(slice_radius, dcm.Rows-slice_radius)
-    eligible_columns = range(slice_radius, dcm.Columns-slice_radius)
 
-    if signal_bounding_box[0] < dcm.Rows/2:
-        # signal is in top half of image, ghost must be in top half too
-        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) + padding_from_box]
-    else:
-        # signal is in bottom half of image, ghost must be in bottom half too
-        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) - padding_from_box]
-
-    if signal_bounding_box[1] < dcm.Columns/2:
-        # signal is in top half of image, ghost must be in top half too
-        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) + padding_from_box]
-    else:
-        # signal is in bottom half of image, ghost must be in bottom half too
-        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) - padding_from_box]
-
-    eligible_area = (eligible_rows, eligible_columns)
+    eligible_rows, eligible_columns = get_eligible_area(signal_bounding_box, dcm, slice_radius)
 
     for idx, centre_voxel in np.ndenumerate(arr):
-        if idx[0] not in eligible_area[0] or idx[1] not in eligible_area[1]:
+        if idx[0] not in eligible_rows or idx[1] not in eligible_columns:
             continue
         else:
-            windows[idx](arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]-slice_radius])
+            windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
+            assert windows[idx].shape == (10, 10)
 
     for idx, window in windows.items():
-        if max_mean < np.mean(window):
-            max_mean = np.mean(windows)
+        if np.mean(window) > max_mean:
+            max_mean = np.mean(window)
             max_index = idx
 
-    return np.array(range(max_index[0]-slice_radius, max_index[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
-        range(max_index[1]-slice_radius, max_index[1]+slice_radius)
+    return np.array(range(max_index[0] - slice_radius, max_index[0] + slice_radius), dtype=np.intp)[:,
+           np.newaxis], np.array(
+        range(max_index[1] - slice_radius, max_index[1] + slice_radius)
     )
 
+
 def get_ghosting(dicom_data: list) -> dict:
-    return {}
+    dcm = pydicom.read_file(dicom_data[0])
+
+    bbox = get_signal_bounding_box(dcm.pixel_array)
+    signal_centre = [bbox[0]+round((bbox[1]-bbox[0]/2)), bbox[2]+round((bbox[3]-bbox[2])/2)]
+    background_rois = get_background_rois(dcm,signal_centre)
+    ghost = dcm.pixel_array[get_ghost_slice(bbox, dcm)]
+    phantom = dcm.pixel_array[get_signal_slice(bbox)]
+    noise = dcm.pixel_array[get_background_slices(background_rois)]
+
+    ghosting = calculate_ghost_intensity(ghost, phantom, noise)
+
+    return {'ghosting': ghosting}
 
 
 def main(data: list) -> dict:

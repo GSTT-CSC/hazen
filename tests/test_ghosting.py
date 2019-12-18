@@ -9,7 +9,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
-
 import hazenlib.ghosting as hazen_ghosting
 from tests import TEST_DATA_DIR
 
@@ -17,11 +16,16 @@ from tests import TEST_DATA_DIR
 class TestSliceWidth(unittest.TestCase):
     SIGNAL_BOUNDING_BOX = (242, 325, 251, 335)
     SIGNAL_CENTRE = [284, 293]
-    SIGNAL_SLICE = np.array(range(284-5, 284+5), dtype=np.intp)[:, np.newaxis], np.array(range(293-5, 293+5), dtype=np.intp)
+    SIGNAL_SLICE = np.array(range(284 - 5, 284 + 5), dtype=np.intp)[:, np.newaxis], np.array(range(293 - 5, 293 + 5),
+                                                                                             dtype=np.intp)
     BACKGROUND_ROIS = [(88, 293), (88, 220), (88, 147), (88, 74)]
+    PADDING_FROM_BOX = 30
+    ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
+        5, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
 
     def setUp(self):
-        self.dcm = pydicom.read_file(str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm'))
+        self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
+        self.dcm = pydicom.read_file(self.file)
 
     def test_calculate_ghost_intensity(self):
         with pytest.raises(Exception):
@@ -82,3 +86,24 @@ class TestSliceWidth(unittest.TestCase):
         #
         # plt.show()
         assert hazen_ghosting.get_background_rois(self.dcm, self.SIGNAL_CENTRE) == self.BACKGROUND_ROIS
+
+    def test_get_eligible_area(self):
+        # # Create figure and axes
+        # fig, ax = plt.subplots(1)
+        #
+        # # Display the image
+        # ax.imshow(dcm.pixel_array)
+        #
+        # rect = patches.Rectangle((min(eligible_columns), min(eligible_rows)),
+        #                          max(eligible_columns)-min(eligible_columns),
+        #                          max(eligible_rows)-min(eligible_rows),
+        #                          linewidth=1, edgecolor='r', facecolor='none')
+        # ax.add_patch(rect)
+        assert hazen_ghosting.get_eligible_area(self.SIGNAL_BOUNDING_BOX, self.dcm) == self.ELIGIBLE_GHOST_AREA
+
+    def test_get_ghost_slice(self):
+
+        assert hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm) == (283, 13)
+
+    def test_get_ghosting(self):
+        assert hazen_ghosting.get_ghosting([self.file])
