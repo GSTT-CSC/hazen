@@ -11,6 +11,8 @@ stepdefinitions:
         - pip install --upgrade pip
         - pip install -r requirements.txt
         - pytest --cov=hazenlib --cov-report xml:./coverage-reports/coverage.xml --junitxml=./coverage-reports/junit.xml tests/
+        - mkdir ./xunit-reports/
+        - cp ./coverage-reports/junit.xml ./xunit-reports/xunit-result-1.xml
       services:
         - postgres
 

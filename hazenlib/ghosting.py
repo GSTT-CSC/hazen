@@ -90,7 +90,7 @@ def get_background_rois(dcm, signal_centre):
         else:
             # phantom is left half of image need 3 ROIs evenly spaced from background_roi[0]->end
             gap = round((dcm.Columns - background_rois[0][1]) / 4)
-            background_rois = [(background_rois_row, background_rois[0][1] - i * gap) for i in range(4)]
+            background_rois = [(background_rois_row, background_rois[0][1] + i * gap) for i in range(4)]
 
     else:
         if signal_centre[1] < dcm.Columns * 0.5:
@@ -101,6 +101,15 @@ def get_background_rois(dcm, signal_centre):
             background_rois_column = round(dcm.Columns * 0.25)  # in the top quadrant
         background_rois.append((signal_centre[0], background_rois_column))
 
+        if signal_centre[0] >= round(dcm.Rows/2):
+            # phantom is bottom half of image need 3 ROIs evenly spaced from 0->background_roi[0]
+            gap = round(background_rois[0][0] / 4)
+            background_rois = [(background_rois[0][0] - i * gap, background_rois_column) for i in range(4)]
+        else:
+            # phantom is top half of image need 3 ROIs evenly spaced from background_roi[0]->end
+            gap = round((dcm.Columns - background_rois[0][0]) / 4)
+            background_rois = [(background_rois[0][0] + i * gap, background_rois_column) for i in range(4)]
+
     return background_rois
 
 
@@ -110,6 +119,47 @@ def get_background_slices(background_rois, slice_size=10):
         range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
     return slices
 
+
+def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
+    max_mean = 0
+    max_index = (0, 0)
+    slice_radius = round(slice_size/2)
+    padding_from_box = 30  # pixels
+    windows = {}
+    arr = dcm.pixel_array
+    eligible_rows = range(slice_radius, dcm.Rows-slice_radius)
+    eligible_columns = range(slice_radius, dcm.Columns-slice_radius)
+
+    if signal_bounding_box[0] < dcm.Rows/2:
+        # signal is in top half of image, ghost must be in top half too
+        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) + padding_from_box]
+    else:
+        # signal is in bottom half of image, ghost must be in bottom half too
+        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) - padding_from_box]
+
+    if signal_bounding_box[1] < dcm.Columns/2:
+        # signal is in top half of image, ghost must be in top half too
+        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) + padding_from_box]
+    else:
+        # signal is in bottom half of image, ghost must be in bottom half too
+        eligible_rows = [x for x in eligible_rows if x < round(dcm.Rows/2) - padding_from_box]
+
+    eligible_area = (eligible_rows, eligible_columns)
+
+    for idx, centre_voxel in np.ndenumerate(arr):
+        if idx[0] not in eligible_area[0] or idx[1] not in eligible_area[1]:
+            continue
+        else:
+            windows[idx](arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]-slice_radius])
+
+    for idx, window in windows.items():
+        if max_mean < np.mean(window):
+            max_mean = np.mean(windows)
+            max_index = idx
+
+    return np.array(range(max_index[0]-slice_radius, max_index[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
+        range(max_index[1]-slice_radius, max_index[1]+slice_radius)
+    )
 
 def get_ghosting(dicom_data: list) -> dict:
     return {}
