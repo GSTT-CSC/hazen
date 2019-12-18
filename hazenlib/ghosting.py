@@ -13,6 +13,54 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
+def calculate_ghost_intensity(ghost, phantom, noise) -> float:
+    """
+    Calculates the ghost intensity using the formula from IPEM Report 112
+    Ghosting = (Sg-Sn)/(Sp-Sn) x 100%
+
+    Returns:    :float
+
+    References: IPEM Report 112 - Small Bottle Method
+                MagNET
+
+    """
+
+    if ghost is None or phantom is None or noise is None:
+        raise Exception(f"At least one of ghost, phantom and noise ROIs is empty or null")
+
+    if type(ghost) is not np.ndarray:
+        raise Exception(f"Ghost, phantom and noise ROIs must be of type numpy.ndarray")
+
+    ghost_mean = np.mean(ghost)
+    phantom_mean = np.mean(phantom)
+    noise_mean = np.mean(noise)
+
+    if phantom_mean < ghost_mean or phantom_mean < noise_mean:
+        raise Exception(f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case ")
+
+    return 100*(ghost_mean-noise_mean)/phantom_mean
+
+
+def get_signal_bounding_box(array: np.ndarray):
+
+    max_signal = np.max(array)
+    signal_limit = max_signal*0.5  # assumes phantom signal is at least 50% of the max signal inside the phantom
+    signal = []
+    for idx, voxel in np.ndenumerate(array):
+        if voxel > signal_limit:
+            signal.append(idx)
+
+    signal_row = sorted([voxel[0] for voxel in signal])
+    signal_column = sorted([voxel[1] for voxel in signal])
+
+    upper_row = min(signal_row) - 1  # minus 1 to get the box that CONTAINS the signal
+    lower_row = max(signal_row) + 1  # ditto for add one
+    left_row = min(signal_column) - 1  # ditto
+    right_row = max(signal_column) + 1  # ditto
+
+    return upper_row, lower_row, left_row, right_row
+
+
 def get_ghosting(dicom_data: list) -> dict:
 
     return {}
