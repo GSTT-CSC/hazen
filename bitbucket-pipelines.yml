@@ -15,7 +15,7 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazenlib --cov-report xml --junitxml=./test-reports/junit.xml tests/
+        - pytest --cov=hazenlib --cov-report xml:./coverage.xml --junitxml=./test-reports/junit.xml tests/
       services:
         - postgres
 
