@@ -106,8 +106,14 @@ def get_background_rois(dcm, signal_centre):
             background_rois_column = round(dcm.Columns * 0.25)  # in the top quadrant
         background_rois.append((signal_centre[0], background_rois_column))
 
-
     return background_rois
+
+
+def get_background_slices(background_rois, slice_size=10):
+    slice_radius = round(slice_size / 2)
+    slices = [(np.array(range(roi[0]-slice_radius, roi[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
+        range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
+    return slices
 
 
 def get_ghosting(dicom_data: list) -> dict:

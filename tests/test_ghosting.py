@@ -46,18 +46,18 @@ class TestSliceWidth(unittest.TestCase):
     def test_get_signal_bounding_box(self):
         (upper_row, lower_row, left_column, right_column) = hazen_ghosting.get_signal_bounding_box(self.dcm.pixel_array)
 
-        # Create figure and axes
-        fig, ax = plt.subplots(1)
-
-        # Display the image
-        ax.imshow(self.dcm.pixel_array)
-        rect = patches.Rectangle((left_column, upper_row),
-                                 right_column-left_column, lower_row-upper_row,
-                                 linewidth=1, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-        rect = patches.Rectangle((288, 279), 10, 10, linewidth=1, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-        plt.show()
+        # # Create figure and axes
+        # fig, ax = plt.subplots(1)
+        #
+        # # Display the image
+        # ax.imshow(self.dcm.pixel_array)
+        # rect = patches.Rectangle((left_column, upper_row),
+        #                          right_column-left_column, lower_row-upper_row,
+        #                          linewidth=1, edgecolor='r', facecolor='none')
+        # ax.add_patch(rect)
+        # rect = patches.Rectangle((288, 279), 10, 10, linewidth=1, edgecolor='r', facecolor='none')
+        # ax.add_patch(rect)
+        # plt.show()
 
         assert (upper_row, lower_row, left_column, right_column) == self.SIGNAL_BOUNDING_BOX
 
