@@ -26,7 +26,7 @@ stepdefinitions:
         #   SONAR_SCANNER_OPTS: '<string>'  # Optional
         #   DEBUG: '<boolean>'  # Optional
 
-        #- bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+        - bash <(curl -f ./coverage-reports/coverage-1.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
       name: Deploy to Heroku
