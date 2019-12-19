@@ -22,7 +22,7 @@ stepdefinitions:
       - pipe: sonarsource/sonarcloud-scan:1.0.1
         variables:
           SONAR_TOKEN: ${SONAR_TOKEN}
-          EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH'
+          EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X'
         #   SONAR_SCANNER_OPTS: '<string>'  # Optional
         #   DEBUG: '<boolean>'  # Optional
 

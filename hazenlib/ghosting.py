@@ -180,7 +180,7 @@ def get_ghosting(dicom_data: list) -> dict:
 
     bbox = get_signal_bounding_box(dcm.pixel_array)
     signal_centre = [bbox[0]+round((bbox[1]-bbox[0]/2)), bbox[2]+round((bbox[3]-bbox[2])/2)]
-    background_rois = get_background_rois(dcm,signal_centre)
+    background_rois = get_background_rois(dcm, signal_centre)
     ghost = dcm.pixel_array[get_ghost_slice(bbox, dcm)]
     phantom = dcm.pixel_array[get_signal_slice(bbox)]
 
