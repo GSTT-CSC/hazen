@@ -10,9 +10,9 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazenlib --cov-report xml:./coverage-reports/coverage.xml --junitxml=./coverage-reports/junit.xml tests/
+        - pytest --cov=hazenlib --cov-report xml:./coverage-reports/coverage-1.xml --junitxml=./test-reports/junit.xml tests/
         - mkdir ./xunit-reports/
-        - cp ./coverage-reports/junit.xml ./xunit-reports/xunit-result-1.xml
+        - cp ./test-reports/junit.xml ./xunit-reports/xunit-result-1.xml
       services:
         - postgres
 
