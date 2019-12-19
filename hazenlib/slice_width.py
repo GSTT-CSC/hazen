@@ -539,17 +539,17 @@ def get_slice_width(dcm):
                 theta / 2.0) + pi / 2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
-    print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(mm):"
-          f"{dcm.SliceThickness}\nField of View (mm): {get_fov(dcm)}\nbandwidth (Hz/Px) : {dcm.PixelBandwidth}\n"
-          f"TR  (ms) : {dcm.RepetitionTime}\nTE  (ms) : {dcm.EchoTime}\nFlip Angle  (deg) : {dcm.FlipAngle}\n"
-          f"Horizontal line bottom (mm): {horz_distances[0]}\nHorizontal line middle (mm): {horz_distances[2]}\n"
-          f"Horizontal line top (mm): {horz_distances[2]}\nHorizontal Linearity (mm): {np.mean(horz_distances)}\n"
-          f"Horizontal Distortion: {horz_distortion}\nVertical line left (mm): {vert_distances[0]}\n"
-          f"Vertical line middle (mm): {vert_distances[1]}\nVertical line right (mm): {vert_distances[2]}\n"
-          f"Vertical Linearity (mm): {np.mean(vert_distances)}\nVertical Distortion: {vert_distortion}\n"
-          f"Slice width top (mm): {slice_width['top']['default']}\n"
-          f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
-          f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
+    # print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(mm):"
+    #       f"{dcm.SliceThickness}\nField of View (mm): {get_fov(dcm)}\nbandwidth (Hz/Px) : {dcm.PixelBandwidth}\n"
+    #       f"TR  (ms) : {dcm.RepetitionTime}\nTE  (ms) : {dcm.EchoTime}\nFlip Angle  (deg) : {dcm.FlipAngle}\n"
+    #       f"Horizontal line bottom (mm): {horz_distances[0]}\nHorizontal line middle (mm): {horz_distances[2]}\n"
+    #       f"Horizontal line top (mm): {horz_distances[2]}\nHorizontal Linearity (mm): {np.mean(horz_distances)}\n"
+    #       f"Horizontal Distortion: {horz_distortion}\nVertical line left (mm): {vert_distances[0]}\n"
+    #       f"Vertical line middle (mm): {vert_distances[1]}\nVertical line right (mm): {vert_distances[2]}\n"
+    #       f"Vertical Linearity (mm): {np.mean(vert_distances)}\nVertical Distortion: {vert_distortion}\n"
+    #       f"Slice width top (mm): {slice_width['top']['default']}\n"
+    #       f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
+    #       f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
 
     return slice_width['combined']['aapm_tilt_corrected']
 
