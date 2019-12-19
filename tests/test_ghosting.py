@@ -20,8 +20,14 @@ class TestSliceWidth(unittest.TestCase):
                                                                                              dtype=np.intp)
     BACKGROUND_ROIS = [(88, 293), (88, 220), (88, 147), (88, 74)]
     PADDING_FROM_BOX = 30
+    SLICE_RADIUS = 5
     ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
         5, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+
+    GHOST_SLICE = np.array(range(283 - SLICE_RADIUS, 283 + SLICE_RADIUS), dtype=np.intp)[:,
+    np.newaxis], np.array(
+        range(13 - SLICE_RADIUS, 13 + SLICE_RADIUS)
+    )
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
@@ -102,8 +108,8 @@ class TestSliceWidth(unittest.TestCase):
         assert hazen_ghosting.get_eligible_area(self.SIGNAL_BOUNDING_BOX, self.dcm) == self.ELIGIBLE_GHOST_AREA
 
     def test_get_ghost_slice(self):
-
-        assert hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm) == (283, 13)
+        assert list(hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm)[0]) == list(self.GHOST_SLICE[0])
+        assert list(hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm)[1]) == list(self.GHOST_SLICE[1])
 
     def test_get_ghosting(self):
-        assert hazen_ghosting.get_ghosting([self.file])
+        assert hazen_ghosting.get_ghosting([self.file])['ghosting'] == 0.787020192832454
