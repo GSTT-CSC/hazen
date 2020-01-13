@@ -17,9 +17,10 @@ from PIL import Image
 import pydicom
 import pylab
 from scipy.signal import hilbert, chirp
+import copy
 
 
-def maivis_deriv(a, h=1, n=1, axis=-1):
+def maivis_deriv(x, a, h=1, n=1, axis=-1):
     """
     Performs differentiation the same way as done with MAIVIS to find the line spread function (LSF). This function has been re-implemented from IDL code written by Ioannis.
 
@@ -60,56 +61,11 @@ def maivis_deriv(a, h=1, n=1, axis=-1):
     numpy.diff
 
     """
-    print(len(a))
-    print(a)
-    a = np.interp(np.arange(0, 128, 1), np.arange(len(a)), a)
-    print(len(a))
-    print(a)
-    max_deriv = int(len(a) / 4)
-    b = [(-a[i + 2] - a[i + 3] - a[i] + a[i + 1]) / 2 for i in range(4 * max_deriv - 4)]
+    max_deriv = len(a) // 4
+    b = [(a[i + 2] + a[i + 3] - a[i] - a[i + 1]) / 2 for i in range(4 * max_deriv - 3)]
     # pad last 3 elements of b
-    print([b[-1]] * 3)
     b.extend([b[-1]] * 3)
-    print(len(b))
-    print(b)
     return np.asanyarray(b)
-
-
-def idl_deriv(a, h=1, n=1, axis=-1):
-    """
-    Performs centred three-point Langrangian interpolation differentiation of a using IDL implementation from their documentation:
-
-        "For an evenly-spaced array of values Y[0...N–1], the three-point Lagrangian interpolation reduces to:
-            Y'[0] = (–3*Y[0] + 4*Y[1] – Y[2]) / 2
-            Y'[i] = (Y[i+1] – Y[i–1]) / 2 ; i = 1...N–2
-            Y'[N–1] = (3*Y[N–1] – 4*Y[N–2] + Y[N–3]) / 2
-        This routine is written in the IDL language. You can find more details for all of the above equations
-        in the source code in the file deriv.pro in the lib subdirectory of the IDL distribution."
-
-    See: https://www.harrisgeospatial.com/docs/DERIV.html
-
-     Parameters
-    ----------
-    a : array_like
-        Input array
-    n : int, optional
-        The number of times values are differenced.
-    axis : int, optional
-        The axis along which the difference is taken, default is the last axis.
-    Returns
-    -------
-    diff : ndarray
-        The `n` order differences. The shape of the output is the same as `a`
-        except along `axis` where the dimension is smaller by `n`.
-    See Also
-    --------
-    numpy.diff
-
-    """
-    diff = [(a[i + 1] - a[i - 1]) / 2 for i in range(len(a) - 2)]
-    diff[0] = (-3 * a[0] + 4 * a[1] - a[2]) / (2)
-    diff[-1] = (3 * a[len(a) - 1] - 4 * a[len(a) - 2] + a[len(a) - 3]) / 2
-    return np.asanyarray(diff)
 
 
 def create_line_iterator(P1, P2, img):
@@ -253,7 +209,24 @@ def find_square(img):
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
             if 0.95 < ar < 1.05:
-                return box
+                return box, rect[2]
+
+
+def get_roi(pixels, centre, size=20):
+    x, y = centre
+    arr = pixels[x - size//2:x + size//2, y - size//2:y + size//2]
+    return arr
+
+
+def get_void_roi(pixels, circle, size=20):
+    centre_x = circle[0][0][0]
+    centre_y = circle[0][0][1]
+    return get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
+
+
+def get_edge_roi(pixels, square, size=20):
+    _, centre = get_right_edge_vector_and_centre(square)
+    return get_roi(pixels, centre=(centre["x"], centre["y"]), size=size)
 
 
 def get_bisecting_normal(vector, centre, length_factor=0.25):
@@ -265,14 +238,19 @@ def get_bisecting_normal(vector, centre, length_factor=0.25):
     return nrx_1, nry_1, nrx_2, nry_2
 
 
-def get_right_edge_normal_profile(img, square):
-
+def get_right_edge_vector_and_centre(square):
     # Calculate dx and dy
     right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
 
     # Calculate centre (x,y) of edge
     right_edge_profile_roi_centre = {"x": square[0][0] + int(right_edge_profile_vector["x"] / 2),
                                      "y": square[0][1] + int(right_edge_profile_vector["y"] / 2)}
+    return right_edge_profile_vector, right_edge_profile_roi_centre
+
+
+def get_right_edge_normal_profile(img, square):
+
+    right_edge_profile_vector, right_edge_profile_roi_centre = get_right_edge_vector_and_centre(square)
 
     n1x, n1y, n2x, n2y = get_bisecting_normal(right_edge_profile_vector, right_edge_profile_roi_centre)
     right_edge_profile = create_line_iterator([n1x, n1y], [n2x, n2y], img)
@@ -282,33 +260,146 @@ def get_right_edge_normal_profile(img, square):
     return intensities
 
 
-def calculate_mtf(dicom):
+def get_signal_roi(pixels, square, circle, size=20):
+    _, square_centre = get_right_edge_vector_and_centre(square)
+    circle_r = circle[0][0][2]
+    x = square_centre["x"]+circle_r//2
+    y = square_centre["y"]
+    return get_roi(pixels=pixels, centre=(x, y), size=size)
 
-    img = rescale_to_byte(dicom.pixel_array)
+
+def get_edge(edge_arr, mean_value, spacing):
+    x_edge = [0] * 20
+    y_edge = [0] * 20
+
+    for row in range(20):
+        for col in range(19):
+            control_parameter_02 = 0
+            #         print(f"signal_arr[col, row]={signal_arr[col, row]}")
+            #         print(f"signal_arr[col, row+1]={signal_arr[col, row]}")
+            if edge_arr[row, col] == mean_value:
+                control_parameter_02 = 1
+            if (edge_arr[row, col] < mean_value) and (edge_arr[row, col + 1] > mean_value):
+                control_parameter_02 = 1
+            if (edge_arr[row, col] > mean_value) and (edge_arr[row, col + 1] < mean_value):
+                control_parameter_02 = 1
+
+            if control_parameter_02 == 1:
+                x_edge[row] = row * spacing[0]
+                y_edge[row] = col * spacing[1]
+
+    return x_edge, y_edge
+
+
+def get_edge_angle_and_intercept(x_edge, y_edge):
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    #  Apply least squares method for the edge
+    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    mean_x = np.mean(x_edge)
+    mean_y = np.mean(y_edge)
+
+    slope_up = np.sum((x_edge - mean_x) * (y_edge - mean_y))
+    slope_down = np.sum((x_edge - mean_x) * (x_edge - mean_x))
+    slope = slope_up / slope_down
+    angle = np.arctan(slope)
+    intercept = mean_y - slope * mean_x
+    return angle, intercept
+
+
+def get_edge_profile_coords(angle, intercept, spacing):
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ; translate and rotate the data's coordinates according to the slope and intercept
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    original_mtf_x_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_x_positions = copy.copy(original_mtf_x_position)
+    for row in range(19):
+        original_mtf_x_positions = np.row_stack((original_mtf_x_positions, original_mtf_x_position))
+
+    original_mtf_y_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_y_positions = copy.copy(original_mtf_y_position)
+    for row in range(19):
+        original_mtf_y_positions = np.column_stack((original_mtf_y_positions, original_mtf_y_position))
+
+    # we are only interested in the rotated y positions as there correspond to the distance of the data from the edge
+    rotated_mtf_y_positions = -original_mtf_x_positions * np.sin(angle) + (
+            original_mtf_y_positions - intercept) * np.cos(angle)
+
+    return original_mtf_x_positions, rotated_mtf_y_positions
+
+
+def get_esf(edge_arr, y):
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;extract the edge response function
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    # ;extract the distance from the edge and the corresponding data as vectors
+
+    edge_distance = copy.copy(y[0, :])
+
+    for row in range(1, 20):
+        edge_distance = np.concatenate((edge_distance, y[row, :]))
+
+    esf_data = copy.copy(edge_arr[:, 0])
+    for row in range(1, 20):
+        esf_data = np.append(esf_data, edge_arr[:, row])
+
+    # ;sort the distances and the data accordingly
+    ind_edge_distance = np.argsort(edge_distance)
+    sorted_edge_distance = edge_distance[ind_edge_distance]
+    sorted_esf_data = esf_data[ind_edge_distance]
+
+    # ;get rid of duplicates (if two data correspond to the same distance) and replace them with their average
+    temp_array01 = np.array([sorted_edge_distance[0]])
+    temp_array02 = np.array([sorted_esf_data[0]])
+
+    for element in range(1, len(sorted_edge_distance)):
+
+        if not (sorted_edge_distance[element] - temp_array01[-1]).all():
+
+            temp_array02[-1] = (temp_array02[-1] + sorted_esf_data[element]) / 2
+
+        else:
+
+            temp_array01 = np.append(temp_array01, sorted_edge_distance[element])
+            temp_array02 = np.append(temp_array02, sorted_esf_data[element])
+
+    # ;interpolate the edge response function (ESF) so that it only has 128 elements
+    u = np.linspace(temp_array01[0], temp_array01[-1], 128)
+    esf = np.interp(u, temp_array01, temp_array02)
+
+    return u, esf
+
+
+def calculate_mtf(dicom):
+    pixels = dicom.pixel_array
+    img = rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
-    square = find_square(thresh)
-    profile = get_right_edge_normal_profile(img, square)
+    circle = get_circles(img)
+    square, tilt = find_square(thresh)
+    _, centre = get_right_edge_vector_and_centre(square)
+
+    void_arr = get_void_roi(pixels, circle)
+    edge_arr = get_edge_roi(pixels, square)
+    signal_arr = get_signal_roi(pixels, square, circle)
 
     spacing = dicom.PixelSpacing
-    lsf = spacing * np.diff(profile[::-1], n=1)
-    my_lsf = spacing * idl_deriv(profile[::-1])
+    mean = np.mean([void_arr, signal_arr])
+    x_edge, y_edge = get_edge(edge_arr, mean, spacing)
+    angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
+    x, y = get_edge_profile_coords(angle, intercept, spacing)
 
-    # pylab.plot(range(len(lsf)),lsf)
-    # pylab.plot(range(len(my_lsf)), my_lsf)
-
+    u, esf = get_esf(edge_arr, y)
+    lsf = spacing * maivis_deriv(u, esf)
     mtf = np.fft.fft(lsf)
-    my_mtf = np.fft.fft(my_lsf)
-    my_mtf = my_mtf / my_mtf[0]
-    # pylab.plot(range(len(mtf)),mtf)
-    # pylab.plot(range(len(my_mtf)), my_mtf)
+    norm_mtf = mtf / mtf[0]
+    mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
+    profile_length = max(y.flatten()) - min(y.flatten())
+    mtf_frequency = 10.0 * mtf_50 / profile_length
+    res = 10 / (2 * mtf_frequency)
 
-    analytic_signal = hilbert(np.real(mtf.astype(int)))
-    my_analytic_signal = hilbert(np.real(my_mtf.astype(int)))
-    amplitude_envelope = np.abs(analytic_signal)
-    my_amplitude_envelope = np.abs(my_analytic_signal)
-    # pylab.plot(range(len(mtf)), amplitude_envelope)
-    # pylab.plot(range(len(my_mtf)), my_amplitude_envelope)
-
+    return res
 
 def find_circle(a):
     """

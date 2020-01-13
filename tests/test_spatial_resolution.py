@@ -62,6 +62,14 @@ class TestSpatialResolution(unittest.TestCase):
         # dx = [x * spacing * 10 for x in range(len(profile[::-1]))]
         # pylab.plot(dx, profile[::-1])
 
+    def test_get_void_arr(self):
+        pixels = self.dicom.pixel_array
+        img = hazen_spatial_resolution.rescale_to_byte(pixels)
+        circle = hazen_spatial_resolution.get_circles(img)
+        void_arr = hazen_spatial_resolution.get_void_roi(pixels, circle)
+
+        assert np.mean(void_arr) == 12.515
 
     def test_calculate_mtf(self):
-        pass
+        res = hazen_spatial_resolution.calculate_mtf(self.dicom)
+        assert res == 0.5322287345688292
