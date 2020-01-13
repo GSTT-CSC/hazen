@@ -532,4 +532,4 @@ def main(data: list) -> dict:
 
     results = calculate_mtf(data[0])
 
-    return results
+    return {'spatial_resolution': results}
