@@ -1,13 +1,10 @@
 """
 Spatial Resolution
 
-This script determines the spatial resolution of image by measuring the FWHM across the edges of
-a uniform phantom
+Contributors:
+Haris Shuaib, haris.shuaib@gstt.nhs.uk
+Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
-Created by Neil Heraghty
-neil.heraghty@nhs.net
-
-16/05/2018
 
 """
 import cv2 as cv
@@ -65,7 +62,7 @@ def maivis_deriv(x, a, h=1, n=1, axis=-1):
     b = [(a[i + 2] + a[i + 3] - a[i] - a[i + 1]) / 2 for i in range(4 * max_deriv - 3)]
     # pad last 3 elements of b
     b.extend([b[-1]] * 3)
-    return np.asanyarray(b)
+    return b
 
 
 def create_line_iterator(P1, P2, img):
@@ -143,7 +140,7 @@ def create_line_iterator(P1, P2, img):
 
 
 def rescale_to_byte(array):
-    image_histogram, bins = np.histogram(array.flatten(), 255, normed=True)
+    image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
     cdf = 255 * cdf / cdf[-1]  # normalize
 
@@ -167,22 +164,6 @@ def get_circles(image):
             circles = np.uint16(np.around(circles))
             break
     return circles
-
-
-def pshow_circles(images, circles, title='Circles'):
-    if circles is None or len(circles) == 0:
-        return
-    #  print len(circles)
-    all_images_and_circles = []
-    for index, img in enumerate(images):
-        cimage = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
-        print(len(circles[index][0, :]))
-        for i in circles[index][0, :]:
-            cv.circle(cimage, (i[0], i[1]), i[2], (0, 255, 0), 2)
-            cv.circle(cimage, (i[0], i[1]), 2, (0, 0, 255), 3)
-        all_images_and_circles.append(cimage)
-    pylab.show(pylab.imshow(np.hstack(all_images_and_circles), cmap=pylab.cm.gray))
-    return np.hstack(all_images_and_circles)
 
 
 def thresh_image(img, bound=150):
@@ -214,7 +195,7 @@ def find_square(img):
 
 def get_roi(pixels, centre, size=20):
     x, y = centre
-    arr = pixels[x - size//2:x + size//2, y - size//2:y + size//2]
+    arr = pixels[x - size // 2: x + size // 2, y - size // 2: y + size // 2]
     return arr
 
 
@@ -227,6 +208,30 @@ def get_void_roi(pixels, circle, size=20):
 def get_edge_roi(pixels, square, size=20):
     _, centre = get_right_edge_vector_and_centre(square)
     return get_roi(pixels, centre=(centre["x"], centre["y"]), size=size)
+
+
+def edge_is_vertical(edge_roi, mean) -> bool:
+    """
+    control_parameter_01=0  ;a control parameter that will be equal to 1 if the edge is vertical and 0 if it is horizontal
+
+for column=0, event.MTF_roi_size-2 do begin
+if MTF_Data(column, 0 ) EQ mean_value then control_parameter_01=1
+if (MTF_Data(column, 0) LT mean_value) AND (MTF_Data(column+1, 0) GT mean_value) then control_parameter_01=1
+if (MTF_Data(column, 0) GT mean_value) AND (MTF_Data(column+1, 0) LT mean_value) then control_parameter_01=1
+end
+    Returns:
+
+    """
+    for col in range(edge_roi.shape[0] - 1):
+
+        if edge_roi[col, 0] == mean:
+            return True
+        if edge_roi[col, 0] < mean < edge_roi[col + 1, 0]:
+            return True
+        if edge_roi[col, 0] > mean > edge_roi[col + 1, 0]:
+            return True
+
+    return False
 
 
 def get_bisecting_normal(vector, centre, length_factor=0.25):
@@ -249,7 +254,6 @@ def get_right_edge_vector_and_centre(square):
 
 
 def get_right_edge_normal_profile(img, square):
-
     right_edge_profile_vector, right_edge_profile_roi_centre = get_right_edge_vector_and_centre(square)
 
     n1x, n1y, n2x, n2y = get_bisecting_normal(right_edge_profile_vector, right_edge_profile_roi_centre)
@@ -263,12 +267,15 @@ def get_right_edge_normal_profile(img, square):
 def get_signal_roi(pixels, square, circle, size=20):
     _, square_centre = get_right_edge_vector_and_centre(square)
     circle_r = circle[0][0][2]
-    x = square_centre["x"]+circle_r//2
+    x = square_centre["x"] + circle_r // 2
     y = square_centre["y"]
     return get_roi(pixels=pixels, centre=(x, y), size=size)
 
 
 def get_edge(edge_arr, mean_value, spacing):
+    if edge_is_vertical(edge_arr, mean_value):
+        edge_arr = np.rot90(edge_arr)
+
     x_edge = [0] * 20
     y_edge = [0] * 20
 
@@ -288,7 +295,7 @@ def get_edge(edge_arr, mean_value, spacing):
                 x_edge[row] = row * spacing[0]
                 y_edge[row] = col * spacing[1]
 
-    return x_edge, y_edge
+    return (x_edge, y_edge, edge_arr)
 
 
 def get_edge_angle_and_intercept(x_edge, y_edge):
@@ -339,29 +346,27 @@ def get_esf(edge_arr, y):
     edge_distance = copy.copy(y[0, :])
 
     for row in range(1, 20):
-        edge_distance = np.concatenate((edge_distance, y[row, :]))
+        edge_distance = np.append(edge_distance, y[row, :])
 
     esf_data = copy.copy(edge_arr[:, 0])
     for row in range(1, 20):
         esf_data = np.append(esf_data, edge_arr[:, row])
 
-    # ;sort the distances and the data accordingly
+    # sort the distances and the data accordingly
     ind_edge_distance = np.argsort(edge_distance)
     sorted_edge_distance = edge_distance[ind_edge_distance]
     sorted_esf_data = esf_data[ind_edge_distance]
 
-    # ;get rid of duplicates (if two data correspond to the same distance) and replace them with their average
+    # get rid of duplicates (if two data correspond to the same distance) and replace them with their average
     temp_array01 = np.array([sorted_edge_distance[0]])
     temp_array02 = np.array([sorted_esf_data[0]])
 
     for element in range(1, len(sorted_edge_distance)):
 
         if not (sorted_edge_distance[element] - temp_array01[-1]).all():
-
             temp_array02[-1] = (temp_array02[-1] + sorted_esf_data[element]) / 2
 
         else:
-
             temp_array01 = np.append(temp_array01, sorted_edge_distance[element])
             temp_array02 = np.append(temp_array02, sorted_esf_data[element])
 
@@ -386,13 +391,13 @@ def calculate_mtf(dicom):
 
     spacing = dicom.PixelSpacing
     mean = np.mean([void_arr, signal_arr])
-    x_edge, y_edge = get_edge(edge_arr, mean, spacing)
+
+    x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
     x, y = get_edge_profile_coords(angle, intercept, spacing)
-
     u, esf = get_esf(edge_arr, y)
-    lsf = spacing * maivis_deriv(u, esf)
-    mtf = np.fft.fft(lsf)
+    lsf = maivis_deriv(u, esf)
+    mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
@@ -400,6 +405,7 @@ def calculate_mtf(dicom):
     res = 10 / (2 * mtf_frequency)
 
     return res
+
 
 def find_circle(a):
     """
@@ -490,7 +496,7 @@ def calc_fwhm(lsf):
     return fwhm
 
 
-def main(image):
+def neil_main(image):
     # Read pixel size
     pixelsize = image[0x28, 0x30].value
 
@@ -519,3 +525,11 @@ def main(image):
     # print("Vertical FWHM: ", np.round(ver_fwhm,2),"mm")
 
     return hor_fwhm, ver_fwhm
+
+
+def main(data: list) -> dict:
+    data = [pydicom.read_file(dcm) for dcm in data]  # load dicom objects into memory
+
+    results = calculate_mtf(data[0])
+
+    return results
