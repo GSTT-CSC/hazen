@@ -103,11 +103,10 @@ import os
 import importlib
 import pydicom
 import numpy as np
+import cv2 as cv
 
 __version__ = '0.1.dev'
 __all__ = ['snr', 'slice_position', 'slice_width', 'spatial_resolution', 'uniformity', 'ghosting', 'utils']
-
-
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
