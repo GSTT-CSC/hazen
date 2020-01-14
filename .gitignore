@@ -16,3 +16,5 @@ tra_slicewidth5_Top_Profile.png
 nodeids
 htmlcov
 build
+dist
+hazen.egg-info

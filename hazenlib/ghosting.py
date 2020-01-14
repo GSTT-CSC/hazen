@@ -162,24 +162,21 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
             continue
         else:
             windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
-            assert windows[idx].shape == (10, 10)
 
     for idx, window in windows.items():
         if np.mean(window) > max_mean:
             max_mean = np.mean(window)
             max_index = idx
 
-    return np.array(range(max_index[0] - slice_radius, max_index[0] + slice_radius), dtype=np.intp)[:,
-           np.newaxis], np.array(
+    return np.array(
+        range(max_index[0] - slice_radius, max_index[0] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(max_index[1] - slice_radius, max_index[1] + slice_radius)
     )
 
 
-def get_ghosting(dicom_data: list) -> dict:
-    dcm = pydicom.read_file(dicom_data[0])
-
+def get_ghosting(dcm) -> dict:
     bbox = get_signal_bounding_box(dcm.pixel_array)
-    signal_centre = [bbox[0]+round((bbox[1]-bbox[0]/2)), bbox[2]+round((bbox[3]-bbox[2])/2)]
+    signal_centre = [bbox[0]+(bbox[1]-bbox[0])//2, bbox[2]+(bbox[3]-bbox[2])//2]
     background_rois = get_background_rois(dcm, signal_centre)
     ghost = dcm.pixel_array[get_ghost_slice(bbox, dcm)]
     phantom = dcm.pixel_array[get_signal_slice(bbox)]
@@ -188,13 +185,14 @@ def get_ghosting(dicom_data: list) -> dict:
 
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
-    return {'ghosting': ghosting}
+    return {'ghosting_percentage': ghosting}
 
 
 def main(data: list) -> dict:
-    data = [pydicom.read_file(dcm) for dcm in data]  # load dicom objects into memory
+    results = {os.path.split(path)[-1]: pydicom.read_file(path) for path in data}  # load dicom objects into memory
 
-    results = get_ghosting(data)
+    for path, dcm in results.items():
+        results[path] = get_ghosting(dcm)
 
     return results
 

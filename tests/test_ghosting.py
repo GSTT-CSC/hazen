@@ -13,7 +13,7 @@ import hazenlib.ghosting as hazen_ghosting
 from tests import TEST_DATA_DIR
 
 
-class TestSliceWidth(unittest.TestCase):
+class TestGhosting(unittest.TestCase):
     SIGNAL_BOUNDING_BOX = (242, 325, 251, 335)
     SIGNAL_CENTRE = [284, 293]
     SIGNAL_SLICE = np.array(range(284 - 5, 284 + 5), dtype=np.intp)[:, np.newaxis], np.array(range(293 - 5, 293 + 5),
@@ -21,13 +21,14 @@ class TestSliceWidth(unittest.TestCase):
     BACKGROUND_ROIS = [(88, 293), (88, 220), (88, 147), (88, 74)]
     PADDING_FROM_BOX = 30
     SLICE_RADIUS = 5
+    PE = 'ROW'
     ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
         5, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
 
-    GHOST_SLICE = np.array(range(283 - SLICE_RADIUS, 283 + SLICE_RADIUS), dtype=np.intp)[:,
-    np.newaxis], np.array(
+    GHOST_SLICE = np.array(range(283 - SLICE_RADIUS, 283 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
         range(13 - SLICE_RADIUS, 13 + SLICE_RADIUS)
     )
+    GHOSTING = 0.787020192832454
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
@@ -76,7 +77,7 @@ class TestSliceWidth(unittest.TestCase):
         assert list(hazen_ghosting.get_signal_slice(self.SIGNAL_BOUNDING_BOX)[1]) == list(self.SIGNAL_SLICE[1])
 
     def test_get_pe_direction(self):
-        assert hazen_ghosting.get_pe_direction(self.dcm) == 'ROW'
+        assert hazen_ghosting.get_pe_direction(self.dcm) == self.PE
 
     def test_get_background_rois(self):
         # # Create figure and axes
@@ -112,4 +113,26 @@ class TestSliceWidth(unittest.TestCase):
         assert list(hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm)[1]) == list(self.GHOST_SLICE[1])
 
     def test_get_ghosting(self):
-        assert hazen_ghosting.get_ghosting([self.file])['ghosting'] == 0.787020192832454
+        assert hazen_ghosting.get_ghosting([self.dcm])['ghosting_percentage'] == self.GHOSTING
+
+
+class TestCOLPEGhosting(TestGhosting):
+    SIGNAL_BOUNDING_BOX = (165, 210, 164, 209)
+    SIGNAL_CENTRE = [187, 186]
+    SIGNAL_SLICE = np.array(range(187 - 5, 187 + 5), dtype=np.intp)[:, np.newaxis], np.array(range(186 - 5, 186 + 5),
+                                                                                             dtype=np.intp)
+    BACKGROUND_ROIS = [(187, 64), (140, 64), (93, 64), (46, 64)]
+    PADDING_FROM_BOX = 30
+    SLICE_RADIUS = 5
+    ELIGIBLE_GHOST_AREA = range(5, SIGNAL_BOUNDING_BOX[0]-PADDING_FROM_BOX), range(
+        SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
+
+    GHOST_SLICE = np.array(range(134 - SLICE_RADIUS, 134 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(197 - SLICE_RADIUS, 197 + SLICE_RADIUS)
+    )
+    PE = "COL"
+    GHOSTING = 0.29948100239672915
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'ghosting' / 'PE_COL_PHANTOM_BOTTOM_RIGHT' / 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA')
+        self.dcm = pydicom.read_file(self.file)
