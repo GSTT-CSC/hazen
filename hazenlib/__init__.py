@@ -185,6 +185,6 @@ def main():
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder)]
-    pp = pprint.PrettyPrinter(indent=4, depth=3, width=20)
+    pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
     return pp.pprint(task.main(files))
 

@@ -42,6 +42,9 @@ class Rod:
     def __repr__(self):
         return f'Rod: {self.x}, {self.y}'
 
+    def __str__(self):
+        return f'Rod: {self.x}, {self.y}'
+
     @property
     def centroid(self):
         return self.x, self.y
@@ -57,6 +60,17 @@ class Rod:
 
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
+
+
+def sort_rods(rods):
+
+    lower_row = sorted(rods, key=lambda rod: rod.y)[-3:]
+    lower_row = sorted(lower_row, key=lambda rod: rod.x)
+    middle_row = sorted(rods, key=lambda rod: rod.y)[3:6]
+    middle_row = sorted(middle_row, key=lambda rod: rod.x)
+    upper_row = sorted(rods, key=lambda rod: rod.y)[0:3]
+    upper_row = sorted(upper_row, key=lambda rod: rod.x)
+    return lower_row + middle_row + upper_row
 
 
 def get_rods(dcm):
@@ -105,26 +119,26 @@ def get_rods(dcm):
     rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
-
-    rods = sorted(rods)
+    rods = sort_rods(rods)
 
     return rods
 
 
 def plot_rods(arr, rods):
-    fig, ax = plt.subplots(nrows=2, ncols=2)
-    fig.suptitle("get_rods")
-    ax[0][0].imshow(arr, cmap='gray')
-    ax[0][1].imshow(img_threshold, cmap='gray')
-    ax[1][0].imshow(labeled_array, cmap='gray')
-    ax[1][1].imshow(arr, cmap='gray')
+    # fig, ax = plt.subplots(nrows=1, ncols=2)
+    # fig.suptitle("get_rods")
+    plt.imshow(arr, cmap='gray')
+    # ax[0][1].imshow(img_threshold, cmap='gray')
+    # ax[1][0].imshow(labeled_array, cmap='gray')
+    # ax[1][1].imshow(arr, cmap='gray')
 
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
 
     for idx, i in enumerate(rods):
-        ax[1][1].scatter(x=i.x, y=i.y, marker=f"$ {mark[idx]} $", s=10, linewidths=0.4)
+        plt.scatter(x=i.x, y=i.y, marker=f"${mark[idx]}$", s=10, linewidths=0.4)
     # ax[1][1].scatter(x=[i.x for i in rods], y=[i.y for i in rods], marker="+", s=1, linewidths=0.5)
-    fig.savefig('rods.png')
+    # fig.savefig('rods.png')
+    plt.show()
 
 
 def get_rod_distances(rods):

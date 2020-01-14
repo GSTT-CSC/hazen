@@ -145,23 +145,9 @@ def main(data: list) -> dict:
     idistort = (bbxstop-bbxstart)/(bbystop-bbystart)
     idistort =np.abs(idistort-1)
 
-    results = {
+    results = {'uniformity': {'horizontal': {'IPEM': fract_uniformity_hor}, 'vertical': {'IPEM': fract_uniformity_ver}}}
 
-        'uniformity':
-            {
-                'horizontal':
-                    {
-                        'IPEM': fract_uniformity_hor
-                    },
-                'vertical':
-                    {
-                        'IPEM': fract_uniformity_ver
-                    }
-
-            }
-    }
-
-    return json.dumps(results, indent=4)
+    return results
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def get_rod_rotation(x_pos: list, y_pos: list) -> float:
     """
     X = np.array([[i, 1] for i in y_pos])
 
-    m, c = np.linalg.lstsq(X, np.array(x_pos))[0]
+    m, c = np.linalg.lstsq(X, np.array(x_pos), rcond=None)[0]
 
     theta = np.arctan(m)
     return theta
