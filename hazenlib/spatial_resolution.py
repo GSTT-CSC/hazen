@@ -7,14 +7,12 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
 
 """
+import copy
+
 import cv2 as cv
 import numpy as np
 import numpy.polynomial.polynomial as poly
-from PIL import Image
 import pydicom
-import pylab
-from scipy.signal import hilbert, chirp
-import copy
 
 
 def maivis_deriv(x, a, h=1, n=1, axis=-1):

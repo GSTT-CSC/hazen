@@ -124,7 +124,7 @@ def get_rods(dcm):
     return rods
 
 
-def plot_rods(arr, rods):
+def plot_rods(arr, rods): # pragma: no cover
     # fig, ax = plt.subplots(nrows=1, ncols=2)
     # fig.suptitle("get_rods")
     plt.imshow(arr, cmap='gray')
@@ -247,7 +247,7 @@ def baseline_correction(profile, sample_spacing):
             "profile_corrected_interpolated": profile_corrected_interp}
 
 
-def plot_baseline_correction(profile, corrected_profiles):
+def plot_baseline_correction(profile, corrected_profiles): # pragma: no cover
     baseline = corrected_profiles["baseline"]
     profile_corrected_interp = corrected_profiles["profile_corrected_interpolated"]
 
@@ -317,7 +317,7 @@ def get_ramp_profiles(image_array, rods) -> dict:
             "top-centre": top_profile_vertical_centre, "bottom-centre": bottom_profile_vertical_centre}
 
 
-def plot_ramp_profiles(arr, ramp_profiles):
+def plot_ramp_profiles(arr, ramp_profiles): # pragma: no cover
     plt.figure()
     plt.imshow(arr)
     top_profile_mean = np.mean(ramp_profiles["top"], axis=0)

@@ -8,7 +8,7 @@ from app import db, create_app, create_celery_app
 from app.models import User, Acquisition, ProcessTask
 
 
-__version__ = 'dev-0.1.0'
+__version__ = '0.1.dev0'
 __author__ = "mohammad_haris.shuaib@kcl.ac.uk"
 
 

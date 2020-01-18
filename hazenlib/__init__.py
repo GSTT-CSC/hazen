@@ -84,16 +84,12 @@ Options:
     -v --version  Show version.
 """
 from docopt import docopt
-import hazenlib
 import os
 import pprint
 import importlib
 import pydicom
-import numpy as np
-import cv2 as cv
 
 __version__ = '0.1.dev0'
-__all__ = ['snr', 'slice_position', 'slice_width', 'spatial_resolution', 'uniformity', 'ghosting']
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -129,55 +125,6 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
         return dcm.Manufacturer
     else:
         raise Exception('Manufacturer not recognised')
-
-
-def find_circle(dcm: pydicom.Dataset):
-    """
-    Finds a circle that fits the outline of the phantom using the Hough Transform
-
-    Parameters:
-    ---------------
-    a: image array (should be uint8)
-
-    Returns:
-    ---------------
-    cenx, ceny, cradius: int, int, int
-        xy pixel coordinates of the centre of the phantom
-        radius of the phantom in pixels
-
-    Raises
-    ------
-    Exception:
-        Wrong number of circles detected, check image.
-
-    """
-
-    a = dcm.pixel_array
-    a = ((a / a.max()) * 256).astype('uint8')
-
-    # Perform Hough transform to find circle
-    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 200, param1=30,
-                              param2=45, minRadius=0, maxRadius=0)
-
-    # Check that a single phantom was found
-    if len(circles) == 1:
-        pass
-
-    else:
-        raise Exception("Wrong number of circles detected, check image.")
-
-    # Draw circle onto original image
-    circles = np.uint16(np.around(circles))
-    for i in circles[0, :]:
-        # draw the outer circle
-        cv.circle(a, (i[0], i[1]), i[2], 128, 2)
-        # draw the center of the circle
-        cv.circle(a, (i[0], i[1]), 2, 128, 2)
-
-    cenx = i[0]
-    ceny = i[1]
-    cradius = i[2]
-    return cenx, ceny, cradius
 
 
 def main():
