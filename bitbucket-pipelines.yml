@@ -10,9 +10,7 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazenlib --cov=app --cov-report xml:./coverage-reports/coverage-1.xml --junitxml=./test-reports/junit.xml tests/
-        - cat ./coverage-reports/coverage-1.xml
-        - cat ./test-reports/junit.xml
+        - pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=./test-reports/junit.xml tests/
         - mkdir ./xunit-reports/
         - cp ./test-reports/junit.xml ./xunit-reports/xunit-result-1.xml
       services:
@@ -28,7 +26,7 @@ stepdefinitions:
         #   SONAR_SCANNER_OPTS: '<string>'  # Optional
         #   DEBUG: '<boolean>'  # Optional
 
-      - bash <(curl -f ./coverage-reports/coverage-1.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
+      - bash <(curl -f .coverage.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
       name: Deploy to Heroku
