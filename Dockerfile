@@ -1,8 +1,10 @@
-FROM alpine:3.5
-RUN apk add --update python py-pip
-COPY requirements.txt /src/requirements.txt
-RUN pip install -r /src/requirements.txt
-RUN sudo apt-get install rabbitmq-server
-COPY app.py /src
-COPY hazen /src/hazen
-CMD python /src/app.py
+FROM python:3.7
+ADD requirements.txt /requirements.txt
+ADD hazen.py /hazen.py
+ADD app /app
+ADD hazenlib /hazenlib
+RUN pip install -r /requirements.txt
+ENTRYPOINT ["python"]
+CMD ["./hazen.py","--host=0.0.0.0"]
+#ENTRYPOINT celery -A test_celery worker --concurrency=20 --loglevel=info
+

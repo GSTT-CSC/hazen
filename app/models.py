@@ -18,12 +18,6 @@ def load_user(id):
     return User.query.get(str(id))
 
 
-followers = db.Table('followers',
-    db.Column('follower_id', UUID, db.ForeignKey('user.id')),
-    db.Column('followed_id', UUID, db.ForeignKey('user.id'))
-)
-
-
 class User(UserMixin, Model, SurrogatePK, CreatedTimestampMixin):
 
     def __init__(self, **kwargs):
@@ -58,8 +52,8 @@ class User(UserMixin, Model, SurrogatePK, CreatedTimestampMixin):
 
     def get_reset_password_token(self, expires_in=600):
         return jwt.encode(
-            {'reset_password': self.id, 'exp': time() + expires_in},
-            current_app.config['SECRET_KEY'], algorithm='HS256').decode('utf-8')
+            {'reset_password': str(self.id), 'exp': time() + expires_in},
+            str(current_app.config['SECRET_KEY']), algorithm='HS256').decode('utf-8')
 
     @staticmethod
     def verify_reset_password_token(token):
@@ -78,7 +72,7 @@ class Acquisition(Model, SurrogatePK, CreatedTimestampMixin):
     series_instance_uid = db.Column(db.String(140))
     description = db.Column(db.String(200))
     files = db.Column(db.Integer)
-    user_id = db.Column(UUID, db.ForeignKey('user.id'))
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('user.id'))
 
     def __repr__(self):
         return '<Acquistion {}>'.format(self.description)
@@ -93,12 +87,13 @@ class Fact(Model, SurrogatePK, CreatedTimestampMixin):
     def __init__(self, **kwargs):
         db.Model.__init__(self, **kwargs)
 
-    user_id = db.Column(UUID, db.ForeignKey('user.id'))
-    acquisition_id = db.Column(UUID, db.ForeignKey('acquisition.id'))
-    process_task = db.Column(UUID, db.ForeignKey('process_task.id'))
+    user_id = db.Column(db.ForeignKey('user.id'))
+    acquisition_id = db.Column(db.ForeignKey('acquisition.id'))
+    process_task = db.Column(db.ForeignKey('process_task.id'))
     process_task_variables = db.Column(JSONB)
     data = db.Column(JSONB)
     status = db.Column(db.String)
+    task = db.relationship("ProcessTask", backref="facts")
 
 
 class ProcessTask(Model, SurrogatePK, CreatedTimestampMixin):

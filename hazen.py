@@ -26,7 +26,7 @@ def register_tasks_in_db():
                 current_app.logger.info(f'{stored_task.name} already exists in db')
 
         for name, obj in tasks.items():
-            docstring =  obj.__doc__.replace('\n', '\\n') if obj.__doc__ else 'No description available.'
+            docstring = obj.__doc__.replace('\n', '\\n') if obj.__doc__ else 'No description available.'
             process_task = ProcessTask(name=name,
                                        docstring=docstring)
             process_task.save()

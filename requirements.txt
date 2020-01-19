@@ -1,4 +1,4 @@
-opencv_python==3.4.2.16
+opencv_python==3.4.2.17
 pytest==3.6
 numpy==1.17.4
 matplotlib==2.1.1
@@ -19,8 +19,9 @@ flask-mail
 flask-moment
 flask-dropzone
 pyjwt
-psycopg2-binary
+psycopg2-binary==2.8.4
 scikit-image
 sqlalchemy_utils
 arrow
 celery
+amqp
