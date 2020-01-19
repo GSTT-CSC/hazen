@@ -5,7 +5,9 @@ Contributors:
 Haris Shuaib, haris.shuaib@gstt.nhs.uk
 Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
-
+.. todo::
+    Replace shape finding functions with hazenlib.tools equivalents
+    
 """
 import copy
 
@@ -293,7 +295,7 @@ def get_edge(edge_arr, mean_value, spacing):
                 x_edge[row] = row * spacing[0]
                 y_edge[row] = col * spacing[1]
 
-    return (x_edge, y_edge, edge_arr)
+    return x_edge, y_edge, edge_arr
 
 
 def get_edge_angle_and_intercept(x_edge, y_edge):
@@ -492,37 +494,6 @@ def calc_fwhm(lsf):
     fwhm = righthm - lefthm
 
     return fwhm
-
-
-def neil_main(image):
-    # Read pixel size
-    pixelsize = image[0x28, 0x30].value
-
-    # Prepare image for processing
-    idata = image.pixel_array  # Read the pixel values into an array
-    idata = np.array(idata)  # Make it a numpy array
-    idown = (idata / 256).astype('uint8')  # Downscale to uint8 for openCV techniques
-
-    # Find phantom centre and radius
-    (cenx, ceny, cradius) = find_circle(idown)
-
-    # Create profile through edges
-    lprof = idata[ceny, (cenx - cradius - 20):(cenx - cradius + 20)]
-    bprof = idata[(ceny + cradius - 20):(ceny + cradius + 20), cenx]
-    bprof = np.flipud(bprof)
-
-    # Differentiate profiles to obtain LSF
-    llsf = np.gradient(lprof)
-    blsf = np.gradient(bprof)
-
-    # Calculate FWHM of LSFs
-    hor_fwhm = calc_fwhm(llsf) * pixelsize[0]
-    ver_fwhm = calc_fwhm(blsf) * pixelsize[0]
-
-    # print("Horizontal FWHM: ", np.round(hor_fwhm,2),"mm")
-    # print("Vertical FWHM: ", np.round(ver_fwhm,2),"mm")
-
-    return hor_fwhm, ver_fwhm
 
 
 def main(data: list) -> dict:
