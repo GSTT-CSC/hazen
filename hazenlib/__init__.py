@@ -89,7 +89,7 @@ import pprint
 import importlib
 import pydicom
 
-__version__ = '0.1.dev0'
+__version__ = '0.1'
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:

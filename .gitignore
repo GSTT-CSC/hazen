@@ -18,3 +18,4 @@ htmlcov
 build
 dist
 hazen.egg-info
+docs/_build
