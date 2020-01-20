@@ -41,6 +41,14 @@ pipelines:
       - step: *testing
       - step: *reporting
       - step: *deploying
+    release/*:
+      - step: *testing
+      - step: *reporting
+      - step: *deploying
+    hotfix/*:
+      - step: *testing
+      - step: *reporting
+      - step: *deploying
   default:
     - step: *testing
     - step: *reporting

@@ -3,6 +3,8 @@ from collections import defaultdict
 import cv2 as cv
 import imutils
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc

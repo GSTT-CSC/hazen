@@ -9,6 +9,8 @@ import os
 import pydicom
 from skimage import measure, filters
 from skimage.morphology import disk
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
 import cv2 as cv

@@ -4,7 +4,7 @@ import sys
 import pydicom
 import numpy as np
 import matplotlib
-# matplotlib.use("agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 

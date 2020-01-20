@@ -13,7 +13,7 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 import matplotlib
-# matplotlib.use("agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
