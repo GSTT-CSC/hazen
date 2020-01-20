@@ -25,3 +25,8 @@ sqlalchemy_utils
 arrow
 celery
 amqp
+sphinxcontrib-needs
+sphinxcontrib-plantuml
+sphinxcontrib-napoleon
+sphinx_rtd_theme
+m2r
