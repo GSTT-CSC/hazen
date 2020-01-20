@@ -1,8 +1,3 @@
-# This is a sample build configuration for Python.
-# Check our guides at https://confluence.atlassian.com/x/x4UWN for more examples.
-# Only use spaces to indent your .yml configuration.
-# -----
-# You can specify a custom docker image from Docker Hub as your build environment.
 image: python:3.6
 clone:
   depth: full
@@ -15,17 +10,23 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazen --cov-report xml --junitxml=junit.xml tests/
+        - pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=./test-reports/junit.xml tests/
+        - mkdir ./xunit-reports/
+        - cp ./test-reports/junit.xml ./xunit-reports/xunit-result-1.xml
+      services:
+        - postgres
 
   - reporting: &reporting
       name: Uploading reports
       script:
-        - apt-get update
-        - apt-get install unzip
-        - curl --insecure -L https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.3.778-linux.zip -o sonar-scanner-3.0.3.778-linux.zip
-        - unzip sonar-scanner-3.0.3.778-linux.zip
-        - sonar-scanner-3.0.3.778-linux/bin/sonar-scanner -Dsonar.login=$SONAR_TOKEN -Dsonar.branch.name=$BITBUCKET_BRANCH
-        - bash <(curl -s https://codecov.io/bash) -t $CODECOV_TOKEN
+      - pipe: sonarsource/sonarcloud-scan:1.0.1
+        variables:
+          SONAR_TOKEN: ${SONAR_TOKEN}
+          EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X'
+        #   SONAR_SCANNER_OPTS: '<string>'  # Optional
+        #   DEBUG: '<boolean>'  # Optional
+
+      - bash <(curl -f .coverage.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
       name: Deploy to Heroku
@@ -43,3 +44,12 @@ pipelines:
   default:
     - step: *testing
     - step: *reporting
+
+definitions:
+  services:
+    postgres:
+      image: postgres
+      variables:
+        POSTGRES_DB: 'hazen_test'
+        POSTGRES_USER: 'test_user'
+        POSTGRES_PASSWORD: 'test_user_password'

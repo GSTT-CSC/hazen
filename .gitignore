@@ -8,3 +8,14 @@ logs
 uploads
 tests/data/slicepos/results
 tests/data/uniformity/results
+rods.png
+tra_slicewidth5_Bottom_Profile.png
+tra_slicewidth5_Slice_Width_and_Distortion_Results.txt
+tra_slicewidth5_Slice_Width_and_Distortion_ROIs.png
+tra_slicewidth5_Top_Profile.png
+nodeids
+htmlcov
+build
+dist
+hazen.egg-info
+docs/_build

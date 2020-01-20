@@ -104,7 +104,7 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
-    todo::
+    .. todo::
         NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
         Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
         Deal with magic number in Philips calc
@@ -188,6 +188,7 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
 
 
 def get_roi_samples(dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> list:
+
     if type(dcm) == np.ndarray:
         data = dcm
     else:
@@ -216,12 +217,13 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     normalised_snr: float
 
     """
-
-    cenx, ceny, cradius = hazen.find_circle(dcm)
+    shape_detector = hazen.tools.ShapeDetector(arr=dcm.pixel_array)
+    x, y, r = shape_detector.get_shape('circle')
+    x, y = int(x), int(y)
     noise_img = smoothed_subtracted_image(dcm=dcm)
 
-    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm, cx=cenx, cy=ceny)]
-    noise = [np.std(roi) for roi in get_roi_samples(dcm=noise_img, cx=cenx, cy=ceny)]
+    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm, cx=x, cy=y)]
+    noise = [np.std(roi) for roi in get_roi_samples(dcm=noise_img, cx=x, cy=y)]
 
     snr = np.mean(np.divide(signal, noise))
 

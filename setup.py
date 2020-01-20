@@ -1,13 +1,14 @@
 import setuptools
+import hazenlib
 
 setuptools.setup(
     name="hazen",
-    version="dev-0.1.0",
+    version=hazenlib.__version__,
     url="https://bitbucket.org/gsttmri/hazen",
-    author="Shuaib, Mohammad Haris",
+    author="Shuaib, Haris",
     author_email="mohammad_haris.shuaib@kcl.ac.uk",
     description="An automatic MRI QA tool",
-    long_description=open('README.rst').read(),
+    long_description=open('README.md').read(),
     packages=setuptools.find_packages(),
     install_requires=[],
     classifiers=[
@@ -16,4 +17,9 @@ setuptools.setup(
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.6',
     ],
+    entry_points={
+        'console_scripts': [
+            'hazen = hazenlib:main',
+        ],
+    },
 )

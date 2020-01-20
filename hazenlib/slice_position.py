@@ -11,9 +11,11 @@ from skimage import measure, filters
 from skimage.morphology import disk
 from matplotlib import pyplot as plt
 import numpy as np
-import cv2
+import cv2 as cv
 
-import hazenlib as hazen
+import hazenlib
+import hazenlib.tools
+import hazenlib.exceptions
 
 
 def get_rod_rotation(x_pos: list, y_pos: list) -> float:
@@ -42,9 +44,9 @@ def get_rod_rotation(x_pos: list, y_pos: list) -> float:
         angle of rotation in degrees
 
     """
-    X = np.matrix([[i, 1] for i in y_pos])
+    X = np.array([[i, 1] for i in y_pos])
 
-    m, c = np.linalg.lstsq(X, np.array(x_pos))[0]
+    m, c = np.linalg.lstsq(X, np.array(x_pos), rcond=None)[0]
 
     theta = np.arctan(m)
     return theta
@@ -52,14 +54,14 @@ def get_rod_rotation(x_pos: list, y_pos: list) -> float:
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
-    manufacturer = hazen.get_manufacturer(dcm)
+    manufacturer = hazenlib.get_manufacturer(dcm)
 
     if manufacturer == 'GE MEDICAL SYSTEMS':
         fov = dcm['0x19, 101e']
     elif manufacturer == 'SIEMENS':
         fov = dcm.Columns * dcm.PixelSpacing[0]
     elif manufacturer == 'Philips Medical Systems':
-        if hazen.is_enhanced_dicom(dcm):
+        if hazenlib.is_enhanced_dicom(dcm):
             fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
         else:
             fov = dcm.Columns * dcm.PixelSpacing[0]
@@ -68,15 +70,34 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
 
 def get_rods_coords(dcm: pydicom.Dataset):
-    cx, cy, cradius = hazen.find_circle(dcm=dcm)
+    shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
+    try:
+        x, y, r = shape_detector.get_shape('circle')
+
+    except hazenlib.exceptions.MultipleShapesError as e:
+        print(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
+        shape_detector.find_contours()
+        shape_detector.detect()
+        x, y, r = 0, 0, 0
+        for contour in shape_detector.shapes['circle']:
+            (new_x, new_y), new_r = cv.minEnclosingCircle(contour)
+            if new_r > r:
+                print(f"Found bigger circle: {new_x}, {new_y}, {new_r}")
+                x, y, r = new_x, new_y, new_r
+        print(f"Found circle with x={x},y={y},r={r}")
+
+    except hazenlib.exceptions.ShapeError:
+        raise
+
+    x, y = int(x), int(y)
 
     # clip image in xy plane to only include regions where rods could be
-    x_window = int(cradius/4)
-    y_window = int(cradius*0.95)
+    x_window = int(r/4)
+    y_window = int(r*0.95)
 
     arr = dcm.pixel_array
     clipped = np.zeros_like(arr)
-    clipped[cy-y_window:cy+y_window, cx-x_window:cx+x_window] = arr[cy-y_window:cy+y_window, cx-x_window:cx+x_window]
+    clipped[y-y_window:y+y_window, x-x_window:x+x_window] = arr[y-y_window:y+y_window, x-x_window:x+x_window]
 
     threshold = filters.threshold_otsu(clipped, 2)
 
@@ -91,7 +112,7 @@ def get_rods_coords(dcm: pydicom.Dataset):
             rods.append(obj)
 
     if len(rods) != 2:
-        raise Exception('Did not find two rods.')
+        raise Exception(f'Found {len(rods)} rods instead of 2.')
 
     rods.sort(key=lambda x: x.centroid[1])  # sort into Left and Right by using second coordinate
 
@@ -108,7 +129,6 @@ def get_rods_coords(dcm: pydicom.Dataset):
 def get_rods(data: list):
 
     left_rod, right_rod = {'x_pos': [], 'y_pos': []}, {'x_pos': [], 'y_pos': []}
-
     nominal_positions = []
     for i, dcm in enumerate(data):
 
@@ -190,7 +210,7 @@ def slice_position_error(data: list):
     return results
 
 
-def main(data: list)-> list:
+def main(data: list) -> list:
 
     if len(data) != 60:
         raise Exception('Need 60 DICOM')
