@@ -574,7 +574,7 @@ def main(data: list) -> list:
     if len(data) != 1:
         raise Exception('Need one DICOM file only')
 
-    dcm = pydicom.read_file(data[0])
+    dcm = data[0]
 
     results = get_slice_width(dcm)
 

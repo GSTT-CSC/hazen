@@ -72,7 +72,7 @@ class Acquisition(Model, SurrogatePK, CreatedTimestampMixin):
     series_instance_uid = db.Column(db.String(140))
     description = db.Column(db.String(200))
     files = db.Column(db.Integer)
-    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('user.id'))
+    user_id = db.Column(db.ForeignKey('user.id'))
 
     def __repr__(self):
         return '<Acquistion {}>'.format(self.description)

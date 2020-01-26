@@ -497,7 +497,6 @@ def calc_fwhm(lsf):
 
 
 def main(data: list) -> dict:
-    data = [pydicom.read_file(dcm) for dcm in data]  # load dicom objects into memory
 
     results = calculate_mtf(data[0])
 

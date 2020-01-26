@@ -13,10 +13,13 @@ Created by Neil Heraghty
 """
 import sys
 
+import cv2 as cv
 import numpy as np
 import pydicom
 
-import hazenlib as hazen
+import hazenlib
+import hazenlib.tools
+import hazenlib.exceptions as exc
 
 
 def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
@@ -61,7 +64,7 @@ def get_num_of_frames(dcm: pydicom.Dataset) -> int:
 
 
 def get_slice_thickness(dcm: pydicom.Dataset) -> float:
-    if hazen.is_enhanced_dicom(dcm):
+    if hazenlib.is_enhanced_dicom(dcm):
         try:
             slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
         except AttributeError:
@@ -83,10 +86,14 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
         dx, dy = dcm.PixelSpacing
 
     elif dcm.Manufacturer == 'Philips':
-        if hazen.is_enhanced_dicom(dcm):
+        if hazenlib.is_enhanced_dicom(dcm):
             dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
         else:
             dx, dy = dcm.PixelSpacing
+
+    elif 'toshiba' in dcm.Manufacturer.lower():
+        dx, dy = dcm.PixelSpacing
+
     else:
         raise Exception('Manufacturer not recognised')
 
@@ -94,7 +101,7 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
-    if hazen.is_enhanced_dicom(dcm):
+    if hazenlib.is_enhanced_dicom(dcm):
         averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
     else:
         averages = dcm.NumberOfAverages
@@ -117,7 +124,7 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     -------
 
     """
-    if hazen.get_manufacturer(dcm) == 'Philips':
+    if hazenlib.get_manufacturer(dcm) == 'Philips':
         bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
     else:
         bandwidth = dcm.PixelBandwidth
@@ -217,8 +224,14 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     normalised_snr: float
 
     """
-    shape_detector = hazen.tools.ShapeDetector(arr=dcm.pixel_array)
-    x, y, r = shape_detector.get_shape('circle')
+    shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
+
+    try:
+        x, y, r = shape_detector.get_shape('circle')
+    except exc.MultipleShapesError:
+        print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+        x, y, r = get_largest_circle(shape_detector.shapes['circle'])
+
     x, y = int(x), int(y)
     noise_img = smoothed_subtracted_image(dcm=dcm)
 
@@ -230,6 +243,18 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     normalised_snr = snr * get_normalised_snr_factor(dcm)
 
     return normalised_snr
+
+
+def get_largest_circle(circles):
+    largest_r = 0
+    largest_x, largest_y = 0, 0
+    for circle in circles:
+        (x, y), r = cv.minEnclosingCircle(circle)
+        if r > largest_r:
+            largest_r = r
+            largest_x, largest_y = x, y
+
+    return largest_x, largest_y, largest_r
 
 
 def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
@@ -244,13 +269,17 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
     -------
 
     """
+    shape_detector = hazenlib.tools.ShapeDetector(arr=dcm1.pixel_array)
+    try:
+        x, y, r = shape_detector.get_shape('circle')
+    except exc.MultipleShapesError:
+        print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+        x, y, r = get_largest_circle(shape_detector.shapes['circle'])
 
-    cenx, ceny, cradius = hazen.find_circle(dcm1)  # do i need to check it's same circle in dcm2?
-
+    x, y = int(x), int(y)
     difference = dcm1.pixel_array - dcm2.pixel_array
-
-    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm1, cx=cenx, cy=ceny)]
-    noise = [np.std(roi) for roi in get_roi_samples(dcm=difference, cx=cenx, cy=ceny)]
+    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm1, cx=x, cy=y)]
+    noise = [np.std(roi) for roi in get_roi_samples(dcm=difference, cx=x, cy=y)]
 
     snr = np.mean(np.divide(signal, noise))
 
@@ -271,12 +300,11 @@ def main(data: list) -> dict:
     results: list
     """
     results = {}
-
     if len(data) == 2:
-        results["snr_by_subtraction"] = snr_by_subtraction(dcm1=pydicom.read_file(data[0]), dcm2=pydicom.read_file(data[1]))
+        results["snr_by_subtraction"] = snr_by_subtraction(dcm1=data[0], dcm2=data[1])
 
     for idx, f in enumerate(data):
-        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm=pydicom.read_file(f))
+        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm=f)
 
     return results
     # # Draw regions for testing
@@ -291,6 +319,3 @@ def main(data: list) -> dict:
     # plt.imshow(idown, cmap='gray')
     # plt.show()
 
-
-if __name__ == "__main__":
-    main(sys.argv[1:])

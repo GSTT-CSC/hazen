@@ -217,8 +217,6 @@ def main(data: list) -> list:
     if len(data) != 60:
         raise Exception('Need 60 DICOM')
 
-    data = [pydicom.read_file(dcm) for dcm in data]  # load dicom objects into memory
-
     data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
 
     data = data[10:50]  # ignore first and last dicom

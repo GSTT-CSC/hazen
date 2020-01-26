@@ -168,7 +168,7 @@ def main(data: list) -> dict:
     if len(data) != 1:
         raise Exception('Only single DICOM input.')
 
-    dcm = pydicom.read_file(data[0])
+    dcm = data[0]
 
     results = get_fractional_uniformity(dcm)
     return results

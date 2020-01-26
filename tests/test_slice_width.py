@@ -173,5 +173,5 @@ class TestSliceWidth(unittest.TestCase):
             assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
 
     def test_slice_width(self):
-        results = hazen_slice_width.main([self.file])
+        results = hazen_slice_width.main([self.dcm])
         assert abs(results[0] - 5.48) < 0.1

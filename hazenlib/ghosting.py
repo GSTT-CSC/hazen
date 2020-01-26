@@ -189,7 +189,7 @@ def get_ghosting(dcm) -> dict:
 
 
 def main(data: list) -> dict:
-    results = {os.path.split(path)[-1]: pydicom.read_file(path) for path in data}  # load dicom objects into memory
+    results = {dcm.SeriesDescription: dcm for dcm in data}  # load dicom objects into memory
 
     for path, dcm in results.items():
         results[path] = get_ghosting(dcm)
