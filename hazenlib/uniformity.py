@@ -70,26 +70,24 @@ def get_fractional_uniformity(dcm):
         # orientation is sagittal to patient
         try:
             (x, y), size, angle = shape_detector.get_shape('rectangle')
-        except exc.ShapeError as e:
-            shape_detector.find_contours()
-            shape_detector.detect()
-            im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
-            plt.imshow(im)
-            plt.show()
-            print(shape_detector.shapes.keys())
+        except exc.ShapeError:
+            # shape_detector.find_contours()
+            # shape_detector.detect()
+            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
+            # plt.imshow(im)
+            # plt.show()
+            # print(shape_detector.shapes.keys())
             raise
-
-        x, y = int(x), int(y)
-        central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
 
     elif orientation == 'Transverse':
         # orientation is axial
         x, y, r = shape_detector.get_shape('circle')
-        x, y = int(x), int(y)
-        central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
+
     else:
         raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
+    x, y = int(x), int(y)
+    central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
     # Create central 10x10 ROI and measure modal value
 
     central_roi_mode, mode_popularity = mode(central_roi)

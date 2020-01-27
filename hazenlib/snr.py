@@ -226,11 +226,28 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     """
     shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
 
-    try:
-        x, y, r = shape_detector.get_shape('circle')
-    except exc.MultipleShapesError:
-        print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
-        x, y, r = get_largest_circle(shape_detector.shapes['circle'])
+    orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
+
+    if orientation in ['Sagittal', 'Coronal']:
+        # orientation is sagittal to patient
+        try:
+            (x, y), size, angle = shape_detector.get_shape('rectangle')
+        except exc.ShapeError:
+            # shape_detector.find_contours()
+            # shape_detector.detect()
+            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
+            # plt.imshow(im)
+            # plt.show()
+            # print(shape_detector.shapes.keys())
+            raise
+    elif orientation == 'Transverse':
+        try:
+            x, y, r = shape_detector.get_shape('circle')
+        except exc.MultipleShapesError:
+            print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+            x, y, r = get_largest_circle(shape_detector.shapes['circle'])
+    else:
+        raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
     x, y = int(x), int(y)
     noise_img = smoothed_subtracted_image(dcm=dcm)
@@ -270,11 +287,29 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
 
     """
     shape_detector = hazenlib.tools.ShapeDetector(arr=dcm1.pixel_array)
-    try:
-        x, y, r = shape_detector.get_shape('circle')
-    except exc.MultipleShapesError:
-        print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
-        x, y, r = get_largest_circle(shape_detector.shapes['circle'])
+
+    orientation = hazenlib.tools.get_image_orientation(dcm1.ImageOrientationPatient)
+
+    if orientation in ['Sagittal', 'Coronal']:
+        # orientation is sagittal to patient
+        try:
+            (x, y), size, angle = shape_detector.get_shape('rectangle')
+        except exc.ShapeError:
+            # shape_detector.find_contours()
+            # shape_detector.detect()
+            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
+            # plt.imshow(im)
+            # plt.show()
+            # print(shape_detector.shapes.keys())
+            raise
+    elif orientation == 'Transverse':
+        try:
+            x, y, r = shape_detector.get_shape('circle')
+        except exc.MultipleShapesError:
+            print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+            x, y, r = get_largest_circle(shape_detector.shapes['circle'])
+    else:
+        raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
     x, y = int(x), int(y)
     difference = dcm1.pixel_array - dcm2.pixel_array
