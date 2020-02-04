@@ -4,7 +4,7 @@ import sys
 import pydicom
 import numpy as np
 import matplotlib
-# matplotlib.use("agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
@@ -189,7 +189,7 @@ def get_ghosting(dcm) -> dict:
 
 
 def main(data: list) -> dict:
-    results = {os.path.split(path)[-1]: pydicom.read_file(path) for path in data}  # load dicom objects into memory
+    results = {f"{dcm.SeriesDescription}_{dcm.EchoTime}ms": dcm for dcm in data}  # load dicom objects into memory
 
     for path, dcm in results.items():
         results[path] = get_ghosting(dcm)

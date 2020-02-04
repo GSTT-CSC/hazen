@@ -33,11 +33,19 @@ stepdefinitions:
       deployment: staging   # set to test, staging or production
       # trigger: manual  # uncomment to have a manual step
       script:
-        - git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git HEAD
+        - git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git $BITBUCKET_BRANCH:master
 
 pipelines:
   branches:
     master:
+      - step: *testing
+      - step: *reporting
+      - step: *deploying
+    release/*:
+      - step: *testing
+      - step: *reporting
+      - step: *deploying
+    hotfix/*:
       - step: *testing
       - step: *reporting
       - step: *deploying

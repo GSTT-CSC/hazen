@@ -1,9 +1,9 @@
 opencv_python==3.4.2.17
 pytest==3.6
-numpy==1.17.4
+numpy==1.17
 matplotlib==2.1.1
 setuptools==39.0.1
-pydicom==1.2.1
+pydicom==1.4.1
 imutils
 docopt
 coverage
@@ -18,9 +18,10 @@ Flask-Bootstrap4
 flask-mail
 flask-moment
 flask-dropzone
+flask-heroku
 pyjwt
 psycopg2-binary==2.8.4
-scikit-image
+scikit-image==0.14.2
 sqlalchemy_utils
 arrow
 celery

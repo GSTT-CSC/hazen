@@ -13,8 +13,8 @@ class TestSnr(unittest.TestCase):
     SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'snr')
 
     def setUp(self):
-        self.test_file = str(self.SNR_DATA / 'uniform-circle.IMA')
+        self.test_file = pydicom.read_file(str(self.SNR_DATA / 'uniform-circle.IMA'), force=True)
 
     def test_image_snr(self):
         val = hazenlib.snr.main(data=[self.test_file])
-        assert val == {"snr_by_smoothing_0": 454711.54418070667}
+        assert val == {"snr_by_smoothing_0": 2509.1319217231753}
