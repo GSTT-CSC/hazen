@@ -141,7 +141,7 @@ def get_normalised_snr_factor(dcm: pydicom.Dataset) -> float:
     bandwidth_factor = np.sqrt((bandwidth * 256 / 2) / 1000) / np.sqrt(30)
     voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
-    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / np.sqrt(averages) * np.sqrt(256))
+    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages) * np.sqrt(256)))
 
     return normalised_snr_factor
 
@@ -159,7 +159,7 @@ def conv2d(dcm: pydicom.Dataset, f) -> np.array:
     ---------------
     filtered numpy array
     """
-    a = dcm.pixel_array
+    a = dcm.pixel_array.astype('int')
     s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
     strd = np.lib.stride_tricks.as_strided
     subM = strd(a, shape=s, strides=a.strides * 2)
@@ -179,7 +179,7 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
     ---------------
     Inoise: image representing the image noise
     """
-    a = dcm.pixel_array
+    a = dcm.pixel_array.astype('int')
     # Create 3x3 boxcar kernel (recommended size - adjustments will affect results)
     size = (3, 3)
     kernel = np.ones(size) / 9
@@ -312,12 +312,13 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
         raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
     x, y = int(x), int(y)
-    difference = dcm1.pixel_array - dcm2.pixel_array
+    difference = np.subtract(dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int'))
+
     signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm1, cx=x, cy=y)]
-    noise = [np.std(roi) for roi in get_roi_samples(dcm=difference, cx=x, cy=y)]
+    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=difference, cx=x, cy=y)], np.sqrt(2))
 
     snr = np.mean(np.divide(signal, noise))
-
+    
     normalised_snr = snr * get_normalised_snr_factor(dcm1)
 
     return normalised_snr
