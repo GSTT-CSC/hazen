@@ -189,7 +189,7 @@ def get_ghosting(dcm) -> dict:
 
 
 def main(data: list) -> dict:
-    results = {dcm.SeriesDescription: dcm for dcm in data}  # load dicom objects into memory
+    results = {f"{dcm.SeriesDescription}_{dcm.EchoTime}ms": dcm for dcm in data}  # load dicom objects into memory
 
     for path, dcm in results.items():
         results[path] = get_ghosting(dcm)
