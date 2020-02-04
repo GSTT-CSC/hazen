@@ -569,13 +569,11 @@ def get_slice_width(dcm):
 
 
 def main(data: list) -> list:
-    print(f"Measuring slice width from image: {data}")
-
     if len(data) != 1:
         raise Exception('Need one DICOM file only')
 
     dcm = data[0]
-
+    print(f"Measuring slice width from image: {dcm.SeriesDescription}")
     results = get_slice_width(dcm)
 
-    return [results]
+    return {"slice_width": results}
