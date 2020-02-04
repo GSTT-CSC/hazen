@@ -253,8 +253,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     noise_img = smoothed_subtracted_image(dcm=dcm)
 
     signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm, cx=x, cy=y)]
-    noise = [np.std(roi) for roi in get_roi_samples(dcm=noise_img, cx=x, cy=y)]
-
+    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=noise_img, cx=x, cy=y)], np.sqrt(2))
     snr = np.mean(np.divide(signal, noise))
 
     normalised_snr = snr * get_normalised_snr_factor(dcm)
@@ -318,7 +317,7 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
     noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=difference, cx=x, cy=y)], np.sqrt(2))
 
     snr = np.mean(np.divide(signal, noise))
-    
+
     normalised_snr = snr * get_normalised_snr_factor(dcm1)
 
     return normalised_snr

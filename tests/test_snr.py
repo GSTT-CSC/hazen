@@ -17,4 +17,4 @@ class TestSnr(unittest.TestCase):
 
     def test_image_snr(self):
         val = hazenlib.snr.main(data=[self.test_file])
-        assert val == {"snr_by_smoothing_0": 454711.54418070667}
+        assert val == {"snr_by_smoothing_0": 2509.1319217231753}
