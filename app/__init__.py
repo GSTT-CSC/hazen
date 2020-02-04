@@ -11,7 +11,7 @@ from flask_bootstrap import Bootstrap
 from flask_mail import Mail
 from flask_moment import Moment
 from flask_dropzone import Dropzone
-from flask.ext.heroku import Heroku
+from flask_heroku import Heroku
 from celery import Celery
 from config import Config
 
