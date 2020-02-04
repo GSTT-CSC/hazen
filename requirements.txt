@@ -18,6 +18,7 @@ Flask-Bootstrap4
 flask-mail
 flask-moment
 flask-dropzone
+flask-heroku
 pyjwt
 psycopg2-binary==2.8.4
 scikit-image==0.14.2
