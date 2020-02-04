@@ -3,6 +3,8 @@ from collections import defaultdict
 import cv2 as cv
 import imutils
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc
@@ -62,10 +64,11 @@ class ShapeDetector:
     def find_contours(self):
         # convert the resized image to grayscale, blur it slightly, and threshold it
         self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)    # magic numbers
-        self.thresh = np.where(self.blurred > self.blurred.max()//5, 255, 0) .astype(np.uint8)  # have to convert type for find contours
+        self.thresh = np.where(self.blurred > self.blurred.max()//5, 255, 0) .astype(np.uint8)
+        # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
         self.contours = imutils.grab_contours(contours)
-        # rep = cv.drawContours(self.arr.copy(), [self.contours[0]], -1, color=(255, 255, 255), thickness=5)
+        # rep = cv.drawContours(self.arr.copy(), [self.contours[0]], -1, color=(0, 255, 0), thickness=5)
         # plt.imshow(rep)
         # plt.title("rep")
         # plt.colorbar()

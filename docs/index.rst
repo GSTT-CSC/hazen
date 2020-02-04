@@ -10,9 +10,13 @@ Welcome to hazen's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   getting_started/getting_started
+   concepts/concepts
+   guides/guides
    Contributing <contributing_link>
+   api/modules
    requirements
-   modules
+
 
 
 Indices and tables

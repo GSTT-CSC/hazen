@@ -1,6 +1,8 @@
 import unittest
 import pathlib
 
+import pydicom
+
 import hazenlib.slice_position as hazen_slice_position
 from tests import TEST_DATA_DIR
 
@@ -10,7 +12,7 @@ class TestSlicePosition(unittest.TestCase):
     SLICE_POS_DATA = pathlib.Path(TEST_DATA_DIR / 'slicepos')
 
     def setUp(self):
-        self.test_files = [str(i) for i in (self.SLICE_POS_DATA / 'SLICEPOSITION').iterdir()]
+        self.test_files = [pydicom.read_file(str(i), force=True) for i in (self.SLICE_POS_DATA / 'SLICEPOSITION').iterdir()]
 
     def test_slice_position(self):
         results = hazen_slice_position.main(self.test_files)

@@ -9,6 +9,8 @@ import os
 import pydicom
 from skimage import measure, filters
 from skimage.morphology import disk
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 import numpy as np
 import cv2 as cv
@@ -214,8 +216,6 @@ def main(data: list) -> list:
 
     if len(data) != 60:
         raise Exception('Need 60 DICOM')
-
-    data = [pydicom.read_file(dcm) for dcm in data]  # load dicom objects into memory
 
     data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
 

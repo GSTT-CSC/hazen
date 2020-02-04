@@ -89,7 +89,8 @@ import pprint
 import importlib
 import pydicom
 
-__version__ = '0.1'
+__version__ = '0.1.1'
+EXCLUDED_FILES = ['.DS_Store']
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -119,7 +120,7 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['GE', 'GE MEDICAL SYSTEMS', 'SIEMENS', 'Philips']  # Siemens has to be upper-case
+    supported = ['GE', 'GE MEDICAL SYSTEMS', 'SIEMENS', 'Philips', 'TOSHIBA']
 
     if dcm.Manufacturer in supported:
         return dcm.Manufacturer
@@ -131,7 +132,8 @@ def main():
     arguments = docopt(__doc__, version=__version__)
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
-    files = [os.path.join(folder, x) for x in os.listdir(folder)]
+    files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
+    dicom_objects = [pydicom.read_file(x, force=True) for x in files]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
-    return pp.pprint(task.main(files))
+    return pp.pprint(task.main(dicom_objects))
 

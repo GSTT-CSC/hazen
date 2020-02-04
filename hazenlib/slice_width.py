@@ -13,7 +13,7 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 from scipy.optimize import curve_fit
 import matplotlib
-# matplotlib.use("agg")
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
@@ -569,13 +569,11 @@ def get_slice_width(dcm):
 
 
 def main(data: list) -> list:
-    print(f"Measuring slice width from image: {data}")
-
     if len(data) != 1:
         raise Exception('Need one DICOM file only')
 
-    dcm = pydicom.read_file(data[0])
-
+    dcm = data[0]
+    print(f"Measuring slice width from image: {dcm.SeriesDescription}")
     results = get_slice_width(dcm)
 
-    return [results]
+    return {"slice_width": results}
