@@ -3,7 +3,6 @@ import pathlib
 
 import numpy as np
 import pydicom
-import pylab
 import cv2 as cv
 
 import hazenlib.spatial_resolution as hazen_spatial_resolution
@@ -74,6 +73,15 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_create_line_iterator(self):
         pass
+
+    def test_get_top_edge_vector_and_centre(self):
+        img = hazen_spatial_resolution.rescale_to_byte(self.dicom.pixel_array)
+        thresh = hazen_spatial_resolution.thresh_image(img)
+        square, _ = hazen_spatial_resolution.find_square(thresh)
+        vector, centre = hazen_spatial_resolution.get_top_edge_vector_and_centre(square)
+        assert centre == {'x': 259, 'y': 213}
+
+
 
     def test_get_right_edge_normal_profile(self):
         spacing = self.dicom.PixelSpacing[0]

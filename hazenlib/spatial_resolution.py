@@ -243,6 +243,17 @@ def get_bisecting_normal(vector, centre, length_factor=0.25):
     return nrx_1, nry_1, nrx_2, nry_2
 
 
+def get_top_edge_vector_and_centre(square):
+    # Calculate dx and dy
+    top_edge_profile_vector = {"x": square[3][0] - square[2][0], "y": square[2][1] - square[3][1]}
+
+    # Calculate centre (x,y) of edge
+    top_edge_profile_roi_centre = {"x": square[2][0] + int(top_edge_profile_vector["x"] / 2),
+                                   "y": square[3][1] + int(top_edge_profile_vector["y"] / 2)}
+
+    return top_edge_profile_vector, top_edge_profile_roi_centre
+
+
 def get_right_edge_vector_and_centre(square):
     # Calculate dx and dy
     right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
