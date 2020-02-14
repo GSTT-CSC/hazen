@@ -89,7 +89,7 @@ import pprint
 import importlib
 import pydicom
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 EXCLUDED_FILES = ['.DS_Store']
 
 

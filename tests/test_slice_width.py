@@ -174,4 +174,4 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_slice_width(self):
         results = hazen_slice_width.main([self.dcm])
-        assert abs(results['slice_width'] - 5.48) < 0.1
+        assert abs(results['slice_width_distortion_linearity']['slice_width'] - 5.48) < 0.1
