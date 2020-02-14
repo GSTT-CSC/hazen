@@ -262,7 +262,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
 
     normalised_snr = snr * get_normalised_snr_factor(dcm, measured_slice_width)
 
-    return normalised_snr
+    return snr, normalised_snr
 
 
 def get_largest_circle(circles):
@@ -325,7 +325,7 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_sl
 
     normalised_snr = snr * get_normalised_snr_factor(dcm1, measured_slice_width)
 
-    return normalised_snr
+    return snr, normalised_snr
 
 
 def main(data: list, measured_slice_width=None) -> dict:
@@ -342,10 +342,14 @@ def main(data: list, measured_slice_width=None) -> dict:
     """
     results = {}
     if len(data) == 2:
-        results["snr_by_subtraction"] = snr_by_subtraction(data[0], data[1], measured_slice_width)
+        snr, normalised_snr = snr_by_subtraction(data[0], data[1], measured_slice_width)
+        results["measured_snr_subtraction_method"] = snr
+        results["normalised_snr_subtraction_method"] = normalised_snr
 
     for idx, dcm in enumerate(data):
-        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm, measured_slice_width)
+        snr, normalised_snr = snr_by_smoothing(dcm, measured_slice_width)
+        results[f"measured_snr_smoothing_method_{idx}"] = snr
+        results[f"normalised_snr_smoothing_method_{idx}"] = normalised_snr
 
     return results
     # # Draw regions for testing
