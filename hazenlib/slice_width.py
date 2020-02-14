@@ -552,6 +552,8 @@ def get_slice_width(dcm):
     phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["top"]["aapm_corrected"]) - (
                 theta / 2.0) + pi / 2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
+    horizontal_linearity = np.mean(horz_distances)
+    vertical_linearity = np.mean(vert_distances)
 
     # print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(mm):"
     #       f"{dcm.SliceThickness}\nField of View (mm): {get_fov(dcm)}\nbandwidth (Hz/Px) : {dcm.PixelBandwidth}\n"
@@ -565,10 +567,12 @@ def get_slice_width(dcm):
     #       f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
     #       f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
 
-    return slice_width['combined']['aapm_tilt_corrected']
+    return {'slice_width': slice_width['combined']['aapm_tilt_corrected'],
+            'vertical_distortion': vert_distortion, 'horizontal_distortion': horz_distortion,
+            'vertical_linearity': vertical_linearity, 'horizontal_linearity': horizontal_linearity}
 
 
-def main(data: list) -> list:
+def main(data: list) -> dict:
     if len(data) != 1:
         raise Exception('Need one DICOM file only')
 
@@ -576,4 +580,4 @@ def main(data: list) -> list:
     print(f"Measuring slice width from image: {dcm.SeriesDescription}")
     results = get_slice_width(dcm)
 
-    return {"slice_width": results}
+    return {"slice_width_distortion_linearity": results}

@@ -175,6 +175,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
 
 
 def get_ghosting(dcm) -> dict:
+
     bbox = get_signal_bounding_box(dcm.pixel_array)
     signal_centre = [bbox[0]+(bbox[1]-bbox[0])//2, bbox[2]+(bbox[3]-bbox[2])//2]
     background_rois = get_background_rois(dcm, signal_centre)
@@ -185,16 +186,17 @@ def get_ghosting(dcm) -> dict:
 
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
-    return {'ghosting_percentage': ghosting}
+    return ghosting
 
 
 def main(data: list) -> dict:
-    results = {f"{dcm.SeriesDescription}_{dcm.EchoTime}ms": dcm for dcm in data}  # load dicom objects into memory
 
-    for path, dcm in results.items():
-        results[path] = get_ghosting(dcm)
+    results = {}
 
-    return results
+    for dcm in data:
+        results[f"{dcm.SeriesDescription}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"] = get_ghosting(dcm)
+
+    return {'ghosting': results}
 
 
 if __name__ == "__main__":
