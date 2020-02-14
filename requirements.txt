@@ -31,3 +31,4 @@ sphinxcontrib-plantuml
 sphinxcontrib-napoleon
 sphinx_rtd_theme
 m2r
+python-dateutil

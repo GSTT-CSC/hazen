@@ -113,7 +113,7 @@ class TestGhosting(unittest.TestCase):
         assert list(hazen_ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm)[1]) == list(self.GHOST_SLICE[1])
 
     def test_get_ghosting(self):
-        assert hazen_ghosting.get_ghosting(self.dcm)['ghosting_percentage'] == self.GHOSTING
+        assert hazen_ghosting.get_ghosting(self.dcm) == self.GHOSTING
 
 
 class TestCOLPEGhosting(TestGhosting):

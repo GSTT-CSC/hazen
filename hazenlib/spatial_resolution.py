@@ -205,9 +205,8 @@ def get_void_roi(pixels, circle, size=20):
     return get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
 
 
-def get_edge_roi(pixels, square, size=20):
-    _, centre = get_right_edge_vector_and_centre(square)
-    return get_roi(pixels, centre=(centre["x"], centre["y"]), size=size)
+def get_edge_roi(pixels, edge_centre, size=20):
+    return get_roi(pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size)
 
 
 def edge_is_vertical(edge_roi, mean) -> bool:
@@ -243,6 +242,17 @@ def get_bisecting_normal(vector, centre, length_factor=0.25):
     return nrx_1, nry_1, nrx_2, nry_2
 
 
+def get_top_edge_vector_and_centre(square):
+    # Calculate dx and dy
+    top_edge_profile_vector = {"x": square[3][0] - square[2][0], "y": square[2][1] - square[3][1]}
+
+    # Calculate centre (x,y) of edge
+    top_edge_profile_roi_centre = {"x": square[2][0] + int(top_edge_profile_vector["x"] / 2),
+                                   "y": square[3][1] + int(top_edge_profile_vector["y"] / 2)}
+
+    return top_edge_profile_vector, top_edge_profile_roi_centre
+
+
 def get_right_edge_vector_and_centre(square):
     # Calculate dx and dy
     right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
@@ -264,15 +274,20 @@ def get_right_edge_normal_profile(img, square):
     return intensities
 
 
-def get_signal_roi(pixels, square, circle, size=20):
-    _, square_centre = get_right_edge_vector_and_centre(square)
+def get_signal_roi(pixels, edge, edge_centre, circle, size=20):
     circle_r = circle[0][0][2]
-    x = square_centre["x"] + circle_r // 2
-    y = square_centre["y"]
+    if edge == 'right':
+        x = edge_centre["x"] + circle_r // 2
+        y = edge_centre["y"]
+    elif edge == 'top':
+        x = edge_centre["x"]
+        y = edge_centre["y"] - circle_r // 2
+
     return get_roi(pixels=pixels, centre=(x, y), size=size)
 
 
 def get_edge(edge_arr, mean_value, spacing):
+
     if edge_is_vertical(edge_arr, mean_value):
         edge_arr = np.rot90(edge_arr)
 
@@ -377,24 +392,30 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
-def calculate_mtf(dicom):
+def calculate_mtf_for_edge(dicom, edge):
+
     pixels = dicom.pixel_array
     img = rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
     square, tilt = find_square(thresh)
-    _, centre = get_right_edge_vector_and_centre(square)
 
+    if edge == 'right':
+        _, centre = get_right_edge_vector_and_centre(square)
+    else:
+        _, centre = get_top_edge_vector_and_centre(square)
+
+    edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
-    edge_arr = get_edge_roi(pixels, square)
-    signal_arr = get_signal_roi(pixels, square, circle)
-
+    signal_arr = get_signal_roi(pixels, edge, centre, circle)
     spacing = dicom.PixelSpacing
     mean = np.mean([void_arr, signal_arr])
 
     x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
+
     x, y = get_edge_profile_coords(angle, intercept, spacing)
+
     u, esf = get_esf(edge_arr, y)
     lsf = maivis_deriv(u, esf)
     mtf = abs(np.fft.fft(lsf))
@@ -407,93 +428,19 @@ def calculate_mtf(dicom):
     return res
 
 
-def find_circle(a):
-    """
-    Finds a circle that fits the outline of the phantom using the Hough Transform
+def calculate_mtf(dicom):
 
-    parameters:
-    ---------------
-    a: image array (should be uint8)
+    pe = dicom.InPlanePhaseEncodingDirection
+    pe_result, fe_result = None, None
 
-    returns:
-    ---------------
-    cenx, ceny: xy pixel coordinates of the centre of the phantom
-    cradius : radius of the phantom in pixels
-    errCircle: error message if good circle isn't found
-    """
+    if pe == 'COL':
+        pe_result = calculate_mtf_for_edge(dicom, 'top')
+        fe_result = calculate_mtf_for_edge(dicom, 'right')
+    elif pe == 'ROW':
+        pe_result = calculate_mtf_for_edge(dicom, 'right')
+        fe_result = calculate_mtf_for_edge(dicom, 'top')
 
-    # Perform Hough transform to find circle
-    circles = cv.HoughCircles(a, cv.HOUGH_GRADIENT, 1, 100, param1=50,
-                              param2=30, minRadius=0, maxRadius=0)
-
-    # Check that a single phantom was found
-    if len(circles) == 1:
-        pass
-        # errCircle = "1 circle found."
-    else:
-        errCircle = "Wrong number of circles detected, check image."
-        print(errCircle)
-
-    # Draw circle onto original image
-    circles = np.uint16(np.around(circles))
-    for i in circles[0, :]:
-        # draw the outer circle
-        cv.circle(a, (i[0], i[1]), i[2], 30, 2)
-        # draw the center of the circle
-        cv.circle(a, (i[0], i[1]), 2, 30, 2)
-
-    cenx = i[0]
-    ceny = i[1]
-    cradius = i[2]
-    return (cenx, ceny, cradius)
-
-
-def calc_fwhm(lsf):
-    """
-    Determines the FWHM of an LSF
-
-    parameters:
-    ---------------
-    lsf: image array (1D)
-
-    returns:
-    ---------------
-    fwhm: the measured fwhm in pixels
-    """
-
-    # Find the peak pixel
-    ind1 = np.argmax(lsf)
-
-    # Create array of values around the peak
-    lsfp = np.asarray([lsf[ind1 - 1], lsf[ind1], lsf[ind1 + 1]])
-    # Create index array
-    xloc = np.asarray([ind1 - 1, ind1, ind1 + 1])
-
-    # Fit a 2nd order polynomial to the points
-    fit = poly.polyfit(xloc, lsfp, 2)
-
-    # Find the peak value of this polynomial
-    x = np.linspace(int(ind1 - 1), int(ind1 + 1), 1000)
-    y = fit[0] + fit[1] * x + fit[2] * x ** 2
-    peakval = np.max(y)
-    halfpeak = peakval / 2
-
-    # Find indices where lsf > halfpeak
-    gthalf = np.where(lsf > halfpeak)
-    gthalf = gthalf[0]
-
-    # Find left & right edges of profile and corresponding values
-    leftx = np.asarray([gthalf[0] - 1, gthalf[0]])
-    lefty = lsf[leftx]
-    rightx = np.asarray([gthalf[len(gthalf) - 1], gthalf[len(gthalf) - 1] + 1])
-    righty = lsf[rightx]
-
-    # Use linear interpolation to find half maximum locations and calculate fwhm (pixels)
-    lefthm = np.interp(halfpeak, lefty, leftx)
-    righthm = np.interp(halfpeak, np.flip(righty, 0), np.flip(rightx, 0))
-    fwhm = righthm - lefthm
-
-    return fwhm
+    return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
 def main(data: list) -> dict:
