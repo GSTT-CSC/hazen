@@ -74,14 +74,12 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder>
-    hazen -h|--help
-    hazen -v|--version
+    hazen <task> <folder> [--measured_slice_width=<mm>]
+    hazen -h|--help     Show this screen.
+    hazen -v|--version  Show version.
 Options:
-    <task>  snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
-    <folder>    Directory containing dicom files to be processed.
-    -h --help  Show this screen.
-    -v --version  Show version.
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+    <folder>  Directory containing dicom files to be processed.
 """
 from docopt import docopt
 import os
@@ -89,7 +87,7 @@ import pprint
 import importlib
 import pydicom
 
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 EXCLUDED_FILES = ['.DS_Store']
 
 
@@ -135,5 +133,12 @@ def main():
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
     dicom_objects = [pydicom.read_file(x, force=True) for x in files]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
+
+    if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
+        raise Exception("the (--measured_slice_width) option can only be used with snr")
+    elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
+        measured_slice_width = float(arguments['--measured_slice_width'])
+        return pp.pprint(task.main(dicom_objects, measured_slice_width))
+
     return pp.pprint(task.main(dicom_objects))
 
