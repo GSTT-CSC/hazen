@@ -81,8 +81,6 @@ class TestSpatialResolution(unittest.TestCase):
         vector, centre = hazen_spatial_resolution.get_top_edge_vector_and_centre(square)
         assert centre == {'x': 259, 'y': 213}
 
-
-
     def test_get_right_edge_normal_profile(self):
         spacing = self.dicom.PixelSpacing[0]
         img = hazen_spatial_resolution.rescale_to_byte(self.dicom.pixel_array)
@@ -113,7 +111,8 @@ class TestSpatialResolution(unittest.TestCase):
         img = hazen_spatial_resolution.rescale_to_byte(self.dicom.pixel_array)
         thresh = hazen_spatial_resolution.thresh_image(img)
         square, _ = hazen_spatial_resolution.find_square(thresh)
-        edge_arr = hazen_spatial_resolution.get_edge_roi(pixels, square)
+        _, centre = hazen_spatial_resolution.get_right_edge_vector_and_centre(square)
+        edge_arr = hazen_spatial_resolution.get_edge_roi(pixels, centre)
 
         assert np.mean(edge_arr) == 333.9775
 
@@ -123,7 +122,8 @@ class TestSpatialResolution(unittest.TestCase):
         circle = hazen_spatial_resolution.get_circles(img)
         thresh = hazen_spatial_resolution.thresh_image(img)
         square, _ = hazen_spatial_resolution.find_square(thresh)
-        signal_roi = hazen_spatial_resolution.get_signal_roi(pixels, square, circle)
+        _, centre = hazen_spatial_resolution.get_right_edge_vector_and_centre(square)
+        signal_roi = hazen_spatial_resolution.get_signal_roi(pixels, 'right', centre, circle)
         assert np.mean(signal_roi) == 1648.4325
 
     def test_edge_is_vertical(self):
@@ -157,4 +157,5 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_calculate_mtf(self):
         res = hazen_spatial_resolution.calculate_mtf(self.dicom)
-        assert res == 0.4861299156047701
+        assert res['frequency_encoding_direction'] == 0.4861299156047701
+        assert res['phase_encoding_direction'] == 0.4848633443422107

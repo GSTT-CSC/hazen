@@ -205,9 +205,8 @@ def get_void_roi(pixels, circle, size=20):
     return get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
 
 
-def get_edge_roi(pixels, square, size=20):
-    _, centre = get_right_edge_vector_and_centre(square)
-    return get_roi(pixels, centre=(centre["x"], centre["y"]), size=size)
+def get_edge_roi(pixels, edge_centre, size=20):
+    return get_roi(pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size)
 
 
 def edge_is_vertical(edge_roi, mean) -> bool:
@@ -275,15 +274,20 @@ def get_right_edge_normal_profile(img, square):
     return intensities
 
 
-def get_signal_roi(pixels, square, circle, size=20):
-    _, square_centre = get_right_edge_vector_and_centre(square)
+def get_signal_roi(pixels, edge, edge_centre, circle, size=20):
     circle_r = circle[0][0][2]
-    x = square_centre["x"] + circle_r // 2
-    y = square_centre["y"]
+    if edge == 'right':
+        x = edge_centre["x"] + circle_r // 2
+        y = edge_centre["y"]
+    elif edge == 'top':
+        x = edge_centre["x"]
+        y = edge_centre["y"] - circle_r // 2
+
     return get_roi(pixels=pixels, centre=(x, y), size=size)
 
 
 def get_edge(edge_arr, mean_value, spacing):
+
     if edge_is_vertical(edge_arr, mean_value):
         edge_arr = np.rot90(edge_arr)
 
@@ -388,24 +392,30 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
-def calculate_mtf(dicom):
+def calculate_mtf_for_edge(dicom, edge):
+
     pixels = dicom.pixel_array
     img = rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
     square, tilt = find_square(thresh)
-    _, centre = get_right_edge_vector_and_centre(square)
 
+    if edge == 'right':
+        _, centre = get_right_edge_vector_and_centre(square)
+    else:
+        _, centre = get_top_edge_vector_and_centre(square)
+
+    edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
-    edge_arr = get_edge_roi(pixels, square)
-    signal_arr = get_signal_roi(pixels, square, circle)
-
+    signal_arr = get_signal_roi(pixels, edge, centre, circle)
     spacing = dicom.PixelSpacing
     mean = np.mean([void_arr, signal_arr])
 
     x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
+
     x, y = get_edge_profile_coords(angle, intercept, spacing)
+
     u, esf = get_esf(edge_arr, y)
     lsf = maivis_deriv(u, esf)
     mtf = abs(np.fft.fft(lsf))
@@ -416,6 +426,21 @@ def calculate_mtf(dicom):
     res = 10 / (2 * mtf_frequency)
 
     return res
+
+
+def calculate_mtf(dicom):
+
+    pe = dicom.InPlanePhaseEncodingDirection
+    pe_result, fe_result = None, None
+
+    if pe == 'COL':
+        pe_result = calculate_mtf_for_edge(dicom, 'top')
+        fe_result = calculate_mtf_for_edge(dicom, 'right')
+    elif pe == 'ROW':
+        pe_result = calculate_mtf_for_edge(dicom, 'right')
+        fe_result = calculate_mtf_for_edge(dicom, 'top')
+
+    return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
 def main(data: list) -> dict:
