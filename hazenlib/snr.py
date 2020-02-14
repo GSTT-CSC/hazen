@@ -132,12 +132,15 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     return bandwidth
 
 
-def get_normalised_snr_factor(dcm: pydicom.Dataset) -> float:
+def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
     dx, dy = get_pixel_size(dcm)
     bandwidth = get_bandwidth(dcm)
-    slice_thickness = get_slice_thickness(dcm)
-    averages = get_average(dcm)
 
+    if measured_slice_width:
+        slice_thickness = measured_slice_width
+    else:
+        slice_thickness = get_slice_thickness(dcm)
+    averages = get_average(dcm)
     bandwidth_factor = np.sqrt((bandwidth * 256 / 2) / 1000) / np.sqrt(30)
     voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
@@ -212,12 +215,13 @@ def get_roi_samples(dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> lis
     return sample
 
 
-def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
+def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
     """
 
     Parameters
     ----------
     dcm
+    measured_slice_width
 
     Returns
     -------
@@ -256,7 +260,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset) -> float:
     noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=noise_img, cx=x, cy=y)], np.sqrt(2))
     snr = np.mean(np.divide(signal, noise))
 
-    normalised_snr = snr * get_normalised_snr_factor(dcm)
+    normalised_snr = snr * get_normalised_snr_factor(dcm, measured_slice_width)
 
     return normalised_snr
 
@@ -273,13 +277,14 @@ def get_largest_circle(circles):
     return largest_x, largest_y, largest_r
 
 
-def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
+def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None) -> float:
     """
 
     Parameters
     ----------
     dcm1
     dcm2
+    measured_slice_width
 
     Returns
     -------
@@ -318,17 +323,18 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> float:
 
     snr = np.mean(np.divide(signal, noise))
 
-    normalised_snr = snr * get_normalised_snr_factor(dcm1)
+    normalised_snr = snr * get_normalised_snr_factor(dcm1, measured_slice_width)
 
     return normalised_snr
 
 
-def main(data: list) -> dict:
+def main(data: list, measured_slice_width=None) -> dict:
     """
 
     Parameters
     ----------
     data
+    measured_slice_width
 
     Returns
     -------
@@ -336,10 +342,10 @@ def main(data: list) -> dict:
     """
     results = {}
     if len(data) == 2:
-        results["snr_by_subtraction"] = snr_by_subtraction(dcm1=data[0], dcm2=data[1])
+        results["snr_by_subtraction"] = snr_by_subtraction(data[0], data[1], measured_slice_width)
 
-    for idx, f in enumerate(data):
-        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm=f)
+    for idx, dcm in enumerate(data):
+        results[f"snr_by_smoothing_{idx}"] = snr_by_smoothing(dcm, measured_slice_width)
 
     return results
     # # Draw regions for testing
