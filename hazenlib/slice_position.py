@@ -54,23 +54,6 @@ def get_rod_rotation(x_pos: list, y_pos: list) -> float:
     return theta
 
 
-def get_field_of_view(dcm: pydicom.Dataset):
-    # assumes square pixels
-    manufacturer = hazenlib.get_manufacturer(dcm)
-
-    if manufacturer == 'GE MEDICAL SYSTEMS':
-        fov = dcm['0x19, 101e']
-    elif manufacturer == 'SIEMENS':
-        fov = dcm.Columns * dcm.PixelSpacing[0]
-    elif manufacturer == 'Philips Medical Systems':
-        if hazenlib.is_enhanced_dicom(dcm):
-            fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
-        else:
-            fov = dcm.Columns * dcm.PixelSpacing[0]
-
-    return fov
-
-
 def get_rods_coords(dcm: pydicom.Dataset):
     shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
     try:
@@ -197,7 +180,7 @@ def slice_position_error(data: list):
     # Correct for phantom rotation
     left_rod, right_rod = correct_rods_for_rotation(left_rod, right_rod)
 
-    fov = get_field_of_view(data[0])
+    fov = hazenlib.get_field_of_view(data[0])
 
     # x_length_mm = np.subtract(right_rod['x_pos'], left_rod['x_pos']) * fov/dcm.Columns
     y_length_mm = np.subtract(left_rod['y_pos'], right_rod['y_pos']) * fov / data[0].Columns
