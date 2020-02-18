@@ -118,13 +118,13 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['GE', 'GE MEDICAL SYSTEMS', 'SIEMENS', 'Philips', 'TOSHIBA']
-
+    supported = ['ge', 'siemens', 'philips', 'toshiba']
+    manufacturer = dcm.Manufacturer.lower()
     for item in supported:
-        if item in dcm.Manufacturer:
-            return dcm.Manufacturer.lower()
+        if item in manufacturer:
+            return manufacturer
     else:
-        raise Exception('Manufacturer not recognised')
+        raise Exception(f'{manufacturer} not recognised manufacturer')
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
