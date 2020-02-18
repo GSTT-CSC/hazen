@@ -44,103 +44,15 @@ def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
         return True
 
 
-def get_num_of_frames(dcm: pydicom.Dataset) -> int:
-    """
-    Returns number of frames of dicom object
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-        DICOM object
-
-    Returns
-    -------
-
-    """
-    if len(dcm.pixel_array.shape) > 2:
-        return dcm.pixel_array.shape[0]
-    elif len(dcm.pixel_array.shape) == 2:
-        return 1
-
-
-def get_slice_thickness(dcm: pydicom.Dataset) -> float:
-    if hazenlib.is_enhanced_dicom(dcm):
-        try:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
-        except AttributeError:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].Private_2005_140f[0].SliceThickness
-        except Exception:
-            raise Exception('Unrecognised metadata Field for Slice Thickness')
-    else:
-        slice_thickness = dcm.SliceThickness
-
-    return slice_thickness
-
-
-def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-    if dcm.Manufacturer == 'GE':
-        dx = dcm['0019,101e'] / dcm.Width
-        dy = dcm['0019,101e'] / dcm.Height
-
-    elif dcm.Manufacturer == 'SIEMENS':
-        dx, dy = dcm.PixelSpacing
-
-    elif dcm.Manufacturer == 'Philips':
-        if hazenlib.is_enhanced_dicom(dcm):
-            dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
-        else:
-            dx, dy = dcm.PixelSpacing
-
-    elif 'toshiba' in dcm.Manufacturer.lower():
-        dx, dy = dcm.PixelSpacing
-
-    else:
-        raise Exception('Manufacturer not recognised')
-
-    return dx, dy
-
-
-def get_average(dcm: pydicom.Dataset) -> float:
-    if hazenlib.is_enhanced_dicom(dcm):
-        averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
-    else:
-        averages = dcm.NumberOfAverages
-
-    return averages
-
-
-def get_bandwidth(dcm: pydicom.Dataset) -> float:
-    """
-    .. todo::
-        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
-        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
-        Deal with magic number in Philips calc
-
-    Parameters
-    ----------
-    dcm
-
-    Returns
-    -------
-
-    """
-    if hazenlib.get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
-    else:
-        bandwidth = dcm.PixelBandwidth
-
-    return bandwidth
-
-
 def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
-    dx, dy = get_pixel_size(dcm)
-    bandwidth = get_bandwidth(dcm)
+    dx, dy = hazenlib.get_pixel_size(dcm)
+    bandwidth = hazenlib.get_bandwidth(dcm)
 
     if measured_slice_width:
         slice_thickness = measured_slice_width
     else:
-        slice_thickness = get_slice_thickness(dcm)
-    averages = get_average(dcm)
+        slice_thickness = hazenlib.get_slice_thickness(dcm)
+    averages = hazenlib.get_average(dcm)
     bandwidth_factor = np.sqrt((bandwidth * 256 / 2) / 1000) / np.sqrt(30)
     voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 

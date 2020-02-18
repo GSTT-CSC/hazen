@@ -87,7 +87,7 @@ import pprint
 import importlib
 import pydicom
 
-__version__ = '0.1.3'
+__version__ = '0.1.4'
 EXCLUDED_FILES = ['.DS_Store']
 
 
@@ -120,11 +120,121 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
     supported = ['GE', 'GE MEDICAL SYSTEMS', 'SIEMENS', 'Philips', 'TOSHIBA']
 
-    if dcm.Manufacturer in supported:
-        return dcm.Manufacturer
+    for item in supported:
+        if item in dcm.Manufacturer:
+            return dcm.Manufacturer.lower()
     else:
         raise Exception('Manufacturer not recognised')
 
+
+def get_average(dcm: pydicom.Dataset) -> float:
+    if is_enhanced_dicom(dcm):
+        averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
+    else:
+        averages = dcm.NumberOfAverages
+
+    return averages
+
+
+def get_bandwidth(dcm: pydicom.Dataset) -> float:
+    """
+    .. todo::
+        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
+        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
+        Deal with magic number in Philips calc
+
+    Parameters
+    ----------
+    dcm
+
+    Returns
+    -------
+
+    """
+    if get_manufacturer(dcm) == 'Philips':
+        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
+    else:
+        bandwidth = dcm.PixelBandwidth
+
+    return bandwidth
+
+
+def get_num_of_frames(dcm: pydicom.Dataset) -> int:
+    """
+    Returns number of frames of dicom object
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+        DICOM object
+
+    Returns
+    -------
+
+    """
+    if len(dcm.pixel_array.shape) > 2:
+        return dcm.pixel_array.shape[0]
+    elif len(dcm.pixel_array.shape) == 2:
+        return 1
+
+
+def get_slice_thickness(dcm: pydicom.Dataset) -> float:
+    if is_enhanced_dicom(dcm):
+        try:
+            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
+        except AttributeError:
+            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].Private_2005_140f[0].SliceThickness
+        except Exception:
+            raise Exception('Unrecognised metadata Field for Slice Thickness')
+    else:
+        slice_thickness = dcm.SliceThickness
+
+    return slice_thickness
+
+
+def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
+
+    manufacturer = get_manufacturer(dcm)
+
+    if 'ge' in manufacturer:
+        dx = dcm['0019,101e'] / dcm.Width
+        dy = dcm['0019,101e'] / dcm.Height
+
+    elif 'siemens' in manufacturer:
+        dx, dy = dcm.PixelSpacing
+
+    elif 'philips' in manufacturer:
+        if is_enhanced_dicom(dcm):
+            dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
+        else:
+            dx, dy = dcm.PixelSpacing
+
+    elif 'toshiba' in manufacturer:
+        dx, dy = dcm.PixelSpacing
+
+    else:
+        raise Exception('Manufacturer not recognised')
+
+    return dx, dy
+
+
+def get_field_of_view(dcm: pydicom.Dataset):
+    # assumes square pixels
+    manufacturer = get_manufacturer(dcm)
+
+    if 'ge' in manufacturer:
+        fov = dcm['0x19, 101e']
+    elif 'siemens' in manufacturer:
+        fov = dcm.Columns * dcm.PixelSpacing[0]
+    elif 'philips' in manufacturer:
+        if is_enhanced_dicom(dcm):
+            fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
+        else:
+            fov = dcm.Columns * dcm.PixelSpacing[0]
+    else:
+        raise
+
+    return fov
 
 def main():
     arguments = docopt(__doc__, version=__version__)
