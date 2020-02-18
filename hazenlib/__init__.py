@@ -195,25 +195,19 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
     manufacturer = get_manufacturer(dcm)
-
-    if 'ge' in manufacturer:
-        dx = dcm['0019,101e'] / dcm.Width
-        dy = dcm['0019,101e'] / dcm.Height
-
-    elif 'siemens' in manufacturer:
-        dx, dy = dcm.PixelSpacing
-
-    elif 'philips' in manufacturer:
+    try:
         if is_enhanced_dicom(dcm):
             dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
         else:
             dx, dy = dcm.PixelSpacing
-
-    elif 'toshiba' in manufacturer:
-        dx, dy = dcm.PixelSpacing
-
-    else:
-        raise Exception('Manufacturer not recognised')
+    except:
+        print('Warning: Could not find PixelSpacing..')
+        if 'ge' in manufacturer:
+            fov = get_field_of_view(dcm)
+            dx = fov / dcm.Columns
+            dy = fov / dcm.Rows
+        else:
+            raise Exception('Manufacturer not recognised')
 
     return dx, dy
 
@@ -223,7 +217,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     manufacturer = get_manufacturer(dcm)
 
     if 'ge' in manufacturer:
-        fov = dcm['0x19, 101e']
+        fov = dcm[0x19, 0x101e]
     elif 'siemens' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     elif 'philips' in manufacturer:
