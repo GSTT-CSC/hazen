@@ -18,9 +18,9 @@ class TestUniformity(unittest.TestCase):
 
     def test_uniformity(self):
         results = hazen_uniformity.main(self.test_file)
-
-        assert results['uniformity']['horizontal']['IPEM'] == self.IPEM_HORIZONTAL
-        assert results['uniformity']['vertical']['IPEM'] == self.IPEM_VERTICAL
+        key = f"{self.test_file[0].SeriesDescription}_{self.test_file[0].SeriesNumber}_{self.test_file[0].InstanceNumber}"
+        assert results[key]['horizontal']['IPEM'] == self.IPEM_HORIZONTAL
+        assert results[key]['vertical']['IPEM'] == self.IPEM_VERTICAL
 
 
 class TestSagUniformity(TestUniformity):

@@ -124,8 +124,8 @@ def get_fractional_uniformity(dcm):
     # cov = 100 * roi_std / roi_mean
     # int_uniform = (1 - (roi_max - roi_min) / (roi_max + roi_min)) * 100
 
-    return {'uniformity': {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-                           'vertical': {'IPEM': fractional_uniformity_vertical}}}
+    return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
+            'vertical': {'IPEM': fractional_uniformity_vertical}}
 
 
 # def get_ghosting(arr, c, roi_mean):
