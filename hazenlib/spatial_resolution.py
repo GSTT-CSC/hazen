@@ -449,7 +449,6 @@ def main(data: list) -> dict:
     results = {}
     for dcm in data:
         key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
-        print(key)
         try:
             result = calculate_mtf(dcm)
         except Exception as e:

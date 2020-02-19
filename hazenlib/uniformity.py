@@ -18,13 +18,9 @@ neil.heraghty@nhs.net
 
 """
 import sys
+import traceback
 
 import numpy as np
-import pydicom
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import cv2 as cv
 
 import hazenlib.tools
 import hazenlib.exceptions as exc
@@ -163,12 +159,24 @@ def get_fractional_uniformity(dcm):
 
 
 def main(data: list) -> dict:
-    if len(data) != 1:
-        raise Exception('Only single DICOM input.')
+    results = {}
+    for dcm in data:
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            result = get_fractional_uniformity(dcm)
+        except Exception as e:
+            print(f"Could not calculate the uniformity for "
+                  f"{key} "
+                  f"because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
 
-    dcm = data[0]
+        results[key] = result
 
-    results = get_fractional_uniformity(dcm)
     return results
 
 
