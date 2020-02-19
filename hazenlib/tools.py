@@ -87,14 +87,7 @@ class ShapeDetector:
             # if the shape has 4 vertices, it is either a square or
             # a rectangle
             elif len(approx) == 4:
-                # compute the bounding box of the contour and use the
-                # bounding box to compute the aspect ratio
-                (x, y, w, h) = cv.boundingRect(approx)
-                ar = w / float(h)
-
-                # a square will have an aspect ratio that is approximately
-                # equal to one, otherwise, the shape is a rectangle
-                shape = "square" if 0.95 <= ar <= 1.05 else "rectangle"
+                shape = "rectangle"
 
             # if the shape is a pentagon, it will have 5 vertices
             elif len(approx) == 5:
@@ -113,6 +106,7 @@ class ShapeDetector:
         self.detect()
 
         if shape not in self.shapes.keys():
+            print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
@@ -124,7 +118,7 @@ class ShapeDetector:
             (x, y), r = cv.minEnclosingCircle(contour)
             return x, y, r
 
-        if shape == 'rectangle':
+        if shape == 'rectangle' or shape == 'square':
             angle, centre, size = cv.minAreaRect(contour)
             return angle, centre, size
 
