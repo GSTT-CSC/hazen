@@ -10,11 +10,14 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
     
 """
 import copy
+import sys
+import traceback
 
 import cv2 as cv
 import numpy as np
-import numpy.polynomial.polynomial as poly
-import pydicom
+import matplotlib.pyplot as plt
+
+import hazenlib
 
 
 def maivis_deriv(x, a, h=1, n=1, axis=-1):
@@ -139,30 +142,21 @@ def create_line_iterator(P1, P2, img):
     return itbuffer
 
 
-def rescale_to_byte(array):
-    image_histogram, bins = np.histogram(array.flatten(), 255)
-    cdf = image_histogram.cumsum()  # cumulative distribution function
-    cdf = 255 * cdf / cdf[-1]  # normalize
-
-    # use linear interpolation of cdf to find new pixel values
-    image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
-
-    return image_equalized.reshape(array.shape).astype('uint8')
-
-
 def get_circles(image):
     v = np.median(image)
     upper = int(min(255, (1.0 + 5) * v))
     i = 40
+
     while True:
         circles = cv.HoughCircles(image, cv.HOUGH_GRADIENT, 1.2, 256,
-                                  param1=upper, param2=i, minRadius=100, maxRadius=256)
+                                  param1=upper, param2=i, minRadius=100, maxRadius=200)
         i -= 1
         if circles is None:
             pass
         else:
             circles = np.uint16(np.around(circles))
             break
+
     return circles
 
 
@@ -190,7 +184,15 @@ def find_square(img):
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
             if 0.95 < ar < 1.05:
-                return box, rect[2]
+                break
+
+    # points should start at top-right and go anti-clockwise
+    top_corners = sorted(box, key=lambda x: x[1])[:2]
+    top_corners = sorted(top_corners, key=lambda x: x[0])
+
+    bottom_corners = sorted(box, key=lambda x:x[1])[2:]
+    bottom_corners = sorted(bottom_corners, key=lambda x: x[0], reverse=True)
+    return bottom_corners + top_corners, rect[2]
 
 
 def get_roi(pixels, centre, size=20):
@@ -395,11 +397,10 @@ def get_esf(edge_arr, y):
 def calculate_mtf_for_edge(dicom, edge):
 
     pixels = dicom.pixel_array
-    img = rescale_to_byte(pixels)  # rescale for OpenCV operations
+    img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
     square, tilt = find_square(thresh)
-
     if edge == 'right':
         _, centre = get_right_edge_vector_and_centre(square)
     else:
@@ -408,7 +409,7 @@ def calculate_mtf_for_edge(dicom, edge):
     edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
     signal_arr = get_signal_roi(pixels, edge, centre, circle)
-    spacing = dicom.PixelSpacing
+    spacing = hazenlib.get_pixel_size(dicom)
     mean = np.mean([void_arr, signal_arr])
 
     x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
@@ -445,6 +446,19 @@ def calculate_mtf(dicom):
 
 def main(data: list) -> dict:
 
-    results = calculate_mtf(data[0])
+    results = {}
+    for dcm in data:
+        key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        print(key)
+        try:
+            result = calculate_mtf(dcm)
+        except Exception as e:
+            print(f"Could not calculate the spatial resolution for "
+                  f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber} "
+                  f"because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
 
-    return {'spatial_resolution': results}
+        results[key] = result
+
+    return results
