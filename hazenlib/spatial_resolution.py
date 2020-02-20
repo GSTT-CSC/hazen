@@ -15,7 +15,7 @@ import traceback
 
 import cv2 as cv
 import numpy as np
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 import hazenlib
 
@@ -149,7 +149,8 @@ def get_circles(image):
 
     while True:
         circles = cv.HoughCircles(image, cv.HOUGH_GRADIENT, 1.2, 256,
-                                  param1=upper, param2=i, minRadius=100, maxRadius=200)
+                                  param1=upper, param2=i, minRadius=80, maxRadius=200)
+        # min and max radius need to accomodate at least 256 and 512 matrix sizes
         i -= 1
         if circles is None:
             pass
@@ -157,19 +158,21 @@ def get_circles(image):
             circles = np.uint16(np.around(circles))
             break
 
+    # img = cv.circle(image, (circles[0][0][0], circles[0][0][1]), circles[0][0][2], (255, 0, 0))
+    # plt.imshow(img)
+    # plt.show()
     return circles
 
 
 def thresh_image(img, bound=150):
     blurred = cv.GaussianBlur(img, (5, 5), 0)
     thresh = cv.threshold(blurred, bound, 255, cv.THRESH_TOZERO_INV)[1]
-    # pylab.imshow(thresh, cmap=pylab.cm.gray)
-    # pylab.show()
     return thresh
 
 
 def find_square(img):
     cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+
     for c in cnts[1]:
         perimeter = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
@@ -181,6 +184,12 @@ def find_square(img):
             box = np.int0(box)
             w, h = rect[1]
             ar = w / float(h)
+
+            # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
+            if not 20 < w < 100:
+
+                continue
+
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
             if 0.95 < ar < 1.05:
@@ -188,15 +197,15 @@ def find_square(img):
 
     # points should start at top-right and go anti-clockwise
     top_corners = sorted(box, key=lambda x: x[1])[:2]
-    top_corners = sorted(top_corners, key=lambda x: x[0])
+    top_corners = sorted(top_corners, key=lambda x: x[0], reverse=True)
 
-    bottom_corners = sorted(box, key=lambda x:x[1])[2:]
-    bottom_corners = sorted(bottom_corners, key=lambda x: x[0], reverse=True)
-    return bottom_corners + top_corners, rect[2]
+    bottom_corners = sorted(box, key=lambda x: x[1])[2:]
+    bottom_corners = sorted(bottom_corners, key=lambda x: x[0])
+    return top_corners + bottom_corners, rect[2]
 
 
 def get_roi(pixels, centre, size=20):
-    x, y = centre
+    y, x = centre
     arr = pixels[x - size // 2: x + size // 2, y - size // 2: y + size // 2]
     return arr
 
@@ -246,22 +255,22 @@ def get_bisecting_normal(vector, centre, length_factor=0.25):
 
 def get_top_edge_vector_and_centre(square):
     # Calculate dx and dy
-    top_edge_profile_vector = {"x": square[3][0] - square[2][0], "y": square[2][1] - square[3][1]}
+    top_edge_profile_vector = {"x": (square[0][0] + square[1][0])//2, "y": (square[0][1] + square[1][1])//2}
 
     # Calculate centre (x,y) of edge
-    top_edge_profile_roi_centre = {"x": square[2][0] + int(top_edge_profile_vector["x"] / 2),
-                                   "y": square[3][1] + int(top_edge_profile_vector["y"] / 2)}
+    top_edge_profile_roi_centre = {"x": (square[0][0] + square[1][0])//2,
+                                   "y": (square[0][1] + square[1][1])//2}
 
     return top_edge_profile_vector, top_edge_profile_roi_centre
 
 
 def get_right_edge_vector_and_centre(square):
     # Calculate dx and dy
-    right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
+    right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}  # nonsense
 
     # Calculate centre (x,y) of edge
-    right_edge_profile_roi_centre = {"x": square[0][0] + int(right_edge_profile_vector["x"] / 2),
-                                     "y": square[0][1] + int(right_edge_profile_vector["y"] / 2)}
+    right_edge_profile_roi_centre = {"x": (square[3][0] + square[0][0])//2,
+                                     "y": (square[3][1] + square[0][1])//2}
     return right_edge_profile_vector, right_edge_profile_roi_centre
 
 
@@ -299,8 +308,7 @@ def get_edge(edge_arr, mean_value, spacing):
     for row in range(20):
         for col in range(19):
             control_parameter_02 = 0
-            #         print(f"signal_arr[col, row]={signal_arr[col, row]}")
-            #         print(f"signal_arr[col, row+1]={signal_arr[col, row]}")
+
             if edge_arr[row, col] == mean_value:
                 control_parameter_02 = 1
             if (edge_arr[row, col] < mean_value) and (edge_arr[row, col + 1] > mean_value):
@@ -409,6 +417,9 @@ def calculate_mtf_for_edge(dicom, edge):
     edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
     signal_arr = get_signal_roi(pixels, edge, centre, circle)
+    # plt.imshow(edge_arr, cmap='gray')
+    # plt.title(f"{dicom.SeriesDescription}_{dicom.SeriesNumber}_{dicom.InstanceNumber}_{edge}_{centre}")
+    # plt.show()
     spacing = hazenlib.get_pixel_size(dicom)
     mean = np.mean([void_arr, signal_arr])
 
@@ -421,6 +432,8 @@ def calculate_mtf_for_edge(dicom, edge):
     lsf = maivis_deriv(u, esf)
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
+    # plt.plot(norm_mtf)
+    # plt.show()
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
     mtf_frequency = 10.0 * mtf_50 / profile_length
@@ -430,7 +443,6 @@ def calculate_mtf_for_edge(dicom, edge):
 
 
 def calculate_mtf(dicom):
-
     pe = dicom.InPlanePhaseEncodingDirection
     pe_result, fe_result = None, None
 
