@@ -18,13 +18,9 @@ neil.heraghty@nhs.net
 
 """
 import sys
+import traceback
 
 import numpy as np
-import pydicom
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import cv2 as cv
 
 import hazenlib.tools
 import hazenlib.exceptions as exc
@@ -128,8 +124,8 @@ def get_fractional_uniformity(dcm):
     # cov = 100 * roi_std / roi_mean
     # int_uniform = (1 - (roi_max - roi_min) / (roi_max + roi_min)) * 100
 
-    return {'uniformity': {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-                           'vertical': {'IPEM': fractional_uniformity_vertical}}}
+    return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
+            'vertical': {'IPEM': fractional_uniformity_vertical}}
 
 
 # def get_ghosting(arr, c, roi_mean):
@@ -163,12 +159,22 @@ def get_fractional_uniformity(dcm):
 
 
 def main(data: list) -> dict:
-    if len(data) != 1:
-        raise Exception('Only single DICOM input.')
+    results = {}
+    for dcm in data:
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            result = get_fractional_uniformity(dcm)
+        except Exception as e:
+            print(f"Could not calculate the uniformity for {key} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
 
-    dcm = data[0]
+        results[key] = result
 
-    results = get_fractional_uniformity(dcm)
     return results
 
 

@@ -10,11 +10,14 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
     
 """
 import copy
+import sys
+import traceback
 
 import cv2 as cv
 import numpy as np
-import numpy.polynomial.polynomial as poly
-import pydicom
+# import matplotlib.pyplot as plt
+
+import hazenlib
 
 
 def maivis_deriv(x, a, h=1, n=1, axis=-1):
@@ -139,43 +142,37 @@ def create_line_iterator(P1, P2, img):
     return itbuffer
 
 
-def rescale_to_byte(array):
-    image_histogram, bins = np.histogram(array.flatten(), 255)
-    cdf = image_histogram.cumsum()  # cumulative distribution function
-    cdf = 255 * cdf / cdf[-1]  # normalize
-
-    # use linear interpolation of cdf to find new pixel values
-    image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
-
-    return image_equalized.reshape(array.shape).astype('uint8')
-
-
 def get_circles(image):
     v = np.median(image)
     upper = int(min(255, (1.0 + 5) * v))
     i = 40
+
     while True:
         circles = cv.HoughCircles(image, cv.HOUGH_GRADIENT, 1.2, 256,
-                                  param1=upper, param2=i, minRadius=100, maxRadius=256)
+                                  param1=upper, param2=i, minRadius=80, maxRadius=200)
+        # min and max radius need to accomodate at least 256 and 512 matrix sizes
         i -= 1
         if circles is None:
             pass
         else:
             circles = np.uint16(np.around(circles))
             break
+
+    # img = cv.circle(image, (circles[0][0][0], circles[0][0][1]), circles[0][0][2], (255, 0, 0))
+    # plt.imshow(img)
+    # plt.show()
     return circles
 
 
 def thresh_image(img, bound=150):
     blurred = cv.GaussianBlur(img, (5, 5), 0)
     thresh = cv.threshold(blurred, bound, 255, cv.THRESH_TOZERO_INV)[1]
-    # pylab.imshow(thresh, cmap=pylab.cm.gray)
-    # pylab.show()
     return thresh
 
 
 def find_square(img):
     cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+
     for c in cnts[1]:
         perimeter = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
@@ -187,14 +184,28 @@ def find_square(img):
             box = np.int0(box)
             w, h = rect[1]
             ar = w / float(h)
+
+            # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
+            if not 20 < w < 100:
+
+                continue
+
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
             if 0.95 < ar < 1.05:
-                return box, rect[2]
+                break
+
+    # points should start at top-right and go anti-clockwise
+    top_corners = sorted(box, key=lambda x: x[1])[:2]
+    top_corners = sorted(top_corners, key=lambda x: x[0], reverse=True)
+
+    bottom_corners = sorted(box, key=lambda x: x[1])[2:]
+    bottom_corners = sorted(bottom_corners, key=lambda x: x[0])
+    return top_corners + bottom_corners, rect[2]
 
 
 def get_roi(pixels, centre, size=20):
-    x, y = centre
+    y, x = centre
     arr = pixels[x - size // 2: x + size // 2, y - size // 2: y + size // 2]
     return arr
 
@@ -244,22 +255,22 @@ def get_bisecting_normal(vector, centre, length_factor=0.25):
 
 def get_top_edge_vector_and_centre(square):
     # Calculate dx and dy
-    top_edge_profile_vector = {"x": square[3][0] - square[2][0], "y": square[2][1] - square[3][1]}
+    top_edge_profile_vector = {"x": (square[0][0] + square[1][0])//2, "y": (square[0][1] + square[1][1])//2}
 
     # Calculate centre (x,y) of edge
-    top_edge_profile_roi_centre = {"x": square[2][0] + int(top_edge_profile_vector["x"] / 2),
-                                   "y": square[3][1] + int(top_edge_profile_vector["y"] / 2)}
+    top_edge_profile_roi_centre = {"x": (square[0][0] + square[1][0])//2,
+                                   "y": (square[0][1] + square[1][1])//2}
 
     return top_edge_profile_vector, top_edge_profile_roi_centre
 
 
 def get_right_edge_vector_and_centre(square):
     # Calculate dx and dy
-    right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
+    right_edge_profile_vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}  # nonsense
 
     # Calculate centre (x,y) of edge
-    right_edge_profile_roi_centre = {"x": square[0][0] + int(right_edge_profile_vector["x"] / 2),
-                                     "y": square[0][1] + int(right_edge_profile_vector["y"] / 2)}
+    right_edge_profile_roi_centre = {"x": (square[3][0] + square[0][0])//2,
+                                     "y": (square[3][1] + square[0][1])//2}
     return right_edge_profile_vector, right_edge_profile_roi_centre
 
 
@@ -297,8 +308,7 @@ def get_edge(edge_arr, mean_value, spacing):
     for row in range(20):
         for col in range(19):
             control_parameter_02 = 0
-            #         print(f"signal_arr[col, row]={signal_arr[col, row]}")
-            #         print(f"signal_arr[col, row+1]={signal_arr[col, row]}")
+
             if edge_arr[row, col] == mean_value:
                 control_parameter_02 = 1
             if (edge_arr[row, col] < mean_value) and (edge_arr[row, col + 1] > mean_value):
@@ -395,11 +405,10 @@ def get_esf(edge_arr, y):
 def calculate_mtf_for_edge(dicom, edge):
 
     pixels = dicom.pixel_array
-    img = rescale_to_byte(pixels)  # rescale for OpenCV operations
+    img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
     square, tilt = find_square(thresh)
-
     if edge == 'right':
         _, centre = get_right_edge_vector_and_centre(square)
     else:
@@ -408,7 +417,10 @@ def calculate_mtf_for_edge(dicom, edge):
     edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
     signal_arr = get_signal_roi(pixels, edge, centre, circle)
-    spacing = dicom.PixelSpacing
+    # plt.imshow(edge_arr, cmap='gray')
+    # plt.title(f"{dicom.SeriesDescription}_{dicom.SeriesNumber}_{dicom.InstanceNumber}_{edge}_{centre}")
+    # plt.show()
+    spacing = hazenlib.get_pixel_size(dicom)
     mean = np.mean([void_arr, signal_arr])
 
     x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
@@ -420,6 +432,8 @@ def calculate_mtf_for_edge(dicom, edge):
     lsf = maivis_deriv(u, esf)
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
+    # plt.plot(norm_mtf)
+    # plt.show()
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
     mtf_frequency = 10.0 * mtf_50 / profile_length
@@ -429,7 +443,6 @@ def calculate_mtf_for_edge(dicom, edge):
 
 
 def calculate_mtf(dicom):
-
     pe = dicom.InPlanePhaseEncodingDirection
     pe_result, fe_result = None, None
 
@@ -445,6 +458,20 @@ def calculate_mtf(dicom):
 
 def main(data: list) -> dict:
 
-    results = calculate_mtf(data[0])
+    results = {}
+    for dcm in data:
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            result = calculate_mtf(dcm)
+        except Exception as e:
+            print(f"Could not calculate the spatial resolution for {key} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
 
-    return {'spatial_resolution': results}
+        results[key] = result
+
+    return results
