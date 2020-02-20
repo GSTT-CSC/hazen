@@ -81,14 +81,27 @@ Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
     <folder>  Directory containing dicom files to be processed.
 """
-from docopt import docopt
 import os
 import pprint
 import importlib
+
 import pydicom
+from docopt import docopt
+import numpy as np
 
 __version__ = '0.1.4'
 EXCLUDED_FILES = ['.DS_Store']
+
+
+def rescale_to_byte(array):
+    image_histogram, bins = np.histogram(array.flatten(), 255)
+    cdf = image_histogram.cumsum()  # cumulative distribution function
+    cdf = 255 * cdf / cdf[-1]  # normalize
+
+    # use linear interpolation of cdf to find new pixel values
+    image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
+
+    return image_equalized.reshape(array.shape).astype('uint8')
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:

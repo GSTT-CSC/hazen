@@ -1,7 +1,7 @@
 """ Application-specific errors"""
 
 
-class ShapeError(BaseException):
+class ShapeError(Exception):
     """Base exception for shapes."""
     def __init__(self, shape, msg=None):
         if msg is None:
