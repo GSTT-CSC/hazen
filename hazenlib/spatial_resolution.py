@@ -460,13 +460,15 @@ def main(data: list) -> dict:
 
     results = {}
     for dcm in data:
-        key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             result = calculate_mtf(dcm)
         except Exception as e:
-            print(f"Could not calculate the spatial resolution for "
-                  f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber} "
-                  f"because of : {e}")
+            print(f"Could not calculate the spatial resolution for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
             continue
 

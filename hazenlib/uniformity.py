@@ -169,9 +169,7 @@ def main(data: list) -> dict:
         try:
             result = get_fractional_uniformity(dcm)
         except Exception as e:
-            print(f"Could not calculate the uniformity for "
-                  f"{key} "
-                  f"because of : {e}")
+            print(f"Could not calculate the uniformity for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
             continue
 

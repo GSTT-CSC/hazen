@@ -5,6 +5,7 @@ Square voxels, no multi-frame support
 
 from math import pi
 import sys
+import traceback
 from copy import copy
 
 import pydicom
@@ -573,11 +574,20 @@ def get_slice_width(dcm):
 
 
 def main(data: list) -> dict:
-    if len(data) != 1:
-        raise Exception('Need one DICOM file only')
+    results = {}
+    for dcm in data:
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            result = get_slice_width(dcm)
+        except Exception as e:
+            print(f"Could not calculate the slice_width for {key} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
 
-    dcm = data[0]
-    print(f"Measuring slice width from image: {dcm.SeriesDescription}")
-    results = get_slice_width(dcm)
+        results[key] = result
 
-    return {"slice_width_distortion_linearity": results}
+    return results
