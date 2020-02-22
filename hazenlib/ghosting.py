@@ -37,7 +37,8 @@ def calculate_ghost_intensity(ghost, phantom, noise) -> float:
 
 def get_signal_bounding_box(array: np.ndarray):
     max_signal = np.max(array)
-    signal_limit = max_signal * 0.5  # assumes phantom signal is at least 50% of the max signal inside the phantom
+
+    signal_limit = max_signal * 0.2  # assumes phantom signal is at least 50% of the max signal inside the phantom
     signal = []
     for idx, voxel in np.ndenumerate(array):
         if voxel > signal_limit:
@@ -46,10 +47,10 @@ def get_signal_bounding_box(array: np.ndarray):
     signal_column = sorted([voxel[1] for voxel in signal])
     signal_row = sorted([voxel[0] for voxel in signal])
 
-    upper_row = min(signal_row) - 1  # minus 1 to get the box that CONTAINS the signal
-    lower_row = max(signal_row) + 1  # ditto for add one
-    left_column = min(signal_column) - 1  # ditto
-    right_column = max(signal_column) + 1  # ditto
+    upper_row = min(signal_row)
+    lower_row = max(signal_row)
+    left_column = min(signal_column)
+    right_column = max(signal_column)
 
     return left_column, right_column, upper_row, lower_row,
 
@@ -118,6 +119,13 @@ def get_background_slices(background_rois, slice_size=10):
 def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
 
     left_column, right_column, upper_row, lower_row = signal_bounding_box
+
+    # take into account when phantom is off edge of image
+    lower_row = min(dcm.Rows-slice_radius, lower_row)
+    upper_row= max(slice_radius, upper_row)
+    right_column = min(dcm.Columns-slice_radius, right_column)
+    left_column = max(slice_radius, left_column)
+
     padding_from_box = 30  # pixels
 
     if get_pe_direction(dcm) == 'ROW':
@@ -151,7 +159,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
     arr = dcm.pixel_array
 
     eligible_columns, eligible_rows = get_eligible_area(signal_bounding_box, dcm, slice_radius)
-
+    print(eligible_rows)
     for idx, centre_voxel in np.ndenumerate(arr):
         if idx[0] not in eligible_columns or idx[1] not in eligible_rows:
             continue
@@ -172,6 +180,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
 def get_ghosting(dcm, plotting=False) -> dict:
 
     bbox = get_signal_bounding_box(dcm.pixel_array)
+
     signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
     ghost_roi_slice = get_ghost_slice(bbox, dcm)
