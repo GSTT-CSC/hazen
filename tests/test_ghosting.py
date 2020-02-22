@@ -84,8 +84,8 @@ class TestGhosting(unittest.TestCase):
 
 
 class TestCOLPEGhosting(TestGhosting):
-    SIGNAL_BOUNDING_BOX = (164, 209, 165, 210)
-    SIGNAL_CENTRE = [187, 186]
+    SIGNAL_BOUNDING_BOX = (164, 208, 166, 210)
+    SIGNAL_CENTRE = [188, 186]
     BACKGROUND_ROIS = [(64, 186), (64, 140), (64, 94), (64, 48)]
     PADDING_FROM_BOX = 30
     SLICE_RADIUS = 5
@@ -99,7 +99,7 @@ class TestCOLPEGhosting(TestGhosting):
         range(6 - SLICE_RADIUS, 6 + SLICE_RADIUS)
     )
     PE = "COL"
-    GHOSTING = (None, 0.034067855280627064)
+    GHOSTING = (None, 0.0340711094243276)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'PE_COL_PHANTOM_BOTTOM_RIGHT' / 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA')
