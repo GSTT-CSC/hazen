@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 
 import numpy as np
 import cv2 as cv
@@ -230,11 +231,22 @@ def main(data: list, report=False) -> dict:
     results = {}
     # figures = []
     for dcm in data:
-        key = f"{dcm.SeriesDescription}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"
-        fig, results[f"{dcm.SeriesDescription.replace(' ', '_')}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"] = get_ghosting(dcm, report)
-        fig.savefig(key + '.png')
+        try:
+            key = f"{dcm.SeriesDescription.replace(' ', '_')}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            fig, results[key] = get_ghosting(dcm, report)
+            if report:
+                fig.savefig(key + '.png')
 
-    return {'ghosting': results}
+        except Exception as e:
+            print(f"Could not calculate the ghosting for {key} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
+
+    return results
 
 
 if __name__ == "__main__":
