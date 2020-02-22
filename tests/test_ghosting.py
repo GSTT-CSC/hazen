@@ -30,7 +30,7 @@ class TestGhosting(unittest.TestCase):
     GHOST_SLICE = np.array(range(192 - SLICE_RADIUS, 192 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
         range(290 - SLICE_RADIUS, 290 + SLICE_RADIUS)
     )
-    GHOSTING = (None, 0.08695015467974887)
+    GHOSTING = (None, 0.07156555498386265)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')

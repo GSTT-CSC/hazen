@@ -55,8 +55,7 @@ def get_signal_bounding_box(array: np.ndarray):
     return left_column, right_column, upper_row, lower_row,
 
 
-def get_signal_slice(bounding_box, slice_size=10):
-    slice_radius = round(slice_size / 2)
+def get_signal_slice(bounding_box, slice_radius=5):
     left_column, right_column, upper_row, lower_row  = bounding_box
     centre_row = upper_row + round((lower_row - upper_row) / 2)
     centre_column = left_column + round((right_column - left_column) / 2)
@@ -108,8 +107,7 @@ def get_background_rois(dcm, signal_centre):
     return background_rois
 
 
-def get_background_slices(background_rois, slice_size=10):
-    slice_radius = round(slice_size / 2)
+def get_background_slices(background_rois, slice_radius=5):
     slices = [(np.array(range(roi[0]-slice_radius, roi[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
 
@@ -151,15 +149,13 @@ def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
     return eligible_columns, eligible_rows
 
 
-def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
+def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
     max_mean = 0
     max_index = (0, 0)
-    slice_radius = round(slice_size/2)
     windows = {}
     arr = dcm.pixel_array
 
     eligible_columns, eligible_rows = get_eligible_area(signal_bounding_box, dcm, slice_radius)
-    print(eligible_rows)
     for idx, centre_voxel in np.ndenumerate(arr):
         if idx[0] not in eligible_columns or idx[1] not in eligible_rows:
             continue
@@ -181,14 +177,18 @@ def get_ghosting(dcm, plotting=False) -> dict:
 
     bbox = get_signal_bounding_box(dcm.pixel_array)
 
+    x, y = hazenlib.get_pixel_size(dcm)  # assume square pixels i.e. x=y
+    # ROIs need to be 10mmx10mm
+    slice_radius = int(10//(2*x))
+
     signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
-    ghost_roi_slice = get_ghost_slice(bbox, dcm)
+    ghost_roi_slice = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
     ghost = dcm.pixel_array[ghost_roi_slice]
-    phantom = dcm.pixel_array[get_signal_slice(bbox)]
+    phantom = dcm.pixel_array[get_signal_slice(bbox, slice_radius=slice_radius)]
 
-    noise = np.concatenate([dcm.pixel_array[roi] for roi in get_background_slices(background_rois)])
-    eligible_area = get_eligible_area(bbox, dcm)
+    noise = np.concatenate([dcm.pixel_array[roi] for roi in get_background_slices(background_rois, slice_radius=slice_radius)])
+    eligible_area = get_eligible_area(bbox, dcm, slice_radius=slice_radius)
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
     if plotting:
