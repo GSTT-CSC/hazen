@@ -109,7 +109,7 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
     return imnoise
 
 
-def get_roi_samples(dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> list:
+def get_roi_samples(ax, dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> list:
 
     if type(dcm) == np.ndarray:
         data = dcm
@@ -124,24 +124,33 @@ def get_roi_samples(dcm: pydicom.Dataset or np.ndarray, cx: int, cy: int) -> lis
     sample[3] = data[(cx - 50):(cx - 10), (cy + 30):(cy + 50)]
     sample[4] = data[(cx + 30):(cx + 50), (cy + 30):(cy + 50)]
 
+    if ax:
+        from matplotlib.patches import Rectangle
+        from matplotlib.collections import PatchCollection
+        rects = [Rectangle((cx - 10, cy - 10), 20, 20),
+                 Rectangle((cx - 50, cy - 50), 20, 20),
+                 Rectangle((cx + 30, cy - 50), 20, 20),
+                 Rectangle((cx - 50, cy + 30), 20, 20),
+                 Rectangle((cx + 30, cy + 30), 20, 20)]
+        pc = PatchCollection(rects, edgecolors='red', facecolors="None", label='ROIs')
+        ax.add_collection(pc)
+
     return sample
 
 
-def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+def get_object_centre(dcm) -> (int, int):
+    """
+    Find the phantom object within the image and returns its centre in terms of x, y coordinates
+
+    Args:
+        dcm:
+
+    Returns:
+        centre: (int, int)
+
     """
 
-    Parameters
-    ----------
-    dcm
-    measured_slice_width
-
-    Returns
-    -------
-    normalised_snr: float
-
-    """
     shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
-
     orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
 
     if orientation in ['Sagittal', 'Coronal']:
@@ -165,14 +174,46 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
     else:
         raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
-    x, y = int(x), int(y)
+    return int(x), int(y)
+
+
+def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_path=False) -> float:
+    """
+
+    Parameters
+    ----------
+    dcm
+    measured_slice_width
+    report_path
+
+    Returns
+    -------
+    normalised_snr: float
+
+    """
+    x, y = get_object_centre(dcm=dcm)
     noise_img = smoothed_subtracted_image(dcm=dcm)
 
-    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm, cx=x, cy=y)]
-    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=noise_img, cx=x, cy=y)], np.sqrt(2))
+    signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm, cx=x, cy=y)]
+    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(ax=None, dcm=noise_img, cx=x, cy=y)], np.sqrt(2))
     snr = np.mean(np.divide(signal, noise))
 
     normalised_snr = snr * get_normalised_snr_factor(dcm, measured_slice_width)
+
+    if report_path:
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 1)
+        fig.set_size_inches(5, 5)
+        fig.tight_layout(pad=1)
+
+        axes.set_title('smoothed noise image')
+        axes.imshow(noise_img, cmap='gray', label='smoothed noise image')
+        axes.scatter(x, y, 10, marker="+", label='centre')
+        get_roi_samples(axes, dcm, x, y)
+        axes.legend()
+
+        fig.savefig(report_path + ".png")
+
 
     return snr, normalised_snr
 
@@ -189,7 +230,7 @@ def get_largest_circle(circles):
     return largest_x, largest_y, largest_r
 
 
-def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None) -> float:
+def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None, report_path=False) -> float:
     """
 
     Parameters
@@ -197,50 +238,41 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_sl
     dcm1
     dcm2
     measured_slice_width
+    report_path
 
     Returns
     -------
 
     """
-    shape_detector = hazenlib.tools.ShapeDetector(arr=dcm1.pixel_array)
+    x, y = get_object_centre(dcm=dcm1)
 
-    orientation = hazenlib.tools.get_image_orientation(dcm1.ImageOrientationPatient)
-
-    if orientation in ['Sagittal', 'Coronal']:
-        # orientation is sagittal to patient
-        try:
-            (x, y), size, angle = shape_detector.get_shape('rectangle')
-        except exc.ShapeError:
-            # shape_detector.find_contours()
-            # shape_detector.detect()
-            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
-            # plt.imshow(im)
-            # plt.show()
-            # print(shape_detector.shapes.keys())
-            raise
-    elif orientation == 'Transverse':
-        try:
-            x, y, r = shape_detector.get_shape('circle')
-        except exc.MultipleShapesError:
-            print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
-            x, y, r = get_largest_circle(shape_detector.shapes['circle'])
-    else:
-        raise Exception("Direction must be Transverse, Sagittal or Coronal.")
-
-    x, y = int(x), int(y)
     difference = np.subtract(dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int'))
 
-    signal = [np.mean(roi) for roi in get_roi_samples(dcm=dcm1, cx=x, cy=y)]
-    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(dcm=difference, cx=x, cy=y)], np.sqrt(2))
+    signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm1, cx=x, cy=y)]
+    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(ax=None, dcm=difference, cx=x, cy=y)], np.sqrt(2))
 
     snr = np.mean(np.divide(signal, noise))
 
     normalised_snr = snr * get_normalised_snr_factor(dcm1, measured_slice_width)
 
+    if report_path:
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(1, 1)
+        fig.set_size_inches(5, 5)
+        fig.tight_layout(pad=1)
+
+        axes.set_title('difference image')
+        axes.imshow(difference, cmap='gray', label='difference image')
+        axes.scatter(x, y, 10, marker="+", label='centre')
+        get_roi_samples(axes, dcm1, x, y)
+        axes.legend()
+
+        fig.savefig(report_path + ".png")
+
     return snr, normalised_snr
 
 
-def main(data: list, measured_slice_width=None) -> dict:
+def main(data: list, measured_slice_width=None, report_path=False) -> dict:
     """
 
     Parameters
@@ -253,15 +285,28 @@ def main(data: list, measured_slice_width=None) -> dict:
     results: list
     """
     results = {}
+
     if len(data) == 2:
-        snr, normalised_snr = snr_by_subtraction(data[0], data[1], measured_slice_width)
-        results["measured_snr_subtraction_method"] = snr
-        results["normalised_snr_subtraction_method"] = normalised_snr
+        key = f"{data[0].SeriesDescription}_{data[0].SeriesNumber}"
+        if report_path:
+            report_path = key
+        snr, normalised_snr = snr_by_subtraction(data[0], data[1], measured_slice_width, report_path)
+        results[f"{key}_measured_snr_subtraction"] = snr
+        results[f"{key}_normalised_snr_subtraction"] = normalised_snr
 
     for idx, dcm in enumerate(data):
-        snr, normalised_snr = snr_by_smoothing(dcm, measured_slice_width)
-        results[f"measured_snr_smoothing_method_{idx}"] = snr
-        results[f"normalised_snr_smoothing_method_{idx}"] = normalised_snr
+        try:
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+
+        if report_path:
+            report_path = key
+
+        snr, normalised_snr = snr_by_smoothing(dcm, measured_slice_width, report_path)
+        results[f"{key}_measured_snr_smoothing"] = snr
+        results[f"{key}_normalised_snr_smoothing"] = normalised_snr
 
     return results
     # # Draw regions for testing

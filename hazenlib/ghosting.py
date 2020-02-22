@@ -1,12 +1,11 @@
 import os
 import sys
+import traceback
 
-import pydicom
 import numpy as np
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+import cv2 as cv
+
+import hazenlib
 
 
 def calculate_ghost_intensity(ghost, phantom, noise) -> float:
@@ -39,31 +38,31 @@ def calculate_ghost_intensity(ghost, phantom, noise) -> float:
 
 def get_signal_bounding_box(array: np.ndarray):
     max_signal = np.max(array)
-    signal_limit = max_signal * 0.5  # assumes phantom signal is at least 50% of the max signal inside the phantom
+
+    signal_limit = max_signal * 0.2  # assumes phantom signal is at least 50% of the max signal inside the phantom
     signal = []
     for idx, voxel in np.ndenumerate(array):
         if voxel > signal_limit:
             signal.append(idx)
 
-    signal_row = sorted([voxel[0] for voxel in signal])
     signal_column = sorted([voxel[1] for voxel in signal])
+    signal_row = sorted([voxel[0] for voxel in signal])
 
-    upper_row = min(signal_row) - 1  # minus 1 to get the box that CONTAINS the signal
-    lower_row = max(signal_row) + 1  # ditto for add one
-    left_row = min(signal_column) - 1  # ditto
-    right_row = max(signal_column) + 1  # ditto
+    upper_row = min(signal_row)
+    lower_row = max(signal_row)
+    left_column = min(signal_column)
+    right_column = max(signal_column)
 
-    return upper_row, lower_row, left_row, right_row
+    return left_column, right_column, upper_row, lower_row,
 
 
-def get_signal_slice(bounding_box, slice_size=10):
-    slice_radius = round(slice_size / 2)
-    upper_row, lower_row, left_column, right_column = bounding_box
+def get_signal_slice(bounding_box, slice_radius=5):
+    left_column, right_column, upper_row, lower_row  = bounding_box
     centre_row = upper_row + round((lower_row - upper_row) / 2)
     centre_column = left_column + round((right_column - left_column) / 2)
 
-    idxs = (np.array(range(centre_row - slice_radius, centre_row + slice_radius), dtype=np.intp)[:, np.newaxis],
-            np.array(range(centre_column - slice_radius, centre_column + slice_radius), dtype=np.intp))
+    idxs = (np.array(range(centre_column - slice_radius, centre_column + slice_radius), dtype=np.intp),
+            np.array(range(centre_row - slice_radius, centre_row + slice_radius), dtype=np.intp)[:, np.newaxis])
     return idxs
 
 
@@ -72,50 +71,44 @@ def get_pe_direction(dcm):
 
 
 def get_background_rois(dcm, signal_centre):
+
     background_rois = []
 
-    if get_pe_direction(dcm) == 'ROW':
-        # phase encoding is left -right i.e. increases with columns
-        if signal_centre[0] < dcm.Rows * 0.5:
-            # phantom is in top half of image
+    if get_pe_direction(dcm) == 'ROW':  # phase encoding is left -right i.e. increases with columns
+        if signal_centre[1] < dcm.Rows * 0.5:  # phantom is in top half of image
             background_rois_row = round(dcm.Rows * 0.75)  # in the bottom quadrant
-        else:
-            # phantom is bottom half of image
+        else:  # phantom is bottom half of image
             background_rois_row = round(dcm.Rows * 0.25)  # in the top quadrant
-        background_rois.append((background_rois_row, signal_centre[1]))
+        background_rois.append((signal_centre[0], background_rois_row))
 
-        if signal_centre[1] >= round(dcm.Columns/2):
-            # phantom is right half of image need 3 ROIs evenly spaced from 0->background_roi[0]
-            gap = round(background_rois[0][1]/ 4)
-            background_rois = [(background_rois_row, background_rois[0][1] - i * gap) for i in range(4)]
-        else:
-            # phantom is left half of image need 3 ROIs evenly spaced from background_roi[0]->end
-            gap = round((dcm.Columns - background_rois[0][1]) / 4)
-            background_rois = [(background_rois_row, background_rois[0][1] + i * gap) for i in range(4)]
-
-    else:
-        if signal_centre[1] < dcm.Columns * 0.5:
-            # phantom is in left half of image
-            background_rois_column = round(dcm.Columns * 0.75)  # in the right quadrant
-        else:
-            # phantom is right half of image
-            background_rois_column = round(dcm.Columns * 0.25)  # in the top quadrant
-        background_rois.append((signal_centre[0], background_rois_column))
-
-        if signal_centre[0] >= round(dcm.Rows/2):
-            # phantom is bottom half of image need 3 ROIs evenly spaced from 0->background_roi[0]
+        if signal_centre[0] > round(dcm.Columns/2):
+            # phantom is right half of image need 4 ROIs evenly spaced from 0->background_roi[0]
             gap = round(background_rois[0][0] / 4)
-            background_rois = [(background_rois[0][0] - i * gap, background_rois_column) for i in range(4)]
+            background_rois = [(background_rois[0][0] - i * gap, background_rois_row) for i in range(4)]
         else:
-            # phantom is top half of image need 3 ROIs evenly spaced from background_roi[0]->end
+            # phantom is left half of image need 4 ROIs evenly spaced from background_roi[0]->end
             gap = round((dcm.Columns - background_rois[0][0]) / 4)
-            background_rois = [(background_rois[0][0] + i * gap, background_rois_column) for i in range(4)]
+            background_rois = [(background_rois[0][0] + i * gap, background_rois_row) for i in range(4)]
+
+    else:  # phase encoding is top-down i.e. increases with rows (y-axis)
+        if signal_centre[0] < dcm.Columns * 0.5:  # phantom is in left half of image
+            background_rois_column = round(dcm.Columns * 0.75)  # in the right quadrant
+        else:  # phantom is right half of image
+            background_rois_column = round(dcm.Columns * 0.25)  # in the top quadrant
+        background_rois.append((background_rois_column, signal_centre[1]))
+
+        if signal_centre[1] >= round(dcm.Rows/2):
+            # phantom is bottom half of image need 4 ROIs evenly spaced from 0->background_roi[0]
+            gap = round(background_rois[0][1] / 4)
+            background_rois = [(background_rois_column, background_rois[0][1] - i * gap) for i in range(4)]
+        else:  # phantom is top half of image need 3 ROIs evenly spaced from background_roi[0]->end
+            gap = round((dcm.Columns - background_rois[0][1]) / 4)
+            background_rois = [(background_rois_column, background_rois[0][1] + i * gap) for i in range(4)]
 
     return background_rois
 
 
-def get_background_slices(background_rois, slice_size=10):
-    slice_radius = round(slice_size / 2)
+def get_background_slices(background_rois, slice_radius=5):
     slices = [(np.array(range(roi[0]-slice_radius, roi[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
 
@@ -123,8 +116,17 @@ def get_background_slices(background_rois, slice_size=10):
 
 
 def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
-    upper_row, lower_row, left_column, right_column = signal_bounding_box
+
+    left_column, right_column, upper_row, lower_row = signal_bounding_box
+
+    # take into account when phantom is off edge of image
+    lower_row = min(dcm.Rows-slice_radius, lower_row)
+    upper_row= max(slice_radius, upper_row)
+    right_column = min(dcm.Columns-slice_radius, right_column)
+    left_column = max(slice_radius, left_column)
+
     padding_from_box = 30  # pixels
+
     if get_pe_direction(dcm) == 'ROW':
         if left_column < dcm.Columns / 2:
             # signal is in left half
@@ -145,20 +147,18 @@ def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
             eligible_rows = range(slice_radius, upper_row - padding_from_box)
             eligible_columns = range(left_column, right_column)
 
-    return eligible_rows, eligible_columns
+    return eligible_columns, eligible_rows
 
 
-def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
+def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
     max_mean = 0
     max_index = (0, 0)
-    slice_radius = round(slice_size/2)
     windows = {}
     arr = dcm.pixel_array
 
-    eligible_rows, eligible_columns = get_eligible_area(signal_bounding_box, dcm, slice_radius)
-
+    eligible_columns, eligible_rows = get_eligible_area(signal_bounding_box, dcm, slice_radius)
     for idx, centre_voxel in np.ndenumerate(arr):
-        if idx[0] not in eligible_rows or idx[1] not in eligible_columns:
+        if idx[0] not in eligible_columns or idx[1] not in eligible_rows:
             continue
         else:
             windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
@@ -174,29 +174,79 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_size=10):
     )
 
 
-def get_ghosting(dcm) -> dict:
+def get_ghosting(dcm, plotting=False) -> dict:
 
     bbox = get_signal_bounding_box(dcm.pixel_array)
-    signal_centre = [bbox[0]+(bbox[1]-bbox[0])//2, bbox[2]+(bbox[3]-bbox[2])//2]
+
+    x, y = hazenlib.get_pixel_size(dcm)  # assume square pixels i.e. x=y
+    # ROIs need to be 10mmx10mm
+    slice_radius = int(10//(2*x))
+
+    signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
-    ghost = dcm.pixel_array[get_ghost_slice(bbox, dcm)]
-    phantom = dcm.pixel_array[get_signal_slice(bbox)]
+    ghost_roi_slice = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
+    ghost = dcm.pixel_array[ghost_roi_slice]
+    phantom = dcm.pixel_array[get_signal_slice(bbox, slice_radius=slice_radius)]
 
-    noise = np.concatenate([dcm.pixel_array[roi] for roi in get_background_slices(background_rois)])
-
+    noise = np.concatenate([dcm.pixel_array[roi] for roi in get_background_slices(background_rois, slice_radius=slice_radius)])
+    eligible_area = get_eligible_area(bbox, dcm, slice_radius=slice_radius)
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
-    return ghosting
+    if plotting:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots()
+        x1, x2, y1, y2 = bbox
+
+        img = hazenlib.rescale_to_byte(dcm.pixel_array)
+        img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+        for roi in background_rois:
+            #  slice_size = 10
+            x1 = roi[0] - 5
+            y1 = roi[1] - 5
+            x2 = roi[0] + 5
+            y2 = roi[1] + 5
+            img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+        x1 = ghost_roi_slice[0].min()
+        y1 = ghost_roi_slice[1].min()
+        x2 = ghost_roi_slice[0].max()
+        y2 = ghost_roi_slice[1].max()
+        img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+        x1 = min(eligible_area[0])
+        y1 = min(eligible_area[1])
+        x2 = max(eligible_area[0])
+        y2 = max(eligible_area[1])
+        img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
+
+        ax.imshow(img)
+        return fig, ghosting
+
+    return None, ghosting
 
 
-def main(data: list) -> dict:
+def main(data: list, report=False) -> dict:
 
     results = {}
-
+    # figures = []
     for dcm in data:
-        results[f"{dcm.SeriesDescription}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"] = get_ghosting(dcm)
+        try:
+            key = f"{dcm.SeriesDescription.replace(' ', '_')}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"
+        except AttributeError as e:
+            print(e)
+            key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+        try:
+            fig, results[key] = get_ghosting(dcm, report)
+            if report:
+                fig.savefig(key + '.png')
 
-    return {'ghosting': results}
+        except Exception as e:
+            print(f"Could not calculate the ghosting for {key} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
+            continue
+
+    return results
 
 
 if __name__ == "__main__":

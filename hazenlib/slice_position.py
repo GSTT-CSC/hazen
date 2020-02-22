@@ -6,12 +6,10 @@ http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 """
 import sys
 import os
+import traceback
+
 import pydicom
 from skimage import measure, filters
-from skimage.morphology import disk
-import matplotlib
-matplotlib.use("Agg")
-from matplotlib import pyplot as plt
 import numpy as np
 import cv2 as cv
 
@@ -60,16 +58,16 @@ def get_rods_coords(dcm: pydicom.Dataset):
         x, y, r = shape_detector.get_shape('circle')
 
     except hazenlib.exceptions.MultipleShapesError as e:
-        print(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
+        # print(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
         shape_detector.find_contours()
         shape_detector.detect()
         x, y, r = 0, 0, 0
         for contour in shape_detector.shapes['circle']:
             (new_x, new_y), new_r = cv.minEnclosingCircle(contour)
             if new_r > r:
-                print(f"Found bigger circle: {new_x}, {new_y}, {new_r}")
+                # print(f"Found bigger circle: {new_x}, {new_y}, {new_r}")
                 x, y, r = new_x, new_y, new_r
-        print(f"Found circle with x={x},y={y},r={r}")
+        # print(f"Found circle with x={x},y={y},r={r}")
 
     except hazenlib.exceptions.ShapeError:
         raise
@@ -172,10 +170,24 @@ def correct_rods_for_rotation(left_rod: dict, right_rod: dict) -> (dict, dict):
     return left_rod, right_rod
 
 
-def slice_position_error(data: list):
+def slice_position_error(data: list, report_path=False):
 
     # get rod positions and nominal positions
     left_rod, right_rod, nominal_positions = get_rods(data)
+
+    if report_path:
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(40, 1)
+        fig.set_size_inches(5, 90)
+        fig.tight_layout()
+        i = 0
+        for idx, ax in enumerate(axes.reshape(-1)):
+            ax.imshow(data[idx].pixel_array)
+            rods_x = [left_rod["x_pos"][idx], right_rod['x_pos'][idx]]
+            rods_y = [left_rod["y_pos"][idx], right_rod['y_pos'][idx]]
+            ax.scatter(rods_x, rods_y, 3, marker='+')
+
+        fig.savefig('slice_position.png')
 
     # Correct for phantom rotation
     left_rod, right_rod = correct_rods_for_rotation(left_rod, right_rod)
@@ -195,16 +207,19 @@ def slice_position_error(data: list):
     return results
 
 
-def main(data: list) -> list:
+def main(data: list, report_path=False) -> list:
 
     if len(data) != 60:
         raise Exception('Need 60 DICOM')
 
     data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
 
-    data = data[10:50]  # ignore first and last dicom
+    data = data[10:50]  # ignore first and last 10 dicom
 
-    results = slice_position_error(data)
+    try:
+        results = slice_position_error(data, report_path)
+    except Exception as e:
+        raise
 
     import decimal
     decimal.getcontext().prec = 3
