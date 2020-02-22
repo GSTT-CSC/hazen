@@ -8,32 +8,11 @@ import sys
 import traceback
 from copy import copy
 
-import pydicom
 import numpy as np
 from scipy import ndimage
 from scipy.interpolate import interp1d
-from scipy.optimize import curve_fit
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
-
-def get_fov(dcm):
-
-    if dcm.Manufacturer == "GE MEDICAL SYSTEMS":
-        return dcm['0019', '101e']
-    elif dcm.Manufacturer == 'SIEMENS':
-        return dcm.Rows*dcm.PixelSpacing[0]
-    elif dcm.Manufacturer =='Philips Medical Systems':
-        if dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4.1':
-        #Enhanced DICOM i.e. Multiframe DICOM
-            return dcm.Rows*dcm.PerFrameFunctionalGroupsSequence.Item_1.PixelMeasuresSequence.Item_1.PixelSpacing[0]
-        elif dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4':
-        #MRImageStorage Class
-            return dcm.Rows*dcm.PixelSpacing[0]
-    else:
-        raise Exception('Unrecognised SOPClassUID')
-
+import hazenlib
 
 class Rod:
     def __init__(self, x, y):
@@ -125,21 +104,14 @@ def get_rods(dcm):
     return rods
 
 
-def plot_rods(arr, rods): # pragma: no cover
-    # fig, ax = plt.subplots(nrows=1, ncols=2)
-    # fig.suptitle("get_rods")
-    plt.imshow(arr, cmap='gray')
-    # ax[0][1].imshow(img_threshold, cmap='gray')
-    # ax[1][0].imshow(labeled_array, cmap='gray')
-    # ax[1][1].imshow(arr, cmap='gray')
-
+def plot_rods(ax, arr, rods): # pragma: no cover
+    ax.imshow(arr, cmap='gray')
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-
     for idx, i in enumerate(rods):
-        plt.scatter(x=i.x, y=i.y, marker=f"${mark[idx]}$", s=10, linewidths=0.4)
-    # ax[1][1].scatter(x=[i.x for i in rods], y=[i.y for i in rods], marker="+", s=1, linewidths=0.5)
-    # fig.savefig('rods.png')
-    plt.show()
+        ax.scatter(x=i.x, y=i.y, marker=f"${mark[idx]}$", s=10, linewidths=0.4)
+
+    ax.set_title('find rods')
+    return ax
 
 
 def get_rod_distances(rods):
@@ -195,15 +167,6 @@ def get_rod_distortions(rods, dcm):
     return horz_distortion, vert_distortion
 
 
-# class Trapezoid(np.ndarray):
-#     def __init__(self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude, shape):
-#         super().__init__(shape)
-#         self.n_ramp, self.n_plateau, self.n_left_baseline, self.n_right_baseline, self.plateau_amplitude = n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
-#
-#     def __repr__(self):
-#         return f'Trapezoid: {self.n_ramp}, {self.n_plateau}, {self.n_left_baseline}, {self.n_right_baseline}, {self.plateau_amplitude}'
-
-
 def baseline_correction(profile, sample_spacing):
     """
     Calculates quadratic fit of the baseline and subtracts from profile
@@ -243,24 +206,10 @@ def baseline_correction(profile, sample_spacing):
     return {"f": polynomial_coefficients,
             "x_interpolated": x_interp,
             "baseline_fit": polynomial_fit,
+            "baseline": baseline,
             "baseline_interpolated": baseline_interp,
             "profile_interpolated": profile_interp,
             "profile_corrected_interpolated": profile_corrected_interp}
-
-
-def plot_baseline_correction(profile, corrected_profiles): # pragma: no cover
-    baseline = corrected_profiles["baseline"]
-    profile_corrected_interp = corrected_profiles["profile_corrected_interpolated"]
-
-    plt.figure()
-    plt.plot(profile, label='profile')
-    plt.plot(baseline, label='baseline')
-    plt.legend()
-    plt.title('Baseline fitted')
-
-    plt.figure()
-    plt.plot(profile_corrected_interp)
-    plt.title("profile_corrected_interp")
 
 
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
@@ -316,38 +265,6 @@ def get_ramp_profiles(image_array, rods) -> dict:
 
     return {"top": top_profile, "bottom": bottom_profile,
             "top-centre": top_profile_vertical_centre, "bottom-centre": bottom_profile_vertical_centre}
-
-
-def plot_ramp_profiles(arr, ramp_profiles): # pragma: no cover
-    plt.figure()
-    plt.imshow(arr)
-    top_profile_mean = np.mean(ramp_profiles["top"], axis=0)
-    bottom_profile_mean = np.mean(ramp_profiles['bottom'], axis=0)
-    for i, val in enumerate(ramp_profiles["top"]):
-        plt.plot([ramp_profiles["top"] - 10 + i] * 120, '-', color='red')
-
-    for i, val in enumerate(ramp_profiles["bottom"]):
-        plt.plot([ramp_profiles["bottom"] - 10 + i] * 120, '-',
-                 color='red')
-
-    plt.figure()
-    for i in ramp_profiles["top"]:
-        plt.plot(i)
-    plt.plot(ramp_profiles["top"][1])
-
-    plt.figure()
-    plt.plot(top_profile_mean)
-
-    top_profile_mean_corrected = baseline_correction(profile=top_profile_mean, sample_spacing=0.25)
-    plt.figure()
-    plt.plot(top_profile_mean_corrected)
-    plt.title('top_profile_mean_corrected')
-
-    bottom_profile_mean_corrected = baseline_correction(profile=bottom_profile_mean, sample_spacing=0.25)
-    plt.figure()
-    plt.plot(bottom_profile_mean_corrected)
-    plt.title('bottom_profile_mean_corrected')
-    plt.show()
 
 
 def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
@@ -467,7 +384,7 @@ def fit_trapezoid(profiles, slice_thickness):
     return trapezoid_fit_coefficients, baseline_fit_coefficients
 
 
-def get_slice_width(dcm):
+def get_slice_width(dcm, report_path=False):
     """
     Calculates slice width using double wedge image
 
@@ -495,7 +412,7 @@ def get_slice_width(dcm):
 
     trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["top"],
                                                                   dcm.SliceThickness)
-    _, fwhm = trapezoid(*trapezoid_coefficients)
+    top_trap, fwhm = trapezoid(*trapezoid_coefficients)
 
     slice_width["top"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3*pi)/180)
     # Factor of 4 because interpolated by factor of four
@@ -510,7 +427,7 @@ def get_slice_width(dcm):
 
     trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["bottom"],
                                                                   dcm.SliceThickness)
-    _, fwhm = trapezoid(*trapezoid_coefficients)
+    bottom_trap, fwhm = trapezoid(*trapezoid_coefficients)
 
     slice_width["bottom"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3 * pi) / 180)
     # Factor of 4 because interpolated by factor of four
@@ -556,33 +473,66 @@ def get_slice_width(dcm):
     horizontal_linearity = np.mean(horz_distances)
     vertical_linearity = np.mean(vert_distances)
 
-    # print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(mm):"
-    #       f"{dcm.SliceThickness}\nField of View (mm): {get_fov(dcm)}\nbandwidth (Hz/Px) : {dcm.PixelBandwidth}\n"
-    #       f"TR  (ms) : {dcm.RepetitionTime}\nTE  (ms) : {dcm.EchoTime}\nFlip Angle  (deg) : {dcm.FlipAngle}\n"
-    #       f"Horizontal line bottom (mm): {horz_distances[0]}\nHorizontal line middle (mm): {horz_distances[2]}\n"
-    #       f"Horizontal line top (mm): {horz_distances[2]}\nHorizontal Linearity (mm): {np.mean(horz_distances)}\n"
-    #       f"Horizontal Distortion: {horz_distortion}\nVertical line left (mm): {vert_distances[0]}\n"
-    #       f"Vertical line middle (mm): {vert_distances[1]}\nVertical line right (mm): {vert_distances[2]}\n"
-    #       f"Vertical Linearity (mm): {np.mean(vert_distances)}\nVertical Distortion: {vert_distortion}\n"
-    #       f"Slice width top (mm): {slice_width['top']['default']}\n"
-    #       f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (deg): {phantom_tilt_deg}\n"
-    #       f"Slice width AAPM geometry corrected (mm): {slice_width['combined']['aapm_tilt_corrected']}")
+    if report_path:
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(5, 1)
+        fig.set_size_inches(6, 16)
+        fig.tight_layout(pad=1)
+
+        plot_rods(axes[0], arr, rods)
+
+        axes[1].plot(np.mean(ramp_profiles["top"], axis=0), label='mean top profile')
+        axes[1].plot(ramp_profiles_baseline_corrected["top"]["baseline"],
+                     label='top profile baseline (interpolated)')
+        axes[1].legend()
+
+        axes[2].plot(ramp_profiles_baseline_corrected["top"]["profile_corrected_interpolated"],
+                     label='corrected top profile')
+        axes[2].plot(top_trap, label='trapezoid fit')
+        axes[2].legend()
+
+        axes[3].plot(np.mean(ramp_profiles["bottom"], axis=0), label='mean bottom profile')
+        axes[3].plot(ramp_profiles_baseline_corrected["bottom"]["baseline"],
+                     label='bottom profile baseline (interpolated')
+        axes[3].legend()
+
+        axes[4].plot(ramp_profiles_baseline_corrected["bottom"]["profile_corrected_interpolated"],
+                     label='corrected bottom profile')
+        axes[4].plot(bottom_trap, label='trapezoid fit')
+        axes[4].legend()
+
+        fig.savefig(report_path + '.png')
+
+    # print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(
+    # mm):" f"{dcm.SliceThickness}\nField of View (mm): {hazenlib.get_field_of_view(dcm)}\nbandwidth (Hz/Px) : {
+    # dcm.PixelBandwidth}\n" f"TR  (ms) : {dcm.RepetitionTime}\nTE  (ms) : {dcm.EchoTime}\nFlip Angle  (deg) : {
+    # dcm.FlipAngle}\n" f"Horizontal line bottom (mm): {horz_distances[0]}\nHorizontal line middle (mm): {
+    # horz_distances[2]}\n" f"Horizontal line top (mm): {horz_distances[2]}\nHorizontal Linearity (mm): {np.mean(
+    # horz_distances)}\n" f"Horizontal Distortion: {horz_distortion}\nVertical line left (mm): {vert_distances[0]}\n"
+    # f"Vertical line middle (mm): {vert_distances[1]}\nVertical line right (mm): {vert_distances[2]}\n" f"Vertical
+    # Linearity (mm): {np.mean(vert_distances)}\nVertical Distortion: {vert_distortion}\n" f"Slice width top (mm): {
+    # slice_width['top']['default']}\n" f"Slice width bottom (mm): {slice_width['bottom']['default']}\nPhantom tilt (
+    # deg): {phantom_tilt_deg}\n" f"Slice width AAPM geometry corrected (mm): {slice_width['combined'][
+    # 'aapm_tilt_corrected']}")
 
     return {'slice_width': slice_width['combined']['aapm_tilt_corrected'],
             'vertical_distortion': vert_distortion, 'horizontal_distortion': horz_distortion,
             'vertical_linearity': vertical_linearity, 'horizontal_linearity': horizontal_linearity}
 
 
-def main(data: list) -> dict:
+def main(data: list, report_path=False) -> dict:
     results = {}
     for dcm in data:
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+            if report_path:
+                report_path = key
         except AttributeError as e:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
-            result = get_slice_width(dcm)
+            result = get_slice_width(dcm, report_path)
         except Exception as e:
             print(f"Could not calculate the slice_width for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)

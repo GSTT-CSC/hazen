@@ -1,11 +1,17 @@
 ## How to contribute
 
-- Start by creating a new issue for the feature
+- Start by creating a new issue for the feature and:
+    - decide which release this is for
+    - gather any user research
+    - define acceptance test criteria
 - Create a Git feature-branch for this ticket
-- *Coding magic happens here*
+- Create an empty file detailing the design in the file docstring
+- Create an empty file detailing unit, integration and system tests, where appropriate
+- Create pull request and get the design approved
+- Code according to approved design and acceptance criteria
 - Keep an eye on the feedback from Bitbucket Pipelines and Sonarcube
 - Check a running instance of your app by locally running the latest Docker image:docker run --rm -p5000:5000 -it
-- If you’re satisfied with the new feature, open a Pull Request.
+- Once you’re satisfied with the new feature, the pull request can be formally reviewed for merging
 
 ## Changing DB models
 Remember to to generate migration script by running: __flask db migrate -m "very short commit message"__

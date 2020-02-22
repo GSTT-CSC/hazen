@@ -15,7 +15,6 @@ import traceback
 
 import cv2 as cv
 import numpy as np
-# import matplotlib.pyplot as plt
 
 import hazenlib
 
@@ -201,7 +200,7 @@ def find_square(img):
 
     bottom_corners = sorted(box, key=lambda x: x[1])[2:]
     bottom_corners = sorted(bottom_corners, key=lambda x: x[0])
-    return top_corners + bottom_corners, rect[2]
+    return top_corners + bottom_corners, box
 
 
 def get_roi(pixels, centre, size=20):
@@ -402,13 +401,12 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
-def calculate_mtf_for_edge(dicom, edge):
-
+def calculate_mtf_for_edge(dicom, edge, report_path=False):
     pixels = dicom.pixel_array
     img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
-    square, tilt = find_square(thresh)
+    square, box = find_square(thresh)
     if edge == 'right':
         _, centre = get_right_edge_vector_and_centre(square)
     else:
@@ -417,61 +415,87 @@ def calculate_mtf_for_edge(dicom, edge):
     edge_arr = get_edge_roi(pixels, centre)
     void_arr = get_void_roi(pixels, circle)
     signal_arr = get_signal_roi(pixels, edge, centre, circle)
-    # plt.imshow(edge_arr, cmap='gray')
-    # plt.title(f"{dicom.SeriesDescription}_{dicom.SeriesNumber}_{dicom.InstanceNumber}_{edge}_{centre}")
-    # plt.show()
     spacing = hazenlib.get_pixel_size(dicom)
     mean = np.mean([void_arr, signal_arr])
-
     x_edge, y_edge, edge_arr = get_edge(edge_arr, mean, spacing)
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
-
     x, y = get_edge_profile_coords(angle, intercept, spacing)
-
     u, esf = get_esf(edge_arr, y)
     lsf = maivis_deriv(u, esf)
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
-    # plt.plot(norm_mtf)
-    # plt.show()
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
 
+    if report_path:
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(11, 1)
+        fig.set_size_inches(5, 36)
+        fig.tight_layout(pad=1)
+        axes[0].set_title('raw pixels')
+        axes[0].imshow(pixels, cmap='gray')
+        axes[1].set_title('rescaled to byte')
+        axes[1].imshow(img, cmap='gray')
+        axes[2].set_title('thresholded')
+        axes[2].imshow(thresh, cmap='gray')
+        axes[3].set_title('finding circle')
+        c = cv.circle(img, (circle[0][0][0], circle[0][0][1]), circle[0][0][2], (255, 0, 0))
+        axes[3].imshow(c)
+        box = cv.drawContours(img, [box], 0, (255, 0, 0), 1)
+        axes[4].set_title('finding MTF square')
+        axes[4].imshow(box)
+        axes[5].set_title('edge ROI')
+        axes[5].imshow(edge_arr, cmap='gray')
+        axes[6].set_title('void ROI')
+        im = axes[6].imshow(void_arr, cmap='gray')
+        fig.colorbar(im, ax=axes[6])
+        axes[7].set_title('signal ROI')
+        im = axes[7].imshow(signal_arr, cmap='gray')
+        fig.colorbar(im, ax=axes[7])
+        axes[8].set_title('edge spread function')
+        axes[8].plot(esf)
+        axes[9].set_title('line spread function')
+        axes[9].plot(lsf)
+        axes[10].set_title('normalised MTF')
+        axes[10].plot(norm_mtf)
+        fig.savefig(f'{report_path}_{edge}.png')
+
     return res
 
 
-def calculate_mtf(dicom):
+def calculate_mtf(dicom, report_path=False):
+
     pe = dicom.InPlanePhaseEncodingDirection
     pe_result, fe_result = None, None
 
     if pe == 'COL':
-        pe_result = calculate_mtf_for_edge(dicom, 'top')
-        fe_result = calculate_mtf_for_edge(dicom, 'right')
+        pe_result = calculate_mtf_for_edge(dicom, 'top', report_path)
+        fe_result = calculate_mtf_for_edge(dicom, 'right', report_path)
     elif pe == 'ROW':
-        pe_result = calculate_mtf_for_edge(dicom, 'right')
-        fe_result = calculate_mtf_for_edge(dicom, 'top')
+        pe_result = calculate_mtf_for_edge(dicom, 'right', report_path)
+        fe_result = calculate_mtf_for_edge(dicom, 'top', report_path)
 
     return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
-def main(data: list) -> dict:
-
+def main(data: list, report_path=False) -> dict:
     results = {}
     for dcm in data:
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
+            if report_path:
+                report_path = key
         except AttributeError as e:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
-            result = calculate_mtf(dcm)
+            results[key] = calculate_mtf(dcm, report_path)
+
         except Exception as e:
             print(f"Could not calculate the spatial resolution for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
             continue
-
-        results[key] = result
 
     return results

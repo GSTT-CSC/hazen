@@ -56,8 +56,7 @@ def mode(a, axis=0):
     return most_frequent, old_counts
 
 
-def get_fractional_uniformity(dcm):
-
+def get_object_centre(dcm):
     arr = dcm.pixel_array
     shape_detector = hazenlib.tools.ShapeDetector(arr=arr)
     orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
@@ -67,12 +66,6 @@ def get_fractional_uniformity(dcm):
         try:
             (x, y), size, angle = shape_detector.get_shape('rectangle')
         except exc.ShapeError:
-            # shape_detector.find_contours()
-            # shape_detector.detect()
-            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
-            # plt.imshow(im)
-            # plt.show()
-            # print(shape_detector.shapes.keys())
             raise
 
     elif orientation == 'Transverse':
@@ -82,7 +75,14 @@ def get_fractional_uniformity(dcm):
     else:
         raise Exception("Direction must be Transverse, Sagittal or Coronal.")
 
-    x, y = int(x), int(y)
+    return int(x), int(y)
+
+
+def get_fractional_uniformity(dcm, report_path):
+
+    arr = dcm.pixel_array
+    x, y = get_object_centre(dcm)
+
     central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
     # Create central 10x10 ROI and measure modal value
 
@@ -106,59 +106,27 @@ def get_fractional_uniformity(dcm):
     fractional_uniformity_horizontal = horizontal_count / 160
     fractional_uniformity_vertical = vertical_count / 160
 
-    # Define 75% area mask for alternative uniformity measures
-    # r = r * 0.865
-    # n = len(arr)
-    # y, x = np.ogrid[:n, :n]
-    # dist_from_center = np.sqrt((x - x) ** 2 + (y - y) ** 2)
-    #
-    # mask = dist_from_center <= r
-    #
-    # # Calculate stats for masked region
-    # roi_mean = np.mean(arr[mask])
-    # roi_std = np.std(arr[mask])
-    # roi_max = np.amax(arr[mask])
-    # roi_min = np.amin(arr[mask])
-    #
-    # # Calculate CoV and integral uniformity
-    # cov = 100 * roi_std / roi_mean
-    # int_uniform = (1 - (roi_max - roi_min) / (roi_max + roi_min)) * 100
+    if report_path:
+        import matplotlib.pyplot as plt
+        from matplotlib.patches import Rectangle
+        from matplotlib.collections import PatchCollection
+        fig, ax = plt.subplots()
+        rects = [Rectangle((x - 5, y - 5), 10, 10, facecolor="None", edgecolor='red', linewidth=3),
+                 Rectangle((x - 80, y - 5), 160, 10, facecolor="None", edgecolor='green'),
+                 Rectangle((x - 5, y - 80), 10, 160, facecolor="None", edgecolor='yellow')]
+        pc = PatchCollection(rects, match_original=True)
+        ax.imshow(arr, cmap='gray')
+        ax.add_collection(pc)
+        ax.scatter(x, y, 5)
+
+        fig.savefig(report_path + ".png")
 
     return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
             'vertical': {'IPEM': fractional_uniformity_vertical}}
 
 
-# def get_ghosting(arr, c, roi_mean):
-#     x, y, r = c
-#     # Measure mean pixel value within rectangular ROIs slightly outside the top/bottom/left/right of phantom
-#     mean_top = np.mean(arr[(x - 50):(x + 50), (y - r - 20):(y - r - 10)])
-#     mean_bottom = np.mean(arr[(x - 50):(x + 50), (y + r + 10):(y + r + 20)])
-#     mean_left = np.mean(arr[(x - r - 20):(x - r - 10), (y - 50):(y + 50)])
-#     mean_right = np.mean(arr[(x + r + 10):(x + r + 20), (y - 50):(y + 50)])
-#
-#     # Calculate percentage ghosting
-#     ghosting = np.abs(((mean_top + mean_bottom) - (mean_left + mean_right)) / (2 * roi_mean)) * 100
-#     return ghosting
-#
-#
-# def get_distortion(arr, roi_min):
-#     # ------ Distortion ------
-#
-#     # Threshold using half of roimin as a cutoff
-#     thresh = arr < roi_min / 2
-#     i_thresh = arr
-#     i_thresh[thresh] = 0
-#
-#     # Find the indices of thresholded pixels
-#     bbox = np.argwhere(i_thresh)
-#     (bby_start, bbx_start), (bby_stop, bbx_stop) = bbox.min(0), bbox.max(0) + 1
-#
-#     i_distort = (bbx_stop - bbx_start) / (bby_stop - bby_start)
-#     i_distort = np.abs(i_distort - 1)
-#     return i_distort
+def main(data: list, report_path=False) -> dict:
 
-
-def main(data: list) -> dict:
     results = {}
     for dcm in data:
         try:
@@ -166,8 +134,12 @@ def main(data: list) -> dict:
         except AttributeError as e:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
+
+        if report_path:
+            report_path = key
+
         try:
-            result = get_fractional_uniformity(dcm)
+            result = get_fractional_uniformity(dcm, report_path)
         except Exception as e:
             print(f"Could not calculate the uniformity for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
