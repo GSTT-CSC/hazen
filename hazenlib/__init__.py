@@ -231,7 +231,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     manufacturer = get_manufacturer(dcm)
 
     if 'ge' in manufacturer:
-        fov = dcm[0x19, 0x101e]
+        fov = dcm[0x19, 0x101e].value
     elif 'siemens' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     elif 'philips' in manufacturer:
