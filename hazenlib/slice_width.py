@@ -476,7 +476,7 @@ def get_slice_width(dcm, report_path=False):
     if report_path:
         import matplotlib.pyplot as plt
 
-        fig, axes = plt.subplots(5, 1)
+        fig, axes = plt.subplots(6, 1)
         fig.set_size_inches(6, 16)
         fig.tight_layout(pad=1)
 
@@ -501,6 +501,17 @@ def get_slice_width(dcm, report_path=False):
                      label='corrected bottom profile')
         axes[4].plot(bottom_trap, label='trapezoid fit')
         axes[4].legend()
+        axes[5].axis('off')
+        axes[5].table(
+            cellText=[[str(x) for x in horz_distances]+[str(np.around(horizontal_linearity, 3))],
+                      [str(x) for x in vert_distances]+[str(np.around(vertical_linearity, 3))]],
+            rowLabels=['H-distances (S->I)',
+                       'V-distances (R->L)'],
+            colLabels=['1', '2', '3', 'mean/linearity'],
+            colWidths=[0.15]*(len(horz_distances) + 1),  # plus one for linearity,
+            rowLoc="center",
+            loc="center"
+        )
 
         fig.savefig(report_path + '.png')
 
