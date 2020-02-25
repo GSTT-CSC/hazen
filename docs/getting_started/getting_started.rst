@@ -22,6 +22,10 @@ Installation
    $ pip install --upgrade pip
    $ pip install -r requirements.txt
 
+    # Install hazen
+   $ cd hazen
+   $ python setup.py install
+
    # Run tests to make sure everything is working
    $ pytest tests/
 

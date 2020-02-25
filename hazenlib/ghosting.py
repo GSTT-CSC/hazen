@@ -39,7 +39,7 @@ def calculate_ghost_intensity(ghost, phantom, noise) -> float:
 def get_signal_bounding_box(array: np.ndarray):
     max_signal = np.max(array)
 
-    signal_limit = max_signal * 0.2  # assumes phantom signal is at least 50% of the max signal inside the phantom
+    signal_limit = np.percentile(max_signal, 0.95) * 0.4
     signal = []
     for idx, voxel in np.ndenumerate(array):
         if voxel > signal_limit:
@@ -57,12 +57,11 @@ def get_signal_bounding_box(array: np.ndarray):
 
 
 def get_signal_slice(bounding_box, slice_radius=5):
-    left_column, right_column, upper_row, lower_row  = bounding_box
-    centre_row = upper_row + round((lower_row - upper_row) / 2)
-    centre_column = left_column + round((right_column - left_column) / 2)
-
-    idxs = (np.array(range(centre_column - slice_radius, centre_column + slice_radius), dtype=np.intp),
-            np.array(range(centre_row - slice_radius, centre_row + slice_radius), dtype=np.intp)[:, np.newaxis])
+    left_column, right_column, upper_row, lower_row = bounding_box
+    centre_row = (upper_row + lower_row) // 2
+    centre_column = (left_column + right_column) // 2
+    idxs = (np.array(range(centre_column - slice_radius, centre_column + slice_radius), dtype=np.intp)[:, np.newaxis],
+            np.array(range(centre_row - slice_radius, centre_row + slice_radius), dtype=np.intp))
     return idxs
 
 
@@ -168,10 +167,11 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
             max_mean = np.mean(window)
             max_index = idx
 
-    return np.array(
-        range(max_index[0] - slice_radius, max_index[0] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
-        range(max_index[1] - slice_radius, max_index[1] + slice_radius)
+    ghost_slice = np.array(
+        range(max_index[1] - slice_radius, max_index[1] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
+        range(max_index[0] - slice_radius, max_index[0] + slice_radius)
     )
+    return ghost_slice
 
 
 def get_ghosting(dcm, plotting=False) -> dict:
@@ -184,11 +184,12 @@ def get_ghosting(dcm, plotting=False) -> dict:
 
     signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
-    ghost_roi_slice = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
-    ghost = dcm.pixel_array[ghost_roi_slice]
-    phantom = dcm.pixel_array[get_signal_slice(bbox, slice_radius=slice_radius)]
+    ghost_col, ghost_row = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
+    ghost = dcm.pixel_array[(ghost_row, ghost_col)]
+    signal_col, signal_row = get_signal_slice(bbox, slice_radius=slice_radius)
+    phantom = dcm.pixel_array[(signal_row, signal_col)]
 
-    noise = np.concatenate([dcm.pixel_array[roi] for roi in get_background_slices(background_rois, slice_radius=slice_radius)])
+    noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=slice_radius)])
     eligible_area = get_eligible_area(bbox, dcm, slice_radius=slice_radius)
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
@@ -208,10 +209,10 @@ def get_ghosting(dcm, plotting=False) -> dict:
             y2 = roi[1] + 5
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
-        x1 = ghost_roi_slice[0].min()
-        y1 = ghost_roi_slice[1].min()
-        x2 = ghost_roi_slice[0].max()
-        y2 = ghost_roi_slice[1].max()
+        x1 = ghost_row.min()
+        y1 = ghost_col.min()
+        x2 = ghost_row.max()
+        y2 = ghost_col.max()
         img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
         x1 = min(eligible_area[0])
