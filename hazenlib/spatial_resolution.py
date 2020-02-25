@@ -403,6 +403,8 @@ def get_esf(edge_arr, y):
 
 def calculate_mtf_for_edge(dicom, edge, report_path=False):
     pixels = dicom.pixel_array
+    pe = dicom.InPlanePhaseEncodingDirection
+
     img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
     thresh = thresh_image(img)
     circle = get_circles(img)
@@ -460,7 +462,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[9].plot(lsf)
         axes[10].set_title('normalised MTF')
         axes[10].plot(norm_mtf)
-        fig.savefig(f'{report_path}_{edge}.png')
+        fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
     return res
 

@@ -1,20 +1,15 @@
 import unittest
-import pathlib
 
 import numpy as np
 import pydicom
 import pytest
-import matplotlib
-# matplotlib.use("agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 
 import hazenlib.ghosting as hazen_ghosting
 from tests import TEST_DATA_DIR
 
 
 class TestGhosting(unittest.TestCase):
-    SIGNAL_BOUNDING_BOX = (251, 335, 242, 325)
+    SIGNAL_BOUNDING_BOX = (252, 334, 243, 325)
     SIGNAL_CENTRE = [293, 284]
     BACKGROUND_ROIS = [(293, 88), (220, 88), (147, 88), (74, 88)]
     PADDING_FROM_BOX = 30
@@ -27,10 +22,10 @@ class TestGhosting(unittest.TestCase):
                                   SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
         range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS), dtype=np.intp)
 
-    GHOST_SLICE = np.array(range(192 - SLICE_RADIUS, 192 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
-        range(290 - SLICE_RADIUS, 290 + SLICE_RADIUS)
+    GHOST_SLICE = np.array(range(290 - SLICE_RADIUS, 290 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(192 - SLICE_RADIUS, 192 + SLICE_RADIUS)
     )
-    GHOSTING = (None, 0.07156555498386265)
+    GHOSTING = (None, 0.16848192099579667)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
@@ -84,23 +79,44 @@ class TestGhosting(unittest.TestCase):
 
 
 class TestCOLPEGhosting(TestGhosting):
-    SIGNAL_BOUNDING_BOX = (164, 208, 166, 210)
-    SIGNAL_CENTRE = [188, 186]
-    BACKGROUND_ROIS = [(64, 186), (64, 140), (64, 94), (64, 48)]
+    SIGNAL_BOUNDING_BOX = (164, 208, 166, 209)
+    SIGNAL_CENTRE = [186, 187]
+    BACKGROUND_ROIS = [(64, 187), (64, 140), (64, 93), (64, 46)]
     PADDING_FROM_BOX = 30
     SLICE_RADIUS = 5
     ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
         SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
 
-    SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS), dtype=np.intp)[:,
-                   np.newaxis], np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS),
+    SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,
+                   np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
                                          dtype=np.intp)
-    GHOST_SLICE = np.array(range(198 - SLICE_RADIUS, 198 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
-        range(6 - SLICE_RADIUS, 6 + SLICE_RADIUS)
-    )
+    GHOST_SLICE = np.array(range(6 - SLICE_RADIUS, 6 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(198 - SLICE_RADIUS, 198 + SLICE_RADIUS))
     PE = "COL"
-    GHOSTING = (None, 0.0340711094243276)
+    GHOSTING = (None, 0.043947377696320296)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'PE_COL_PHANTOM_BOTTOM_RIGHT' / 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA')
+        self.dcm = pydicom.read_file(self.file)
+
+
+class TestAxialPhilipsBroomfields(TestGhosting):
+    SIGNAL_BOUNDING_BOX = (217, 299, 11, 93)
+    SIGNAL_CENTRE = [(SIGNAL_BOUNDING_BOX[0] + SIGNAL_BOUNDING_BOX[1]) // 2,
+                     (SIGNAL_BOUNDING_BOX[2] + SIGNAL_BOUNDING_BOX[3]) // 2]
+    BACKGROUND_ROIS = [(258, 264), (194, 264), (130, 264), (66, 264)]
+    PADDING_FROM_BOX = 30
+    SLICE_RADIUS = 5
+    ELIGIBLE_GHOST_AREA = range(SLICE_RADIUS, SIGNAL_BOUNDING_BOX[0] - PADDING_FROM_BOX), range(
+        SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
+    SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,
+                   np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
+                                         dtype=np.intp)
+    GHOST_SLICE = np.array(range(11 - SLICE_RADIUS, 11 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(16 - SLICE_RADIUS, 16 + SLICE_RADIUS))
+
+    GHOSTING = (None, 0.6244366401836245)
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'axial_philips_broomfields.dcm')
         self.dcm = pydicom.read_file(self.file)
