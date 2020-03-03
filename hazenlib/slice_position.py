@@ -84,7 +84,7 @@ def get_rods_coords(dcm: pydicom.Dataset):
 
     threshold = filters.threshold_otsu(clipped, 2)
 
-    clipped_thresholded = clipped <= threshold  # binarise using otsu threshold
+    clipped_thresholded = clipped <= threshold # binarise using otsu threshold
 
     labels, num = measure.label(clipped_thresholded, return_num=True)
     measured_objects = measure.regionprops(label_image=labels)
@@ -106,7 +106,7 @@ def get_rods_coords(dcm: pydicom.Dataset):
     # plt.imshow(labels)
     # plt.show()
 
-    return int(round(lx)), int(round(ly)), int(round(rx)), int(round(ry))
+    return lx, ly, rx, ry
 
 
 def get_rods(data: list):
@@ -149,24 +149,18 @@ def correct_rods_for_rotation(left_rod: dict, right_rod: dict) -> (dict, dict):
     l_theta = get_rod_rotation(x_pos=left_rod['x_pos'], y_pos=left_rod['y_pos'])
     theta = np.mean([r_theta, l_theta])
 
-    left_rod['x_pos'] = [np.subtract(np.multiply(np.cos(theta), left_rod['x_pos']),
-                                     np.multiply(np.sin(theta), left_rod['y_pos'])
-                                     )
-                         ]
+    left_rod['x_pos'] = np.subtract(np.multiply(np.cos(theta), left_rod['x_pos']),
+                                    np.multiply(np.sin(theta), left_rod['y_pos']))
 
-    left_rod['y_pos'] = [np.add(np.multiply(np.cos(theta), left_rod['x_pos']),
-                                np.multiply(np.cos(theta), left_rod['y_pos'])
-                                )
-                         ]
+    left_rod['y_pos'] = np.add(np.multiply(np.sin(theta), left_rod['x_pos']),
+                               np.multiply(np.cos(theta), left_rod['y_pos']))
 
-    right_rod['x_pos'] = [np.subtract(np.multiply(np.cos(theta), right_rod['x_pos']),
-                                      np.multiply(np.sin(theta), right_rod['y_pos'])
-                                      )
-                          ]
-    right_rod['y_pos'] = [np.add(np.multiply(np.cos(theta), right_rod['x_pos']),
-                                 np.multiply(np.cos(theta), right_rod['y_pos'])
-                                 )
-                          ]
+    right_rod['x_pos'] = np.subtract(np.multiply(np.cos(theta), right_rod['x_pos']),
+                                     np.multiply(np.sin(theta), right_rod['y_pos']))
+
+    right_rod['y_pos'] = np.add(np.multiply(np.sin(theta), right_rod['x_pos']),
+                                np.multiply(np.cos(theta), right_rod['y_pos']))
+
     return left_rod, right_rod
 
 
@@ -174,35 +168,35 @@ def slice_position_error(data: list, report_path=False):
 
     # get rod positions and nominal positions
     left_rod, right_rod, nominal_positions = get_rods(data)
-
-    if report_path:
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(40, 1)
-        fig.set_size_inches(5, 90)
-        fig.tight_layout()
-        i = 0
-        for idx, ax in enumerate(axes.reshape(-1)):
-            ax.imshow(data[idx].pixel_array)
-            rods_x = [left_rod["x_pos"][idx], right_rod['x_pos'][idx]]
-            rods_y = [left_rod["y_pos"][idx], right_rod['y_pos'][idx]]
-            ax.scatter(rods_x, rods_y, 3, marker='+')
-
-        fig.savefig('slice_position.png')
-
     # Correct for phantom rotation
     left_rod, right_rod = correct_rods_for_rotation(left_rod, right_rod)
 
     fov = hazenlib.get_field_of_view(data[0])
 
-    # x_length_mm = np.subtract(right_rod['x_pos'], left_rod['x_pos']) * fov/dcm.Columns
+    # x_length_mm = np.subtract(right_rod['x_pos'], left_rod['x_pos']) * fov/data[0].Columns
     y_length_mm = np.subtract(left_rod['y_pos'], right_rod['y_pos']) * fov / data[0].Columns
 
     z_length_mm = np.divide(y_length_mm, 2)
 
     # Correct for zero offset
-    nominal_positions = [x - nominal_positions[19] + z_length_mm[0][0][19] for x in nominal_positions]
+    nominal_positions = [x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions]
+    results = np.subtract(z_length_mm, nominal_positions)
 
-    results = [round(i, 3) for i in np.subtract(z_length_mm[0][0], nominal_positions)]
+    if report_path:
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(2, 1)
+        fig.set_size_inches(10, 10)
+        fig.tight_layout()
+        ax[0].imshow(data[19].pixel_array, cmap='gray')
+
+        for idx in range(40):
+            rods_x = [left_rod["x_pos"][idx], right_rod['x_pos'][idx]]
+            rods_y = [left_rod["y_pos"][idx], right_rod['y_pos'][idx]]
+            ax[0].scatter(rods_x, rods_y, 20, c='green', marker='+')
+
+        ax[1].scatter(range(10, 50), results, marker='x')
+        ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
+        fig.savefig('slice_position.png')
 
     return results
 
