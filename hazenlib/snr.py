@@ -160,9 +160,12 @@ def get_object_centre(dcm) -> (int, int):
         except exc.ShapeError:
             # shape_detector.find_contours()
             # shape_detector.detect()
-            # im = cv.drawContours(arr.copy(), [shape_detector.contours[0]], -1, (0, 0, 255), 2)
+            # contour = shape_detector.shapes['rectangle'][1]
+            # angle, centre, size = cv.minAreaRect(contour)
+            # print((angle, centre, size))
+            # im = cv.drawContours(dcm.pixel_array.copy(), [shape_detector.contours[0]], -1, (0, 255, 255), 10)
             # plt.imshow(im)
-            # plt.show()
+            # plt.savefig("rectangles.png")
             # print(shape_detector.shapes.keys())
             raise
     elif orientation == 'Transverse':
