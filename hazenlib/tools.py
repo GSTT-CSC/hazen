@@ -78,6 +78,9 @@ class ShapeDetector:
         for c in self.contours:
             # initialize the shape name and approximate the contour
             peri = cv.arcLength(c, True)
+            if peri < 100:
+                # ignore small shapes, magic number is complete guess
+                continue
             approx = cv.approxPolyDP(c, 0.04 * peri, True)
 
             # if the shape is a triangle, it will have 3 vertices
