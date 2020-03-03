@@ -160,7 +160,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
         if idx[0] not in eligible_columns or idx[1] not in eligible_rows:
             continue
         else:
-            windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
+            windows[idx] = arr[idx[1]-slice_radius:idx[1]+slice_radius, idx[0]-slice_radius:idx[0]+slice_radius]
 
     for idx, window in windows.items():
         if np.mean(window) > max_mean:
