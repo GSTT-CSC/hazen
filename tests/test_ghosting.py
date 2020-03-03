@@ -22,10 +22,10 @@ class TestGhosting(unittest.TestCase):
                                   SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
         range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS), dtype=np.intp)
 
-    GHOST_SLICE = np.array(range(290 - SLICE_RADIUS, 290 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
-        range(192 - SLICE_RADIUS, 192 + SLICE_RADIUS)
+    GHOST_SLICE = np.array(range(283 - SLICE_RADIUS, 283 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(13 - SLICE_RADIUS, 13 + SLICE_RADIUS)
     )
-    GHOSTING = (None, 0.16848192099579667)
+    GHOSTING = (None, -0.06792689440561064)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
@@ -90,10 +90,10 @@ class TestCOLPEGhosting(TestGhosting):
     SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,
                    np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
                                          dtype=np.intp)
-    GHOST_SLICE = np.array(range(6 - SLICE_RADIUS, 6 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
-        range(198 - SLICE_RADIUS, 198 + SLICE_RADIUS))
+    GHOST_SLICE = np.array(range(135 - SLICE_RADIUS, 135 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(197 - SLICE_RADIUS, 197 + SLICE_RADIUS))
     PE = "COL"
-    GHOSTING = (None, 0.043947377696320296)
+    GHOSTING = (None, 0.02279976737628648)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'PE_COL_PHANTOM_BOTTOM_RIGHT' / 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA')
@@ -112,10 +112,10 @@ class TestAxialPhilipsBroomfields(TestGhosting):
     SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,
                    np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
                                          dtype=np.intp)
-    GHOST_SLICE = np.array(range(11 - SLICE_RADIUS, 11 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
-        range(16 - SLICE_RADIUS, 16 + SLICE_RADIUS))
+    GHOST_SLICE = np.array(range(16 - SLICE_RADIUS, 16 + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
+        range(11 - SLICE_RADIUS, 11 + SLICE_RADIUS))
 
-    GHOSTING = (None, 0.6244366401836245)
+    GHOSTING = (None, 0.03386315836136794)
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'axial_philips_broomfields.dcm')
