@@ -178,6 +178,9 @@ def slice_position_error(data: list, report_path=False):
 
     z_length_mm = np.divide(y_length_mm, 2)
 
+    if z_length_mm[0] > z_length_mm[-1]:
+        nominal_positions = nominal_positions[::-1]
+
     # Correct for zero offset
     nominal_positions = [x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions]
     results = np.subtract(z_length_mm, nominal_positions)
