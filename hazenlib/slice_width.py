@@ -533,6 +533,13 @@ def get_slice_width(dcm, report_path=False):
 
 
 def main(data: list, report_path=False) -> dict:
+    """
+    ..todo:: fix slice width factor of 2 issue
+
+    :param data:
+    :param report_path:
+    :return:
+    """
     results = {}
     for dcm in data:
         try:
