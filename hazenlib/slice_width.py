@@ -64,8 +64,10 @@ def get_rods(dcm):
 
     Returns:
 
+    rod positions
     """
     arr = dcm.pixel_array
+
     # threshold and binaries the image in order to locate the rods.
     # this is achieved by masking the
     img_max = np.max(arr)  # maximum number of img intensity
@@ -116,12 +118,14 @@ def plot_rods(ax, arr, rods): # pragma: no cover
 
 def get_rod_distances(rods):
     """
-    Calculate horizontal and vertical distances of rods in terms of pixels
+    Calculate horizontal and vertical distances of rods in pixels
 
     Args:
-        rods:
+        rods positions in pixels
 
     Returns:
+        distances in pixels
+
 
     """
     horz_dist = [None] * 3
@@ -137,28 +141,31 @@ def get_rod_distances(rods):
     return horz_dist, vert_dist
 
 
-def get_rod_distortion_correction_coefficients(horizontal_distances) -> dict:
+def get_rod_distortion_correction_coefficients(horizontal_distances, pixel_size) -> dict:
     """
     To remove the effect of geometric distortion from the slice width measurement. Assumes that rod separation is
     120 mm.
     Args:
-        horizontal_distances: list containing horizontal rod distances
+        horizontal_distances: list containing horizontal rod distances in pixels
 
     Returns:
-        coefficients: dictionary containing top and bottom distortion corrections
+        coefficients: dictionary containing top and bottom distortion corrections in pixels
     """
-    coefficients = {"top": round(np.mean(horizontal_distances[1:3]) / 120, 4),
-                    "bottom": round(np.mean(horizontal_distances[0:2]) / 120, 4)}
+
+    coefficients = {"top": round(np.mean(horizontal_distances[1:3])*pixel_size / 120, 4),
+                    "bottom": round(np.mean(horizontal_distances[0:2])*pixel_size / 120, 4)}
 
     return coefficients
 
 
 def get_rod_distortions(rods, dcm):
+# args: rod distances in pixels
+# returns: rod distortions in mm
     pixel_spacing = dcm.PixelSpacing[0]
-
     horz_dist, vert_dist = get_rod_distances(rods)
 
-    # calculate the horizontal and vertical distances
+#calculate the horizontal and vertical distances
+
     horz_dist_mm = np.multiply(pixel_spacing, horz_dist)
     vert_dist_mm = np.multiply(pixel_spacing, vert_dist)
 
@@ -247,7 +254,7 @@ def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_ampl
     return trap, fwhm
 
 
-def get_ramp_profiles(image_array, rods) -> dict:
+def get_ramp_profiles(image_array, rods, pixel_size) -> dict:
     # Find the central y-axis point for the top and bottom profiles
     # done by finding the distance between the mid-distances of the central rods
 
@@ -256,11 +263,11 @@ def get_ramp_profiles(image_array, rods) -> dict:
 
     # Selected 20mm around the mid-distances and take the average to find the line profiles
     top_profile = image_array[
-                  (top_profile_vertical_centre - 10):(top_profile_vertical_centre + 10),
+                  (top_profile_vertical_centre - round(10/pixel_size)):(top_profile_vertical_centre + round(10/pixel_size)),
                   int(rods[3].x):int(rods[5].x)]
 
     bottom_profile = image_array[
-                     (bottom_profile_vertical_centre - 10):(bottom_profile_vertical_centre + 10),
+                     (bottom_profile_vertical_centre - round(10/pixel_size)):(bottom_profile_vertical_centre + round(10/pixel_size)),
                      int(rods[3].x):int(rods[5].x)]
 
     return {"top": top_profile, "bottom": bottom_profile,
@@ -307,7 +314,7 @@ def fit_trapezoid(profiles, slice_thickness):
 
     def get_error(base, trap):
         """ Check if fit is improving """
-        trapezoid_fit_temp, _ = trapezoid(*trap)
+        trapezoid_fit_temp,_ = trapezoid(*trap)
 
         baseline_fit_temp = np.poly1d(base)(x_interp)
 
@@ -402,9 +409,9 @@ def get_slice_width(dcm, report_path=False):
     rods = get_rods(dcm)
     horz_distances, vert_distances = get_rod_distances(rods)
     horz_distortion, vert_distortion = get_rod_distortions(rods, dcm)
-    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances)
+    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
 
-    ramp_profiles = get_ramp_profiles(arr, rods)
+    ramp_profiles = get_ramp_profiles(arr, rods, pixel_size)
     ramp_profiles_baseline_corrected = {"top": baseline_correction(np.mean(ramp_profiles["top"], axis=0),
                                                                    sample_spacing),
                                         "bottom": baseline_correction(np.mean(ramp_profiles["bottom"], axis=0),
@@ -470,8 +477,11 @@ def get_slice_width(dcm, report_path=False):
     phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["top"]["aapm_corrected"]) - (
                 theta / 2.0) + pi / 2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
-    horizontal_linearity = np.mean(horz_distances)
-    vertical_linearity = np.mean(vert_distances)
+
+    # calculate linearity in mm from distances in pixels
+
+    horizontal_linearity = np.mean(horz_distances) * pixel_size
+    vertical_linearity = np.mean(vert_distances) * pixel_size
 
     if report_path:
         import matplotlib.pyplot as plt
@@ -527,14 +537,13 @@ def get_slice_width(dcm, report_path=False):
     # deg): {phantom_tilt_deg}\n" f"Slice width AAPM geometry corrected (mm): {slice_width['combined'][
     # 'aapm_tilt_corrected']}")
 
-    return {'slice_width': slice_width['combined']['aapm_tilt_corrected'],
+    return {'slice_width_aapm_corr': slice_width['combined']['aapm_tilt_corrected'], 'slice_width_AAPM_tilt': slice_width['combined']['aapm_tilt'], 'slice_width_default': slice_width['combined']['default'], 'slice_width_d_corr': slice_width['combined']['geometry_corrected'],
             'vertical_distortion': vert_distortion, 'horizontal_distortion': horz_distortion,
             'vertical_linearity': vertical_linearity, 'horizontal_linearity': horizontal_linearity}
 
 
 def main(data: list, report_path=False) -> dict:
-    """
-    ..todo:: fix slice width factor of 2 issue
+    """TODO ::: fix factor of two issue - hopefully done :)
 
     :param data:
     :param report_path:
