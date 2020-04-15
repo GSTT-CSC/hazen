@@ -149,7 +149,7 @@ def get_rod_distortion_correction_coefficients(horizontal_distances, pixel_size)
         horizontal_distances: list containing horizontal rod distances in pixels
 
     Returns:
-        coefficients: dictionary containing top and bottom distortion corrections in pixels
+        coefficients: dictionary containing top and bottom distortion corrections in mm
     """
 
     coefficients = {"top": round(np.mean(horizontal_distances[1:3])*pixel_size / 120, 4),
@@ -159,8 +159,19 @@ def get_rod_distortion_correction_coefficients(horizontal_distances, pixel_size)
 
 
 def get_rod_distortions(rods, dcm):
-# args: rod distances in pixels
-# returns: rod distortions in mm
+    """
+
+    Parameters
+    ----------
+    rods in pixels
+    dcm
+
+    Returns
+    -------
+
+rod distortions in mm
+    """
+
     pixel_spacing = dcm.PixelSpacing[0]
     horz_dist, vert_dist = get_rod_distances(rods)
 
@@ -220,43 +231,65 @@ def baseline_correction(profile, sample_spacing):
 
 
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
-    # n_ramp
-    # n_plateau
-    # n_left_baseline
-    # n_right_baseline
-    # plateau_amplitude
+
+    """
+
+    Parameters
+    ----------
+    n_ramp
+    n_plateau
+    n_left_baseline
+    n_right_baseline
+    plateau_amplitude
+
+    Returns
+    -------
+    """
 
     if n_left_baseline < 1:
-        left_baseline = []
+            left_baseline = []
     else:
-        left_baseline = np.zeros(n_left_baseline)
+            left_baseline = np.zeros(n_left_baseline)
 
     if n_ramp < 1:
-        left_ramp = []
-        right_ramp = []
+            left_ramp = []
+            right_ramp = []
     else:
-        left_ramp = np.linspace(0, plateau_amplitude, n_ramp)
-        right_ramp = np.linspace(plateau_amplitude, 0, n_ramp)
+            left_ramp = np.linspace(0, plateau_amplitude, n_ramp)
+            right_ramp = np.linspace(plateau_amplitude, 0, n_ramp)
 
     if n_plateau < 1:
-        plateau = []
+            plateau = []
     else:
-        plateau = plateau_amplitude * np.ones(n_plateau)
+            plateau = plateau_amplitude * np.ones(n_plateau)
 
     if n_right_baseline < 1:
-        right_baseline = []
+            right_baseline = []
     else:
-        right_baseline = np.zeros(n_right_baseline)
+            right_baseline = np.zeros(n_right_baseline)
 
-    trap = np.concatenate([left_baseline, left_ramp, plateau, right_ramp, right_baseline])
-    fwhm = n_plateau + n_ramp
+            trap = np.concatenate([left_baseline, left_ramp, plateau, right_ramp, right_baseline])
+            fwhm = n_plateau + n_ramp
 
     return trap, fwhm
 
 
 def get_ramp_profiles(image_array, rods, pixel_size) -> dict:
-    # Find the central y-axis point for the top and bottom profiles
-    # done by finding the distance between the mid-distances of the central rods
+    """
+
+    Parameters
+    ----------
+    image_array
+    rods
+    pixel_size
+
+    Returns
+    -------
+
+    Find the central y-axis point for the top and bottom profiles
+    done by finding the distance between the mid-distances of the central rods
+    """
+
 
     top_profile_vertical_centre = np.round(((rods[3].y - rods[6].y) / 2) + rods[6].y).astype(int)
     bottom_profile_vertical_centre = np.round(((rods[0].y - rods[3].y) / 2) + rods[3].y).astype(int)
@@ -400,16 +433,20 @@ def get_slice_width(dcm, report_path=False):
 
     Returns:
 
+        slice width in mm
+        linearity in mm
+        distortion in mm
+
     """
-    slice_width = {"top": {}, "bottom": {}, "combined": {}}
+    slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
     arr = dcm.pixel_array
     sample_spacing = 0.25
     pixel_size = dcm.PixelSpacing[0]
 
     rods = get_rods(dcm)
     horz_distances, vert_distances = get_rod_distances(rods)
-    horz_distortion, vert_distortion = get_rod_distortions(rods, dcm)
-    correction_coefficients = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
+    horz_distortion_mm, vert_distortion_mm = get_rod_distortions(rods, dcm)
+    correction_coefficients_mm = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
 
     ramp_profiles = get_ramp_profiles(arr, rods, pixel_size)
     ramp_profiles_baseline_corrected = {"top": baseline_correction(np.mean(ramp_profiles["top"], axis=0),
@@ -421,67 +458,66 @@ def get_slice_width(dcm, report_path=False):
                                                                   dcm.SliceThickness)
     top_trap, fwhm = trapezoid(*trapezoid_coefficients)
 
-    slice_width["top"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3*pi)/180)
+    slice_width_mm["top"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3*pi)/180)
     # Factor of 4 because interpolated by factor of four
 
-    slice_width["top"]["geometry_corrected"] = slice_width["top"]["default"]/correction_coefficients["top"]
+    slice_width_mm["top"]["geometry_corrected"] = slice_width_mm["top"]["default"]/correction_coefficients_mm["top"]
 
     # AAPM method directly incorporating phantom tilt
-    slice_width["top"]["aapm"] = fwhm * sample_spacing * pixel_size
+    slice_width_mm["top"]["aapm"] = fwhm * sample_spacing * pixel_size
 
     # AAPM method directly incorporating phantom tilt and independent of geometric linearity
-    slice_width["top"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients["top"]
+    slice_width_mm["top"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients_mm["top"]
 
-    trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["bottom"],
-                                                                  dcm.SliceThickness)
+    trapezoid_coefficients, baseline_coefficients = fit_trapezoid(ramp_profiles_baseline_corrected["bottom"], dcm.SliceThickness)
     bottom_trap, fwhm = trapezoid(*trapezoid_coefficients)
 
-    slice_width["bottom"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3 * pi) / 180)
+    slice_width_mm["bottom"]["default"] = fwhm * sample_spacing * pixel_size * np.tan((11.3 * pi) / 180)
     # Factor of 4 because interpolated by factor of four
 
-    slice_width["bottom"]["geometry_corrected"] = slice_width["bottom"]["default"] / correction_coefficients["bottom"]
+    slice_width_mm["bottom"]["geometry_corrected"] = slice_width_mm["bottom"]["default"] / correction_coefficients_mm["bottom"]
 
     # AAPM method directly incorporating phantom tilt
-    slice_width["bottom"]["aapm"] = fwhm * sample_spacing * pixel_size
+    slice_width_mm["bottom"]["aapm"] = fwhm * sample_spacing * pixel_size
 
     # AAPM method directly incorporating phantom tilt and independent of geometric linearity
-    slice_width["bottom"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients["bottom"]
+    slice_width_mm["bottom"]["aapm_corrected"] = (fwhm * sample_spacing * pixel_size) / correction_coefficients_mm["bottom"]
 
     # Geometric mean of slice widths (pg 34 of IPEM Report 80)
-    slice_width["combined"]["default"] = (slice_width["top"]["default"] * slice_width["bottom"]["default"]) ** 0.5
-    slice_width["combined"]["geometry_corrected"] = (slice_width["top"]["geometry_corrected"] * slice_width["bottom"]["geometry_corrected"]) ** 0.5
+    slice_width_mm["combined"]["default"] = (slice_width_mm["top"]["default"] * slice_width_mm["bottom"]["default"]) ** 0.5
+    slice_width_mm["combined"]["geometry_corrected"] = (slice_width_mm["top"]["geometry_corrected"] * slice_width_mm["bottom"]["geometry_corrected"]) ** 0.5
 
     # AAPM method directly incorporating phantom tilt
     theta = (180.0 - 2.0 * 11.3) * pi / 180.0
-    term1 = (np.cos(theta)) ** 2.0 * (slice_width["bottom"]["aapm"] - slice_width["top"]["aapm"])**2.0 + (4.0 * slice_width["bottom"]["aapm"] * slice_width["top"]["aapm"])
-    term2 = (slice_width["bottom"]["aapm"] + slice_width["top"]["aapm"]) * np.cos(theta)
+    term1 = (np.cos(theta)) ** 2.0 * (slice_width_mm["bottom"]["aapm"] - slice_width_mm["top"]["aapm"])**2.0 + (4.0 * slice_width_mm["bottom"]["aapm"] * slice_width_mm["top"]["aapm"])
+    term2 = (slice_width_mm["bottom"]["aapm"] + slice_width_mm["top"]["aapm"]) * np.cos(theta)
     term3 = 2.0 * np.sin(theta)
 
-    slice_width["combined"]["aapm_tilt"] = (term1**0.5 + term2)/term3
-    phantom_tilt = np.arctan(slice_width["combined"]["aapm_tilt"]/slice_width["bottom"]["aapm"]) + (theta/2.0) - pi/2.0
+    slice_width_mm["combined"]["aapm_tilt"] = (term1**0.5 + term2)/term3
+    phantom_tilt = np.arctan(slice_width_mm["combined"]["aapm_tilt"]/slice_width_mm["bottom"]["aapm"]) + (theta/2.0) - pi/2.0
     phantom_tilt_deg = phantom_tilt * (180.0/pi)
 
-    phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt"]/slice_width["top"]["aapm"]) - (theta/2.0) + pi/2.0
+    phantom_tilt_check = -np.arctan(slice_width_mm["combined"]["aapm_tilt"]/slice_width_mm["top"]["aapm"]) - (theta/2.0) + pi/2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0/pi)
 
     # AAPM method directly incorporating phantom tilt and independent of geometric linearity
     theta = (180.0 - 2.0 * 11.3) * pi/180.0
-    term1 = (np.cos(theta)) ** 2.0 * (slice_width["bottom"]["aapm_corrected"] - slice_width["top"]["aapm_corrected"])**2.0 + (4.0 * slice_width["bottom"]["aapm_corrected"] * slice_width["top"]["aapm_corrected"])
-    term2 = (slice_width["bottom"]["aapm_corrected"] + slice_width["top"]["aapm_corrected"]) * np.cos(theta)
+    term1 = (np.cos(theta)) ** 2.0 * (slice_width_mm["bottom"]["aapm_corrected"] - slice_width_mm["top"]["aapm_corrected"])**2.0 + (4.0 * slice_width_mm["bottom"]["aapm_corrected"] * slice_width_mm["top"]["aapm_corrected"])
+    term2 = (slice_width_mm["bottom"]["aapm_corrected"] + slice_width_mm["top"]["aapm_corrected"]) * np.cos(theta)
     term3 = 2.0 * np.sin(theta)
 
-    slice_width["combined"]["aapm_tilt_corrected"] = (term1 ** 0.5 + term2) / term3
-    phantom_tilt = np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["bottom"]["aapm_corrected"]) + (theta / 2.0) - pi / 2.0
+    slice_width_mm["combined"]["aapm_tilt_corrected"] = (term1 ** 0.5 + term2) / term3
+    phantom_tilt = np.arctan(slice_width_mm["combined"]["aapm_tilt_corrected"] / slice_width_mm["bottom"]["aapm_corrected"]) + (theta / 2.0) - pi / 2.0
     phantom_tilt_deg = phantom_tilt * (180.0 / pi)
 
-    phantom_tilt_check = -np.arctan(slice_width["combined"]["aapm_tilt_corrected"] / slice_width["top"]["aapm_corrected"]) - (
+    phantom_tilt_check = -np.arctan(slice_width_mm["combined"]["aapm_tilt_corrected"] / slice_width_mm["top"]["aapm_corrected"]) - (
                 theta / 2.0) + pi / 2.0
     phantom_tilt_check_deg = phantom_tilt_check * (180.0 / pi)
 
     # calculate linearity in mm from distances in pixels
 
-    horizontal_linearity = np.mean(horz_distances) * pixel_size
-    vertical_linearity = np.mean(vert_distances) * pixel_size
+    horizontal_linearity_mm = np.mean(horz_distances) * pixel_size
+    vertical_linearity_mm = np.mean(vert_distances) * pixel_size
 
     if report_path:
         import matplotlib.pyplot as plt
@@ -513,8 +549,8 @@ def get_slice_width(dcm, report_path=False):
         axes[4].legend()
         axes[5].axis('off')
         axes[5].table(
-            cellText=[[str(x) for x in horz_distances]+[str(np.around(horizontal_linearity, 3))],
-                      [str(x) for x in vert_distances]+[str(np.around(vertical_linearity, 3))]],
+            cellText=[[str(x) for x in horz_distances]+[str(np.around(horizontal_linearity_mm, 3))],
+                      [str(x) for x in vert_distances]+[str(np.around(vertical_linearity_mm, 3))]],
             rowLabels=['H-distances (S->I)',
                        'V-distances (R->L)'],
             colLabels=['1', '2', '3', 'mean/linearity'],
@@ -537,9 +573,9 @@ def get_slice_width(dcm, report_path=False):
     # deg): {phantom_tilt_deg}\n" f"Slice width AAPM geometry corrected (mm): {slice_width['combined'][
     # 'aapm_tilt_corrected']}")
 
-    return {'slice_width_aapm_corr': slice_width['combined']['aapm_tilt_corrected'], 'slice_width_AAPM_tilt': slice_width['combined']['aapm_tilt'], 'slice_width_default': slice_width['combined']['default'], 'slice_width_d_corr': slice_width['combined']['geometry_corrected'],
-            'vertical_distortion': vert_distortion, 'horizontal_distortion': horz_distortion,
-            'vertical_linearity': vertical_linearity, 'horizontal_linearity': horizontal_linearity}
+    return {'slice_width_mm': slice_width_mm['combined']['aapm_tilt_corrected'],
+            'vertical_distortion_mm': vert_distortion_mm, 'horizontal_distortion_mm': horz_distortion_mm,
+            'vertical_linearity_mm': vertical_linearity_mm, 'horizontal_linearity_mm': horizontal_linearity_mm}
 
 
 def main(data: list, report_path=False) -> dict:
