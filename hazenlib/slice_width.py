@@ -519,6 +519,13 @@ def get_slice_width(dcm, report_path=False):
     horizontal_linearity_mm = np.mean(horz_distances) * pixel_size
     vertical_linearity_mm = np.mean(vert_distances) * pixel_size
 
+    # calculate horizontal and vertical distances in mm from distances in pixels, for output
+
+    horz_distances_mm=[x*pixel_size for x in horz_distances]
+
+    vert_distances_mm = [x*pixel_size for x in vert_distances]
+
+
     if report_path:
         import matplotlib.pyplot as plt
 
@@ -549,8 +556,8 @@ def get_slice_width(dcm, report_path=False):
         axes[4].legend()
         axes[5].axis('off')
         axes[5].table(
-            cellText=[[str(x) for x in horz_distances]+[str(np.around(horizontal_linearity_mm, 3))],
-                      [str(x) for x in vert_distances]+[str(np.around(vertical_linearity_mm, 3))]],
+            cellText=[[str(x) for x in horz_distances_mm]+[str(np.around(horizontal_linearity_mm, 3))],
+                      [str(x) for x in vert_distances_mm]+[str(np.around(vertical_linearity_mm, 3))]],
             rowLabels=['H-distances (S->I)',
                        'V-distances (R->L)'],
             colLabels=['1', '2', '3', 'mean/linearity'],
@@ -575,8 +582,8 @@ def get_slice_width(dcm, report_path=False):
 
     return {'slice_width_mm': slice_width_mm['combined']['aapm_tilt_corrected'],
             'vertical_distortion_mm': vert_distortion_mm, 'horizontal_distortion_mm': horz_distortion_mm,
-            'vertical_linearity_mm': vertical_linearity_mm, 'horizontal_linearity_mm': horizontal_linearity_mm}
-
+            'vertical_linearity_mm': vertical_linearity_mm, 'horizontal_linearity_mm': horizontal_linearity_mm,
+            'horizontal_distances_mm': horz_distances_mm, 'vertical_distances_mm': vert_distances_mm }
 
 def main(data: list, report_path=False) -> dict:
     """TODO ::: fix factor of two issue - hopefully done :)
