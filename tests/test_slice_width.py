@@ -12,9 +12,12 @@ class TestSliceWidth(unittest.TestCase):
     SLICE_WIDTH_DATA = pathlib.Path(TEST_DATA_DIR / 'slicewidth')
 
     """
-    789
-    456
-    123 
+    Notes
+    -----
+    The rod indices are ordered as:
+        789
+        456
+        123 
     """
     matlab_rods = [hazen_slice_width.Rod(71.2857, 191.5000),
                    hazen_slice_width.Rod(130.5000, 190.5000),
@@ -26,11 +29,7 @@ class TestSliceWidth(unittest.TestCase):
                    hazen_slice_width.Rod(128.1176, 70.4118),
                    hazen_slice_width.Rod(188.5000, 69.2222)]
 
-    """
-       789
-       456
-       123 
-       """
+
     rods = [
         hazen_slice_width.Rod(69.16751269035532, 191.18274111675126),
         hazen_slice_width.Rod(131.0, 189.06060606060606),
@@ -139,18 +138,22 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_trapezoid(self):
         """
-       variables from one iteration of the original matlab script
-       n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude =
-         55.0000   58.0000  156.0000  153.0000 -136.6194 and fwhm 113
+        Notes
+        -----
+        variables from one iteration of the original matlab script
+        n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude =
+        55.0000   58.0000  156.0000  153.0000 -136.6194 and fwhm 113
         """
 
         assert hazen_slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
 
     def test_get_initial_trapezoid_fit_and_coefficients(self):
         """
+        Notes
+        -----
         Trapezoid_Fit_Coefficients_Initial = 48.0000   56.0000  153.0000  172.0000 -116.4920
         fwhm = 104
-        Returns:
+
         """
         sample_spacing = 0.25
         slice_thickness = self.dcm.SliceThickness
@@ -234,9 +237,12 @@ class Test512Matrix(TestSliceWidth):
     SLICE_WIDTH_DATA = pathlib.Path(TEST_DATA_DIR / 'slicewidth')
 
     """
-    # 789
-    # 456
-    # 123
+    Notes
+    -----
+    The rod indices are ordered as:
+        789
+        456
+        123 
     """
     matlab_rods = [hazen_slice_width.Rod(134.19422395407386, 376.3297092734241),
                 hazen_slice_width.Rod(255.5191606119133, 374.7890799840584),
@@ -248,11 +254,7 @@ class Test512Matrix(TestSliceWidth):
                    hazen_slice_width.Rod(253.53888071406627, 135.75358569280274),
                    hazen_slice_width.Rod(374.00513210724, 135.12370483098044)]
 
-    """
-       # 789
-       # 456
-       # 123
-       """
+
     rods = [hazen_slice_width.Rod(134.19422395407386, 376.3297092734241),
                 hazen_slice_width.Rod(255.5191606119133, 374.7890799840584),
                    hazen_slice_width.Rod(376.45583336255567, 373.7479398253673),

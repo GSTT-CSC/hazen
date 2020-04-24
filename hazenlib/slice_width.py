@@ -55,17 +55,23 @@ def sort_rods(rods):
 
 def get_rods(dcm):
     """
+    Parameters
+    ----------
+    dcm : array_like
+        input DICOM file
+    Returns
+    -------
+    rods : array_like
+        rod positions in pixels
+
+    Notes
+    -------
     The rod indices are ordered as:
         789
         456
         123
-    Args:
-        dcm:
-
-    Returns:
-
-    rod positions
     """
+
     arr = dcm.pixel_array
 
     # threshold and binaries the image in order to locate the rods.
@@ -118,16 +124,20 @@ def plot_rods(ax, arr, rods): # pragma: no cover
 
 def get_rod_distances(rods):
     """
-    Calculate horizontal and vertical distances of rods in pixels
+    Calculates horizontal and vertical distances between adjacent rods in pixels
 
-    Args:
-        rods positions in pixels
+    Parameters
+    ----------
+    rods : array_like
+        rod positions in pixels
 
-    Returns:
-        distances in pixels
-
+    Returns
+    -------
+    horz_dist, vert_dist : array_like
+        horizontal and vertical distances between rods in pixels
 
     """
+
     horz_dist = [None] * 3
     vert_dist = [None] * 3
     horz_dist[0] = round((((rods[2].y - rods[0].y) ** 2) + (rods[2].x - rods[0].x) ** 2) ** 0.5, 3)
@@ -143,14 +153,23 @@ def get_rod_distances(rods):
 
 def get_rod_distortion_correction_coefficients(horizontal_distances, pixel_size) -> dict:
     """
-    To remove the effect of geometric distortion from the slice width measurement. Assumes that rod separation is
+    Removes the effect of geometric distortion from the slice width measurement. Assumes that rod separation is
     120 mm.
-    Args:
-        horizontal_distances: list containing horizontal rod distances in pixels
 
-    Returns:
-        coefficients: dictionary containing top and bottom distortion corrections in mm
+    Parameters
+    ----------
+    horizontal_distances : list
+        horizontal distances between rods, in pixels
+
+    pixel_size : float
+        pixel size as defined in DICOM header
+
+    Returns
+    -------
+    coefficients : dict
+        dictionary containing top and bottom distortion corrections, in mm
     """
+
 
     coefficients = {"top": round(np.mean(horizontal_distances[1:3])*pixel_size / 120, 4),
                     "bottom": round(np.mean(horizontal_distances[0:2])*pixel_size / 120, 4)}
@@ -159,23 +178,25 @@ def get_rod_distortion_correction_coefficients(horizontal_distances, pixel_size)
 
 
 def get_rod_distortions(rods, dcm):
+
     """
 
     Parameters
     ----------
-    rods in pixels
+    rods
     dcm
 
     Returns
     -------
-
-rod distortions in mm
+    horz_distortion, vert_distortion : float
+        horizontal and vertical distortion values, in mm
     """
+
 
     pixel_spacing = dcm.PixelSpacing[0]
     horz_dist, vert_dist = get_rod_distances(rods)
 
-#calculate the horizontal and vertical distances
+    #calculate the horizontal and vertical distances
 
     horz_dist_mm = np.multiply(pixel_spacing, horz_dist)
     vert_dist_mm = np.multiply(pixel_spacing, vert_dist)
@@ -186,16 +207,20 @@ rod distortions in mm
 
 
 def baseline_correction(profile, sample_spacing):
+
     """
     Calculates quadratic fit of the baseline and subtracts from profile
 
-    Args:
-        profile:
-        sample_spacing:
+    Parameters
+    ----------
+    profile
+    sample_spacing
 
-    Returns:
+    Returns
+    -------
 
     """
+
     profile_width = len(profile)
     padding = 30
     outer_profile = np.concatenate([profile[0:padding], profile[-padding:]])
@@ -247,35 +272,37 @@ def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_ampl
     """
 
     if n_left_baseline < 1:
-            left_baseline = []
+        left_baseline = []
     else:
-            left_baseline = np.zeros(n_left_baseline)
+        left_baseline = np.zeros(n_left_baseline)
 
     if n_ramp < 1:
-            left_ramp = []
-            right_ramp = []
+        left_ramp = []
+        right_ramp = []
     else:
-            left_ramp = np.linspace(0, plateau_amplitude, n_ramp)
-            right_ramp = np.linspace(plateau_amplitude, 0, n_ramp)
+        left_ramp = np.linspace(0, plateau_amplitude, n_ramp)
+        right_ramp = np.linspace(plateau_amplitude, 0, n_ramp)
 
     if n_plateau < 1:
-            plateau = []
+        plateau = []
     else:
-            plateau = plateau_amplitude * np.ones(n_plateau)
+        plateau = plateau_amplitude * np.ones(n_plateau)
 
     if n_right_baseline < 1:
-            right_baseline = []
+        right_baseline = []
     else:
-            right_baseline = np.zeros(n_right_baseline)
+        right_baseline = np.zeros(n_right_baseline)
 
-            trap = np.concatenate([left_baseline, left_ramp, plateau, right_ramp, right_baseline])
-            fwhm = n_plateau + n_ramp
+        trap = np.concatenate([left_baseline, left_ramp, plateau, right_ramp, right_baseline])
+        fwhm = n_plateau + n_ramp
 
     return trap, fwhm
 
 
 def get_ramp_profiles(image_array, rods, pixel_size) -> dict:
     """
+    Find the central y-axis point for the top and bottom profiles
+    done by finding the distance between the mid-distances of the central rods
 
     Parameters
     ----------
@@ -286,8 +313,7 @@ def get_ramp_profiles(image_array, rods, pixel_size) -> dict:
     Returns
     -------
 
-    Find the central y-axis point for the top and bottom profiles
-    done by finding the distance between the mid-distances of the central rods
+
     """
 
 
@@ -308,6 +334,20 @@ def get_ramp_profiles(image_array, rods, pixel_size) -> dict:
 
 
 def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
+    """
+
+    Parameters
+    ----------
+    profile
+    slice_thickness
+
+    Returns
+    -------
+    trapezoid_fit_initial
+    trapezoid_fit_coefficients
+
+    """
+
     n_plateau, n_ramp = None, None
 
     if slice_thickness == 3:
@@ -334,6 +374,20 @@ def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
 
 
 def fit_trapezoid(profiles, slice_thickness):
+
+    """
+
+    Parameters
+    ----------
+    profiles
+    slice_thickness
+
+    Returns
+    -------
+    trapezoid_fit_coefficients
+    baseline_fit_coefficients
+
+    """
     trapezoid_fit, trapezoid_fit_coefficients = get_initial_trapezoid_fit_and_coefficients(
         profiles["profile_corrected_interpolated"], slice_thickness)
 
@@ -428,14 +482,21 @@ def get_slice_width(dcm, report_path=False):
     """
     Calculates slice width using double wedge image
 
-    Args:
-        dcm:
+    Parameters
+    ----------
+    dcm
+    report_path
 
-    Returns:
+    Returns
+    -------
+    slice_width_mm : dict
+        calculated slice width (top, bottom, combined; various methods) in mm
 
-        slice width in mm
-        linearity in mm
-        distortion in mm
+    horizontal_linearity_mm, vertical_linearity_mm : float
+        calculated average rod distance in mm
+
+    horz_distortion_mm, vert_distortion_mm : float
+        calculated rod distance distortion in mm
 
     """
     slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
@@ -579,11 +640,16 @@ def get_slice_width(dcm, report_path=False):
 
 
 def main(data: list, report_path=False) -> dict:
-    """TODO ::: fix factor of two issue - hopefully done :)
+    """
 
-    :param data:
-    :param report_path:
-    :return:
+    Parameters
+    ----------
+    data : list
+    report_path : bool
+
+    Returns
+    -------
+
     """
     results = {}
     for dcm in data:
