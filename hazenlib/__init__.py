@@ -239,8 +239,10 @@ def get_field_of_view(dcm: pydicom.Dataset):
             fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
         else:
             fov = dcm.Columns * dcm.PixelSpacing[0]
+    elif 'toshiba' in manufacturer:
+        fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise
+        raise Exception('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
 
