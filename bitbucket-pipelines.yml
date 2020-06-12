@@ -23,9 +23,7 @@ stepdefinitions:
         variables:
           SONAR_TOKEN: ${SONAR_TOKEN}
           EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X'
-        #   SONAR_SCANNER_OPTS: '<string>'  # Optional
-        #   DEBUG: '<boolean>'  # Optional
-
+         
       - bash <(curl -f .coverage.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
