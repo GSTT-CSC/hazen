@@ -157,10 +157,10 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
 
     eligible_columns, eligible_rows = get_eligible_area(signal_bounding_box, dcm, slice_radius)
     for idx, centre_voxel in np.ndenumerate(arr):
-        if idx[0] not in eligible_columns or idx[1] not in eligible_rows:
+        if idx[0] not in eligible_rows or idx[1] not in eligible_columns:
             continue
         else:
-            windows[idx] = arr[idx[1]-slice_radius:idx[1]+slice_radius, idx[0]-slice_radius:idx[0]+slice_radius]
+            windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
 
     for idx, window in windows.items():
         if np.mean(window) > max_mean:
@@ -171,6 +171,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
         range(max_index[1] - slice_radius, max_index[1] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(max_index[0] - slice_radius, max_index[0] + slice_radius)
     )
+    #ghost_slice returns columns, rows of indexes
     return ghost_slice
 
 
