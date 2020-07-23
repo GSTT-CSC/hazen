@@ -4,17 +4,28 @@ The documentation is for people/instituions intending to contribute towards Haze
 ## How to contribute
 
 1. Start by creating a new issue on bitbucket for the feature and:
-    - decide which release this is for
+ 
     - gather any user research
     - define acceptance test criteria
-2. Check if there is already a branch dedicated to the issue, if not, create a new Git feature-branch for this ticket, named [issue number] issue name] .  
-3. Make your changes to the branch
-4. Check that all tests are still passing, and that your change is covered by the tests
-5. Create pull request from the task branch to master with a detailed commit message (see next section for commit convention) 
-6. Keep an eye on the feedback from Bitbucket Pipelines 
-7. If feedback is received, make the changes and keep a dialog open via bitbucket
-8. If there are conflicts between the pull request branch and the master branch, pull the changes from the master and resolve the conflicts locally.
-9. The process finishes when the branch is merged with the master branch 
+
+2. Review implementation plan with Haris
+
+3.  Create a new Git feature-branch for this ticket, named [issue number][topic][issue title]. Use detailed commit messages (see next section for commit convention).   
+
+4. Make your changes to the branch
+
+5. Check that all tests are still passing, and that your change is covered by the tests. Tests can be run in the terminal using the command
+   "pytest tests"
+
+6. Create pull request from the task branch to develop 
+
+7. Ensure tests are passing on Bitbucket Pipelines 
+
+8. If feedback is received, make the changes and keep a dialog open via bitbucket
+
+9. If there are conflicts between the pull request branch and the develop branch, pull the changes from the develop branch and resolve the conflicts locally.
+
+10. The process finishes when the branch is merged with the develop branch 
 
 
 ## Commit Message Convention 
