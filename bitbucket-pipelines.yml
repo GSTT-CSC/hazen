@@ -19,7 +19,7 @@ stepdefinitions:
   - reporting: &reporting
       name: Uploading reports
       script:
-      - pipe: sonarsource/sonarcloud-scan:1.0.1
+      - pipe: sonarsource/sonarcloud-scan:1.1.0
         variables:
           SONAR_TOKEN: ${SONAR_TOKEN}
           EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X'
