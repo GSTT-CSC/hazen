@@ -10,6 +10,7 @@ Installation
 
 - Make sure you have an account on https://bitbucket.org
 - From your Terminal application:
+
 .. code-block:: bash
 
    $ git clone https://<BITBUCKET_USERNAME>@bitbucket.org/gsttmri/hazen.git
@@ -61,3 +62,70 @@ Requirements/Recommended
 - Docker (recommended)
 
 See :doc:`../guides/guides` on how to begin contributing your code
+
+Hazen How Tos
+------------------------
+
+The following list contains guidance for beginner programmers starting up using Hazen.
+
+Get hazen running from terminal:
+
+- Source hazen-venv/bin/activate
+- Cd hazen
+- Then should be able to run commands
+
+Run Hazen Tests
+
+- In terminal with hazen activated, type pytest tests
+
+Commit your changes when you are done on a branch:
+
+- Open Sourcetree
+- On your task branch
+- Select the files you want to send over
+- Hit ‘commit’
+- Write a helpful commit message in the format shown in the contributing guidelines
+- Make sure the ‘push changes’ tick box is ticked
+- Commit
+
+To download any updates:
+
+- Open terminal
+- git checkout master
+- git pull
+- python setup.py install
+
+How to stash changes made on your task branch
+
+- On your task branch
+- Go to source tree
+- Stash (top ribbon bar)
+- Write yourself a helpful message
+- Click ‘stash’
+- Then switch to master branch
+
+To get back from master to stash
+
+- Go to your task branch
+- Go across to stashes (bottom of left hand column)
+- Click on your changes
+- Right click ‘apply stash’
+- Click back on your branch and see your old changes
+
+How to run your current branch from the terminal
+
+- source hazen-venv/bin/activate
+- Pip uninstall hazen
+- Cd hazen
+- Python setup.py develop
+
+What to do when your task branches are shown as ‘X behind’
+- Switch to branch
+- ‘Pull’
+
+Edit a commit message that was sent with the wrong wording (from https://linuxize.com/post/change-git-commit-message/ )
+
+- If it is the most recent commit, go to terminal and type in
+- git commit --amend -m "New commit message."
+- git push --force branch-name
+
