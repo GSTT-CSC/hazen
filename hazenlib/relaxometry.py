@@ -43,6 +43,9 @@ import pydicom
 import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
+import os
+
+#import hazenlib
 
 def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
     """
@@ -300,7 +303,9 @@ plate5_bolt_centres_yx = (
     (92,141),
     (138,85))
 
-plate5_template_path = 'D:/OneDrive/BHSCT/Belfast Health & Social Care Trust/GRP-Medical physics non-ionising imaging - MRI - MR physicists/Python code/Hazen repo/test DICOM/20181002 - Representative QA images (ANT3)_1/T1 relaxometry/Plate 5/77189804'
+plate5_template_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                                    'data', 'relaxometry',
+                                                    'Plate5_T1_signed')
 template_path = plate5_template_path
 
 
@@ -316,12 +321,26 @@ def main(dcm_target_list, template_px, show_plot=True):
 
 if __name__ == '__main__':
     
-    #dcm_template = pydicom.guiread()
-    #dcm_target = pydicom.guiread()
+    import os, os.path
+    import logging # better to set up module level logging
+    from pydicom.errors import InvalidDicomError
     
-    #dcm_template = pydicom.read_file()
     template_px=pydicom.read_file(template_path).pixel_array
-    dcm_target = pydicom.read_file('D:/OneDrive/BHSCT/Belfast Health & Social Care Trust/GRP-Medical physics non-ionising imaging - MRI - MR physicists/Python code/Hazen repo/test DICOM/relaxometry/T1/SWAH20200218/plate 5/20530224')
+    
+    # get list of pydicom objects
+    target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                 '..', 'tests', 'data', 'relaxometry', 'T1', 
+                                 'site1 20200218', 'plate 5')
+    dcm_target_list = []
+    (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
+    for filename in filenames:
+        try:
+            with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
+                dcm_target_list.append(dcm_target)
+        except InvalidDicomError:
+                logging.info(' Skipped non-DICOM file %r',
+                             os.path.join(target_folder, filename))
+                
     
     
-    t1_image_stack = main([dcm_target], template_px)
+    t1_image_stack = main(dcm_target_list, template_px)
