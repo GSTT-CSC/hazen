@@ -137,8 +137,8 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
     for item in supported:
         if item in manufacturer:
             return item
-    else:
-        raise Exception(f'{manufacturer} not recognised manufacturer')
+
+    raise Exception(f'{manufacturer} not recognised manufacturer')
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
@@ -154,8 +154,6 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
     .. todo::
         NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
-        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
-        Deal with magic number in Philips calc
 
     Parameters
     ----------
@@ -165,11 +163,7 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     -------
 
     """
-    try:
-        bandwidth = dcm.PixelBandwidth
-    except AttributeError:
-        raise
-
+    bandwidth = dcm.PixelBandwidth
     return bandwidth
 
 
@@ -241,7 +235,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif 'toshiba' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise Exception('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
 
@@ -264,4 +258,4 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
 
-    return pp.pprint(task.main(dicom_objects, report))
+    return pp.pprint(task .main(dicom_objects, report))
