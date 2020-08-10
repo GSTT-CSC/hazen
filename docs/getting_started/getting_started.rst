@@ -69,7 +69,9 @@ In hazen_test database, add the following SQL query:
 
 .. code-block:: bash
 
-    CREATE USER test_user WITH PASSWORD test_user_password
+    CREATE USER test_user WITH PASSWORD 'test_user_password'
+
+Click on 'Execute statement'. It should say CREATE ROLE in the under the query box. Close Postico.
 
 Hazen installation
 ------------------
