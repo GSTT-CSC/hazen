@@ -282,10 +282,12 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
     ----------
     data
     measured_slice_width
+    report_path
 
     Returns
     -------
     results: list
+
     """
     results = {}
 
@@ -312,15 +314,4 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         results[f"{key}_normalised_snr_smoothing"] = normalised_snr
 
     return results
-    # # Draw regions for testing
-    # cv.rectangle(idown, ((cenx-10), (ceny-10)), ((cenx+10), (ceny+10)), 128, 2)
-    # cv.rectangle(idown, ((cenx-50), (ceny-50)), ((cenx-30), (ceny-30)), 128, 2)
-    # cv.rectangle(idown, ((cenx+30), (ceny-50)), ((cenx+50), (ceny-30)), 128, 2)
-    # cv.rectangle(idown, ((cenx-50), (ceny+30)), ((cenx-30), (ceny+50)), 128, 2)
-    # cv.rectangle(idown, ((cenx+30), (ceny+30)), ((cenx+50), (ceny+50)), 128, 2)
-
-    # Plot annotated image for user
-    # fig = plt.figure(1)
-    # plt.imshow(idown, cmap='gray')
-    # plt.show()
 

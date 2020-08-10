@@ -75,12 +75,12 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 Welcome to the Hazen Command Line Interface
 Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--report]
-    hazen -h|--help     Show this screen.
-    hazen -v|--version  Show version.
+    hazen -h|--help
+    hazen -v|--version
 Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
-    <folder>  Directory containing dicom files to be processed.
-    --report  Create report file in current working directory
+    <folder>
+    --report
 """
 import os
 import pprint
@@ -246,8 +246,10 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
+
 def main():
     arguments = docopt(__doc__, version=__version__)
+
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
@@ -262,7 +264,7 @@ def main():
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
+        return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
 
-    return pp.pprint(task.main(dicom_objects, report))
+    return pp.pprint(task.main(dicom_objects, report_path=report))
 
