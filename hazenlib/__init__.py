@@ -136,7 +136,7 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
-            return manufacturer
+            return item
     else:
         raise Exception(f'{manufacturer} not recognised manufacturer')
 
@@ -165,10 +165,10 @@ def get_bandwidth(dcm: pydicom.Dataset) -> float:
     -------
 
     """
-    if get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
-    else:
+    try:
         bandwidth = dcm.PixelBandwidth
+    except AttributeError:
+        raise
 
     return bandwidth
 
@@ -207,7 +207,6 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
@@ -246,6 +245,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
+
 def main():
     arguments = docopt(__doc__, version=__version__)
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
@@ -265,4 +265,3 @@ def main():
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
 
     return pp.pprint(task.main(dicom_objects, report))
-
