@@ -6,12 +6,15 @@ Created on Tue Aug  4 14:15:35 2020
 
 Overview
 ========
-	1. Get list of DICOM files.
+	1. Import list of DICOM files. The Caliber (HPD) system phantom should be
+        scanned https://qmri.com/system-phantom/. 
+        TODO: add protocol details.
 	2. Create container object / array (all-slices) containing:
         a. Target images (to be ordered by TE or TI). Should be same position on same phantom, different TE or TI
 		b. Transformation matrix to map template image spcae to target image space
         c. List of coordinates of centres of each sphere in template image (to enable ROI generation)
-	3. Image alignment-generate RT transformation matrix
+	3. Image alignment-generate RT (rotation - translation) transformation matrix
+        fitting a Euclidean transformation.
 		a. Poss use https://www.learnopencv.com/image-alignment-ecc-in-opencv-c-python/ , https://alexanderpacha.com/2018/01/29/aligning-images-an-engineers-solution/
 		b. Generate coordinates of sphere centres by transforming list of coordinates from template.
 			i. CHECK-Display image with overlays showing sampling locations AND mounting pins / coffin (to check alignment).
@@ -66,7 +69,7 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
         cv2.transform() for details.
     input_yx : bool, optional
         Select the input coordinate format.
-        If Ture, input array has y-coordinate first, i.e.:
+        If True, input array has y-coordinate first, i.e.:
             [[y1,x1],
              [y2,x2],
              ...,
@@ -87,31 +90,32 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
         Returns (n,2) array of transformed coordinates.
 
     """
-    in_coords = np.array(coords) # ensure using np arrays
+    in_coords = np.array(coords) # ensure using np array
     
     if input_yx: # convert to xy format
-        in_coords = np.flip(in_coords)
+        in_coords = np.flip(in_coords, axis=1)
     
     out_coords = cv.transform(np.array([in_coords]), rt_matrix)
     out_coords = out_coords[0] # reduce to two dimensions
     
     if output_yx:
-        out_coords = np.flip(out_coords)
+        out_coords = np.flip(out_coords, axis=1)
             
     return out_coords
 
 
 
-class Image_stack(object):
+class ImageStack():
     """Object to hold image_slices and methods for T1, T2 calculation."""
     
+    # TODO define in subclasses
     T1_sphere_centres = []
     T1_bolt_centres = []
 
     
     def __init__(self, image_slices, template_px, plate_number=None):
         """
-        Create Image_stack object.
+        Create ImageStack object.
 
         Parameters
         ----------
@@ -206,7 +210,7 @@ class Image_stack(object):
                                      (self.template8bit.shape[1],
                                       self.template8bit.shape[0]))
     
-        return(self.warp_matrix)
+        return self.warp_matrix
 
 
     def plot_fit(self):
@@ -250,7 +254,7 @@ class Image_stack(object):
 
 
 
-class T1_image_stack(Image_stack):
+class T1ImageStack(ImageStack):
     """Calculates T1 relaxometry."""
     
     def __init__(self, image_slices, template_px, plate_number):
@@ -260,7 +264,7 @@ class T1_image_stack(Image_stack):
         
 
 
-class T2_image_stack(Image_stack):
+class T2ImageStack(ImageStack):
     """Calculates T2 relaxometry."""
     
     def __init__(self, image_slices, template_px, plate_number):
@@ -269,14 +273,6 @@ class T2_image_stack(Image_stack):
         #Sort images by TE
 
 
-
-# class image_slice(object):
-#     """
-#     Key properties of image slices
-#     """
-    
-#     def __init__(self, image_dicom):
-#         self.dcm = image_dicom
 
 
 
@@ -312,9 +308,10 @@ template_path = plate5_template_path
 def main(dcm_target_list, template_px, show_plot=True):
 
     # debug-show only do T1
-    t1_image_stack = T1_image_stack(dcm_target_list, template_px, plate_number=5)
+    t1_image_stack = T1ImageStack(dcm_target_list, template_px, plate_number=5)
     t1_image_stack.template_fit()
-    t1_image_stack.plot_fit()
+    if show_plot:
+        t1_image_stack.plot_fit()
     
     return t1_image_stack # for debbing only
     
