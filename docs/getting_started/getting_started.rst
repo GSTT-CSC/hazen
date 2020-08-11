@@ -46,12 +46,19 @@ Celery, RabbitMq, Postgres
 
 Celery will work as a task manager and needs RabbitMQ to act as the message broker. Postgres will provide the database. It is recommended you use Postico to manage your databases.
 
-To install Celery and RabbitMQ:
+To install and run Celery:
 
 .. code-block:: bash
 
     $ pip install celery
+    $ celery -A project worker --loglevel=info
+
+To install and run RabbitMQ:
+
+.. code-block:: bash
+
     $ brew install rabbitmq
+    $ rabbitmq-server
 
 To install Postgres:
 
