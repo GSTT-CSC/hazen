@@ -197,7 +197,7 @@ class ImageStack():
         
         # initialise transofrmation fitting parameters.
         #TODO optomise parameters for time saving
-        number_of_iterations = 5000;
+        number_of_iterations = 500;
         termination_eps = 1e-10;
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
                     number_of_iterations,  termination_eps)
@@ -244,13 +244,15 @@ class ImageStack():
         
         plt.subplot(2,2,3)
         plt.imshow(self.template8bit/2 + self.target8bit/2, cmap='gray')
-        plt.title('Overlay')
+        plt.title('Image / template overlay')
         plt.axis('off')
         
         plt.subplot(2,2,4)
         plt.imshow(self.warped_template8bit/2 + self.target8bit/2, cmap='gray')
-        plt.title('Overlay with fit')
+        plt.title('Image / fitted template overlay')
         plt.axis('off')
+        
+        plt.tight_layout()
 
 
 
@@ -310,12 +312,15 @@ def main(dcm_target_list, template_px, show_plot=True):
     # debug-show only do T1
     t1_image_stack = T1ImageStack(dcm_target_list, template_px, plate_number=5)
     t1_image_stack.template_fit()
+    
     if show_plot:
         t1_image_stack.plot_fit()
     
     return t1_image_stack # for debbing only
     
 
+
+# Code below is for development only and should be deleted before release.
 if __name__ == '__main__':
     
     import os, os.path
