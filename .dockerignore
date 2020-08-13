@@ -1,0 +1,17 @@
+.git
+hazen-venv
+bin
+.cache
+.pytest_cache
+build
+docs
+dist
+hazen.egg-info
+logs
+retros
+tests
+uploads
+__pycache__
+coverage.xml
+htmlcov
+migrations

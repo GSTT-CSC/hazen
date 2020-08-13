@@ -1,26 +1,44 @@
-version: '2'
+version: '3'
 services:
+    database:
+        image: postgres:latest
+        ports:
+            - "5432:5432"
+        environment:
+            - POSTGRES_DB=hazen
+            - POSTGRES_USER=admin
+            - POSTGRES_PASSWORD=admin
     rabbit:
         hostname: rabbit
         image: rabbitmq:latest
         environment:
             - RABBITMQ_DEFAULT_USER=admin
-            - RABBITMQ_DEFAULT_PASS=mypass
+            - RABBITMQ_DEFAULT_PASS=admin
         ports:
-            - "5673:5672"
-    app:
+            - "5672:5672"
+    celery:
         build:
-            context: .
-            dockerfile: Dockerfile
-        volumes:
-            - .:/app
-        links:
-            - rabbit
+            context: "."
+            args:
+                - "FLASK_ENV=${FLASK_ENV:-production}"
+        command: celery -A app.tasks worker --concurrency=20 --loglevel=info
+        environment:
+            - CELERY_BROKER_URL=amqp://admin:admin@rabbit:5672/%2F
         depends_on:
             - rabbit
-            - database
-    database:
-        hostname: postgres
-        image: postgres:latest
+
+
+    flask:
+        build: .
+        command: python hazen.py
+        environment:
+            - DATABASE_URL=postgresql://admin:admin@database/hazen
         ports:
-            - "5432:5432"
+            - "5000:5000"
+
+        depends_on:
+            - database
+            - rabbit
+
+
+

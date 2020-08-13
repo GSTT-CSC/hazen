@@ -34,7 +34,7 @@ def register_tasks_in_db():
 
 app = create_app()
 worker = create_celery_app(app)
-register_tasks_in_db()
+#register_tasks_in_db()
 
 
 @app.shell_context_processor
