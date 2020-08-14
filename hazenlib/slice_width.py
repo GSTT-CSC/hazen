@@ -85,6 +85,7 @@ def get_rods(dcm):
     img_tmp = arr
     # step over a range of threshold levels from 0 to the max in the image
     # using the ndimage.label function to count the features for each threshold
+
     for x in range(0, img_max):
         tmp = img_tmp <= x
         labeled_array, num_features = ndimage.label(tmp.astype(np.int))
@@ -92,6 +93,7 @@ def get_rods(dcm):
 
     # find the indices that correspond to 10 regions and pick the median
     index = [i for i, val in enumerate(no_region) if val == 10]
+
 
     thres_ind = np.median(index).astype(np.int)
 
@@ -105,11 +107,28 @@ def get_rods(dcm):
         sys.exit("Did not find the 9 rods")
 
     rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
-
+    #rods2 =
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
 
-    return rods
+    rod_test = rods[5]
+
+    rod_test.x = rod_test.x +2
+
+    x0, x1 = rod_test.x - 5, rod_test.x + 5
+    num_test = 10
+    s = np.ones(num_test)
+    xt,yt = np.linspace(x0, x1, num_test), s*rod_test.y
+    zt = ndimage.map_coordinates(img_tmp, np.vstack((xt,yt)))
+    min_index = np.min(zt)
+    #shift = min_index - (num_test/2)
+    #rods[4] = Rod(x = rods[4].x - shift, y = rods[4].y)
+    # idea: go to centre point of each rod and plot a cross out from that? OR look at signal intensity in label
+    # look at how arr intensity values change around that point
+    #line_width_x = rods
+
+    # CO: can output more than 1 thing by just listing with comma betewen
+    return rods, labeled_array, zt
 
 
 def plot_rods(ax, arr, rods): # pragma: no cover

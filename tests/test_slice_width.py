@@ -76,18 +76,119 @@ class TestSliceWidth(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
     def test_get_rods(self):
-        rods = hazen_slice_width.get_rods(self.dcm)
+        [rods, labels, profile] = hazen_slice_width.get_rods(self.dcm)
+
+        # additional lines added by CO:
+        import matplotlib.pyplot as plt
+        plt.imshow(labels, cmap='gray')
+        plt.show()
+
+        plt.plot(profile)
+        plt.show()
+
+        # other option: hazen_slice_width.plot_rods which should return axes then do ax.show
+        plt.imshow(self.dcm.pixel_array, cmap='gray')
+        #split list into x and y coords
+        rod_x = [i.x for i in rods]
+        rod_y = [i.y for i in rods]
+        plt.scatter(rod_x, rod_y)
+
+        #plt.savefig('distortion_rods.png')
+
+        min_index = np.where(profile == profile.min())
+        # end of CO edits
 
         #print("rods")
         #print(rods)
         assert rods == self.rods
+
+    def test_get_rods_caitlin(self):
+        file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH_TRA_0005_LH_2019' / 'GSTT_ACCEPTANCETESTING.MR.GSTT_ACCEPTANCE_TESTING_2019.0005.0001.2019.06.19.10.45.04.914220.5688409.IMA')
+        dcm = pydicom.read_file(file)
+
+
+        manual_rods = [
+            hazen_slice_width.Rod(68.578, 188.357),
+            hazen_slice_width.Rod(127.597, 189.006),
+            hazen_slice_width.Rod(188.944, 188.657),
+            hazen_slice_width.Rod(67.386, 128.673),
+            hazen_slice_width.Rod(127.005, 128.975),
+            hazen_slice_width.Rod(188.355, 128.943),
+            hazen_slice_width.Rod(68.178, 70.327),
+            hazen_slice_width.Rod(128.061, 68.217),
+            hazen_slice_width.Rod(189.349, 68.931)]
+        
+        [rods, labels, profile] = hazen_slice_width.get_rods(dcm)
+
+        # additional lines added by CO:
+        import matplotlib.pyplot as plt
+        plt.imshow(labels, cmap='gray')
+        plt.show()
+
+        plt.plot(profile)
+        plt.show()
+
+        # other option: hazen_slice_width.plot_rods which should return axes then do ax.show
+        plt.imshow(dcm.pixel_array, cmap='gray')
+        # split list into x and y coords
+        rod_x = [i.x for i in rods]
+        rod_y = [i.y for i in rods]
+        plt.scatter(rod_x, rod_y)
+
+        # plt.savefig('distortion_rods.png')
+
+        min_index = np.where(profile == profile.min())
+        # end of CO edits
+
+        # print("rods")
+        # print(rods)
+        #assert rods == manual_rods #change this to be almost identical?
+
+        xy_values_rods = [[rod.x, rod.y] for rod in rods]
+        xy_values_manual_rods = [[rod.x, rod.y] for rod in manual_rods]
+        import numpy.testing as npt
+        npt.assert_almost_equal(xy_values_rods, xy_values_manual_rods)
+        
+    def test_std(self):
+        file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH_TRA_0005_LH_2019' / 'GSTT_ACCEPTANCETESTING.MR.GSTT_ACCEPTANCE_TESTING_2019.0005.0001.2019.06.19.10.45.04.914220.5688409.IMA')
+        dcm = pydicom.read_file(file)
+
+        manual_rods = [
+            hazen_slice_width.Rod(68.578, 188.357),
+            hazen_slice_width.Rod(127.597, 189.006),
+            hazen_slice_width.Rod(188.944, 188.657),
+            hazen_slice_width.Rod(67.386, 128.673),
+            hazen_slice_width.Rod(127.005, 128.975),
+            hazen_slice_width.Rod(188.355, 128.943),
+            hazen_slice_width.Rod(68.178, 70.327),
+            hazen_slice_width.Rod(128.061, 68.217),
+            hazen_slice_width.Rod(189.349, 68.931)]
+
+        # calculate the horizontal and vertical distances of manual rods
+        pixel_spacing = dcm.PixelSpacing[0]
+        [horz_dist, vert_dist] = hazen_slice_width.get_rod_distances(manual_rods)
+        horz_dist_mm_manual = np.multiply(pixel_spacing, horz_dist)
+        vert_dist_mm_manual = np.multiply(pixel_spacing, vert_dist)
+        horz_distortion_true = 100 * np.std(horz_dist_mm_manual, ddof=1) / np.mean(horz_dist_mm_manual)  # ddof to match MATLAB std
+        vert_distortion_true = 100 * np.std(vert_dist_mm_manual, ddof=1) / np.mean(vert_dist_mm_manual)
+
+        # 2 calc based on rods
+        [rods, labels, profile] = hazen_slice_width.get_rods(dcm)
+        [horz_distortion, vert_distortion] = hazen_slice_width.get_rod_distortions(rods, dcm)
+        # compare
+        import numpy.testing as npt
+        npt.assert_almost_equal(horz_distortion_true, horz_distortion)
+        # how we calc std is in line 203 of slice width code
+        # dof = 1
+
+
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
 
         distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
         #print("distances")
-        #print(distances)
+        print(distances)
         assert distances == self.DISTANCES
 
     def test_get_rod_distortion_correction_coefficients(self):
@@ -232,7 +333,6 @@ class TestSliceWidth(unittest.TestCase):
         #print(results[key]['slice_width_mm'])
         assert abs(results[key]['slice_width_mm'] - self.SW_MATLAB) < 0.1
 
-
 class Test512Matrix(TestSliceWidth):
     SLICE_WIDTH_DATA = pathlib.Path(TEST_DATA_DIR / 'slicewidth')
 
@@ -289,4 +389,72 @@ class Test512Matrix(TestSliceWidth):
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
+        self.dcm = pydicom.read_file(self.file)
+
+class TestSliceWidthCaitlin(TestSliceWidth):
+    SLICE_WIDTH_DATA = pathlib.Path(TEST_DATA_DIR / 'slicewidth')
+
+    """
+    Notes
+    -----
+    The rod indices are ordered as:
+        789
+        456
+        123 
+    """
+    matlab_rods = [hazen_slice_width.Rod(71.2857, 191.5000),
+                   hazen_slice_width.Rod(130.5000, 190.5000),
+                   hazen_slice_width.Rod(190.6000, 189.4000),
+                   hazen_slice_width.Rod(69.5000, 131.5000),
+                   hazen_slice_width.Rod(128.7778, 130.5000),
+                   hazen_slice_width.Rod(189.1111, 129.2778),
+                   hazen_slice_width.Rod(69.0000, 71.5000),
+                   hazen_slice_width.Rod(128.1176, 70.4118),
+                   hazen_slice_width.Rod(188.5000, 69.2222)]
+
+
+    rods = [
+        hazen_slice_width.Rod(68.578, 188.357),
+        hazen_slice_width.Rod(127.597, 189.006),
+        hazen_slice_width.Rod(188.944, 188.657),
+        hazen_slice_width.Rod(67.386, 128.673),
+        hazen_slice_width.Rod(127.005, 128.975),
+        hazen_slice_width.Rod(188.355, 128.943),
+        hazen_slice_width.Rod(68.178, 70.327),
+        hazen_slice_width.Rod(128.061, 68.217),
+        hazen_slice_width.Rod(189.349, 68.931)]
+
+    DISTANCES = ([119.333, 119.632, 119.522], [120.022, 120.112, 120.196])
+    DIST_CORR_COEFF = {"top": 0.9965, "bottom": 0.9957}
+    ROD_DIST = (0.13, 0.07)
+
+    TOP_CENTRE = 102
+    BOTTOM_CENTRE = 162
+    MATLAB_PROFILE = [693, 694.75, 688.6, 685.05, 682.2, 677.65, 677.35, 675.5, 668, 665.9, 663.05, 662.05, 662.1,
+                      657.75, 653.65, 654.75, 650.1, 648.65, 646.1, 645.9, 643.1, 639.4, 641.35, 639.1, 635.95,
+                      633.75, 633.9, 630.7, 627.25, 628.2, 628.05, 623.4, 624.35, 622.4, 621.15, 622.45, 615, 615.8,
+                      611.15, 605.2, 602.15, 595.75, 582.75, 573.5, 561.25, 550.4, 538.25, 524.9, 511.65, 499.9,
+                      489.7, 487.3, 477, 476.1, 469.55, 466.9, 467.7, 466, 465.05, 468, 464.7, 467.9, 464.65,
+                      468.85, 467.55, 468, 469.05, 473.25, 479.6, 483.8, 492.3, 500, 512.5, 523, 535.95, 548.3,
+                      561.8, 571.95, 585.35, 593.5, 601.55, 605.45, 609.3, 612.75, 617.1, 618.8, 620.35, 623.15,
+                      621.7, 623.35, 625.25, 628.4, 628.8, 631.55, 632.55, 633.4, 634.35, 638.1, 639.35, 640.3,
+                      641.75, 646.7, 648.1, 647.2, 648.95, 650.2, 653.95, 659.55, 660.8, 661.95, 663, 665.6, 666.15,
+                      670.75, 672.6, 674.15, 675.9, 677.5, 682.45, 684.3]
+
+    BLINE_TOP = 0.0897
+    BLINE_BOT = 0.1021
+
+    TRAP_FIT_COEFF_TOP = [47, 55, 154, 177]
+    TRAP_FIT_COEFF_BOT = [47, 55, 172, 159]
+
+    MATLAB_TRAP_FIT_COEFF = [50, 54, 153, 170, -111.7920]
+    MATLAB_BLINE_FIT_COEFF = [0.0216, -2.9658, 602.2568]
+    MATLAB_TRAP_FIT_COEFF_BOT = [55.0000, 60.0000, 155.0000, 152.0000, -136.6194]
+    MATLAB_BLINE_FIT_COEFF_BOT = [0.0239, -2.9389, 694.9520]
+
+    SW_MATLAB = 5.48
+
+
+    def setUp(self):
+        self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH_TRA_0005_LH_2019' / 'GSTT_ACCEPTANCETESTING.MR.GSTT_ACCEPTANCE_TESTING_2019.0005.0001.2019.06.19.10.45.04.914220.5688409.IMA')
         self.dcm = pydicom.read_file(self.file)
