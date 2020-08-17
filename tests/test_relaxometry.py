@@ -28,7 +28,6 @@ class TestRelaxometry(unittest.TestCase):
                            [11 + np.sqrt(3)/2, 19.5 + np.sqrt(3)]]
     
     # T1_FILES are in random order to test sorting    
-<<<<<<< HEAD
     
     T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1 20200218',
                           'plate 5')
@@ -38,16 +37,6 @@ class TestRelaxometry(unittest.TestCase):
 
     # T2_FILES are in random order to test sorting
     T2_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2', 'site1 20200218',
-=======
-    t1_dir = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1 20200218',
-                          'plate 5')
-    T1_FILES = ['20530320', '20530224', '20530416', '20530272', '20530464',
-                    '20530368']
-    T1_TI_SORTED = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0]
-
-    # T2_FILES are in random order to test sorting
-    t2_dir = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2', 'site1 20200218',
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
                           'plate 4')
     T2_FILES = ['20528529', '20528577', '20528625', '20528673',
                 '20528721', '20528769', '20530528', '20530576',
@@ -72,7 +61,6 @@ class TestRelaxometry(unittest.TestCase):
                                [124, 121], [133, 98], [127, 75], [109, 61],
                                [84, 60], [64, 72], [80, 81], [78, 111],
                                [109, 113], [110, 82]]
-<<<<<<< HEAD
     TEMPLATE_TARGET_COORDS_XY = [[97, 58], [119, 65], [134, 85], [133, 108],
                                  [119, 127], [96, 134], [73, 127], [60, 109],
                                  [60, 84], [73, 65], [81, 81], [112, 81],
@@ -88,12 +76,6 @@ class TestRelaxometry(unittest.TestCase):
         MASK_POI_TARGET[i,TEMPLATE_TARGET_COORDS_XY[i][1], 
                       TEMPLATE_TARGET_COORDS_XY[i][0]] = 1
 
-=======
-    TEMPLATE_TARGET_COORDS_XY = [[97,  58], [119,  65], [134,  85], [133, 108],
-                                 [119, 127], [96, 134], [73, 127], [60, 109],
-                                 [60,  84], [73,  65], [81,  81], [112,  81],
-                                 [112, 112], [81, 111]]
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
     
     def test_transform_coords(self):
@@ -162,16 +144,11 @@ class TestRelaxometry(unittest.TestCase):
                                                         plate_number=5)
         t1_image_stack.template_fit()
 
-<<<<<<< HEAD
-=======
-
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
         transformed_coordinates_xy = hazen_relaxometry.transform_coords(
             self.TEMPLATE_TEST_COORDS_YX, t1_image_stack.warp_matrix,
             input_yx=True, output_yx=False)
 
         # test to within +/- 1 pixel (also checks YX-XY change)
-<<<<<<< HEAD
         assert np.testing.assert_allclose(
             transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_XY,
             atol=1) is None
@@ -225,30 +202,6 @@ class TestRelaxometry(unittest.TestCase):
             target_image_stack.sample_POIs,
             self.MASK_POI_TARGET) is None
 
-=======
-        assert np.testing.assert_allclose(
-            transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_XY,
-            atol=1) is None
-
-    def test_image_stack_T1_sort(self):
-        # read list of un-ordered T1 files, sort by TI, test sorted
-        t1_dcms = [pydicom.dcmread(os.path.join(self.t1_dir, fname))
-                   for fname in self.T1_FILES]
-        t1_image_stack = hazen_relaxometry.T1ImageStack(t1_dcms)
-        sorted_output = [image.InversionTime.real for image in
-                         t1_image_stack.images]
-        assert sorted_output == self.T1_TI_SORTED
-
-    def test_image_stack_T2_sort(self):
-        t2_dcms = [pydicom.dcmread(os.path.join(self.t2_dir, fname)) 
-                   for fname in self.T2_FILES]
-        t2_image_stack = hazen_relaxometry.T2ImageStack(t2_dcms)
-
-        sorted_output = [image.EchoTime.real for image in
-                          t2_image_stack.images]
-
-        assert sorted_output == self.T2_TE_SORTED
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
         
 if __name__ == '__main__':

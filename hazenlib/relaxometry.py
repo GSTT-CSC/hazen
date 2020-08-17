@@ -52,7 +52,6 @@ import scipy.ndimage
 
 # import hazenlib
 
-<<<<<<< HEAD
 def outline_mask(im):
     """Create contour lines to outline pixels."""
     # Adapted from https://stackoverflow.com/questions/40892203/can-matplotlib-contours-match-pixel-edges
@@ -75,8 +74,6 @@ def outline_mask(im):
               in zip(starts, ends)]
 
     return lines
-=======
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
 def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
     """
@@ -138,11 +135,8 @@ class ImageStack():
     # TODO define in subclasses
     T1_sphere_centres = []
     T1_bolt_centres = []
-<<<<<<< HEAD
     
     SAMPLE_ELEMENT = skimage.morphology.square(5)
-=======
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
     def __init__(self, image_slices, template_px, plate_number=None,
                  dicom_order_key=None):
@@ -171,10 +165,6 @@ class ImageStack():
         self.template_px = template_px
 
         self.images = image_slices  # store images
-<<<<<<< HEAD
-=======
-        # need to sort by TE or TI
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
     def template_fit(self, image_index=0):
         """
@@ -216,10 +206,6 @@ class ImageStack():
         image.
 
         """
-<<<<<<< HEAD
-=======
-        # template_px = self.template.pixel_array
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
         target_px = self.images[0].pixel_array  # TODO ensure list is sorted
 
         #  TODO Check if need to subtract 2048
@@ -281,7 +267,6 @@ class ImageStack():
         plt.imshow(self.target8bit, cmap='gray')
         plt.title('Image')
         plt.axis('off')
-<<<<<<< HEAD
         if hasattr(self, 'sample_ROIs'):
             #colormap = np.array((128, 0, 0, 1.0)) # Select RGBA colour
             combined_ROI_map = np.sum(self.sample_ROIs, axis=0)
@@ -290,8 +275,6 @@ class ImageStack():
             lines = outline_mask(combined_ROI_map)
             for line in lines:
                 plt.plot(line[1], line[0], color='r', alpha=1)
-=======
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
         plt.subplot(2, 2, 3)
         plt.imshow(self.template8bit/2 + self.target8bit/2, cmap='gray')
@@ -307,7 +290,6 @@ class ImageStack():
 
     def order_by(self, att):
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
-<<<<<<< HEAD
         self.images.sort(key=lambda x: x[att].value.real)
         
     def generate_sample_masks(self, coords_yx, fit_coords=True, 
@@ -330,9 +312,6 @@ class ImageStack():
             self.sample_POIs[i, coords_yx[i][0], coords_yx[i][1]] = 1
             self.sample_ROIs[i] = scipy.ndimage.filters.convolve(
                 self.sample_POIs[i], kernel)
-=======
-        self.images.sort(key=lambda x: float(x[att].value.real))
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
 
 class T1ImageStack(ImageStack):
@@ -386,10 +365,7 @@ def main(dcm_target_list, template_px, show_plot=True):
     # debug-show only do T1
     t1_image_stack = T1ImageStack(dcm_target_list, template_px, plate_number=5)
     t1_image_stack.template_fit()
-<<<<<<< HEAD
     t1_image_stack.generate_sample_masks(plate5_sphere_centres_yx)
-=======
->>>>>>> b7e5885abac5b9428ee3d89a02623bddeef4aec5
 
     if show_plot:
         t1_image_stack.plot_fit()
