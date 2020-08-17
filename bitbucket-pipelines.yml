@@ -53,6 +53,8 @@ pipelines:
 
 definitions:
   services:
+    docker:
+        memory: 2048
     postgres:
       image: postgres
       variables:
