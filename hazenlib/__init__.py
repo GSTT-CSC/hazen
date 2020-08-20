@@ -152,16 +152,15 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
-    .. todo::
-        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
+    Returns PixelBandwidth
 
     Parameters
     ----------
-    dcm
+    dcm: pydicom.Dataset
 
     Returns
     -------
-
+    bandwidth: float
     """
     bandwidth = dcm.PixelBandwidth
     return bandwidth
