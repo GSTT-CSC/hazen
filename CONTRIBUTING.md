@@ -1,25 +1,42 @@
 ## Introduction 
-The documentation is for people/instituions intending to contribute towards Hazen. 
+The documentation is for people intending to contribute code to the Hazen project. Adapted from ull guidelines, found at https://gsttmri.atlassian.net/wiki/spaces/HAZEN/pages/37454040/Contribute+new+code .  
 
 ## How to contribute
 
-1. Start by creating a new issue on bitbucket for the feature and:
+1. All contributions must be linked to an issue. Issues are organised on Jira (https://gsttmri.atlassian.net/secure/RapidBoard.jspa?rapidView=5&view=planning&selectedIssue=HZN-48&issueLimit=100). 
+    
+    If your issue already exists, but you think it is not completely solved or needs more information, please add more details as a comment.
+
+    If your issue doesn't already exist:
+    - Gather any user research
+    - Define acceptance test criteria
+    - Make your issue! Name the issue in the format {component}-{issue summary}, e.g. SNR-Fix ROI size for large FOV, try to use the imperative mood where possible..  
+      Be as detailed as possible with the description, including detailed steps on how to reproduce the issue if it is a bug. Please offer a resolution in the description if you feel you are able to.
  
-    - gather any user research
-    - define acceptance test criteria
+2. Review implementation plan with Haris, who will assign the issue to you if there are no overlaps
 
-2. Review implementation plan with Haris
+3 Create a new issue specific feature-branch for this issue, in the format {component}-{issue summary}. You can do this through the issue cards on Jira. 
+    - Click on the issue card and detailed view should open on the right. Scroll to the bottom and under the development section, select the ‘Create branch’.
+    - This will open a new page, make sure you’ve selected the correct repository gsttmri/hazen
+    - Select type of branch, this will almost always be ‘Feature’ - if you are not sure speak to Haris.
+    - The From branch for ‘Feature’ branches is always ‘develop’ - again, if you are unsure speak to Haris.
+    - The branch name will be auto-filled, try to use this one as much as possible. If the name is cropped, edit the ending so that the branch name is clear.
+    - Hit create!
 
-3.  Create a new Git feature-branch for this ticket, named [issue number][topic][issue title]. Use detailed commit messages (see next section for commit convention).   
+4. Check out your new branch in source tree, a copy of your branch should now appear in your local branches
 
-4. Make your changes to the branch
+5. Create a Pull Request on Bitbucket, requesting a (future!) merge of your branch back to ‘develop’.
+    - Use all the auto-filled details, except please add WIP- to the front of the title e.g. WIP-Feature/77 relaxometry, this way the maintainer knows you are still working (Work In Progress) and not ready for final review. 
+    - Your branch will eventually be merged with the codebase via a Pull Request. This allows your code to be formally reviewed and approved. 
+
+5. Make your changes to the branch! Always start with unit tests. 
 
 5. Check that all tests are still passing, and that your change is covered by the tests. Tests can be run in the terminal using the command
    "pytest tests"
 
-6. Create pull request from the task branch to develop 
-
 7. Ensure tests are passing on Bitbucket Pipelines 
+
+6. Create pull request from the task branch to develop, making sure every commit message includes the issue code e.g. HZN-41 (more on commit message convention below). When you are ready for your code to be formally reviewed, remove ‘WIP-' from the PR title, and ping the maintainer a message.
 
 8. If feedback is received, make the changes and keep a dialog open via bitbucket
 
@@ -86,9 +103,9 @@ To run local, install sonar-scanner. Edit properties file in conf so that url is
 
 ## Releasing
 
-- Produce requirements.txt: __pipreqs --force --savepath ./requirements.txt --ignore bin,hazen-venv ./__
-- Make sure all tests are passing
-- Update version in hazenlib/\_\_init\_\_.py, remove 'dev'.
-- Update docs (try sphinx-apidoc for autodocumentation of modules)
+- Haris will create a new ‘Release’ branch from develop
+- Haris, as maintainer, is responsible for releasing new version of code
+- Any edits or documentation updates will be made in the ‘Release’ branch
+- Finally, the ‘Release’ branch is merged with ‘master’ and a new version is tagged for release!
 
 

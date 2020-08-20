@@ -40,11 +40,36 @@ Hazen includes a command-line interface, that allows you to run hazen tasks with
    # activate virtual environment
    $ source ../hazen-venv/bin/activate
 
+   # change to your hazen directory if you're not already in it
+   $ cd hazen
+
    # run help command to see what commands are available to you
    $ hazen --help
 
    # as an example, this is how to perform SNR measurements on data
    $ hazen snr /path/to/snr/dicom/directory
+
+Running Tests
+----------------------
+
+Hazen comes with built-in tests that check installation has worked correctly. You can run these tests by typing the following into your command window:
+
+.. code-block:: bash
+
+   $ pytest tests
+
+
+Updating Hazen
+----------------------
+You can update Hazen from your terminal using the following:
+
+.. code-block:: bash
+
+   $ git checkout master
+   $ git pull
+   $ python setup.py install
+
+
 
 
 Developers
@@ -61,22 +86,12 @@ Requirements/Recommended
 - Sourcetree (recommended)
 - Docker (recommended)
 
-See :doc:`../guides/guides` on how to begin contributing your code
+See doc:`../guides/guides` on how to begin contributing your code
 
-Hazen How Tos
+Developer Hazen How Tos
 ------------------------
 
 The following list contains guidance for beginner programmers starting up using Hazen.
-
-Get hazen running from terminal:
-
-- Source hazen-venv/bin/activate
-- Cd hazen
-- Then should be able to run commands
-
-Run Hazen Tests
-
-- In terminal with hazen activated, type pytest tests
 
 Commit your changes when you are done on a branch:
 
@@ -88,12 +103,6 @@ Commit your changes when you are done on a branch:
 - Make sure the ‘push changes’ tick box is ticked
 - Commit
 
-To download any updates:
-
-- Open terminal
-- git checkout master
-- git pull
-- python setup.py install
 
 How to stash changes made on your task branch
 
@@ -114,10 +123,12 @@ To get back from master to stash
 
 How to run your current branch from the terminal
 
-- source hazen-venv/bin/activate
-- Pip uninstall hazen
-- Cd hazen
-- Python setup.py develop
+.. code-block:: bash
+
+   $ source hazen-venv/bin/activate
+   $ pip uninstall hazen
+   $ cd hazen
+   $ python setup.py develop
 
 What to do when your task branches are shown as ‘X behind’
 - Switch to branch
@@ -126,6 +137,8 @@ What to do when your task branches are shown as ‘X behind’
 Edit a commit message that was sent with the wrong wording (from https://linuxize.com/post/change-git-commit-message/ )
 
 - If it is the most recent commit, go to terminal and type in
-- git commit --amend -m "New commit message."
-- git push --force branch-name
 
+.. code-block:: bash
+
+   $ git commit --amend -m "New commit message."
+   $ git push --force branch-name
