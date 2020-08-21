@@ -45,18 +45,39 @@ def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
 
 
 def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+
+    """
+    Calculates SNR normalisation factor. Method matches MATLAB script.
+    Utilises user provided slice_width if provided. Else finds from dcm.
+    Finds dx, dy and bandwidth from dcm.
+    Seeks to find TR, image columns and rows from dcm. Else uses default values.
+
+    Parameters
+    ----------
+    dcm, measured_slice_width
+
+    Returns
+    -------
+    normalised snr factor: float
+
+    """
+
     dx, dy = hazenlib.get_pixel_size(dcm)
     bandwidth = hazenlib.get_bandwidth(dcm)
+    TR=hazenlib.get_TR(dcm)
+    rows = hazenlib.get_rows(dcm)
+    columns = hazenlib.get_columns(dcm)
 
     if measured_slice_width:
         slice_thickness = measured_slice_width
     else:
         slice_thickness = hazenlib.get_slice_thickness(dcm)
+
     averages = hazenlib.get_average(dcm)
-    bandwidth_factor = np.sqrt((bandwidth * 256 / 2) / 1000) / np.sqrt(30)
+    bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
     voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
-    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages) * np.sqrt(256)))
+    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages*rows*(TR/1000))))
 
     return normalised_snr_factor
 
