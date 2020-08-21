@@ -257,4 +257,4 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
 
-    return pp.pprint(task .main(dicom_objects, report))
+    return pp.pprint(task.main(dicom_objects, report))
