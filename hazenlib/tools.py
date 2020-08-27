@@ -118,10 +118,15 @@ class ShapeDetector:
 
         contour = self.shapes[shape][0]
         if shape == 'circle':
+            # (x,y) is centre of circle, in x, y coordinates. x=column, y=row.
             (x, y), r = cv.minEnclosingCircle(contour)
             return x, y, r
 
+        #have changed name of outputs in below code to match cv.minAreaRect output
+        #(https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html#b-rotated-rectangle)
+        # (x,y) is top-left of rectangle, in x, y coordinates. x=column, y=row.
+
         if shape == 'rectangle' or shape == 'square':
-            angle, centre, size = cv.minAreaRect(contour)
-            return angle, centre, size
+            (x,y), size, angle = cv.minAreaRect(contour)
+            return (x,y), size, angle
 
