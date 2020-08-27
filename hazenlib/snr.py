@@ -290,12 +290,12 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
     results = {}
 
     if len(data) == 2:
-        key = f"{data[0].SeriesDescription}_{data[0].SeriesNumber}"
+        key = f"{data[0].SeriesDescription}_{data[0].SeriesNumber}_{data[0].InstanceNumber}"
         if report_path:
             report_path = key
         snr, normalised_snr = snr_by_subtraction(data[0], data[1], measured_slice_width, report_path)
-        results[f"{key}_measured_snr_subtraction"] = snr
-        results[f"{key}_normalised_snr_subtraction"] = normalised_snr
+        results[f"snr_subtraction_measured_{key}"] = snr
+        results[f"snr_subtraction_normalised_{key}"] = normalised_snr
 
     for idx, dcm in enumerate(data):
         try:
@@ -308,19 +308,9 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
             report_path = key
 
         snr, normalised_snr = snr_by_smoothing(dcm, measured_slice_width, report_path)
-        results[f"{key}_measured_snr_smoothing"] = snr
-        results[f"{key}_normalised_snr_smoothing"] = normalised_snr
+        results[f"snr_smoothing_measured_{key}"] = snr
+        results[f"snr_smoothing_normalised_{key}"] = normalised_snr
 
     return results
-    # # Draw regions for testing
-    # cv.rectangle(idown, ((cenx-10), (ceny-10)), ((cenx+10), (ceny+10)), 128, 2)
-    # cv.rectangle(idown, ((cenx-50), (ceny-50)), ((cenx-30), (ceny-30)), 128, 2)
-    # cv.rectangle(idown, ((cenx+30), (ceny-50)), ((cenx+50), (ceny-30)), 128, 2)
-    # cv.rectangle(idown, ((cenx-50), (ceny+30)), ((cenx-30), (ceny+50)), 128, 2)
-    # cv.rectangle(idown, ((cenx+30), (ceny+30)), ((cenx+50), (ceny+50)), 128, 2)
 
-    # Plot annotated image for user
-    # fig = plt.figure(1)
-    # plt.imshow(idown, cmap='gray')
-    # plt.show()
 
