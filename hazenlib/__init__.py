@@ -136,9 +136,9 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
-            return manufacturer
-    else:
-        raise Exception(f'{manufacturer} not recognised manufacturer')
+            return item
+
+    raise Exception(f'{manufacturer} not recognised manufacturer')
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
@@ -152,24 +152,17 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
-    .. todo::
-        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
-        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
-        Deal with magic number in Philips calc
+    Returns PixelBandwidth
 
     Parameters
     ----------
-    dcm
+    dcm: pydicom.Dataset
 
     Returns
     -------
-
+    bandwidth: float
     """
-    if get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
-    else:
-        bandwidth = dcm.PixelBandwidth
-
+    bandwidth = dcm.PixelBandwidth
     return bandwidth
 
 
@@ -225,6 +218,64 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
     return dx, dy
 
+def get_TR(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns Repetition Time (TR)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    TR: float
+    """
+
+    try:
+        TR = dcm.RepetitionTime
+    except:
+        print('Warning: Could not find Repetition Time. Using default value of 1000 ms')
+        TR = 1000
+    return TR
+
+def get_rows(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image rows (rows)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    rows: float
+    """
+    try:
+        rows = dcm.Rows
+    except:
+        print('Warning: Could not find Number of matrix rows. Using default value of 256')
+        rows=256
+
+    return rows
+
+def get_columns(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image columns (columns)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    columns: float
+    """
+    try:
+        columns = dcm.Columns
+    except:
+        print('Warning: Could not find matrix size (columns). Using default value of 256.')
+        columns = 256
+    return columns
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
@@ -242,7 +293,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif 'toshiba' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise Exception('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
 
