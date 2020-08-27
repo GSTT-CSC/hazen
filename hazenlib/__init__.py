@@ -217,6 +217,64 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
     return dx, dy
 
+def get_TR(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns Repetition Time (TR)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    TR: float
+    """
+
+    try:
+        TR = dcm.RepetitionTime
+    except:
+        print('Warning: Could not find Repetition Time. Using default value of 1000 ms')
+        TR = 1000
+    return TR
+
+def get_rows(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image rows (rows)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    rows: float
+    """
+    try:
+        rows = dcm.Rows
+    except:
+        print('Warning: Could not find Number of matrix rows. Using default value of 256')
+        rows=256
+
+    return rows
+
+def get_columns(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image columns (columns)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    columns: float
+    """
+    try:
+        columns = dcm.Columns
+    except:
+        print('Warning: Could not find matrix size (columns). Using default value of 256.')
+        columns = 256
+    return columns
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
