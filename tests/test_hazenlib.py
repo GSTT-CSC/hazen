@@ -1,35 +1,85 @@
 """
 Tests functions in the hazenlib.__init__.py file
 """
+import unittest
 import pydicom
-
 import hazenlib
+
 from tests import TEST_DATA_DIR
 
-
-class TestHazenlib:
+class TestHazenlib(unittest.TestCase):
     # Data by ImplementationVersionName
-    PHILIPS_MR_53_1 = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+    # all test values are taken from DICOM headers
 
-    SIEMENS_MR_VE11C = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+    ROWS = 512
+    COLUMNS = 512
+    TR_CHECK = 500
+    BW = 205.0
 
-    TOSHIBA_TM_MR_DCM_V3_0 = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+        self.dcm = pydicom.read_file(self.file)
+    def test_get_bandwidth(self):
+        bw = hazenlib.get_bandwidth(self.dcm)
+        assert bw == self.BW
 
-    GE_eFILM = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
+    def test_get_rows(self):
+        rows = hazenlib.get_rows(self.dcm)
+        assert rows == self.ROWS
 
-    def test_get_bandwidth_philips(self):
-        bw = hazenlib.get_bandwidth(pydicom.read_file(self.PHILIPS_MR_53_1))
-        assert bw == 205.0
+    def test_get_columns(self):
+        columns = hazenlib.get_columns(self.dcm)
+        assert columns == self.COLUMNS
 
-    def test_get_bandwidth_siemens(self):
-        bw = hazenlib.get_bandwidth(pydicom.read_file(self.SIEMENS_MR_VE11C))
-        assert bw == 130.0
+    def test_get_TR(self):
+        TR = hazenlib.get_TR(self.dcm)
+        assert TR == self.TR_CHECK
 
-    def test_get_bandwidth_toshiba(self):
-        bw = hazenlib.get_bandwidth(pydicom.read_file(self.TOSHIBA_TM_MR_DCM_V3_0))
-        assert bw == 244.0
+class TestFactorsPhilipsMR531(TestHazenlib):
+    #PHILIPS_MR_53_1
 
-    def test_get_bandwidth_ge(self):
-        bw = hazenlib.get_bandwidth(pydicom.read_file(self.GE_eFILM))
-        assert bw == 156.25
+    ROWS = 512
+    COLUMNS = 512
+    TR_CHECK = 500
+    BW = 205.0
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+        self.dcm = pydicom.read_file(self.file)
+
+class TestFactorsSiemensMRVE11C(TestHazenlib):
+    #SIEMENS_MR_VE11C
+    ROWS = 256
+    COLUMNS = 256
+    TR_CHECK = 500
+    BW = 130.0
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+        self.dcm = pydicom.read_file(self.file)
+
+class TestFactorsToshibaTMMRDCMV30(TestHazenlib):
+    # TOSHIBA_TM_MR_DCM_V3_0
+    ROWS = 256
+    COLUMNS = 256
+    TR_CHECK = 45.0
+    BW = 244.0
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
+        self.dcm = pydicom.read_file(self.file)
+
+class TestFactorsGEeFilm(TestHazenlib):
+    # GE_eFILM
+    ROWS = 256
+    COLUMNS = 256
+    TR_CHECK = 1000.0
+    BW = 156.25
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
+        self.dcm = pydicom.read_file(self.file)
+
+
+
 
