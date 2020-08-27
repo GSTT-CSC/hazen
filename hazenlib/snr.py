@@ -40,23 +40,43 @@ def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
     for field in fields_to_match:
         if dcm1.get(field) != dcm2.get(field):
             return False
-    else:
-        return True
+    return True
 
 
 def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+
+    """
+    Calculates SNR normalisation factor. Method matches MATLAB script.
+    Utilises user provided slice_width if provided. Else finds from dcm.
+    Finds dx, dy and bandwidth from dcm.
+    Seeks to find TR, image columns and rows from dcm. Else uses default values.
+
+    Parameters
+    ----------
+    dcm, measured_slice_width
+
+    Returns
+    -------
+    normalised snr factor: float
+
+    """
+
     dx, dy = hazenlib.get_pixel_size(dcm)
     bandwidth = hazenlib.get_bandwidth(dcm)
+    TR=hazenlib.get_TR(dcm)
+    rows = hazenlib.get_rows(dcm)
+    columns = hazenlib.get_columns(dcm)
 
     if measured_slice_width:
         slice_thickness = measured_slice_width
     else:
         slice_thickness = hazenlib.get_slice_thickness(dcm)
+
     averages = hazenlib.get_average(dcm)
-    bandwidth_factor = np.sqrt((bandwidth * 256 / 2) / 1000) / np.sqrt(30)
+    bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
     voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
-    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages) * np.sqrt(256)))
+    normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages*rows*(TR/1000))))
 
     return normalised_snr_factor
 
@@ -95,14 +115,23 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
     Inoise: image representing the image noise
     """
     a = dcm.pixel_array.astype('int')
-    # Create 3x3 boxcar kernel (recommended size - adjustments will affect results)
-    size = (3, 3)
-    kernel = np.ones(size) / 9
+    # Create 3x3 boxcar kernel
+    # size = (3, 3)
+    # kernel = np.ones(size) / 9
+
+    # implementing 9 x 9 kernel to match matlab (and McCann 2013 for Head Coil, although note McCann 2013 recommends 25 x 25 for Body Coil)
+    size = (9, 9)
+    kernel = np.ones(size) / 81
 
     # Convolve image with boxcar kernel
     imsmoothed = conv2d(dcm, kernel)
     # Pad the array (to counteract the pixels lost from the convolution)
-    imsmoothed = np.pad(imsmoothed, 1, 'minimum')
+    # imsmoothed = np.pad(imsmoothed, 1, 'minimum')
+
+    # changed padding to align with new kernel size - more padding required
+
+    imsmoothed = np.pad(imsmoothed, 4, 'minimum')
+
     # Subtract smoothed array from original
     imnoise = a - imsmoothed
 
@@ -153,10 +182,8 @@ def get_object_centre(dcm) -> (int, int):
 
     """
 
-
     shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
     orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
-
 
     if orientation in ['Sagittal', 'Coronal']:
         # orientation is sagittal to patient
@@ -260,7 +287,6 @@ def snr_by_subtraction(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_sl
     signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm1, centre_col=col, centre_row=row)]
     noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(ax=None, dcm=difference, centre_col=col, centre_row=row)], np.sqrt(2))
     snr = np.mean(np.divide(signal, noise))
-
 
     normalised_snr = snr * get_normalised_snr_factor(dcm1, measured_slice_width)
 
