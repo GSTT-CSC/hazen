@@ -52,6 +52,7 @@ import scipy.ndimage
 
 # import hazenlib
 
+
 def outline_mask(im):
     """Create contour lines to outline pixels."""
     # Adapted from https://stackoverflow.com/questions/40892203/can-matplotlib-contours-match-pixel-edges
@@ -74,6 +75,7 @@ def outline_mask(im):
               in zip(starts, ends)]
 
     return lines
+
 
 def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
     """
@@ -138,7 +140,7 @@ class ImageStack():
     
     SAMPLE_ELEMENT = skimage.morphology.square(5)
 
-    def __init__(self, image_slices, template_px, plate_number=None,
+    def __init__(self, image_slices, template_dcm, plate_number=None,
                  dicom_order_key=None):
         """
         Create ImageStack object.
@@ -147,8 +149,8 @@ class ImageStack():
         ----------
         image_slices : list of pydicom.FileDataSet objects
             List of pydicom objects to perform relaxometry analysis on.
-        template_px : numpy array (or None)
-            Pixel array of template image for ROI location.
+        template_dcm : pydicom FileDataSet (or None)
+            DICOM template object.
         plate_number : int {3,4,5}, optional
             For future use. Reference to the plate in the relaxometry phantom.
             The default is None.
@@ -161,14 +163,19 @@ class ImageStack():
         None.
 
         """
-        # load template
-        self.template_px = template_px
+        # Store template pixel array, after LUT in 0028,1052 and 0028,1053
+        # applied
+        self.template_dcm = template_dcm
+        if template_dcm is not None:
+            self.template_px = \
+                pydicom.pixel_data_handlers.util.apply_modality_lut(
+                    template_dcm.pixel_array, template_dcm)
 
         self.images = image_slices  # store images
 
     def template_fit(self, image_index=0):
         """
-        Calculate RT transformation matrix to fit template to image.
+        Calculate transformation matrix to fit template to image.
 
         The template pixel array, self.template_px, is fitted to one of the
         images in self.images (default=0). The resultant RT matrix is stored as
@@ -206,21 +213,20 @@ class ImageStack():
         image.
 
         """
-        target_px = self.images[0].pixel_array  # TODO ensure list is sorted
+        target_px = self.images[0].pixel_array
 
-        #  TODO Check if need to subtract 2048
+        # Always fit on magnitude images for simplicity. May be suboptimal
+        # TODO check for better solution
         self.template8bit = \
-            cv.normalize(abs(self.template_px.astype(np.int,
-                                                     casting='safe')-2048),
+            cv.normalize(abs(self.template_px),
                          None, 0, 255, norm_type=cv.NORM_MINMAX,
                          dtype=cv.CV_8U)
 
-        self.target8bit = cv.normalize(target_px,
+        self.target8bit = cv.normalize(abs(target_px),
                                        None, 0, 255, norm_type=cv.NORM_MINMAX,
                                        dtype=cv.CV_8U)
 
         # initialise transofrmation fitting parameters.
-        # TODO optomise parameters for time saving
         number_of_iterations = 500
         termination_eps = 1e-10
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
@@ -255,7 +261,6 @@ class ImageStack():
 
         TODO
         ----
-        Add overlay to show transformed sphere centres and bolt holes.
 
         """
         plt.subplot(2, 2, 1)
@@ -317,8 +322,8 @@ class ImageStack():
 class T1ImageStack(ImageStack):
     """Calculates T1 relaxometry."""
 
-    def __init__(self, image_slices, template_px=None, plate_number=None):
-        super().__init__(image_slices, template_px, plate_number=plate_number)
+    def __init__(self, image_slices, template_dcm=None, plate_number=None):
+        super().__init__(image_slices, template_dcm, plate_number=plate_number)
 
         self.order_by('InversionTime')
 
@@ -326,8 +331,8 @@ class T1ImageStack(ImageStack):
 class T2ImageStack(ImageStack):
     """Calculates T2 relaxometry."""
 
-    def __init__(self, image_slices, template_px=None, plate_number=None):
-        super().__init__(image_slices, template_px, plate_number=plate_number)
+    def __init__(self, image_slices, template_dcm=None, plate_number=None):
+        super().__init__(image_slices, template_dcm, plate_number=plate_number)
 
         self.order_by('EchoTime')
 
@@ -360,10 +365,10 @@ plate5_template_path = \
                  'Plate5_T1_signed')
 template_path = plate5_template_path
 
-def main(dcm_target_list, template_px, show_plot=True):
+def main(dcm_target_list, template_dcm, show_plot=True):
 
     # debug-show only do T1
-    t1_image_stack = T1ImageStack(dcm_target_list, template_px, plate_number=5)
+    t1_image_stack = T1ImageStack(dcm_target_list, template_dcm, plate_number=5)
     t1_image_stack.template_fit()
     t1_image_stack.generate_sample_masks(plate5_sphere_centres_yx)
 
@@ -381,7 +386,7 @@ if __name__ == '__main__':
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
 
-    template_px = pydicom.read_file(template_path).pixel_array
+    template_dcm = pydicom.read_file(template_path)
 
     # get list of pydicom objects
     target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -397,4 +402,4 @@ if __name__ == '__main__':
             logging.info(' Skipped non-DICOM file %r',
                          os.path.join(target_folder, filename))
 
-    t1_image_stack = main(dcm_target_list, template_px)
+    t1_image_stack = main(dcm_target_list, template_dcm)

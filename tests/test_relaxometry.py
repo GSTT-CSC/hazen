@@ -28,7 +28,6 @@ class TestRelaxometry(unittest.TestCase):
                            [11 + np.sqrt(3)/2, 19.5 + np.sqrt(3)]]
     
     # T1_FILES are in random order to test sorting    
-    
     T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1 20200218',
                           'plate 5')
     T1_FILES = ['20530320', '20530224', '20530416', '20530272', '20530464',
@@ -76,6 +75,10 @@ class TestRelaxometry(unittest.TestCase):
         MASK_POI_TARGET[i,TEMPLATE_TARGET_COORDS_XY[i][1], 
                       TEMPLATE_TARGET_COORDS_XY[i][0]] = 1
 
+    ROI0_TEMPLATE_PIXELS = [-620, -708, -678, -630, -710, -672, -726, -684,
+                            -714, -654, -692, -702, -644, -738, -668, -652,
+                            -744, -702, -702, -658, -664, -672, -658, -668,
+                            -738]
 
     
     def test_transform_coords(self):
@@ -136,11 +139,11 @@ class TestRelaxometry(unittest.TestCase):
         # 'Rotation / translation coordinate transformation XY -> XY failed'
 
     def test_template_fit(self):
-        template_px = pydicom.read_file(self.TEMPLATE_PATH).pixel_array
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH)
         t1_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
-                                                        template_px,
+                                                        template_dcm,
                                                         plate_number=5)
         t1_image_stack.template_fit()
 
@@ -187,11 +190,11 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_generate_sample_masks_target(self):
         # Test on target and check image fitting too.
-        template_px = pydicom.read_file(self.TEMPLATE_PATH).pixel_array
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH)
         target_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
-                                                            template_px)
+                                                            template_dcm)
         target_image_stack.template_fit()
         # transformed_coordinates_yx = hazen_relaxometry.transform_coords(
         #     self.TEMPLATE_TEST_COORDS_YX, target_image_stack.warp_matrix,
@@ -202,6 +205,19 @@ class TestRelaxometry(unittest.TestCase):
             target_image_stack.sample_POIs,
             self.MASK_POI_TARGET) is None
 
+    def test_extract_single_roi(self):
+        # Test that ROI pixel value extraction works. Use template DICOM for
+        # both template and image to avoid errors due to slight variation in
+        # fitting.
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        target_dcm = pydicom.dcmread(self.TEMPLATE_PATH)
+        
+        target_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
+                                                            template_dcm)
+        # set warp_matrix to identity matrix
+        target_image_stack.warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
+        # TODO:
+        #assert target_image_stack.ROI_pixels.values == None
 
         
 if __name__ == '__main__':
