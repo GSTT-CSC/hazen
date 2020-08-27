@@ -107,28 +107,57 @@ def get_rods(dcm):
         sys.exit("Did not find the 9 rods")
 
     rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
-    #rods2 =
+
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
 
-    rod_test = rods[5]
 
-    rod_test.x = rod_test.x +2
+    # Lanserhof data horizontal direction:
+    # rod 0: off by 1
+    # rod 1: ok
+    # rod 2: ok/move by 1
+    # rod 3: move by -3
+    # rod 4: move by -2
+    # rod 5: good
+    # rod 6: move by 1
+    # rod 7: good
+    # rod 8: off by 2
+    #
+    # to begin with, change x and y seperately
 
-    x0, x1 = rod_test.x - 5, rod_test.x + 5
-    num_test = 10
-    s = np.ones(num_test)
-    xt,yt = np.linspace(x0, x1, num_test), s*rod_test.y
-    zt = ndimage.map_coordinates(img_tmp, np.vstack((xt,yt)))
-    min_index = np.min(zt)
-    #shift = min_index - (num_test/2)
-    #rods[4] = Rod(x = rods[4].x - shift, y = rods[4].y)
-    # idea: go to centre point of each rod and plot a cross out from that? OR look at signal intensity in label
-    # look at how arr intensity values change around that point
-    #line_width_x = rods
+    for i in range(0,8):
+        rod_test = rods[i]
+
+        num_test = 10
+        x0, x1 = rod_test.x - num_test/2, rod_test.x + num_test/2
+        y0, y1 = rod_test.y - num_test/2, rod_test.y +num_test/2
+        s = np.ones(num_test)
+        xt,yt = np.linspace(x0, x1, num_test), s*rod_test.y
+        xt_y, yt_y = s*rod_test.x, np.linspace(y0, y1, num_test)
+        zt = ndimage.map_coordinates(img_tmp, np.vstack((xt,yt)))   #creates a line profile through rod in horiz direction
+        zt_y = ndimage.map_coordinates(img_tmp, np.vstack((xt_y, yt_y))) #creates a line profile through rod in vert direction
+
+        # automatically moves rod centres based on the min point of the profile?
+        # this is currently done sep. for x and y as i can't work out how to put them in a list together
+        min_index = np.where(zt == np.min(zt))
+        min_index_y = np.where(zt_y == np.min(zt_y))
+
+
+        min_index = np.mean(min_index)
+        min_index = round(min_index)
+
+
+        min_index_y = np.mean(min_index_y)
+        min_index_y = round(min_index_y)
+
+        shift = num_test/2 - min_index
+        shift_y = num_test/2 - min_index_y
+        rods[i].y = rods[i].y - shift_y
+        rods[i].x = rods[i].x - shift
+
 
     # CO: can output more than 1 thing by just listing with comma betewen
-    return rods, labeled_array, zt
+    return rods, labeled_array, zt, zt_y
 
 
 def plot_rods(ax, arr, rods): # pragma: no cover

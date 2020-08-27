@@ -118,14 +118,14 @@ class TestSliceWidth(unittest.TestCase):
             hazen_slice_width.Rod(128.061, 68.217),
             hazen_slice_width.Rod(189.349, 68.931)]
         
-        [rods, labels, profile] = hazen_slice_width.get_rods(dcm)
+        [rods, labels, profile, profile_vertical] = hazen_slice_width.get_rods(dcm)
 
         # additional lines added by CO:
         import matplotlib.pyplot as plt
         plt.imshow(labels, cmap='gray')
         plt.show()
 
-        plt.plot(profile)
+        plt.plot(profile_vertical)
         plt.show()
 
         # other option: hazen_slice_width.plot_rods which should return axes then do ax.show
@@ -137,7 +137,7 @@ class TestSliceWidth(unittest.TestCase):
 
         # plt.savefig('distortion_rods.png')
 
-        min_index = np.where(profile == profile.min())
+        min_index = np.where(profile_vertical == profile_vertical.min())
         # end of CO edits
 
         # print("rods")
@@ -149,7 +149,7 @@ class TestSliceWidth(unittest.TestCase):
         import numpy.testing as npt
         npt.assert_almost_equal(xy_values_rods, xy_values_manual_rods)
         
-    def test_std(self):
+    def test_std_horizontal(self):
         file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH_TRA_0005_LH_2019' / 'GSTT_ACCEPTANCETESTING.MR.GSTT_ACCEPTANCE_TESTING_2019.0005.0001.2019.06.19.10.45.04.914220.5688409.IMA')
         dcm = pydicom.read_file(file)
 
@@ -173,15 +173,45 @@ class TestSliceWidth(unittest.TestCase):
         vert_distortion_true = 100 * np.std(vert_dist_mm_manual, ddof=1) / np.mean(vert_dist_mm_manual)
 
         # 2 calc based on rods
-        [rods, labels, profile] = hazen_slice_width.get_rods(dcm)
+        [rods, labels, profile, profile_vertical] = hazen_slice_width.get_rods(dcm)
         [horz_distortion, vert_distortion] = hazen_slice_width.get_rod_distortions(rods, dcm)
         # compare
         import numpy.testing as npt
-        npt.assert_almost_equal(horz_distortion_true, horz_distortion)
+        npt.assert_almost_equal(horz_distortion, horz_distortion_true)
         # how we calc std is in line 203 of slice width code
         # dof = 1
 
+    def test_std_vertical(self):
+        file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH_TRA_0005_LH_2019' / 'GSTT_ACCEPTANCETESTING.MR.GSTT_ACCEPTANCE_TESTING_2019.0005.0001.2019.06.19.10.45.04.914220.5688409.IMA')
+        dcm = pydicom.read_file(file)
 
+        manual_rods = [
+            hazen_slice_width.Rod(68.578, 188.357),
+            hazen_slice_width.Rod(127.597, 189.006),
+            hazen_slice_width.Rod(188.944, 188.657),
+            hazen_slice_width.Rod(67.386, 128.673),
+            hazen_slice_width.Rod(127.005, 128.975),
+            hazen_slice_width.Rod(188.355, 128.943),
+            hazen_slice_width.Rod(68.178, 70.327),
+            hazen_slice_width.Rod(128.061, 68.217),
+            hazen_slice_width.Rod(189.349, 68.931)]
+
+        # calculate the horizontal and vertical distances of manual rods
+        pixel_spacing = dcm.PixelSpacing[0]
+        [horz_dist, vert_dist] = hazen_slice_width.get_rod_distances(manual_rods)
+        horz_dist_mm_manual = np.multiply(pixel_spacing, horz_dist)
+        vert_dist_mm_manual = np.multiply(pixel_spacing, vert_dist)
+        horz_distortion_true = 100 * np.std(horz_dist_mm_manual, ddof=1) / np.mean(horz_dist_mm_manual)  # ddof to match MATLAB std
+        vert_distortion_true = 100 * np.std(vert_dist_mm_manual, ddof=1) / np.mean(vert_dist_mm_manual)
+
+        # 2 calc based on rods
+        [rods, labels, profile, profile_vertical] = hazen_slice_width.get_rods(dcm)
+        [horz_distortion, vert_distortion] = hazen_slice_width.get_rod_distortions(rods, dcm)
+        # compare
+        import numpy.testing as npt
+        npt.assert_almost_equal(vert_distortion, vert_distortion_true)
+        # how we calc std is in line 203 of slice width code
+        # dof = 1
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
