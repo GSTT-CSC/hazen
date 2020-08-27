@@ -14,12 +14,12 @@ class TestSnr(unittest.TestCase):
     ORIENTATION = 'Transverse'
     OBJECT_CENTRE = (131, 122) # note these coordinates are (x, y) ie. (COLUMN, ROW)
     SNR_NORM_FACTOR = 9.761711312090041 
-    IMAGE_SMOOTH_SNR = 1874.81 # this value from MATLAB for tra_250_2meas_1.IMA, single image smoothed, normalised
+    IMAGE_SMOOTHED_SNR = 1874.81 # this value from MATLAB for tra_250_2meas_1.IMA, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 2130.93 # this value from MATLAB for tra_250_2meas_1.IMA and tra_250_2meas_2.IMA, subtract method, normalised
 
     #setting up and lower bands of 10% error while SNR code being cleaned up
-    UPPER_SMOOTHED_SNR = IMAGE_SMOOTH_SNR*1.1
-    LOWER_SMOOTHED_SNR = IMAGE_SMOOTH_SNR*0.9
+    UPPER_SMOOTHED_SNR = IMAGE_SMOOTHED_SNR*1.1
+    LOWER_SMOOTHED_SNR = IMAGE_SMOOTHED_SNR*0.9
 
     UPPER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR*1.1
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR*0.9
@@ -33,9 +33,8 @@ class TestSnr(unittest.TestCase):
 
     def test_image_snr(self):
         val = hazenlib.snr.main(data=[self.test_file, self.test_file_2])
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val["seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1_normalised_snr_smoothing"] <= self.UPPER_SMOOTHED_SNR)
-        print(val["seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_normalised_snr_subtraction"])
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val["seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_normalised_snr_subtraction"] <= self.UPPER_SUBTRACT_SNR)
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val["snr_smoothing_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1"] <= self.UPPER_SMOOTHED_SNR)
+        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val["snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1"] <= self.UPPER_SUBTRACT_SNR)
 
     def test_SNR_factor(self):
         SNR_factor=hazenlib.snr.get_normalised_snr_factor(self.test_file)
