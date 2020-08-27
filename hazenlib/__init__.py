@@ -136,9 +136,9 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
-            return manufacturer
-    else:
-        raise Exception(f'{manufacturer} not recognised manufacturer')
+            return item
+
+    raise Exception(f'{manufacturer} not recognised manufacturer')
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
@@ -152,24 +152,17 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
-    .. todo::
-        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
-        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
-        Deal with magic number in Philips calc
+    Returns PixelBandwidth
 
     Parameters
     ----------
-    dcm
+    dcm: pydicom.Dataset
 
     Returns
     -------
-
+    bandwidth: float
     """
-    if get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
-    else:
-        bandwidth = dcm.PixelBandwidth
-
+    bandwidth = dcm.PixelBandwidth
     return bandwidth
 
 
@@ -207,7 +200,6 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
@@ -242,9 +234,10 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif 'toshiba' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise Exception('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
+
 
 def main():
     arguments = docopt(__doc__, version=__version__)
@@ -265,4 +258,3 @@ def main():
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
 
     return pp.pprint(task.main(dicom_objects, report))
-

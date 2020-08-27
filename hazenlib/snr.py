@@ -40,8 +40,7 @@ def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
     for field in fields_to_match:
         if dcm1.get(field) != dcm2.get(field):
             return False
-    else:
-        return True
+    return True
 
 
 def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
@@ -207,7 +206,8 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
     noise_img = smoothed_subtracted_image(dcm=dcm)
 
     signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm, cx=x, cy=y)]
-    noise = np.divide([np.std(roi, ddof=1) for roi in get_roi_samples(ax=None, dcm=noise_img, cx=x, cy=y)], np.sqrt(2))
+    # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach
+    noise = [np.std(roi, ddof=1) for roi in get_roi_samples(ax=None, dcm=noise_img, cx=x, cy=y)]
     snr = np.mean(np.divide(signal, noise))
 
     normalised_snr = snr * get_normalised_snr_factor(dcm, measured_slice_width)
