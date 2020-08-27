@@ -294,8 +294,8 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         if report_path:
             report_path = key
         snr, normalised_snr = snr_by_subtraction(data[0], data[1], measured_slice_width, report_path)
-        results[f"snr_subtraction_measured_{key}"] = snr
-        results[f"snr_subtraction_normalised_{key}"] = normalised_snr
+        results[f"snr_subtraction_measured_{key}"] = round(snr, 2)
+        results[f"snr_subtraction_normalised_{key}"] = round(normalised_snr, 2)
 
     for idx, dcm in enumerate(data):
         try:
@@ -308,8 +308,8 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
             report_path = key
 
         snr, normalised_snr = snr_by_smoothing(dcm, measured_slice_width, report_path)
-        results[f"snr_smoothing_measured_{key}"] = snr
-        results[f"snr_smoothing_normalised_{key}"] = normalised_snr
+        results[f"snr_smoothing_measured_{key}"] = round(snr, 2)
+        results[f"snr_smoothing_normalised_{key}"] = round(normalised_snr, 2)
 
     return results
 
