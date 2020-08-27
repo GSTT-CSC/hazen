@@ -40,8 +40,7 @@ def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
     for field in fields_to_match:
         if dcm1.get(field) != dcm2.get(field):
             return False
-    else:
-        return True
+    return True
 
 
 def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -> float:
@@ -203,7 +202,6 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
     snr = np.mean(np.divide(signal, noise))
 
     normalised_snr = snr * get_normalised_snr_factor(dcm, measured_slice_width)
-    bandwidth = hazenlib.get_bandwidth(dcm)
 
     if report_path:
         import matplotlib.pyplot as plt
