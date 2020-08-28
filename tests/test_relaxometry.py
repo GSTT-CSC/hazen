@@ -67,6 +67,7 @@ class TestRelaxometry(unittest.TestCase):
     
     # Mask generation
     MASK_POI_TEMPLATE = np.zeros((14,192,192))
+    
     for i in range(14):
         MASK_POI_TEMPLATE[i,TEMPLATE_TEST_COORDS_YX[i][0], 
                       TEMPLATE_TEST_COORDS_YX[i][1]] = 1
@@ -75,12 +76,15 @@ class TestRelaxometry(unittest.TestCase):
         MASK_POI_TARGET[i,TEMPLATE_TARGET_COORDS_XY[i][1], 
                       TEMPLATE_TARGET_COORDS_XY[i][0]] = 1
 
-    ROI0_TEMPLATE_PIXELS = [-620, -708, -678, -630, -710, -672, -726, -684,
+    ROI0_TEMPLATE_PIXELS = [-620, -706, -678, -630, -710, -672, -726, -684,
                             -714, -654, -692, -702, -644, -738, -668, -652,
                             -744, -702, -702, -658, -664, -672, -658, -668,
                             -738]
 
+    # Only check first three ROIs
+    ROI_TEMPLATE_MEANS_T0 = [-683.840, -819.28, -1019.84]
     
+
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
         warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
@@ -214,15 +218,34 @@ class TestRelaxometry(unittest.TestCase):
         # both template and image to avoid errors due to slight variation in
         # fitting.
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
-        target_dcm = pydicom.dcmread(self.TEMPLATE_PATH)
-        
-        target_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
+
+        template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm],
                                                             template_dcm)
         # set warp_matrix to identity matrix
-        target_image_stack.warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
-        # TODO:
-        # assert target_image_stack.ROI_pixels[0].values == \
-        #     self.ROI0_TEMPLATE_PIXELS
+        # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
+        template_image_stack.generate_time_series(
+            self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
+
+        assert np.testing.assert_equal(
+            template_image_stack.ROI_time_series[0].pixel_values[0],
+            self.ROI0_TEMPLATE_PIXELS) is None
+        
+    def test_template_roi_means(self):
+        # Check mean of first 3 ROIs in template match with ImageJ calculations
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+
+        template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm],
+                                                            template_dcm)
+        # set warp_matrix to identity matrix
+        # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
+        template_image_stack.generate_time_series(
+            self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
+        
+        for i in self.ROI_TEMPLATE_MEANS_T0:
+            assert np.testing.assert_allclose(
+                template_image_stack.ROI_time_series[0].pixel_values[0],
+                self.ROI0_TEMPLATE_PIXELS) is None
+        
 
         
 if __name__ == '__main__':

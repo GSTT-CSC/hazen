@@ -130,24 +130,46 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
 
     return out_coords
 
+
+def pixel_LUT(dcmfile):
+    """Transforms pixel values according to LUT in DICOM header."""
+    return pydicom.pixel_data_handlers.util.apply_modality_lut(
+            dcmfile.pixel_array, dcmfile)
+
+
 class ROITimeSeries():
     """"Pixel values for one image location at numerous sample times."""
 
     SAMPLE_ELEMENT = skimage.morphology.square(5)
 
-    def __init__(self, dcm_images, poi_coords_yx, kernel=None):
+    def __init__(self, dcm_images, poi_coords_yx,
+                 time_attr=None, kernel=None):
         
         if kernel is None:
             kernel = self.SAMPLE_ELEMENT
-        self.POI_mask = np.zeros(
-            (dcm_images[0].pixel_array.shape[0],
-             dcm_images[0].pixel_array.shape[1]))
+        self.POI_mask = np.zeros((dcm_images[0].pixel_array.shape[0],
+                                  dcm_images[0].pixel_array.shape[1]),
+                                 dtype=np.int8)
         self.POI_mask[poi_coords_yx[0], poi_coords_yx[1]] = 1
 
         self.ROI_mask = np.zeros_like(self.POI_mask)
-        self.ROI_mask = scipy.ndimage.filters.convolve(
-            self.POI_mask, kernel)
-
+        self.ROI_mask = scipy.ndimage.filters.convolve(self.POI_mask, kernel)
+        self._time_attr = time_attr
+        
+        if time_attr is not None:
+            self.times = [x[time_attr].value.real for x in dcm_images]
+        self.pixel_values = [
+            pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
+            
+    
+    def __len__(self):
+        """Number of time samples in series."""
+        return len(self.pixel_values)
+    
+    @property
+    def means(self):
+        """List of mean ROI values at different times."""
+        return [np.mean(self.pixel_values[i]) for i in range(len(self))]
 
 
 class ImageStack():
@@ -184,11 +206,13 @@ class ImageStack():
         # applied
         self.template_dcm = template_dcm
         if template_dcm is not None:
-            self.template_px = \
-                pydicom.pixel_data_handlers.util.apply_modality_lut(
-                    template_dcm.pixel_array, template_dcm)
-
+            self.template_px = pixel_LUT(template_dcm)
+            
+        self.dicom_order_key = dicom_order_key
         self.images = image_slices  # store images
+        if dicom_order_key is not None:
+            self.order_by(dicom_order_key)
+
 
     def template_fit(self, image_index=0):
         """
@@ -230,7 +254,7 @@ class ImageStack():
         image.
 
         """
-        target_px = self.images[0].pixel_array
+        target_px = pixel_LUT(self.images[0])
 
         # Always fit on magnitude images for simplicity. May be suboptimal
         # TODO check for better solution
@@ -247,7 +271,7 @@ class ImageStack():
         number_of_iterations = 500
         termination_eps = 1e-10
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
-                    number_of_iterations,  termination_eps)
+                    number_of_iterations, termination_eps)
         self.warp_matrix = np.eye(2, 3, dtype=np.float32)
 
         # Apply transformation
@@ -325,25 +349,25 @@ class ImageStack():
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(ROITimeSeries(
-                self.images, coords_yx[i], kernel=kernel))
+                self.images, coords_yx[i], time_attr=self.dicom_order_key,
+                kernel=kernel))
 
 
 class T1ImageStack(ImageStack):
     """Calculates T1 relaxometry."""
 
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
-        super().__init__(image_slices, template_dcm, plate_number=plate_number)
-
-        self.order_by('InversionTime')
+        super().__init__(image_slices, template_dcm, plate_number=plate_number,
+                         dicom_order_key='InversionTime')
 
 
 class T2ImageStack(ImageStack):
     """Calculates T2 relaxometry."""
 
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
-        super().__init__(image_slices, template_dcm, plate_number=plate_number)
+        super().__init__(image_slices, template_dcm, plate_number=plate_number,
+                         dicom_order_key='EchoTime')
 
-        self.order_by('EchoTime')
 
 # Coordinates of centre of spheres in plate 5.
 # Coordinates are in array format (y,x), rather than plt.patches format (x,y)
@@ -413,3 +437,6 @@ if __name__ == '__main__':
                          os.path.join(target_folder, filename))
 
     t1_image_stack = main(dcm_target_list, template_dcm)
+    #t1_image_stack = main([template_dcm], template_dcm)
+    
+    rois = t1_image_stack.ROI_time_series
