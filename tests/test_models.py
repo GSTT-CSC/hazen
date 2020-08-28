@@ -1,9 +1,12 @@
 from datetime import datetime, timedelta
 import unittest
+import time
 
 from app import create_app, db
 from config import Config
 from app.models import User, Acquisition
+from flask import current_app
+
 
 
 class TestConfig(Config):
@@ -11,7 +14,7 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'postgres://test_user:test_user_passowrd@localhost:5432/hazen_test'
 
 
-class UserModelCase(unittest.TestCase):
+class TestUserModel(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app(TestConfig)
@@ -37,14 +40,22 @@ class UserModelCase(unittest.TestCase):
                                          '?d=identicon&s=128'))
 
     def test_get_password_reset_token(self):
-        u = User(username='jess')
-        u.get_reset_password_token()
-
+        u = User (username='jess')
+        current_app.config.SECRET_KEY = 'cat'
+        token = u.get_reset_password_token()
+        self.assertTrue(isinstance(token, str))
 
     def test_verify_password_reset_token(self):
-        pass
+        u = User (username='jess')
+        current_app.config.SECRET_KEY = 'cat'
+        db.session.add(u)
+        db.session.commit()
+        token = u.get_reset_password_token()
+        self.assertTrue(isinstance(token, str))
+        self.assertTrue(User.verify_reset_password_token(token)==1)
 
-class AcquistionModelCase (unittest.TestCase):
+
+class TestAcquistionModel (unittest.TestCase):
 
     def setUp(self):
         self.app = create_app(TestConfig)
@@ -60,7 +71,7 @@ class AcquistionModelCase (unittest.TestCase):
     def test_acquisition(self):
         pass
 
-class FactModelCase(unittest.TestCase):
+class TestFactModel(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app(TestConfig)
@@ -76,7 +87,7 @@ class FactModelCase(unittest.TestCase):
     def test_fact(self):
         pass
 
-class ProcessTaskModelCase(unittest.TestCase):
+class TestProcessTaskModelCase(unittest.TestCase):
 
     def setUp(self):
         self.app = create_app(TestConfig)
