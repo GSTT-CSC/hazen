@@ -130,6 +130,25 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
 
     return out_coords
 
+class ROITimeSeries():
+    """"Pixel values for one image location at numerous sample times."""
+
+    SAMPLE_ELEMENT = skimage.morphology.square(5)
+
+    def __init__(self, dcm_images, poi_coords_yx, kernel=None):
+        
+        if kernel is None:
+            kernel = self.SAMPLE_ELEMENT
+        self.POI_mask = np.zeros(
+            (dcm_images[0].pixel_array.shape[0],
+             dcm_images[0].pixel_array.shape[1]))
+        self.POI_mask[poi_coords_yx[0], poi_coords_yx[1]] = 1
+
+        self.ROI_mask = np.zeros_like(self.POI_mask)
+        self.ROI_mask = scipy.ndimage.filters.convolve(
+            self.POI_mask, kernel)
+
+
 
 class ImageStack():
     """Object to hold image_slices and methods for T1, T2 calculation."""
@@ -138,8 +157,6 @@ class ImageStack():
     T1_sphere_centres = []
     T1_bolt_centres = []
     
-    SAMPLE_ELEMENT = skimage.morphology.square(5)
-
     def __init__(self, image_slices, template_dcm, plate_number=None,
                  dicom_order_key=None):
         """
@@ -272,11 +289,10 @@ class ImageStack():
         plt.imshow(self.target8bit, cmap='gray')
         plt.title('Image')
         plt.axis('off')
-        if hasattr(self, 'sample_ROIs'):
-            #colormap = np.array((128, 0, 0, 1.0)) # Select RGBA colour
-            combined_ROI_map = np.sum(self.sample_ROIs, axis=0)
-            #RGB_overlay = combined_ROI_map[..., None] * colormap[None, None, :]
-            #plt.imshow(RGB_overlay)
+        if hasattr(self, 'ROI_time_series'):
+            combined_ROI_map = np.zeros_like(self.ROI_time_series[0].ROI_mask)
+            for roi in self.ROI_time_series:
+                combined_ROI_map += roi.ROI_mask
             lines = outline_mask(combined_ROI_map)
             for line in lines:
                 plt.plot(line[1], line[0], color='r', alpha=1)
@@ -297,26 +313,19 @@ class ImageStack():
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
         self.images.sort(key=lambda x: x[att].value.real)
         
-    def generate_sample_masks(self, coords_yx, fit_coords=True, 
+    def generate_time_series(self, coords_yx, fit_coords=True, 
                               kernel=None):
-        """Create 3D matrix of sample masks."""
-        if kernel is None:
-            kernel = self.SAMPLE_ELEMENT
-        # If transform_coords == True, rotate coordinates
+        """Create list of ROITimeSeries objects."""
+        
+        num_coords = np.size(coords_yx, axis=0)
         if fit_coords:
             coords_yx = transform_coords(coords_yx, self.warp_matrix,
                                               input_yx=True, output_yx=True)
-        # Generate 3D array of POIs, where 0th dimension is coordinate number
-        num_coords = np.size(coords_yx, axis=0)
-        self.sample_POIs = np.zeros(
-            (num_coords,
-             self.images[0].pixel_array.shape[0],
-             self.images[0].pixel_array.shape[1]))
-        self.sample_ROIs = np.zeros_like(self.sample_POIs)
+
+        self.ROI_time_series = []
         for i in range(num_coords):
-            self.sample_POIs[i, coords_yx[i][0], coords_yx[i][1]] = 1
-            self.sample_ROIs[i] = scipy.ndimage.filters.convolve(
-                self.sample_POIs[i], kernel)
+            self.ROI_time_series.append(ROITimeSeries(
+                self.images, coords_yx[i], kernel=kernel))
 
 
 class T1ImageStack(ImageStack):
@@ -368,9 +377,10 @@ template_path = plate5_template_path
 def main(dcm_target_list, template_dcm, show_plot=True):
 
     # debug-show only do T1
-    t1_image_stack = T1ImageStack(dcm_target_list, template_dcm, plate_number=5)
+    t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
+                                  plate_number=5)
     t1_image_stack.template_fit()
-    t1_image_stack.generate_sample_masks(plate5_sphere_centres_yx)
+    t1_image_stack.generate_time_series(plate5_sphere_centres_yx)
 
     if show_plot:
         t1_image_stack.plot_fit()

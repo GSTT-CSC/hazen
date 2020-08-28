@@ -176,19 +176,22 @@ class TestRelaxometry(unittest.TestCase):
 
         assert sorted_output == self.T2_TE_SORTED
         
-    def test_generate_sample_masks_template(self):
+        
+    def test_generate_time_series_template_POIs(self):
         # Test on template first, no image fitting needed
         # Need image to get correct size
         template_dcm = pydicom.dcmread(self.TEMPLATE_PATH)
         template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm])
-        template_image_stack.generate_sample_masks(
+        template_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_YX,
             fit_coords=False)
-        assert np.testing.assert_allclose(
-            template_image_stack.sample_POIs,
-            self.MASK_POI_TEMPLATE) is None
+        
+        for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
+            assert np.testing.assert_equal(
+                template_image_stack.ROI_time_series[i].POI_mask,
+                self.MASK_POI_TEMPLATE[i]) is None
 
-    def test_generate_sample_masks_target(self):
+    def test_generate_time_series_target_POIs(self):
         # Test on target and check image fitting too.
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
 
@@ -199,11 +202,12 @@ class TestRelaxometry(unittest.TestCase):
         # transformed_coordinates_yx = hazen_relaxometry.transform_coords(
         #     self.TEMPLATE_TEST_COORDS_YX, target_image_stack.warp_matrix,
         #     input_yx=True, output_yx=True)
-        target_image_stack.generate_sample_masks(
+        target_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_YX, fit_coords=True)
-        assert np.testing.assert_allclose(
-            target_image_stack.sample_POIs,
-            self.MASK_POI_TARGET) is None
+        for i in range(np.size(self.MASK_POI_TARGET, 0)):
+            assert np.testing.assert_equal(
+                target_image_stack.ROI_time_series[i].POI_mask,
+                self.MASK_POI_TARGET[i]) is None
 
     def test_extract_single_roi(self):
         # Test that ROI pixel value extraction works. Use template DICOM for
@@ -217,7 +221,8 @@ class TestRelaxometry(unittest.TestCase):
         # set warp_matrix to identity matrix
         target_image_stack.warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
         # TODO:
-        #assert target_image_stack.ROI_pixels.values == None
+        # assert target_image_stack.ROI_pixels[0].values == \
+        #     self.ROI0_TEMPLATE_PIXELS
 
         
 if __name__ == '__main__':
