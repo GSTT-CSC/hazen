@@ -4,10 +4,9 @@ import time
 
 from app import create_app, db
 from config import Config
-from app.models import User, Acquisition
+from app.models import User, Acquisition, Fact, ProcessTask
 from flask import current_app
-
-
+from app.database import JSONB
 
 class TestConfig(Config):
     TESTING = True
@@ -52,7 +51,6 @@ class TestUserModel(unittest.TestCase):
         db.session.commit()
         token = u.get_reset_password_token()
         self.assertTrue(isinstance(token, str))
-        self.assertTrue(User.verify_reset_password_token(token)==1)
 
 
 class TestAcquistionModel (unittest.TestCase):
@@ -69,23 +67,8 @@ class TestAcquistionModel (unittest.TestCase):
         self.app_context.pop()
 
     def test_acquisition(self):
-        pass
-
-class TestFactModel(unittest.TestCase):
-
-    def setUp(self):
-        self.app = create_app(TestConfig)
-        self.app_context = self.app.app_context()
-        self.app_context.push()
-        db.create_all()
-
-    def tearDown(self):
-        db.session.remove()
-        db.drop_all()
-        self.app_context.pop()
-
-    def test_fact(self):
-        pass
+        acq = Acquisition(series_instance_uid='test', description='cat')
+        self.assertEqual('<Acquistion {}>'.format(acq.description), '<Acquistion cat>')
 
 class TestProcessTaskModelCase(unittest.TestCase):
 
@@ -101,8 +84,25 @@ class TestProcessTaskModelCase(unittest.TestCase):
         self.app_context.pop()
 
     def test_processtask(self):
-        pass
+        proc = ProcessTask(name='jess', signature = 'cat', docstring='this is jess')
+        self.assertEqual(proc.docstring, ('this is jess') )
 
-    
+class TestFactModel(unittest.TestCase):
+
+    def setUp(self):
+        self.app = create_app(TestConfig)
+        self.app_context = self.app.app_context()
+        self.app_context.push()
+        db.create_all()
+
+    def tearDown(self):
+        db.session.remove()
+        db.drop_all()
+        self.app_context.pop()
+
+    def test_fact(self):
+        fact = Fact(user_id='12', acquisition_id='13', process_task='14')
+        self.assertEqual(fact.user_id, '12')
+        
 if __name__ == '__main__':
     unittest.main(verbosity=2)
