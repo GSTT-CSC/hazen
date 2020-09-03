@@ -84,6 +84,11 @@ class TestRelaxometry(unittest.TestCase):
     # Only check first three ROIs
     ROI_TEMPLATE_MEANS_T0 = [-683.840, -819.28, -1019.84]
     
+    # Values from IDL routine
+    T1_VALUES = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
+                 131.7, 93.3, 66.6, 45.1, 32.5, 22.4]
+
+    
 
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
@@ -246,6 +251,21 @@ class TestRelaxometry(unittest.TestCase):
                 template_image_stack.ROI_time_series[0].pixel_values[0],
                 self.ROI0_TEMPLATE_PIXELS) is None
         
+    def test_t1_calc(self):
+        """Test T1 value for plate 5 spheres."""
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        t1_dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname))
+                   for fname in self.T1_FILES]
+        t1_image_stack = hazen_relaxometry.T1ImageStack(t1_dcms, template_dcm)
+        t1_image_stack.template_fit()
+        t1_image_stack.generate_time_series(
+            self.TEMPLATE_TEST_COORDS_YX, fit_coords=True)
+        t1_image_stack.generate_fit_function()
+        t1_image_stack.initialise_fit_parameters()
+        t1_image_stack.find_t1s()
+    
+        assert np.testing.assert_allclose(t1_image_stack.t1s, self.T1_VALUES,
+                                          rtol=0.05, atol=3) is None
 
         
 if __name__ == '__main__':

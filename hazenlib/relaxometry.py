@@ -31,8 +31,6 @@ Overview
 TODO
 ====
 
-Sort images by TE or TI.
-
 
 
 FEATURE ENHANCEMENT
@@ -40,6 +38,9 @@ FEATURE ENHANCEMENT
 Template fit on bolt holes--possibly better with large rotation angles and faster
     -have bolthole template, find 3 positions in template and image, figure out
     transformation.
+    
+Use normalised structuring element in ROITimeSeries. This will allow correct
+calculation of mean if elements are not 0 or 1.
 
 """
 import pydicom
@@ -49,13 +50,71 @@ import matplotlib.pyplot as plt
 import os
 import skimage.morphology
 import scipy.ndimage
+import scipy.optimize
+from scipy.interpolate import UnivariateSpline
 
 # import hazenlib
 
+# Coordinates of centre of spheres in plate 5.
+# Coordinates are in array format (y,x), rather than plt.patches format (x,y)
+plate5_sphere_centres_yx = (
+    (56, 95),
+    (62, 117),
+    (81, 133),
+    (104, 134),
+    (124, 121),
+    (133, 98),
+    (127, 75),
+    (109, 61),
+    (84, 60),
+    (64, 72),
+    (80, 81),
+    (78, 111),
+    (109, 113),
+    (110, 82))
+
+plate5_bolt_centres_yx = (
+    (52, 80),
+    (92, 141),
+    (138, 85))
+
+plate5_template_path = \
+    os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                 'data', 'relaxometry',
+                 'Plate5_T1_signed')
+template_path = plate5_template_path
+
+plate5_t1_values = np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
+                             184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859])
 
 def outline_mask(im):
-    """Create contour lines to outline pixels."""
-    # Adapted from https://stackoverflow.com/questions/40892203/can-matplotlib-contours-match-pixel-edges
+    """
+    Create contour lines to outline pixels.
+    
+    Creates a series of ``line`` objects to outline contours on an image. Used
+    to add ROIs from a mask array. Adapted from [1]_
+
+    Parameters
+    ----------
+    im : array
+        Pixel array used to create outlines. Array values should be 0 or 1.
+
+    Returns
+    -------
+    lines : list
+        List of coordinates of outlines (see Example below).
+    
+    Example
+    -------
+    >>> lines = outline_mask(combined_ROI_map)
+    >>> for line in lines:
+            plt.plot(line[1], line[0], color='r', alpha=1)
+    
+    References
+    ----------
+    .. [1] stackoverflow.com/questions/40892203/can-matplotlib-contours-match-pixel-edges
+
+    """
     lines = []
     pad = np.pad(im, [(1, 1), (1, 1)])  # zero padding
 
@@ -132,18 +191,161 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
 
 
 def pixel_LUT(dcmfile):
-    """Transforms pixel values according to LUT in DICOM header."""
+    """
+    Transforms pixel values according to LUT in DICOM header.
+    
+    DICOM pixel values arrays cannot directly represent signed or float values.
+    This function converts the ``.pixel_array`` using the LUT values in the
+    DICOM header.
+
+    Parameters
+    ----------
+    dcmfile : Pydicom.dataset.FileDataset
+        DICOM file containing one image.
+
+    Returns
+    -------
+    numpy.array
+        Values in ``dcmfile.pixel_array`` transformed using DICOM LUT.
+
+    """
     return pydicom.pixel_data_handlers.util.apply_modality_lut(
             dcmfile.pixel_array, dcmfile)
 
 
+def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
+    """
+    Generates T1 signal function and jacobian with interpreted TRs.
+    
+    Signal intensity on T1 decay is a function of both TI and TR. Ideally, TR
+    should be constant and at least 5*T1. However, scan time can be reduced by
+    allowing a shorter TR which increases at long TIs. For example::
+        TI |   50 |  100 |  200 |  400 |  600 |  800 
+        ---+------+------+------+------+------+------
+        TR | 1000 | 1000 | 1000 | 1260 | 1860 | 2460
+    
+    This function factory returns a function which calculates the signal
+    magnitude using the expression::
+        S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+    where ``a0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
+    varies due to inhomogeneous B0 field, ``t1`` is the longitudinal
+    relaxation time, and the repetition time, ``TR``, is calculted from ``TI``
+    using piecewise linear interpolation.
+
+    Parameters
+    ----------
+    ti_interp_vals : array_like
+        Array of TI values used as a look-up table to calculate TR
+    tr_interp_vals : array_like
+        Array of TR values used as a lookup table to calculate TR from the TI
+        used in the sequence.
+    mag_image : bool, optional
+        If True, the generated function returns the magnitude of the signal
+        (i.e. negative outputs become positive). The default is False.
+
+    Returns
+    -------
+    t1_function : function
+        S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+    
+    t1_jacobian : function
+        Returns tuple of partial derivatives for curve fitting.
+    """
+    #  Create piecewise liner fit function. k=1 gives linear, s=0 ensures all
+    #  points are on line. Using UnivariateSpline (rather than numpy.interp()
+    #  enables derivative calculation if required.
+    tr = UnivariateSpline(ti_interp_vals, tr_interp_vals, k=1, s=0)
+    # tr_der = tr.derivative()
+    
+    def _t1_function_signed(ti, t1, a0, a1):
+        pv = a0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1)) 
+        return pv
+    
+    def t1_function(ti, t1, a0, a1):
+        pv = _t1_function_signed(ti, t1, a0, a1)
+        if mag_image:
+            return abs(pv)
+        else:
+            return pv
+    
+    def t1_jacobian(ti, t1, a0, a1):
+        t1_der = a0 / (t1**2) * (-ti * a1* np.exp(-ti/t1) + tr(ti)
+                                 * np.exp(-tr(ti)/t1))
+        a0_der = 1 - a1 * np.exp(-ti/t1) + np.exp(-tr(ti)/t1)
+        a1_der = -a0 * np.exp(-ti/t1)
+        jacobian = np.array([t1_der, a0_der, a1_der])
+        
+        if mag_image:
+            pv = _t1_function_signed(ti, t1, a0, a1)
+            jacobian = (jacobian * (pv>=0)) - (jacobian * (pv<0))
+        
+        return jacobian.T
+    
+    return t1_function, t1_jacobian
+
+def est_t1_a0(ti, tr, t1, pv):
+    return -pv / (1 - 2*np.exp(-ti/t1) + np.exp(-tr/t1))
+
+
 class ROITimeSeries():
-    """"Pixel values for one image location at numerous sample times."""
+    """
+    Samples at one image location (ROI) at numerous sample times.
+    
+    Estimating T1 and T2 relaxation parameters at any ROI requires a series
+    of pixel values and sequence times (e.g. TI, TE, TR). This class is a
+    wrapper for storing and accessing these parameters.
+    
+    Attributes
+    ----------
+    POI_mask : array
+        Array the same size as the image. All values are 0, except a single 1
+        at the point of interest (POI), the centre of the ROI.
+        
+    ROI_mask : array
+        Array the same size as the image. Values in the ROI are coded as 1s,
+        all other values are zero.
+        
+    pixel_values : list of arrays
+        List of 1-D arrays of pixel values in ROI. The variance could be used
+        as a measure of ROI homogeneity to identiy incorrect sphere location.
+        
+    times : list of floats
+        If ``time_attr`` was used in the constructor, this list contains the
+        value of ``time_attr``. Typically ``'EchoTime'`` or 
+        ``'InversionTime'``.
+        
+    trs : list of floats
+        Values of TR for each image.
+        
+    means :  list of floats
+        Mean pixel value of ROI for each image in series.
+    """
 
     SAMPLE_ELEMENT = skimage.morphology.square(5)
 
-    def __init__(self, dcm_images, poi_coords_yx,
-                 time_attr=None, kernel=None):
+    def __init__(self, dcm_images, poi_coords_yx, time_attr=None, kernel=None):
+        """
+        Create ROITimeSeries for ROI parameters at sequential scans.
+
+        Parameters
+        ----------
+        dcm_images : list
+            List of pydicom images of same object with different scan
+            parameters (e.g. TIs or TEs). Typically ``ImageStack.images``.
+        poi_coords_yx : array
+            Two element array with coordinates of point of interest (POI),
+            typically the centre of the ROI, in yx format.
+        time_attr : string, optional
+            If present, lookup the DICOM attribute ``[time_attr]`` (typically
+            ``'InversionTime'`` or ``'EchoTime'`` and store in the list
+            ``self.times``. The default is ``None``, which does not create
+            ``self.times``
+        kernel : array_like, optional
+            Structuring element which defines ROI size and shape, centred on
+            POI. Each element should be 1 or 0, otherwise calculation of mean
+            will be incorrect. If ``None``, use a 5x5 square. The default is
+            ``None``.
+        """
         
         if kernel is None:
             kernel = self.SAMPLE_ELEMENT
@@ -160,7 +362,10 @@ class ROITimeSeries():
             self.times = [x[time_attr].value.real for x in dcm_images]
         self.pixel_values = [
             pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
-            
+        
+        self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
+        
+           
     
     def __len__(self):
         """Number of time samples in series."""
@@ -168,7 +373,13 @@ class ROITimeSeries():
     
     @property
     def means(self):
-        """List of mean ROI values at different times."""
+        """
+        List of mean ROI values at different times.
+
+        Returns
+        -------
+        List of mean pixel value in ROI for each sample
+        """
         return [np.mean(self.pixel_values[i]) for i in range(len(self))]
 
 
@@ -196,11 +407,6 @@ class ImageStack():
         dicom_order_key : string, optional
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
-
-        Returns
-        -------
-        None.
-
         """
         # Store template pixel array, after LUT in 0028,1052 and 0028,1053
         # applied
@@ -295,14 +501,6 @@ class ImageStack():
             2. Original image
             3. Overlay of (1) and (2)
             4. Overlay of RT transformed template and (2)
-
-        Returns
-        -------
-        None.
-
-        TODO
-        ----
-
         """
         plt.subplot(2, 2, 1)
         plt.imshow(self.template8bit, cmap='gray')
@@ -337,14 +535,29 @@ class ImageStack():
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
         self.images.sort(key=lambda x: x[att].value.real)
         
-    def generate_time_series(self, coords_yx, fit_coords=True, 
-                              kernel=None):
-        """Create list of ROITimeSeries objects."""
-        
+    def generate_time_series(self, coords_yx, fit_coords=True, kernel=None):
+        """
+        Create list of ROITimeSeries objects.
+
+        Parameters
+        ----------
+        coords_yx : array_like
+            Array of coordinates points of interest (POIs) for each centre of
+            each ROI. They should be in [[col0, row0], [col1, row1], ...]
+            format.
+        fit_coords : bool, optional
+            If ``True``, the coordinates provided are for the template ROIs and
+            will be transformed to the image space using ``transfor_coords()``.
+            The default is True.
+        kernel : array, optional
+            Structuring element which should be an array of 1s and possibly 0s.
+            If ``None``, use the default from ``ROItimeSeries`` constructor.
+            The default is None.
+        """
         num_coords = np.size(coords_yx, axis=0)
         if fit_coords:
             coords_yx = transform_coords(coords_yx, self.warp_matrix,
-                                              input_yx=True, output_yx=True)
+                                         input_yx=True, output_yx=True)
 
         self.ROI_time_series = []
         for i in range(num_coords):
@@ -359,6 +572,71 @@ class T1ImageStack(ImageStack):
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
                          dicom_order_key='InversionTime')
+    
+    def generate_fit_function(self):
+        self.fit_function, self.fit_jacobian = \
+            generate_t1_function(self.ROI_time_series[0].times,
+                                 self.ROI_time_series[0].trs,
+                                 mag_image = True)
+    
+    def initialise_fit_parameters(self, t1_estimates=plate5_t1_values):
+        """
+        Estimate fit parameters (t1, a0, a1) for T1 curve fitting.
+        
+        T1 estimates are provided.
+        
+        A0 is estimated using abs(est_t1_roi(ti, tr, t1_est, mean_pv))
+            For each ROI, A0 is calculated using from both the smallest and
+            largest TI, and the value with the largest mean_pv used. This
+            guards against the case where division by a mean_pv close to zero
+            causes a large rounding error.
+            
+        A1 is estimated as 2.0, the theoretical value assuming homogeneous B0
+   
+        Parameters
+        ----------
+        t1_values : array_like, optional
+            T1 values to seed estimation. These should be the manufacturer
+            provided T1 values where known. The default is plate5_t1_values.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.t1_est = t1_estimates
+        rois = self.ROI_time_series
+        rois_first_mean = np.array([roi.means[0] for roi in rois])
+        rois_last_mean = np.array([roi.means[-1] for roi in rois])
+        a0_est_last = abs(est_t1_a0(rois[0].times[-1], rois[0].trs[-1],
+                                    t1_estimates, rois_last_mean))
+        a0_est_first = abs(est_t1_a0(rois[0].times[0], rois[0].trs[0],
+                                     t1_estimates, rois_first_mean))
+        self.a0_est = np.where(rois_first_mean > rois_last_mean,
+                               a0_est_first, a0_est_last)
+        self.a1_est = np.full_like(self.a0_est, 2.0)
+
+    def find_t1s(self):
+        """
+        Calculates T1 values and stores in ``self.t1s``.
+
+        Returns
+        -------
+        None.
+
+        """
+        rois = self.ROI_time_series
+        self.t1_fit = [scipy.optimize.curve_fit(self.fit_function, 
+                                                rois[i].times,
+                                                rois[i].means, 
+                                                p0=[self.t1_est[i],
+                                                    self.a0_est[i],
+                                                    self.a1_est[i]],
+                                       jac=self.fit_jacobian,
+                                       method='lm')
+                       for i in range(len(rois))]
+        self.t1s = [fit[0][0] for fit in self.t1_fit]
+
 
 
 class T2ImageStack(ImageStack):
@@ -369,47 +647,44 @@ class T2ImageStack(ImageStack):
                          dicom_order_key='EchoTime')
 
 
-# Coordinates of centre of spheres in plate 5.
-# Coordinates are in array format (y,x), rather than plt.patches format (x,y)
-plate5_sphere_centres_yx = (
-    (56, 95),
-    (62, 117),
-    (81, 133),
-    (104, 134),
-    (124, 121),
-    (133, 98),
-    (127, 75),
-    (109, 61),
-    (84, 60),
-    (64, 72),
-    (80, 81),
-    (78, 111),
-    (109, 113),
-    (110, 82))
 
-plate5_bolt_centres_yx = (
-    (52, 80),
-    (92, 141),
-    (138, 85))
 
-plate5_template_path = \
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                 'data', 'relaxometry',
-                 'Plate5_T1_signed')
-template_path = plate5_template_path
-
-def main(dcm_target_list, template_dcm, show_plot=True):
+def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True):
 
     # debug-show only do T1
     t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
                                   plate_number=5)
     t1_image_stack.template_fit()
     t1_image_stack.generate_time_series(plate5_sphere_centres_yx)
+    t1_image_stack.generate_fit_function()
 
     if show_plot:
         t1_image_stack.plot_fit()
+    
+    t1_image_stack.initialise_fit_parameters(t1_estimates=plate5_t1_values)
+    t1_image_stack.find_t1s()
+    
+    if show_relax_fits:
+        smooth_times = range(0,1000,10)
+        rois = t1_image_stack.ROI_time_series
+        fig = plt.figure()
+        #fig, ax = plt.subplots(constrained_layout=True)
+        fig.suptitle('T1 relaxometry fits')
+        for i in range(14):
+            plt.subplot(4,4,i+1)
+            plt.plot(smooth_times, 
+                     t1_image_stack.fit_function(
+                         np.array(smooth_times),
+                         *np.array(t1_image_stack.t1_fit[i][0])),
+                     'b-')
+            plt.plot(rois[i].times, rois[i].means, 'rx')
+            plt.title(f'[{i+1}] T1_calc={t1_image_stack.t1s[i]:.4g}, '
+                      f'T1_pub={plate5_t1_values[i]:.4g}',
+                      fontsize=8)
+        plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
 
-    return t1_image_stack  # for debbing only
+    
+    return t1_image_stack  # for debugging only
 
 
 
@@ -436,7 +711,7 @@ if __name__ == '__main__':
             logging.info(' Skipped non-DICOM file %r',
                          os.path.join(target_folder, filename))
 
-    t1_image_stack = main(dcm_target_list, template_dcm)
+    t1_image_stack = main(dcm_target_list, template_dcm, show_plot=False)
     #t1_image_stack = main([template_dcm], template_dcm)
     
     rois = t1_image_stack.ROI_time_series
