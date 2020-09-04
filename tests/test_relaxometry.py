@@ -87,8 +87,19 @@ class TestRelaxometry(unittest.TestCase):
     # Values from IDL routine
     T1_VALUES = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
                  131.7, 93.3, 66.6, 45.1, 32.5, 22.4]
-
     
+    # T2 Values from IDL routine
+    PLATE4_T2_IDL = np.array([818.0, 592.4, 432.4, 311.5, 219.7, 156.8, 113.0,
+                              85.6, 59.5, 43.9, 31.8, 21.3, 14.6, 7.8])
+
+    TEMPLATE_PATH_T2 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
+                                    'Template_plate4_T2')
+
+    TEMPLATE_P4_TEST_COORDS_YX = [[56, 95], [62, 117], [81, 133], [104, 134],
+                                  [124, 121], [133, 98], [127, 75], [109, 61],
+                                  [84, 60], [64, 72], [80, 81], [78, 111],
+                                  [109, 113], [110, 82]]
+   
 
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
@@ -97,34 +108,34 @@ class TestRelaxometry(unittest.TestCase):
                                                 warp_matrix,
                                                 input_yx=True,
                                                 output_yx=True)
-        assert np.testing.assert_allclose(op, self.TEST_COORDS) is None
+        np.testing.assert_allclose(op, self.TEST_COORDS)
         # 'Identity coordinate transformation YX -> YX failed'
 
         # no translation, no rotation, input = xy, output = yx
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_yx=False, output_yx=True)
         
-        assert np.testing.assert_allclose(op, self.COORDS_XY_YX) is None
+        np.testing.assert_allclose(op, self.COORDS_XY_YX)
 
         # no translation, no rotation, input = xy, output = xy
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_yx=False,
                                                 output_yx=False)
-        assert np.testing.assert_allclose(op, self.TEST_COORDS) is None
+        np.testing.assert_allclose(op, self.TEST_COORDS)
         # 'Identity coordinate transformation XY -> XY failed'
 
         # translation x=1, y=3, no rotation, input = yx, output = yx
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_yx=True, output_yx=True)
-        assert np.testing.assert_allclose(op, self.COORDS_TRANS) is None
+        np.testing.assert_allclose(op, self.COORDS_TRANS)
         # 'Translation coordinate transformation YX -> YX failed'
 
         # translation x=1, y=3, no rotation, input = xy, output = yx
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_yx=False, output_yx=True)
-        assert np.testing.assert_allclose(op, self.COORDS_TRANS_XY_YX) is None
+        np.testing.assert_allclose(op, self.COORDS_TRANS_XY_YX)
         # 'Translation coordinate transformation XY -> YX failed'
 
         # translation x=1, y=3, no rotation, input = xy, output = xy
@@ -132,7 +143,7 @@ class TestRelaxometry(unittest.TestCase):
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_yx=False,
                                                 output_yx=False)
-        assert np.testing.assert_allclose(op, self.COORDS_TRANS_XY) is None
+        np.testing.assert_allclose(op, self.COORDS_TRANS_XY)
         # 'Translation coordinate transformation XY -> XY failed'
 
         # rotation (-30) degrees, translation x=10, y=20, input = xy,
@@ -144,7 +155,7 @@ class TestRelaxometry(unittest.TestCase):
                                                          dtype=np.float64),
                                                 warp_matrix, input_yx=False,
                                                 output_yx=False)
-        assert np.testing.assert_allclose(op, self.COORDS_TRANS_ROTATE) is None
+        np.testing.assert_allclose(op, self.COORDS_TRANS_ROTATE)
         # 'Rotation / translation coordinate transformation XY -> XY failed'
 
     def test_template_fit(self):
@@ -161,9 +172,9 @@ class TestRelaxometry(unittest.TestCase):
             input_yx=True, output_yx=False)
 
         # test to within +/- 1 pixel (also checks YX-XY change)
-        assert np.testing.assert_allclose(
+        np.testing.assert_allclose(
             transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_XY,
-            atol=1) is None
+            atol=1)
 
     def test_image_stack_T1_sort(self):
         # read list of un-ordered T1 files, sort by TI, test sorted
@@ -196,9 +207,9 @@ class TestRelaxometry(unittest.TestCase):
             fit_coords=False)
         
         for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
-            assert np.testing.assert_equal(
+            np.testing.assert_equal(
                 template_image_stack.ROI_time_series[i].POI_mask,
-                self.MASK_POI_TEMPLATE[i]) is None
+                self.MASK_POI_TEMPLATE[i])
 
     def test_generate_time_series_target_POIs(self):
         # Test on target and check image fitting too.
@@ -214,9 +225,9 @@ class TestRelaxometry(unittest.TestCase):
         target_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_YX, fit_coords=True)
         for i in range(np.size(self.MASK_POI_TARGET, 0)):
-            assert np.testing.assert_equal(
+            np.testing.assert_equal(
                 target_image_stack.ROI_time_series[i].POI_mask,
-                self.MASK_POI_TARGET[i]) is None
+                self.MASK_POI_TARGET[i])
 
     def test_extract_single_roi(self):
         # Test that ROI pixel value extraction works. Use template DICOM for
@@ -231,9 +242,9 @@ class TestRelaxometry(unittest.TestCase):
         template_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
 
-        assert np.testing.assert_equal(
+        np.testing.assert_equal(
             template_image_stack.ROI_time_series[0].pixel_values[0],
-            self.ROI0_TEMPLATE_PIXELS) is None
+            self.ROI0_TEMPLATE_PIXELS)
         
     def test_template_roi_means(self):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
@@ -247,9 +258,9 @@ class TestRelaxometry(unittest.TestCase):
             self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
         
         for i in self.ROI_TEMPLATE_MEANS_T0:
-            assert np.testing.assert_allclose(
+            np.testing.assert_allclose(
                 template_image_stack.ROI_time_series[0].pixel_values[0],
-                self.ROI0_TEMPLATE_PIXELS) is None
+                self.ROI0_TEMPLATE_PIXELS)
         
     def test_t1_calc(self):
         """Test T1 value for plate 5 spheres."""
@@ -264,9 +275,24 @@ class TestRelaxometry(unittest.TestCase):
         t1_image_stack.initialise_fit_parameters()
         t1_image_stack.find_t1s()
     
-        assert np.testing.assert_allclose(t1_image_stack.t1s, self.T1_VALUES,
-                                          rtol=0.05, atol=3) is None
+        np.testing.assert_allclose(t1_image_stack.t1s, self.T1_VALUES,
+                                          rtol=0.05, atol=3)
 
+    def test_t2_calc(self):
+        """Test T2 value for plate 4 spheres."""
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T2)
+        t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname))
+                   for fname in self.T2_FILES]
+        t2_image_stack = hazen_relaxometry.T2ImageStack(t2_dcms, template_dcm)
+        t2_image_stack.template_fit()
+        t2_image_stack.generate_time_series(
+            self.TEMPLATE_P4_TEST_COORDS_YX, fit_coords=True)
+        t2_image_stack.initialise_fit_parameters()
+        t2_image_stack.find_t2s()
+    
+        np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2_IDL,
+                                         rtol=0.05, atol=3)
+    
         
 if __name__ == '__main__':
     unittest.main(verbosity=2)
