@@ -20,10 +20,10 @@ class TestRelaxometry(unittest.TestCase):
     
     # Values for transform_coords tests
     TEST_COORDS = [[0, 0], [0, 1], [1, 2]]
-    COORDS_XY_YX = [[0, 0], [1, 0], [2, 1]]
+    COORDS_FLIP = [[0, 0], [1, 0], [2, 1]]
     COORDS_TRANS = [[3, 1], [3, 2], [4, 3]]
-    COORDS_TRANS_XY_YX = [[3, 1], [4, 1], [5, 2]]
-    COORDS_TRANS_XY = [[1, 3], [1, 4], [2, 5]]
+    COORDS_TRANS_FLIP = [[3, 1], [4, 1], [5, 2]]
+    COORDS_TRANS_COL_ROW = [[1, 3], [1, 4], [2, 5]]
     COORDS_TRANS_ROTATE = [[10, 20], [10.5, 20 + np.sqrt(3)/2],
                            [11 + np.sqrt(3)/2, 19.5 + np.sqrt(3)]]
     
@@ -51,30 +51,31 @@ class TestRelaxometry(unittest.TestCase):
                     330.2, 342.9, 355.6, 368.3, 381.0, 393.7, 406.4]
 
     # Template fitting
-    TEMPLATE_PATH = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+    TEMPLATE_PATH_T1_P5 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
                                  'Template_plate5_T1_signed')
-    TEMPLATE_TARGET_PATH = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
-                                        'site1 20200218', 'plate 5', 
-                                        '20530224')
-    TEMPLATE_TEST_COORDS_YX = [[56, 95], [62, 117], [81, 133], [104, 134],
+    TEMPLATE_TARGET_PATH_T1_P5 = os.path.join(
+        TEST_DATA_DIR, 'relaxometry', 'T1','site1 20200218', 'plate 5',
+        '20530224')
+    TEMPLATE_TEST_COORDS_ROW_COL = [[56, 95], [62, 117], [81, 133], [104, 134],
                                [124, 121], [133, 98], [127, 75], [109, 61],
                                [84, 60], [64, 72], [80, 81], [78, 111],
                                [109, 113], [110, 82]]
-    TEMPLATE_TARGET_COORDS_XY = [[97, 58], [119, 65], [134, 85], [133, 108],
-                                 [119, 127], [96, 134], [73, 127], [60, 109],
-                                 [60, 84], [73, 65], [81, 81], [112, 81],
-                                 [112, 112], [81, 111]]
+    TEMPLATE_TARGET_COORDS_COL_ROW = [[97, 58], [119, 65], [134, 85],
+                                      [133, 108], [119, 127], [96, 134],
+                                      [73, 127], [60, 109], [60, 84], [73, 65],
+                                      [81, 81], [112, 81], [112, 112],
+                                      [81, 111]]
     
     # Mask generation
     MASK_POI_TEMPLATE = np.zeros((14,192,192))
     
     for i in range(14):
-        MASK_POI_TEMPLATE[i,TEMPLATE_TEST_COORDS_YX[i][0], 
-                      TEMPLATE_TEST_COORDS_YX[i][1]] = 1
+        MASK_POI_TEMPLATE[i,TEMPLATE_TEST_COORDS_ROW_COL[i][0], 
+                      TEMPLATE_TEST_COORDS_ROW_COL[i][1]] = 1
     MASK_POI_TARGET = np.zeros((14,192,192))
     for i in range(14):
-        MASK_POI_TARGET[i,TEMPLATE_TARGET_COORDS_XY[i][1], 
-                      TEMPLATE_TARGET_COORDS_XY[i][0]] = 1
+        MASK_POI_TARGET[i,TEMPLATE_TARGET_COORDS_COL_ROW[i][1], 
+                      TEMPLATE_TARGET_COORDS_COL_ROW[i][0]] = 1
 
     ROI0_TEMPLATE_PIXELS = [-620, -706, -678, -630, -710, -672, -726, -684,
                             -714, -654, -692, -702, -644, -738, -668, -652,
@@ -85,7 +86,7 @@ class TestRelaxometry(unittest.TestCase):
     ROI_TEMPLATE_MEANS_T0 = [-683.840, -819.28, -1019.84]
     
     # Values from IDL routine
-    T1_VALUES = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
+    PLATE5_T1 = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
                  131.7, 93.3, 66.6, 45.1, 32.5, 22.4]
     
     # T2 Values from IDL routine
@@ -102,10 +103,11 @@ class TestRelaxometry(unittest.TestCase):
     TEMPLATE_PATH_T2 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
                                     'Template_plate4_T2')
 
-    TEMPLATE_P4_TEST_COORDS_YX = [[56, 95], [62, 117], [81, 133], [104, 134],
-                                  [124, 121], [133, 98], [127, 75], [109, 61],
-                                  [84, 60], [64, 72], [80, 81], [78, 111],
-                                  [109, 113], [110, 82]]
+    TEMPLATE_P4_TEST_COORDS_ROW_COL = [[56, 95], [62, 117], [81, 133],
+                                       [104, 134], [124, 121], [133, 98],
+                                       [127, 75], [109, 61], [84, 60],
+                                       [64, 72], [80, 81], [78, 111], 
+                                       [109, 113], [110, 82]]
    
 
     def test_transform_coords(self):
@@ -113,74 +115,84 @@ class TestRelaxometry(unittest.TestCase):
         warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS,
                                                 warp_matrix,
-                                                input_yx=True,
-                                                output_yx=True)
+                                                input_row_col=True,
+                                                output_row_col=True)
         np.testing.assert_allclose(op, self.TEST_COORDS)
-        # 'Identity coordinate transformation YX -> YX failed'
+        # 'Identity coordinate transformation row_col (yx) -> row_col (yx)' 
+        # ' failed'
 
-        # no translation, no rotation, input = xy, output = yx
+        # no translation, no rotation, flip
+        # input = col_row (xy), output = row_col (yx)
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
-                                                input_yx=False, output_yx=True)
+                                                input_row_col=False,
+                                                output_row_col=True)
         
-        np.testing.assert_allclose(op, self.COORDS_XY_YX)
+        np.testing.assert_allclose(op, self.COORDS_FLIP)
 
-        # no translation, no rotation, input = xy, output = xy
+        # no translation, no rotation, input = col_row (xy), 
+        # output = col_row (xy)
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
-                                                input_yx=False,
-                                                output_yx=False)
+                                                input_row_col=False,
+                                                output_row_col=False)
         np.testing.assert_allclose(op, self.TEST_COORDS)
         # 'Identity coordinate transformation XY -> XY failed'
 
-        # translation x=1, y=3, no rotation, input = yx, output = yx
+        # translation x=1, y=3, no rotation, input = row_col (yx),
+        # output = row_col (yx)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
-                                                input_yx=True, output_yx=True)
+                                                input_row_col=True,
+                                                output_row_col=True)
         np.testing.assert_allclose(op, self.COORDS_TRANS)
         # 'Translation coordinate transformation YX -> YX failed'
 
-        # translation x=1, y=3, no rotation, input = xy, output = yx
+        # translation x=1, y=3, no rotation, input = col_row (xy),
+        # output = row_col (yx)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
-                                                input_yx=False, output_yx=True)
-        np.testing.assert_allclose(op, self.COORDS_TRANS_XY_YX)
+                                                input_row_col=False,
+                                                output_row_col=True)
+        np.testing.assert_allclose(op, self.COORDS_TRANS_FLIP)
         # 'Translation coordinate transformation XY -> YX failed'
 
-        # translation x=1, y=3, no rotation, input = xy, output = xy
+        # translation x=1, y=3, no rotation, input = col_row (xy),
+        # output = col_row (xy)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
-                                                input_yx=False,
-                                                output_yx=False)
-        np.testing.assert_allclose(op, self.COORDS_TRANS_XY)
+                                                input_row_col=False,
+                                                output_row_col=False)
+        np.testing.assert_allclose(op, self.COORDS_TRANS_COL_ROW)
         # 'Translation coordinate transformation XY -> XY failed'
 
-        # rotation (-30) degrees, translation x=10, y=20, input = xy,
-        #  output = xy
+        # rotation (-30) degrees, translation col=10, row=20,
+        # input = col_row (xy), output = col_row (xy)
         warp_matrix = np.array([[np.sqrt(3)/2, 0.5, 10],
                                 [-0.5, np.sqrt(3)/2, 20]])
         # use float64 rather than int32 for coordinates to better test rotation
         op = hazen_relaxometry.transform_coords(np.array(self.TEST_COORDS,
                                                          dtype=np.float64),
-                                                warp_matrix, input_yx=False,
-                                                output_yx=False)
+                                                warp_matrix,
+                                                input_row_col=False,
+                                                output_row_col=False)
         np.testing.assert_allclose(op, self.COORDS_TRANS_ROTATE)
-        # 'Rotation / translation coordinate transformation XY -> XY failed'
+
 
     def test_template_fit(self):
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
-        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH)
+        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         t1_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
                                                         template_dcm,
                                                         plate_number=5)
         t1_image_stack.template_fit()
 
         transformed_coordinates_xy = hazen_relaxometry.transform_coords(
-            self.TEMPLATE_TEST_COORDS_YX, t1_image_stack.warp_matrix,
-            input_yx=True, output_yx=False)
+            self.TEMPLATE_TEST_COORDS_ROW_COL, t1_image_stack.warp_matrix,
+            input_row_col=True, output_row_col=False)
 
         # test to within +/- 1 pixel (also checks YX-XY change)
         np.testing.assert_allclose(
-            transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_XY,
+            transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_COL_ROW,
             atol=1)
 
     def test_image_stack_T1_sort(self):
@@ -207,10 +219,10 @@ class TestRelaxometry(unittest.TestCase):
     def test_generate_time_series_template_POIs(self):
         # Test on template first, no image fitting needed
         # Need image to get correct size
-        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
         template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm])
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_YX,
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             fit_coords=False)
         
         for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
@@ -220,9 +232,9 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_generate_time_series_target_POIs(self):
         # Test on target and check image fitting too.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
-        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH)
+        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         target_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
                                                             template_dcm)
         target_image_stack.template_fit()
@@ -230,7 +242,7 @@ class TestRelaxometry(unittest.TestCase):
         #     self.TEMPLATE_TEST_COORDS_YX, target_image_stack.warp_matrix,
         #     input_yx=True, output_yx=True)
         target_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_YX, fit_coords=True)
+            self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=True)
         for i in range(np.size(self.MASK_POI_TARGET, 0)):
             np.testing.assert_equal(
                 target_image_stack.ROI_time_series[i].POI_mask,
@@ -240,14 +252,14 @@ class TestRelaxometry(unittest.TestCase):
         # Test that ROI pixel value extraction works. Use template DICOM for
         # both template and image to avoid errors due to slight variation in
         # fitting.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm],
                                                             template_dcm)
         # set warp_matrix to identity matrix
         # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
+            self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=False)
 
         np.testing.assert_equal(
             template_image_stack.ROI_time_series[0].pixel_values[0],
@@ -255,14 +267,14 @@ class TestRelaxometry(unittest.TestCase):
         
     def test_template_roi_means(self):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = hazen_relaxometry.T1ImageStack([template_dcm],
                                                             template_dcm)
         # set warp_matrix to identity matrix
         # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_YX, fit_coords=False)
+            self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=False)
         
         for i in self.ROI_TEMPLATE_MEANS_T0:
             np.testing.assert_allclose(
@@ -271,18 +283,18 @@ class TestRelaxometry(unittest.TestCase):
         
     def test_t1_calc(self):
         """Test T1 value for plate 5 spheres."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname))
                    for fname in self.T1_FILES]
         t1_image_stack = hazen_relaxometry.T1ImageStack(t1_dcms, template_dcm)
         t1_image_stack.template_fit()
         t1_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_YX, fit_coords=True)
+            self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=True)
         t1_image_stack.generate_fit_function()
         t1_image_stack.initialise_fit_parameters()
         t1_image_stack.find_t1s()
     
-        np.testing.assert_allclose(t1_image_stack.t1s, self.T1_VALUES,
+        np.testing.assert_allclose(t1_image_stack.t1s, self.PLATE5_T1,
                                           rtol=0.05, atol=3)
 
     def test_t2_calc(self):
@@ -293,7 +305,7 @@ class TestRelaxometry(unittest.TestCase):
         t2_image_stack = hazen_relaxometry.T2ImageStack(t2_dcms, template_dcm)
         t2_image_stack.template_fit()
         t2_image_stack.generate_time_series(
-            self.TEMPLATE_P4_TEST_COORDS_YX, fit_coords=True)
+            self.TEMPLATE_P4_TEST_COORDS_ROW_COL, fit_coords=True)
         t2_image_stack.initialise_fit_parameters()
         t2_image_stack.find_t2s()
     

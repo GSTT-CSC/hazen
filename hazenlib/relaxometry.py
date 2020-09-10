@@ -56,8 +56,9 @@ from scipy.interpolate import UnivariateSpline
 # import hazenlib
 
 # Coordinates of centre of spheres in plate 5.
-# Coordinates are in array format (y,x), rather than plt.patches format (x,y)
-PLATE5_SPHERE_CENTRES_YX = (
+# Coordinates are in array format (row,col), rather than plt.patches 
+# format (col,row)
+PLATE5_SPHERE_CENTRES_ROW_COL = (
     (56, 95),
     (62, 117),
     (81, 133),
@@ -73,7 +74,7 @@ PLATE5_SPHERE_CENTRES_YX = (
     (109, 113),
     (110, 82))
 
-PLATE5_BOLT_CENTRES_YX = (
+PLATE5_BOLT_CENTRES_ROW_COL = (
     (52, 80),
     (92, 141),
     (138, 85))
@@ -90,7 +91,7 @@ PLATE4_TEMPLATE_PATH = \
     os.path.join(os.path.dirname(os.path.realpath(__file__)),
                  'data', 'relaxometry', 'Plate4_T2')
 
-PLATE4_SPHERE_CENTRES_YX = (
+PLATE4_SPHERE_CENTRES_ROW_COL = (
     (56, 94),
     (62, 117),
     (81, 132),
@@ -159,15 +160,17 @@ def outline_mask(im):
     return lines
 
 
-def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
+def transform_coords(coords, rt_matrix, input_row_col=True,
+                     output_row_col=True):
     """
     Convert coordinates using RT transformation matrix.
 
     Note that arrays containing pixel information as displayed using
-    plt.imshow(pixel_array), for example are referenced using the yx notation,
-    e.g. pixel_array[y,x]. Plotting points or patches using matplotlib requires
-    xy notation, e.g. plt.scatter(x,y). The correct input and output notation
-    must be selected for the correct transformation.
+    plt.imshow(pixel_array), for example are referenced using the row_col (y,x)
+    notation, e.g. pixel_array[row,col]. Plotting points or patches using
+    matplotlib requires col_row (x,y) notation, e.g. plt.scatter(col,row). The
+    correct input and output notation must be selected for the correct
+    transformation.
 
     Parameters
     ----------
@@ -176,22 +179,22 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
     rt_matrix : np.array
         Array (2,3) of transform matrix (Rotation and Translation). See e.g.
         cv2.transform() for details.
-    input_yx : bool, optional
+    input_row_col : bool, optional
         Select the input coordinate format relative to the image.
-        If True, input array has y-coordinate first, i.e.:
-            [[y1,x1],
-             [y2,x2],
+        If True, input array has row (y-coordinate) first, i.e.:
+            [[row_1,col_1],
+             [row_2,col_2],
              ...,
-             [yn,xn]].
-        If False, input array has x-coordinate first, i.e.:
-            [[x1,y1],
-             [x2,y2],
+             [row_n,col_n]].
+        If False, input array has col (x-coordinate) first, i.e.:
+            [[col_1,row_1],
+             [col_2,row_2],
              ...,
-             [xn,yn]].
+             [col_n,row_n].
         The default is True.
-    output_yx : bool, optional
-        Select the output coordinate order. If True, output matrix is in yx
-        order, otherwise it is in xy order. The default is True.
+    output_row_col : bool, optional
+        Select the output coordinate order. If True, output matrix is in
+        row_col order, otherwise it is in col_row order. The default is True.
 
     Returns
     -------
@@ -201,13 +204,13 @@ def transform_coords(coords, rt_matrix, input_yx=True, output_yx=True):
     """
     in_coords = np.array(coords)  # ensure using np array
 
-    if input_yx:  # convert to xy format
+    if input_row_col:  # convert to col_row (xy) format
         in_coords = np.flip(in_coords, axis=1)
 
     out_coords = cv.transform(np.array([in_coords]), rt_matrix)
     out_coords = out_coords[0]  # reduce to two dimensions
 
-    if output_yx:
+    if output_row_col:
         out_coords = np.flip(out_coords, axis=1)
 
     return out_coords
@@ -446,7 +449,8 @@ class ROITimeSeries():
 
     SAMPLE_ELEMENT = skimage.morphology.square(5)
 
-    def __init__(self, dcm_images, poi_coords_yx, time_attr=None, kernel=None):
+    def __init__(self, dcm_images, poi_coords_row_col, time_attr=None,
+                 kernel=None):
         """
         Create ROITimeSeries for ROI parameters at sequential scans.
 
@@ -455,9 +459,9 @@ class ROITimeSeries():
         dcm_images : list
             List of pydicom images of same object with different scan
             parameters (e.g. TIs or TEs). Typically ``ImageStack.images``.
-        poi_coords_yx : array
+        poi_coords_row_col : array
             Two element array with coordinates of point of interest (POI),
-            typically the centre of the ROI, in yx format.
+            typically the centre of the ROI, in row_col (y,x) format.
         time_attr : string, optional
             If present, lookup the DICOM attribute ``[time_attr]`` (typically
             ``'InversionTime'`` or ``'EchoTime'`` and store in the list
@@ -475,7 +479,7 @@ class ROITimeSeries():
         self.POI_mask = np.zeros((dcm_images[0].pixel_array.shape[0],
                                   dcm_images[0].pixel_array.shape[1]),
                                  dtype=np.int8)
-        self.POI_mask[poi_coords_yx[0], poi_coords_yx[1]] = 1
+        self.POI_mask[poi_coords_row_col[0], poi_coords_row_col[1]] = 1
 
         self.ROI_mask = np.zeros_like(self.POI_mask)
         self.ROI_mask = scipy.ndimage.filters.convolve(self.POI_mask, kernel)
@@ -487,8 +491,7 @@ class ROITimeSeries():
             pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
         
         self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
-        
-           
+              
     
     def __len__(self):
         """Number of time samples in series."""
@@ -501,10 +504,11 @@ class ROITimeSeries():
 
         Returns
         -------
-        List of mean pixel value in ROI for each sample
+        List of mean pixel value in ROI for each sample.
         """
-        #return [np.mean(self.pixel_values[i]) for i in range(len(self))]
+        # return [np.mean(self.pixel_values[i]) for i in range(len(self))]
         return [np.mean(pvs) for pvs in self.pixel_values]
+
 
 class ImageStack():
     """Object to hold image_slices and methods for T1, T2 calculation."""
@@ -659,16 +663,17 @@ class ImageStack():
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
         self.images.sort(key=lambda x: x[att].value.real)
         
-    def generate_time_series(self, coords_yx, fit_coords=True, kernel=None):
+    def generate_time_series(self, coords_row_col, fit_coords=True,
+                             kernel=None):
         """
         Create list of ROITimeSeries objects.
 
         Parameters
         ----------
-        coords_yx : array_like
+        coords_row_col : array_like
             Array of coordinates points of interest (POIs) for each centre of
             each ROI. They should be in [[col0, row0], [col1, row1], ...]
-            format.
+            format (i.e. y, x).
         fit_coords : bool, optional
             If ``True``, the coordinates provided are for the template ROIs and
             will be transformed to the image space using ``transfor_coords()``.
@@ -678,15 +683,16 @@ class ImageStack():
             If ``None``, use the default from ``ROItimeSeries`` constructor.
             The default is None.
         """
-        num_coords = np.size(coords_yx, axis=0)
+        num_coords = np.size(coords_row_col, axis=0)
         if fit_coords:
-            coords_yx = transform_coords(coords_yx, self.warp_matrix,
-                                         input_yx=True, output_yx=True)
+            coords_row_col = transform_coords(coords_row_col, self.warp_matrix,
+                                              input_row_col=True, 
+                                              output_row_col=True)
 
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(ROITimeSeries(
-                self.images, coords_yx[i], time_attr=self.dicom_order_key,
+                self.images, coords_row_col[i], time_attr=self.dicom_order_key,
                 kernel=kernel))
 
 
@@ -742,7 +748,7 @@ class T1ImageStack(ImageStack):
 
     def find_t1s(self):
         """
-        Calculate T1 values and stores in ``self.t1s``.
+        Calculate T1 values. Access as ``image_stack.t1s``
 
         Returns
         -------
@@ -759,7 +765,12 @@ class T1ImageStack(ImageStack):
                                                 jac=self.fit_jacobian,
                                                 method='lm')
                        for i in range(len(rois))]
-        self.t1s = [fit[0][0] for fit in self.t1_fit]
+        
+    @property
+    def t1s(self):
+        """List of T1 values for each ROI."""
+        return [fit[0][0] for fit in self.t1_fit]
+
 
 
 class T2ImageStack(ImageStack):
@@ -787,7 +798,7 @@ class T2ImageStack(ImageStack):
 
     def find_t2s(self):
         """
-        Calculate T2 values and stores in ``self.t2s``.
+        Calculate T2 values. Access as ``image_stack.t2s``
         
         Uses the 'skip first echo' fit method [1]_.
     
@@ -816,7 +827,11 @@ class T2ImageStack(ImageStack):
                                                 bounds=bounds,
                                                 method='trf')
                        for i in range(len(rois))]
-        self.t2s = [fit[0][0] for fit in self.t2_fit]
+    
+    @property
+    def t2s(self):
+        """List of T2 values for each ROI."""
+        return [fit[0][0] for fit in self.t2_fit]
 
 
 
@@ -828,7 +843,7 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
         t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
                                       plate_number=5)
         t1_image_stack.template_fit()
-        t1_image_stack.generate_time_series(PLATE5_SPHERE_CENTRES_YX)
+        t1_image_stack.generate_time_series(PLATE5_SPHERE_CENTRES_ROW_COL)
         t1_image_stack.generate_fit_function()
     
         if show_plot:
@@ -864,7 +879,7 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
         t2_image_stack = T2ImageStack(dcm_target_list, template_dcm,
                                       plate_number=4)
         t2_image_stack.template_fit()
-        t2_image_stack.generate_time_series(PLATE4_SPHERE_CENTRES_YX)
+        t2_image_stack.generate_time_series(PLATE4_SPHERE_CENTRES_ROW_COL)
     
         if show_plot:
             t2_image_stack.plot_fit()
