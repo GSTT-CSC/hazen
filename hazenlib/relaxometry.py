@@ -57,7 +57,7 @@ from scipy.interpolate import UnivariateSpline
 
 # Coordinates of centre of spheres in plate 5.
 # Coordinates are in array format (y,x), rather than plt.patches format (x,y)
-plate5_sphere_centres_yx = (
+PLATE5_SPHERE_CENTRES_YX = (
     (56, 95),
     (62, 117),
     (81, 133),
@@ -73,25 +73,38 @@ plate5_sphere_centres_yx = (
     (109, 113),
     (110, 82))
 
-plate5_bolt_centres_yx = (
+PLATE5_BOLT_CENTRES_YX = (
     (52, 80),
     (92, 141),
     (138, 85))
 
-plate5_template_path = \
+PLATE5_TEMPLATE_PATH = \
     os.path.join(os.path.dirname(os.path.realpath(__file__)),
                  'data', 'relaxometry',
                  'Plate5_T1_signed')
-template_path = plate5_template_path
 
-plate5_t1_values = np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
+PLATE5_T1_VALUES = np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
                              184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859])
 
 PLATE4_TEMPLATE_PATH = \
     os.path.join(os.path.dirname(os.path.realpath(__file__)),
                  'data', 'relaxometry', 'Plate4_T2')
 
-PLATE4_SPHERE_CENTRES_YX = plate5_sphere_centres_yx
+PLATE4_SPHERE_CENTRES_YX = (
+    (56, 94),
+    (62, 117),
+    (81, 132),
+    (105, 134),
+    (125, 120),
+    (133, 99),
+    (127, 75),
+    (108, 60),
+    (84, 59),
+    (64, 72),
+    (80, 81),
+    (78, 111),
+    (109, 113),
+    (111, 82))
 
 PLATE4_T2_VALUES = np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
                              64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])
@@ -318,16 +331,27 @@ def t2_function(te, t2, a0, c):
     a0 : float
         Initial signal magnitude.
     c : float
-        Constant offset, theoretically 0.
+        Constant offset, theoretically 0, but models Rician noise in magnitude
+        data.
 
     Returns
     -------
     pv : array_like
         Theoretical pixel values at each TE.
+        
+    Notes
+    -----
+    The '+ c' constant models Rician noise in magnitude images (where Gaussian
+    noise in low signals gets rectified producing a bias). This is an
+    acceptable model for short T2 samples. However, it reduces the fit on long
+    T2 samples as the slow decay resembles a constant and the signal never
+    reaches the noise floor.
 
     """
     #c=0  # remove comment to disable constant in equation
     pv = a0 * np.exp(-te / t2) + c
+    # uncomment to implement noise floor of 'c'. Also need to change t2_jacobian
+    #pv = np.fmax(a0 * np.exp(-te / t2), c) 
     return pv
 
 
@@ -356,6 +380,8 @@ def t2_jacobian(te, t2, a0, c):
     t2_der = a0 * te / t2**2 * np.exp(-te/t2)
     a0_der = np.exp(-te / t2)
     c_der = np.full_like(t2_der, 1.0)
+    #pv = t2_function(te, t2, a0, c)
+    #c_der = np.where(pv > c, np.zeros_like(t2_der), np.full_like(t2_der, 1.0))
     jacobian = np.array([t2_der, a0_der, c_der])
     return jacobian.T
 
@@ -477,8 +503,8 @@ class ROITimeSeries():
         -------
         List of mean pixel value in ROI for each sample
         """
-        return [np.mean(self.pixel_values[i]) for i in range(len(self))]
-
+        #return [np.mean(self.pixel_values[i]) for i in range(len(self))]
+        return [np.mean(pvs) for pvs in self.pixel_values]
 
 class ImageStack():
     """Object to hold image_slices and methods for T1, T2 calculation."""
@@ -599,6 +625,7 @@ class ImageStack():
             3. Overlay of (1) and (2)
             4. Overlay of RT transformed template and (2)
         """
+        plt.figure()
         plt.subplot(2, 2, 1)
         plt.imshow(self.template8bit, cmap='gray')
         plt.title('Template')
@@ -676,7 +703,7 @@ class T1ImageStack(ImageStack):
                                  self.ROI_time_series[0].trs,
                                  mag_image = True)
     
-    def initialise_fit_parameters(self, t1_estimates=plate5_t1_values):
+    def initialise_fit_parameters(self, t1_estimates=PLATE5_T1_VALUES):
         """
         Estimate fit parameters (t1, a0, a1) for T1 curve fitting.
         
@@ -753,6 +780,7 @@ class T2ImageStack(ImageStack):
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
         self.c_est = np.full_like(self.t2_est, 0.0)
+        # estimate a0 from second image--first image is too low.
         self.a0_est = est_t2_a0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
 
@@ -760,19 +788,27 @@ class T2ImageStack(ImageStack):
     def find_t2s(self):
         """
         Calculate T2 values and stores in ``self.t2s``.
+        
+        Uses the 'skip first echo' fit method [1]_.
     
         Returns
         -------
         None.
-    
+        
+        References
+        ----------
+        .. [1] McPhee, K. C., & Wilman, A. H. (2018). Limitations of skipping 
+        echoes for exponential T2 fitting. Journal of Magnetic Resonance 
+        Imaging, 48(5), 1432-1440. https://doi.org/10.1002/jmri.26052
         """
         rois = self.ROI_time_series
         #  Omit the first image data from the curve fit. This is achieved by
-        #  slicing rois[i].times[1:] and rois[i].means[1:]
+        #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
+        #  can be implemented with rois[i].times[1::2] and .means[1::2]
         bounds = ([0, 0, 0], [np.inf, np.inf, 10])
         self.t2_fit = [scipy.optimize.curve_fit(self.fit_function, 
-                                                rois[i].times[1::2],
-                                                rois[i].means[1::2],
+                                                rois[i].times[1:],
+                                                rois[i].means[1:],
                                                 p0=[self.t2_est[i],
                                                     self.a0_est[i],
                                                     self.c_est[i]],
@@ -784,80 +820,83 @@ class T2ImageStack(ImageStack):
 
 
 
-def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True):
+def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
+         calc_t1 = False, calc_t2 = False):
 
     # debug-show only do T1
-    t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
-                                  plate_number=5)
-    t1_image_stack.template_fit()
-    t1_image_stack.generate_time_series(plate5_sphere_centres_yx)
-    t1_image_stack.generate_fit_function()
-
-    if show_plot:
-        t1_image_stack.plot_fit()
+    if calc_t1:
+        t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
+                                      plate_number=5)
+        t1_image_stack.template_fit()
+        t1_image_stack.generate_time_series(PLATE5_SPHERE_CENTRES_YX)
+        t1_image_stack.generate_fit_function()
     
-    t1_image_stack.initialise_fit_parameters(t1_estimates=plate5_t1_values)
-    t1_image_stack.find_t1s()
+        if show_plot:
+            t1_image_stack.plot_fit()
+        
+        t1_image_stack.initialise_fit_parameters(t1_estimates=PLATE5_T1_VALUES)
+        t1_image_stack.find_t1s()
+        
+        if show_relax_fits:
+            smooth_times = range(0,1000,10)
+            rois = t1_image_stack.ROI_time_series
+            fig = plt.figure()
+            #fig, ax = plt.subplots(constrained_layout=True)
+            fig.suptitle('T1 relaxometry fits')
+            for i in range(14):
+                plt.subplot(4,4,i+1)
+                plt.plot(smooth_times, 
+                          t1_image_stack.fit_function(
+                              np.array(smooth_times),
+                              *np.array(t1_image_stack.t1_fit[i][0])),
+                          'b-')
+                plt.plot(rois[i].times, rois[i].means, 'rx')
+                plt.title(f'[{i+1}] T1_calc={t1_image_stack.t1s[i]:.4g}, '
+                          f'T1_pub={PLATE5_T1_VALUES[i]:.4g}',
+                          fontsize=8)
+            plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
     
-    if show_relax_fits:
-        smooth_times = range(0,1000,10)
-        rois = t1_image_stack.ROI_time_series
-        fig = plt.figure()
-        #fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle('T1 relaxometry fits')
-        for i in range(14):
-            plt.subplot(4,4,i+1)
-            plt.plot(smooth_times, 
-                      t1_image_stack.fit_function(
-                          np.array(smooth_times),
-                          *np.array(t1_image_stack.t1_fit[i][0])),
-                      'b-')
-            plt.plot(rois[i].times, rois[i].means, 'rx')
-            plt.title(f'[{i+1}] T1_calc={t1_image_stack.t1s[i]:.4g}, '
-                      f'T1_pub={plate5_t1_values[i]:.4g}',
-                      fontsize=8)
-        plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
-
+        
+        return t1_image_stack  # for debugging only
     
-    return t1_image_stack  # for debugging only
+    if calc_t2:
+        # debug-show only T2 plate 4
+        t2_image_stack = T2ImageStack(dcm_target_list, template_dcm,
+                                      plate_number=4)
+        t2_image_stack.template_fit()
+        t2_image_stack.generate_time_series(PLATE4_SPHERE_CENTRES_YX)
     
-    # debug-show only T2 plate 4
-    t2_image_stack = T2ImageStack(dcm_target_list, template_dcm,
-                                  plate_number=4)
-    t2_image_stack.template_fit()
-    t2_image_stack.generate_time_series(PLATE4_SPHERE_CENTRES_YX)
-
-    if show_plot:
-        t2_image_stack.plot_fit()
+        if show_plot:
+            t2_image_stack.plot_fit()
+        
+        t2_image_stack.initialise_fit_parameters()
+        t2_image_stack.find_t2s()
+        
+        if show_relax_fits:
+            PLATE4_T2_IDL = np.array([818.0, 592.4, 432.4, 311.5, 219.7, 156.8,
+                                      113.0, 85.6, 59.5, 43.9, 31.8, 21.3, 14.6,
+                                      7.8])
     
-    t2_image_stack.initialise_fit_parameters()
-    t2_image_stack.find_t2s()
-    
-    if show_relax_fits:
-        PLATE4_T2_IDL = np.array([818.0, 592.4, 432.4, 311.5, 219.7, 156.8,
-                                  113.0, 85.6, 59.5, 43.9, 31.8, 21.3, 14.6,
-                                  7.8])
-
-        smooth_times = range(0,500,5)
-        rois = t2_image_stack.ROI_time_series
-        fig = plt.figure()
-        #fig, ax = plt.subplots(constrained_layout=True)
-        fig.suptitle('T2 relaxometry fits')
-        for i in range(14):
-            plt.subplot(4,4,i+1)
-            plt.plot(smooth_times, 
-                      t2_image_stack.fit_function(
-                          np.array(smooth_times),
-                          *np.array(t2_image_stack.t2_fit[i][0])),
-                      'b-')
-            plt.plot(rois[i].times, rois[i].means, 'rx')
-            plt.title(f'[{i+1}] T2_calc={t2_image_stack.t2s[i]:.4g}, '
-                      f'T2_pub={PLATE4_T2_VALUES[i]:.4g}, '
-                      f'T2_IDL={PLATE4_T2_IDL[i]:.4g}',
-                      fontsize=8)
-        plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
-    
-    return t2_image_stack
+            smooth_times = range(0,500,5)
+            rois = t2_image_stack.ROI_time_series
+            fig = plt.figure()
+            #fig, ax = plt.subplots(constrained_layout=True)
+            fig.suptitle('T2 relaxometry fits')
+            for i in range(14):
+                plt.subplot(4,4,i+1)
+                plt.plot(smooth_times, 
+                          t2_image_stack.fit_function(
+                              np.array(smooth_times),
+                              *np.array(t2_image_stack.t2_fit[i][0])),
+                          'b-')
+                plt.plot(rois[i].times, rois[i].means, 'rx')
+                plt.title(f'[{i+1}] T2_calc={t2_image_stack.t2s[i]:.4g}, '
+                          f'T2_pub={PLATE4_T2_VALUES[i]:.4g}, '
+                          f'T2_IDL={PLATE4_T2_IDL[i]:.4g}',
+                          fontsize=8)
+            plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
+        
+        return t2_image_stack
 
 
 # Code below is for development only and should be deleted before release.
@@ -866,24 +905,50 @@ if __name__ == '__main__':
     import os, os.path
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
-
-    template_dcm = pydicom.read_file(PLATE4_TEMPLATE_PATH)
-
-    # get list of pydicom objects
-    target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 '..', 'tests', 'data', 'relaxometry', 'T2',
-                                 'site1 20200218', 'plate 4')
-    dcm_target_list = []
-    (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
-    for filename in filenames:
-        try:
-            with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
-                dcm_target_list.append(dcm_target)
-        except InvalidDicomError:
-            logging.info(' Skipped non-DICOM file %r',
-                         os.path.join(target_folder, filename))
-
-#    t2_image_stack = main(dcm_target_list, template_dcm, show_plot=False)
-    t1_image_stack = main([template_dcm], template_dcm)
     
-    #rois = t1_image_stack.ROI_time_series
+    calc_t1 = True
+    #calc_t1 = False
+    
+    calc_t2 = True
+    #calc_t2 = False
+    
+    if calc_t1:
+        template_dcm = pydicom.read_file(PLATE5_TEMPLATE_PATH)
+    
+        # get list of pydicom objects
+        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                     '..', 'tests', 'data', 'relaxometry', 'T1',
+                                     'site1 20200218', 'plate 5')
+        dcm_target_list = []
+        (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
+        for filename in filenames:
+            try:
+                with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
+                    dcm_target_list.append(dcm_target)
+            except InvalidDicomError:
+                logging.info(' Skipped non-DICOM file %r',
+                             os.path.join(target_folder, filename))
+    
+        t1_image_stack = main(dcm_target_list, template_dcm, calc_t1=True)
+        t1_rois = t1_image_stack.ROI_time_series
+    
+    if calc_t2:
+        template_dcm = pydicom.read_file(PLATE4_TEMPLATE_PATH)
+    
+        # get list of pydicom objects
+        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                     '..', 'tests', 'data', 'relaxometry', 'T2',
+                                     'site1 20200218', 'plate 4')
+        dcm_target_list = []
+        (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
+        for filename in filenames:
+            try:
+                with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
+                    dcm_target_list.append(dcm_target)
+            except InvalidDicomError:
+                logging.info(' Skipped non-DICOM file %r',
+                             os.path.join(target_folder, filename))
+    
+        t2_image_stack = main(dcm_target_list, template_dcm, show_plot=True,
+                              calc_t2=True)
+        t2_rois = t2_image_stack.ROI_time_series
