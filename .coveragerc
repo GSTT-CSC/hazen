@@ -1,6 +1,6 @@
 [run]
 branch = True
-source = hazen
+source = hazenlib
 [report]
 exclude_lines =
     if self.debug:
