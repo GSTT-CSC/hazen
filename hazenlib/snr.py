@@ -101,7 +101,7 @@ def conv2d(dcm: pydicom.Dataset, f) -> np.array:
     return np.einsum('ij,ijkl->kl', f, subM)
 
 
-def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
+def get_noise_image(dcm: pydicom.Dataset) -> np.array:
     """
     Separates the image noise by smoothing the image and subtracing the smoothed image
     from the original.
@@ -227,7 +227,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
 
     """
     col, row = get_object_centre(dcm=dcm)
-    noise_img = smoothed_subtracted_image(dcm=dcm)
+    noise_img = get_noise_image(dcm=dcm)
 
     signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm, centre_col=col, centre_row=row)]
 
