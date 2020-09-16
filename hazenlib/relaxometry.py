@@ -110,6 +110,9 @@ PLATE4_SPHERE_CENTRES_ROW_COL = (
 PLATE4_T2_VALUES = np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
                              64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])
 
+PLATE4_T1_VALUES = np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
+                             752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
+                             83.3])
 
 def outline_mask(im):
     """
@@ -704,10 +707,16 @@ class T1ImageStack(ImageStack):
                          dicom_order_key='InversionTime')
     
     def generate_fit_function(self):
+        """"Create T1 fit function for magnitude/signed image and variable TI."""
+        #  check if image is signed or magnitude
+        if np.all(pixel_LUT(self.images[0]) >= 0):
+            mag_image = True
+        else:
+            mag_image = False
         self.fit_function, self.fit_jacobian = \
             generate_t1_function(self.ROI_time_series[0].times,
                                  self.ROI_time_series[0].trs,
-                                 mag_image = True)
+                                 mag_image = mag_image)
     
     def initialise_fit_parameters(self, t1_estimates=PLATE5_T1_VALUES):
         """
@@ -783,9 +792,6 @@ class T2ImageStack(ImageStack):
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
         
-        # remove first image from image_slices
-        # self.images = self.images[1:]
-
     def initialise_fit_parameters(self, t2_estimates=PLATE4_T2_VALUES):
         self.t2_est = t2_estimates
         rois = self.ROI_time_series
@@ -836,9 +842,8 @@ class T2ImageStack(ImageStack):
 
 
 def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
-         calc_t1 = False, calc_t2 = False):
+         calc_t1 = False, calc_t2 = False, plate_number=None):
 
-    # debug-show only do T1
     if calc_t1:
         t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
                                       plate_number=5)
@@ -856,7 +861,6 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
             smooth_times = range(0,1000,10)
             rois = t1_image_stack.ROI_time_series
             fig = plt.figure()
-            #fig, ax = plt.subplots(constrained_layout=True)
             fig.suptitle('T1 relaxometry fits')
             for i in range(14):
                 plt.subplot(4,4,i+1)
@@ -895,7 +899,6 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
             smooth_times = range(0,500,5)
             rois = t2_image_stack.ROI_time_series
             fig = plt.figure()
-            #fig, ax = plt.subplots(constrained_layout=True)
             fig.suptitle('T2 relaxometry fits')
             for i in range(14):
                 plt.subplot(4,4,i+1)
@@ -921,11 +924,12 @@ if __name__ == '__main__':
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
     
-    calc_t1 = True
-    #calc_t1 = False
     
-    calc_t2 = True
-    #calc_t2 = False
+    calc_t1 = False
+    calc_t2 = False
+    # comment lines below to supress calculation
+    calc_t1 = True
+    #calc_t2 = True
     
     if calc_t1:
         template_dcm = pydicom.read_file(PLATE5_TEMPLATE_PATH)
@@ -933,7 +937,12 @@ if __name__ == '__main__':
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                      '..', 'tests', 'data', 'relaxometry', 'T1',
-                                     'site1 20200218', 'plate 5')
+                                     'site2 20180925', 'plate 5')
+
+        # target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+        #                               '..', 'tests', 'data', 'relaxometry', 'T1',
+        #                               'site1 20200218', 'plate 5')
+        # target_folder = "C:\OneDrive\BHSCT\OneDrive - Belfast Health & Social Care Trust\DICOM files\T1 measurement anomaly"
         dcm_target_list = []
         (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
         for filename in filenames:
@@ -944,7 +953,8 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        t1_image_stack = main(dcm_target_list, template_dcm, calc_t1=True)
+        t1_image_stack = main(dcm_target_list, template_dcm, calc_t1=True,
+                              show_relax_fits=True)
         t1_rois = t1_image_stack.ROI_time_series
     
     if calc_t2:

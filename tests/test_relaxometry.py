@@ -89,16 +89,12 @@ class TestRelaxometry(unittest.TestCase):
     PLATE5_T1 = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
                  131.7, 93.3, 66.6, 45.1, 32.5, 22.4]
     
-    # T2 Values from IDL routine
-    # PLATE4_T2_IDL = np.array([818.0, 592.4, 432.4, 311.5, 219.7, 156.8, 113.0,
-    #                           85.6, 59.5, 43.9, 31.8, 21.3, 14.6, 7.8])
-    
     # T2 values from python--will only show consistncy, not accuracy
-    PLATE4_T2_IDL = [808.4154451392269, 584.487800647457, 426.0526345966451,
-                     306.1406835995861, 213.75915975744184, 153.37330787558878,
-                     107.21922831866343, 77.42944345546508, 54.63059517999989,
-                     38.131281246132694, 26.60743022583671, 17.62814288965341,
-                     11.59178582053302, 7.873018213281735]
+    PLATE4_T2 = [808.4154451392269, 584.487800647457, 426.0526345966451,
+                 306.1406835995861, 213.75915975744184, 153.37330787558878,
+                 107.21922831866343, 77.42944345546508, 54.63059517999989,
+                 38.131281246132694, 26.60743022583671, 17.62814288965341,
+                 11.59178582053302, 7.873018213281735]
 
     TEMPLATE_PATH_T2 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
                                     'Template_plate4_T2')
@@ -108,6 +104,16 @@ class TestRelaxometry(unittest.TestCase):
                                        [127, 75], [109, 61], [84, 60],
                                        [64, 72], [80, 81], [78, 111], 
                                        [109, 113], [110, 82]]
+    
+    # Values from IDL routine. Site 2 T1 values are signed not magnitude
+    SITE2_PLATE5_T1 = [1880.5, 1432.3, 1012.0, 742.5, 504.0, 354.4, 256.3,
+                       178.9, 131.9, 93.8, 67.9, 45.8, 33.4, 23.6]
+
+    SITE2_T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                'site2 20180925', 'plate 5')
+    SITE2_T1_FILES = ['77189804', '77189870', '77189936', '77190002',
+                      '77190068', '77190134']
+
    
 
     def test_transform_coords(self):
@@ -281,7 +287,7 @@ class TestRelaxometry(unittest.TestCase):
                 template_image_stack.ROI_time_series[0].pixel_values[0],
                 self.ROI0_TEMPLATE_PIXELS)
         
-    def test_t1_calc(self):
+    def test_t1_calc_magnitude_image(self):
         """Test T1 value for plate 5 spheres."""
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname))
@@ -295,9 +301,9 @@ class TestRelaxometry(unittest.TestCase):
         t1_image_stack.find_t1s()
     
         np.testing.assert_allclose(t1_image_stack.t1s, self.PLATE5_T1,
-                                          rtol=0.05, atol=3)
+                                          rtol=0.02, atol=1)
 
-    def test_t2_calc(self):
+    def test_t2_calc_magnitude_image(self):
         """Test T2 value for plate 4 spheres."""
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T2)
         t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname))
@@ -309,8 +315,24 @@ class TestRelaxometry(unittest.TestCase):
         t2_image_stack.initialise_fit_parameters()
         t2_image_stack.find_t2s()
     
-        np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2_IDL,
+        np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2,
                                          rtol=0.01, atol=1)
+
+    def test_t1_calc_signed_image(self):
+        """Test T1 value for signed plate 5 spheres (site 2)."""
+        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        t1_dcms = [pydicom.dcmread(os.path.join(self.SITE2_T1_DIR, fname))
+                   for fname in self.SITE2_T1_FILES]
+        t1_image_stack = hazen_relaxometry.T1ImageStack(t1_dcms, template_dcm)
+        t1_image_stack.template_fit()
+        t1_image_stack.generate_time_series(
+            self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=True)
+        t1_image_stack.generate_fit_function()
+        t1_image_stack.initialise_fit_parameters()
+        t1_image_stack.find_t1s()
+    
+        np.testing.assert_allclose(t1_image_stack.t1s, self.SITE2_PLATE5_T1,
+                                          rtol=0.02, atol=1)
     
         
 if __name__ == '__main__':
