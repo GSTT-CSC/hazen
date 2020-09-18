@@ -297,7 +297,12 @@ class TestRelaxometry(unittest.TestCase):
         t1_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=True)
         t1_image_stack.generate_fit_function()
-        t1_image_stack.initialise_fit_parameters()
+        t1_published = \
+            hazen_relaxometry.TEMPLATE_VALUES\
+                ['plate5']['t1']['relax_times']
+        t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
+
+        #t1_image_stack.initialise_fit_parameters()
         t1_image_stack.find_t1s()
     
         np.testing.assert_allclose(t1_image_stack.t1s, self.PLATE5_T1,
@@ -312,7 +317,10 @@ class TestRelaxometry(unittest.TestCase):
         t2_image_stack.template_fit()
         t2_image_stack.generate_time_series(
             self.TEMPLATE_P4_TEST_COORDS_ROW_COL, fit_coords=True)
-        t2_image_stack.initialise_fit_parameters()
+        t2_published = \
+            hazen_relaxometry.TEMPLATE_VALUES['plate4']['t2']['relax_times']
+        t2_image_stack.initialise_fit_parameters(t2_estimates=t2_published)
+        t2_image_stack.initialise_fit_parameters(t2_published)
         t2_image_stack.find_t2s()
     
         np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2,
@@ -328,11 +336,15 @@ class TestRelaxometry(unittest.TestCase):
         t1_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_ROW_COL, fit_coords=True)
         t1_image_stack.generate_fit_function()
-        t1_image_stack.initialise_fit_parameters()
+        t1_published = \
+            hazen_relaxometry.TEMPLATE_VALUES['plate5']['t1']['relax_times']
+        t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
         t1_image_stack.find_t1s()
     
         np.testing.assert_allclose(t1_image_stack.t1s, self.SITE2_PLATE5_T1,
                                           rtol=0.02, atol=1)
+        
+
     
         
 if __name__ == '__main__':

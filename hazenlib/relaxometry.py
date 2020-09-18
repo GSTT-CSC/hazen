@@ -48,72 +48,70 @@ import cv2 as cv
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+import os.path
 import skimage.morphology
 import scipy.ndimage
 import scipy.optimize
 from scipy.interpolate import UnivariateSpline
 
 # import hazenlib
+import hazenlib.exceptions
 
-# Coordinates of centre of spheres in plate 5.
+# Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches 
 # format (col,row)
-PLATE5_SPHERE_CENTRES_ROW_COL = (
-    (56, 95),
-    (62, 117),
-    (81, 133),
-    (104, 134),
-    (124, 121),
-    (133, 98),
-    (127, 75),
-    (109, 61),
-    (84, 60),
-    (64, 72),
-    (80, 81),
-    (78, 111),
-    (109, 113),
-    (110, 82))
+#
+# Access as:
+#    TEMPLATE_VALUES[f'plate{plate_num}']['sphere_centres_row_col']
+#    TEMPLATE_VALUES[f'plate{plate_num}']['t1']['filename'] # or 't2'
+#    TEMPLATE_VALUES[f'plate{plate_num}']['t1']['relax_times']
 
-PLATE5_BOLT_CENTRES_ROW_COL = (
-    (52, 80),
-    (92, 141),
-    (138, 85))
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                            'data', 'relaxometry')
+TEMPLATE_VALUES = {
+    'plate3':{
+        'sphere_centres_row_col':(),
+        'bolt_centres_row_col':(),
+        't1':{
+            'filename':'',
+            'relax_times':[]}},
+    
+    'plate4':{
+        'sphere_centres_row_col':(
+            (56, 94), (62, 117), (81, 132), (105, 134), (125, 120), (133, 99),
+            (127, 75), (108, 60), (84, 59), (64, 72), (80, 81), (78, 111),
+            (109, 113), (111, 82)),
+        'bolt_centres_row_col':(),
+        't1':{
+            'filename':os.path.join(TEMPLATE_DIR, 'Plate4_T1_signed'),
+            'relax_times':
+                np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
+                          752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
+                          83.3])},
+        't2':{
+            'filename':os.path.join(TEMPLATE_DIR, 'Plate4_T2'),
+            'relax_times':
+                np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
+                          64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])}},
+    
+    'plate5':{
+        'sphere_centres_row_col':(
+            (56, 95), (62, 117), (81, 133), (104, 134), (124, 121), (133, 98),
+            (127, 75), (109, 61), (84, 60), (64, 72), (80, 81), (78, 111),
+            (109, 113), (110, 82)),
+        'bolt_centres_row_col':((52, 80), (92, 141), (138, 85)),
+        't1':{
+            'filename':os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
+            'relax_times':
+                np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1, 184.6,
+                          132.7, 92.7, 65.4, 46.32, 32.45, 22.859])},
+        't2':{
+            'filename':os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
+            'relax_times':
+                np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2, 227.7,
+                          161.9, 117.1, 81.9, 57.7, 41.0, 28.7, 20.2])}}}
 
-PLATE5_TEMPLATE_PATH = \
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                 'data', 'relaxometry',
-                 'Plate5_T1_signed')
-
-PLATE5_T1_VALUES = np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
-                             184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859])
-
-PLATE4_TEMPLATE_PATH = \
-    os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                 'data', 'relaxometry', 'Plate4_T2')
-
-PLATE4_SPHERE_CENTRES_ROW_COL = (
-    (56, 94),
-    (62, 117),
-    (81, 132),
-    (105, 134),
-    (125, 120),
-    (133, 99),
-    (127, 75),
-    (108, 60),
-    (84, 59),
-    (64, 72),
-    (80, 81),
-    (78, 111),
-    (109, 113),
-    (111, 82))
-
-PLATE4_T2_VALUES = np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
-                             64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])
-
-PLATE4_T1_VALUES = np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
-                             752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
-                             83.3])
-
+    
 def outline_mask(im):
     """
     Create contour lines to outline pixels.
@@ -494,7 +492,6 @@ class ROITimeSeries():
             pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
         
         self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
-              
     
     def __len__(self):
         """Number of time samples in series."""
@@ -516,9 +513,6 @@ class ROITimeSeries():
 class ImageStack():
     """Object to hold image_slices and methods for T1, T2 calculation."""
 
-    # TODO define in subclasses
-    T1_sphere_centres = []
-    T1_bolt_centres = []
     
     def __init__(self, image_slices, template_dcm, plate_number=None,
                  dicom_order_key=None):
@@ -538,6 +532,7 @@ class ImageStack():
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
         """
+        self.plate_number=plate_number
         # Store template pixel array, after LUT in 0028,1052 and 0028,1053
         # applied
         self.template_dcm = template_dcm
@@ -718,7 +713,7 @@ class T1ImageStack(ImageStack):
                                  self.ROI_time_series[0].trs,
                                  mag_image = mag_image)
     
-    def initialise_fit_parameters(self, t1_estimates=PLATE5_T1_VALUES):
+    def initialise_fit_parameters(self, t1_estimates):
         """
         Estimate fit parameters (t1, a0, a1) for T1 curve fitting.
         
@@ -734,7 +729,7 @@ class T1ImageStack(ImageStack):
    
         Parameters
         ----------
-        t1_values : array_like, optional
+        t1_estimates : array_like
             T1 values to seed estimation. These should be the manufacturer
             provided T1 values where known. The default is plate5_t1_values.
 
@@ -792,7 +787,7 @@ class T2ImageStack(ImageStack):
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
         
-    def initialise_fit_parameters(self, t2_estimates=PLATE4_T2_VALUES):
+    def initialise_fit_parameters(self, t2_estimates):
         self.t2_est = t2_estimates
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
@@ -841,20 +836,30 @@ class T2ImageStack(ImageStack):
 
 
 
-def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
-         calc_t1 = False, calc_t2 = False, plate_number=None):
+def main(dcm_target_list, template_dcm=None, show_template_fit=True,
+         show_relax_fits=True, calc_t1 = False, calc_t2 = False,
+         plate_number=None, report_path=False):
 
+    # check for exactly one relaxometry calculation
+    if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
+        raise hazenlib.exceptions.ArgumentCombinationError(
+            'Must specify either calc_t1=True OR calc_t2=True.')
+    
     if calc_t1:
         t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
-                                      plate_number=5)
+                                      plate_number=plate_number)
         t1_image_stack.template_fit()
-        t1_image_stack.generate_time_series(PLATE5_SPHERE_CENTRES_ROW_COL)
+        t1_image_stack.generate_time_series(
+            TEMPLATE_VALUES[f'plate{t1_image_stack.plate_number}']
+            ['sphere_centres_row_col'])
         t1_image_stack.generate_fit_function()
     
-        if show_plot:
+        if show_template_fit:
             t1_image_stack.plot_fit()
         
-        t1_image_stack.initialise_fit_parameters(t1_estimates=PLATE5_T1_VALUES)
+        t1_published = \
+            TEMPLATE_VALUES[f'plate{t1_image_stack.plate_number}']['t1']['relax_times']
+        t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
         t1_image_stack.find_t1s()
         
         if show_relax_fits:
@@ -871,7 +876,7 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
                           'b-')
                 plt.plot(rois[i].times, rois[i].means, 'rx')
                 plt.title(f'[{i+1}] T1_calc={t1_image_stack.t1s[i]:.4g}, '
-                          f'T1_pub={PLATE5_T1_VALUES[i]:.4g}',
+                          f'T1_pub={t1_published[i]:.4g}',
                           fontsize=8)
             plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
     
@@ -879,23 +884,22 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
         return t1_image_stack  # for debugging only
     
     if calc_t2:
-        # debug-show only T2 plate 4
         t2_image_stack = T2ImageStack(dcm_target_list, template_dcm,
-                                      plate_number=4)
+                                      plate_number=plate_number)
         t2_image_stack.template_fit()
-        t2_image_stack.generate_time_series(PLATE4_SPHERE_CENTRES_ROW_COL)
+        t2_image_stack.generate_time_series(
+            TEMPLATE_VALUES[f'plate{t2_image_stack.plate_number}']
+            ['sphere_centres_row_col'])
     
-        if show_plot:
+        if show_template_fit:
             t2_image_stack.plot_fit()
         
-        t2_image_stack.initialise_fit_parameters()
+        t2_published = \
+            TEMPLATE_VALUES[f'plate{t2_image_stack.plate_number}']['t2']['relax_times']
+        t2_image_stack.initialise_fit_parameters(t2_estimates=t2_published)
         t2_image_stack.find_t2s()
         
         if show_relax_fits:
-            PLATE4_T2_IDL = np.array([818.0, 592.4, 432.4, 311.5, 219.7, 156.8,
-                                      113.0, 85.6, 59.5, 43.9, 31.8, 21.3, 14.6,
-                                      7.8])
-    
             smooth_times = range(0,500,5)
             rois = t2_image_stack.ROI_time_series
             fig = plt.figure()
@@ -909,8 +913,7 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
                           'b-')
                 plt.plot(rois[i].times, rois[i].means, 'rx')
                 plt.title(f'[{i+1}] T2_calc={t2_image_stack.t2s[i]:.4g}, '
-                          f'T2_pub={PLATE4_T2_VALUES[i]:.4g}, '
-                          f'T2_IDL={PLATE4_T2_IDL[i]:.4g}',
+                          f'T2_pub={t2_published[i]:.4g}',
                           fontsize=8)
             plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
         
@@ -920,24 +923,28 @@ def main(dcm_target_list, template_dcm, show_plot=True, show_relax_fits=True,
 # Code below is for development only and should be deleted before release.
 if __name__ == '__main__':
 
-    import os, os.path
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
     
+    #Test Error checking
+    #main([], calc_t1=True, calc_t2=True)
+    #main([], calc_t1=False, calc_t2=False)
     
     calc_t1 = False
     calc_t2 = False
     # comment lines below to supress calculation
-    calc_t1 = True
-    #calc_t2 = True
+    #calc_t1 = True;
+    calc_t2 = True
+    plate_num = 4
     
     if calc_t1:
-        template_dcm = pydicom.read_file(PLATE5_TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(
+            TEMPLATE_VALUES[f'plate{plate_num}']['t1']['filename'])
     
         # get list of pydicom objects
-        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                     '..', 'tests', 'data', 'relaxometry', 'T1',
-                                     'site2 20180925', 'plate 5')
+        target_folder = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), '..', 'tests', 'data',
+            'relaxometry', 'T1', 'site2 20180925', 'plate 5')
 
         # target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
         #                               '..', 'tests', 'data', 'relaxometry', 'T1',
@@ -954,11 +961,14 @@ if __name__ == '__main__':
                              os.path.join(target_folder, filename))
     
         t1_image_stack = main(dcm_target_list, template_dcm, calc_t1=True,
-                              show_relax_fits=True)
+                              show_template_fit=True, show_relax_fits=True,
+                              plate_number=plate_num)
         t1_rois = t1_image_stack.ROI_time_series
     
     if calc_t2:
-        template_dcm = pydicom.read_file(PLATE4_TEMPLATE_PATH)
+        template_dcm = pydicom.read_file(
+            TEMPLATE_VALUES[f'plate{plate_num}']['t2']['filename'])
+
     
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -974,6 +984,7 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        t2_image_stack = main(dcm_target_list, template_dcm, show_plot=True,
-                              calc_t2=True)
+        t2_image_stack = main(dcm_target_list, template_dcm,
+                              show_template_fit=True, calc_t2=True,
+                              plate_number=plate_num)
         t2_rois = t2_image_stack.ROI_time_series
