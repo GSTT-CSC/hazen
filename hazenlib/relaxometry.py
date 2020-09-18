@@ -692,6 +692,9 @@ class ImageStack():
             self.ROI_time_series.append(ROITimeSeries(
                 self.images, coords_row_col[i], time_attr=self.dicom_order_key,
                 kernel=kernel))
+    
+    def generate_fit_function(self):
+        """Null method in base class, may be overwritted in subclass."""
 
 
 class T1ImageStack(ImageStack):
@@ -750,7 +753,7 @@ class T1ImageStack(ImageStack):
                                a0_est_first, a0_est_last)
         self.a1_est = np.full_like(self.a0_est, 2.0)
 
-    def find_t1s(self):
+    def find_relax_times(self):
         """
         Calculate T1 values. Access as ``image_stack.t1s``
 
@@ -760,21 +763,24 @@ class T1ImageStack(ImageStack):
 
         """
         rois = self.ROI_time_series
-        self.t1_fit = [scipy.optimize.curve_fit(self.fit_function, 
-                                                rois[i].times,
-                                                rois[i].means, 
-                                                p0=[self.t1_est[i],
-                                                    self.a0_est[i],
-                                                    self.a1_est[i]],
-                                                jac=self.fit_jacobian,
-                                                method='lm')
-                       for i in range(len(rois))]
-        
+        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function, 
+                                                   rois[i].times,
+                                                   rois[i].means, 
+                                                   p0=[self.t1_est[i],
+                                                       self.a0_est[i],
+                                                       self.a1_est[i]],
+                                                   jac=self.fit_jacobian,
+                                                   method='lm')
+                    for i in range(len(rois))]
+         
     @property
     def t1s(self):
         """List of T1 values for each ROI."""
-        return [fit[0][0] for fit in self.t1_fit]
-
+        return [fit[0][0] for fit in self.relax_fit]
+    
+    @property
+    def relax_times(self):
+        return self.t1s
 
 
 class T2ImageStack(ImageStack):
@@ -797,7 +803,7 @@ class T2ImageStack(ImageStack):
                                 rois_second_mean, self.c_est)
 
 
-    def find_t2s(self):
+    def find_relax_times(self):
         """
         Calculate T2 values. Access as ``image_stack.t2s``
         
@@ -818,21 +824,25 @@ class T2ImageStack(ImageStack):
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
         #  can be implemented with rois[i].times[1::2] and .means[1::2]
         bounds = ([0, 0, 0], [np.inf, np.inf, 10])
-        self.t2_fit = [scipy.optimize.curve_fit(self.fit_function, 
-                                                rois[i].times[1:],
-                                                rois[i].means[1:],
-                                                p0=[self.t2_est[i],
-                                                    self.a0_est[i],
-                                                    self.c_est[i]],
-                                                jac=self.fit_jacobian,
-                                                bounds=bounds,
-                                                method='trf')
-                       for i in range(len(rois))]
+        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function, 
+                                                    rois[i].times[1:],
+                                                    rois[i].means[1:],
+                                                    p0=[self.t2_est[i],
+                                                        self.a0_est[i],
+                                                        self.c_est[i]],
+                                                    jac=self.fit_jacobian,
+                                                    bounds=bounds,
+                                                    method='trf')
+                          for i in range(len(rois))]
     
     @property
     def t2s(self):
         """List of T2 values for each ROI."""
-        return [fit[0][0] for fit in self.t2_fit]
+        return [fit[0][0] for fit in self.relax_fit]
+
+    @property
+    def relax_times(self):
+        return self.t2s
 
 
 
@@ -846,79 +856,56 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
             'Must specify either calc_t1=True OR calc_t2=True.')
     
     if calc_t1:
-        t1_image_stack = T1ImageStack(dcm_target_list, template_dcm,
-                                      plate_number=plate_number)
-        t1_image_stack.template_fit()
-        t1_image_stack.generate_time_series(
-            TEMPLATE_VALUES[f'plate{t1_image_stack.plate_number}']
-            ['sphere_centres_row_col'])
-        t1_image_stack.generate_fit_function()
-    
-        if show_template_fit:
-            t1_image_stack.plot_fit()
+        ImStack = T1ImageStack
+        relax_str = 't1'
+        smooth_times = range(0,1000,10)
+    elif calc_t2:
+        ImStack = T2ImageStack
+        relax_str = 't2'
+        smooth_times = range(0,500,5)
         
-        t1_published = \
-            TEMPLATE_VALUES[f'plate{t1_image_stack.plate_number}']['t1']['relax_times']
-        t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
-        t1_image_stack.find_t1s()
-        
-        if show_relax_fits:
-            smooth_times = range(0,1000,10)
-            rois = t1_image_stack.ROI_time_series
-            fig = plt.figure()
-            fig.suptitle('T1 relaxometry fits')
-            for i in range(14):
-                plt.subplot(4,4,i+1)
-                plt.plot(smooth_times, 
-                          t1_image_stack.fit_function(
-                              np.array(smooth_times),
-                              *np.array(t1_image_stack.t1_fit[i][0])),
-                          'b-')
-                plt.plot(rois[i].times, rois[i].means, 'rx')
-                plt.title(f'[{i+1}] T1_calc={t1_image_stack.t1s[i]:.4g}, '
-                          f'T1_pub={t1_published[i]:.4g}',
-                          fontsize=8)
-            plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
-    
-        
-        return t1_image_stack  # for debugging only
-    
-    if calc_t2:
-        t2_image_stack = T2ImageStack(dcm_target_list, template_dcm,
-                                      plate_number=plate_number)
-        t2_image_stack.template_fit()
-        t2_image_stack.generate_time_series(
-            TEMPLATE_VALUES[f'plate{t2_image_stack.plate_number}']
-            ['sphere_centres_row_col'])
-    
-        if show_template_fit:
-            t2_image_stack.plot_fit()
-        
-        t2_published = \
-            TEMPLATE_VALUES[f'plate{t2_image_stack.plate_number}']['t2']['relax_times']
-        t2_image_stack.initialise_fit_parameters(t2_estimates=t2_published)
-        t2_image_stack.find_t2s()
-        
-        if show_relax_fits:
-            smooth_times = range(0,500,5)
-            rois = t2_image_stack.ROI_time_series
-            fig = plt.figure()
-            fig.suptitle('T2 relaxometry fits')
-            for i in range(14):
-                plt.subplot(4,4,i+1)
-                plt.plot(smooth_times, 
-                          t2_image_stack.fit_function(
-                              np.array(smooth_times),
-                              *np.array(t2_image_stack.t2_fit[i][0])),
-                          'b-')
-                plt.plot(rois[i].times, rois[i].means, 'rx')
-                plt.title(f'[{i+1}] T2_calc={t2_image_stack.t2s[i]:.4g}, '
-                          f'T2_pub={t2_published[i]:.4g}',
-                          fontsize=8)
-            plt.tight_layout(rect=(0,0,0.95,1))  # Leave space at top to suptitle
-        
-        return t2_image_stack
+    image_stack = ImStack(dcm_target_list, template_dcm,
+                         plate_number=plate_number)
+    image_stack.template_fit()
+    image_stack.generate_time_series(
+        TEMPLATE_VALUES[f'plate{image_stack.plate_number}']
+        ['sphere_centres_row_col'])
+    image_stack.generate_fit_function()
 
+    if show_template_fit:
+        image_stack.plot_fit()
+    
+    relax_published = \
+        TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str]\
+            ['relax_times']
+    image_stack.initialise_fit_parameters(relax_published)
+    image_stack.find_relax_times()
+    
+    if show_relax_fits:
+        smooth_times = range(0,1000,10)
+        rois = image_stack.ROI_time_series
+        fig = plt.figure()
+        fig.suptitle(relax_str.upper() + ' relaxometry fits')
+        percent_diff = (image_stack.relax_times - relax_published) * 100 \
+            / relax_published
+        for i in range(14):
+            plt.subplot(4,4,i+1)
+            plt.plot(smooth_times, 
+                      image_stack.fit_function(
+                          np.array(smooth_times),
+                          *np.array(image_stack.relax_fit[i][0])),
+                      'b-')
+            plt.plot(rois[i].times, rois[i].means, 'rx')
+            plt.title(f'[{i+1}] fit={image_stack.relax_times[i]:.4g}, '
+                      f'pub={relax_published[i]:.4g} '
+                      f'({percent_diff[i]:+.2f}%)',
+                      fontsize=8)
+        plt.tight_layout(rect=(0,0,0.95,1)) # Leave suptitle space at top
+
+    
+    return image_stack  # for debugging only
+ 
+      
 
 # Code below is for development only and should be deleted before release.
 if __name__ == '__main__':
@@ -933,23 +920,25 @@ if __name__ == '__main__':
     calc_t1 = False
     calc_t2 = False
     # comment lines below to supress calculation
-    #calc_t1 = True;
-    calc_t2 = True
-    plate_num = 4
+    calc_t1 = True;
+    #calc_t2 = True
+    plate_num = 5
     
     if calc_t1:
         template_dcm = pydicom.read_file(
             TEMPLATE_VALUES[f'plate{plate_num}']['t1']['filename'])
     
         # get list of pydicom objects
-        target_folder = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), '..', 'tests', 'data',
-            'relaxometry', 'T1', 'site2 20180925', 'plate 5')
+        # target_folder = os.path.join(
+        #     os.path.dirname(os.path.realpath(__file__)), '..', 'tests', 'data',
+        #     'relaxometry', 'T1', 'site2 20180925', 'plate 5')
 
-        # target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-        #                               '..', 'tests', 'data', 'relaxometry', 'T1',
-        #                               'site1 20200218', 'plate 5')
-        # target_folder = "C:\OneDrive\BHSCT\OneDrive - Belfast Health & Social Care Trust\DICOM files\T1 measurement anomaly"
+        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                      '..', 'tests', 'data', 'relaxometry', 'T1',
+                                      'site1 20200218', 'plate 5')
+        
+        #target_folder = "C:\OneDrive\BHSCT\OneDrive - Belfast Health & Social Care Trust\DICOM files\T1 measurement anomaly"
+ 
         dcm_target_list = []
         (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
         for filename in filenames:
