@@ -1,46 +1,69 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Aug  4 14:15:35 2020
+Measure T1 and T2 in Caliber relaxometry phantom.
 
-@author: Paul Wilson
+Introduction
+============
 
-Overview
-========
-	1. Import list of DICOM files. The Caliber (HPD) system phantom should be
-        scanned https://qmri.com/system-phantom/. 
-        TODO: add protocol details.
-	2. Create container object / array (all-slices) containing:
-        a. Target images (to be ordered by TE or TI). Should be same position on same phantom, different TE or TI
-		b. Transformation matrix to map template image spcae to target image space
-        c. List of coordinates of centres of each sphere in template image (to enable ROI generation)
-	3. Image alignment-generate RT (rotation - translation) transformation matrix
-        fitting a Euclidean transformation.
-		a. Poss use https://www.learnopencv.com/image-alignment-ecc-in-opencv-c-python/ , https://alexanderpacha.com/2018/01/29/aligning-images-an-engineers-solution/
-		b. Generate coordinates of sphere centres by transforming list of coordinates from template.
-			i. CHECK-Display image with overlays showing sampling locations AND mounting pins / coffin (to check alignment).
-        c. Create mask for each sphere by placing structuring element (e.g. binary disk, diameter=?5px) centred on taget sphere coordinates.
-            i. CHECK-overlay contour map on target image.
-	4. For each sphere:
-		a. Find array of mean PVs foreach slice.
-			i. CHK--is max/min range too big--indicates poor position localisation
-		b. Fit array to decay curve.
-			i. Use different fitting algorithm for T1, T2. CHK sampling is relevant--i.e. different TIs, TEs at each slice.
-		c. Numeric and graphical output. Poss include known values if available.
+This module determines the T1 and T2 decay constants for the relaxometry
+spheres in the Caliber (HPD) system phantom https://qmri.com/system-phantom/
+(plates 4 and 5). Values are compared to published values (without temperature
+correction). Graphs of fit and phantom registration images can optionally be
+produced.
+
+Information on scan parameters is available from the 'Download Specs' option
+in the above website (T1-VTI sequence). Scan times can be decreased for T1
+acquisitions by:
+    1. Use TI/ms = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0].
+    2. Use TR = 1000 ms (or minimum possible if longer than 1000 ms).
+The algorithm will accommodate a variation in TR with TI and incomplete recovery
+due to short TR.
+
+T2 acquisition protocol can be shortened by:
+    1. Use TR = 2000 ms.
+    2. Use scanner's built-in 32 echo sequence.
 
 
-TODO
-====
-    Get r-squared measure of fit
+Algorithm overview
+==================
+1. Create ``T1ImageStack`` or ``T2ImageStack`` object which stores a list
+    of individual DICOM files (as ``pydicom`` objects) in the ``.images``
+    attribute.
+2. Obtain the RT (rotation / translation) matrix to register the template
+    image to the test image. Four template images are provided, one for
+    each relaxation parameter (T1 or T2) on plates 4 and 5, and regression
+    is performed on the first image in the sequence. Optionally output the
+    overlay image to visually check the fit.
+3. An ROI is generated for each target sphere using stored coordinates, the
+    RT transformation above, and a structuring element (default is a 5x5
+    boxcar).
+4. Store pixel data for each ROI, at various times, in an ``ROITimeSeries``
+    object. A list of these objects is stored in 
+    ``ImageStack.ROI_time_series``.
+5. Generate the fit function. For T1 this looks up TR for the given TI 
+    (using piecewise linear interpolation if required) and determines if a
+    magnitude or signed image is used. No customisation is required for T2
+    measurements.
+6. Determine relaxation time (T1 or T2) by fitting the decay equation to
+    the ROI data for each sphere. The published values of the relaxation
+    times are used to seed the optimisation algorithm. Optionally plot
+    and save the decay curves.
+7. Return plate number, relaxation type (T1 or T2), measured relaxation
+    times, published relaxation times, and fractional differences in a
+    dictionary.
 
 
-FEATURE ENHANCEMENT
-===================
-Template fit on bolt holes--possibly better with large rotation angles and faster
+
+Feature enhancements
+====================
+Template fit on bolt holes--possibly better with large rotation angles
     -have bolthole template, find 3 positions in template and image, figure out
     transformation.
     
 Use normalised structuring element in ROITimeSeries. This will allow correct
 calculation of mean if elements are not 0 or 1.
+
+Get r-squared measure of fit.
 
 """
 import pydicom
@@ -63,8 +86,8 @@ import hazenlib.exceptions
 #
 # Access as:
 #    TEMPLATE_VALUES[f'plate{plate_num}']['sphere_centres_row_col']
-#    TEMPLATE_VALUES[f'plate{plate_num}']['t1']['filename'] # or 't2'
-#    TEMPLATE_VALUES[f'plate{plate_num}']['t1']['relax_times']
+#    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['filename']
+#    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['relax_times']
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             'data', 'relaxometry')
@@ -256,8 +279,8 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
         S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
     where ``a0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
     varies due to inhomogeneous B0 field, ``t1`` is the longitudinal
-    relaxation time, and the repetition time, ``TR``, is calculted from ``TI``
-    using piecewise linear interpolation.
+    relaxation time, and the repetition time, ``TR``, is calculated  from
+    ``TI`` using piecewise linear interpolation.
 
     Parameters
     ----------
@@ -313,7 +336,25 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
 
 def est_t1_a0(ti, tr, t1, pv):
     """
-    Return initial guess of A0 for T1 curve fitting.
+    Return initial guess of A0 to seed T1 curve fitting.
+
+    
+
+    Parameters
+    ----------
+    ti : array_like
+        TI values.
+    tr : array_like
+        TR values.
+    t1 : array_like
+        Estimated T1 (typically from manufacturer's documentation).
+    pv : array_like
+        Mean pixel value in ROI.
+
+    Returns
+    -------
+    array_like
+        Initial A0 guess for calculating T1 relaxation time.
 
     """
     return -pv / (1 - 2*np.exp(-ti/t1) + np.exp(-tr/t1))
@@ -321,7 +362,7 @@ def est_t1_a0(ti, tr, t1, pv):
 
 def t2_function(te, t2, a0, c):
     """
-    Signal formaula from TE, T2, A0 and C.
+    Calculated pixel value given TE, T2, A0 and C.
     
     Calculates pixel intensity from::
         pv = a0 * np.exp(-te / t2) + c
@@ -434,7 +475,7 @@ class ROITimeSeries():
         
     pixel_values : list of arrays
         List of 1-D arrays of pixel values in ROI. The variance could be used
-        as a measure of ROI homogeneity to identiy incorrect sphere location.
+        as a measure of ROI homogeneity to identify  incorrect sphere location.
         
     times : list of floats
         If ``time_attr`` was used in the constructor, this list contains the
@@ -444,7 +485,7 @@ class ROITimeSeries():
     trs : list of floats
         Values of TR for each image.
         
-    means :  list of floats
+    means : list of floats
         Mean pixel value of ROI for each image in series.
     """
 
@@ -465,7 +506,7 @@ class ROITimeSeries():
             typically the centre of the ROI, in row_col (y,x) format.
         time_attr : string, optional
             If present, lookup the DICOM attribute ``[time_attr]`` (typically
-            ``'InversionTime'`` or ``'EchoTime'`` and store in the list
+            ``'InversionTime'`` or ``'EchoTime'``) and store in the list
             ``self.times``. The default is ``None``, which does not create
             ``self.times``
         kernel : array_like, optional
@@ -511,7 +552,9 @@ class ROITimeSeries():
 
 
 class ImageStack():
-    """Object to hold image_slices and methods for T1, T2 calculation."""
+    """
+    Object to hold image_slices and methods for T1, T2 calculation.
+    """
 
     
     def __init__(self, image_slices, template_dcm, plate_number=None,
@@ -523,11 +566,14 @@ class ImageStack():
         ----------
         image_slices : list of pydicom.FileDataSet objects
             List of pydicom objects to perform relaxometry analysis on.
+            
         template_dcm : pydicom FileDataSet (or None)
             DICOM template object.
+            
         plate_number : int {3,4,5}, optional
             For future use. Reference to the plate in the relaxometry phantom.
             The default is None.
+            
         dicom_order_key : string, optional
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
@@ -696,11 +742,11 @@ class ImageStack():
                 kernel=kernel))
     
     def generate_fit_function(self):
-        """Null method in base class, may be overwritted in subclass."""
+        """Null method in base class, may be overwritten in subclass."""
 
 
 class T1ImageStack(ImageStack):
-    """Calculates T1 relaxometry."""
+    """Calculate T1 relaxometry."""
 
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
@@ -724,7 +770,7 @@ class T1ImageStack(ImageStack):
         
         T1 estimates are provided.
         
-        A0 is estimated using abs(est_t1_roi(ti, tr, t1_est, mean_pv))
+        A0 is estimated using abs(est_t1_a0(ti, tr, t1_est, mean_pv))
             For each ROI, A0 is calculated using from both the smallest and
             largest TI, and the value with the largest mean_pv used. This
             guards against the case where division by a mean_pv close to zero
@@ -736,7 +782,7 @@ class T1ImageStack(ImageStack):
         ----------
         t1_estimates : array_like
             T1 values to seed estimation. These should be the manufacturer
-            provided T1 values where known. The default is plate5_t1_values.
+            provided T1 values where known.
 
         Returns
         -------
@@ -777,11 +823,12 @@ class T1ImageStack(ImageStack):
          
     @property
     def t1s(self):
-        """List of T1 values for each ROI."""
+        """List T1 values for each ROI."""
         return [fit[0][0] for fit in self.relax_fit]
     
     @property
     def relax_times(self):
+        """List of T1 for each ROI."""
         return self.t1s
 
 
@@ -796,6 +843,26 @@ class T2ImageStack(ImageStack):
         self.fit_jacobian = t2_jacobian
         
     def initialise_fit_parameters(self, t2_estimates):
+        """
+        Estimate fit parameters (t2, a0, c) for T1 curve fitting.
+        
+        T2 estimates are provided.
+        
+        A0 is estimated using est_t2_a0(te, t2_est, mean_pv, c).
+            
+        C is estimated as 0.0, the theoretical value assuming Gaussian noise.
+   
+        Parameters
+        ----------
+        t2_estimates : array_like
+            T2 values to seed estimation. These should be the manufacturer
+            provided T2 values where known.
+
+        Returns
+        -------
+        None.
+
+        """
         self.t2_est = t2_estimates
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
@@ -844,13 +911,51 @@ class T2ImageStack(ImageStack):
 
     @property
     def relax_times(self):
+        """List of T2 values for each ROI."""
         return self.t2s
 
 
 
-def main(dcm_target_list, template_dcm=None, show_template_fit=True,
-         show_relax_fits=True, calc_t1 = False, calc_t2 = False,
-         plate_number=None, report_path=False):
+def main(dcm_target_list, *, plate_number,
+         show_template_fit=False, show_relax_fits=False, calc_t1=False,
+         calc_t2=False, report_path=False):
+    """
+    Calculate T1 or T2 values for relaxometry phantom.
+    
+    Note: either ``calc_t1`` or ``calc_t2`` (but not both) must be True.
+
+    Parameters
+    ----------
+    dcm_target_list : list of pydicom.dataset.FileDataSet objects
+        List of DICOM images of a plate of the HPD relaxometry phantom.
+    plate_number : int
+        Plate number of the HPD relaxometry phantom (either 4 or 5)
+    show_template_fit : bool, optional
+        If True, displays images to show template fitting and ROIs. The 
+        default is False.
+    show_relax_fits : bool, optional
+        If True, displays graphs to show relaxometry fitting. The  default
+        is False.
+    calc_t1 : bool, optional
+        Calculate T1. The default is False.
+    calc_t2 : bool, optional
+        Calculate T2. The default is False.
+    report_path : path, optional
+        If a valid file root, save template_fit images and relax_fit graphs.
+        These must first have been generated with ``show_template_fit=True``
+        or ``show_relax_fit=True``. The default is False.
+
+    Returns
+    -------
+    dict
+        {
+            plate : plate_number,
+            relaxation_type : 't1' | 't2',
+            calc_times : list of T1|T2 for each sphere,
+            manufacturers_times : list of manufacturer's values for T1|T2,
+            frac_time_difference : (calc_times - manufacturers_times) / manufacturers_times
+        }
+    """
 
     # check for exactly one relaxometry calculation
     if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
@@ -862,11 +967,16 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
         ImStack = T1ImageStack
         relax_str = 't1'
         smooth_times = range(0,1000,10)
+        template_dcm = pydicom.read_file(
+            TEMPLATE_VALUES[f'plate{plate_number}']['t1']['filename'])
+
     elif calc_t2:
         ImStack = T2ImageStack
         relax_str = 't2'
         smooth_times = range(0,500,5)
-        
+        template_dcm = pydicom.read_file(
+            TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
+
     image_stack = ImStack(dcm_target_list, template_dcm,
                          plate_number=plate_number)
     image_stack.template_fit()
@@ -879,11 +989,13 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
         fig = image_stack.plot_fit()
         if report_path:
             old_dims = fig.get_size_inches()
+            # Improve saved image quality
             fig.set_size_inches(24,24)
             for subplt in fig.get_axes():
                 subplt.title.set_fontsize(40)
             fig.savefig(f'{report_path}_template_fit.png',
                         dpi=150)
+            # Restore screen quality
             for subplt in fig.get_axes():
                 subplt.title.set_fontsize('large')
             fig.set_size_inches(old_dims)
@@ -916,11 +1028,13 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
                       fontsize=8)
         #plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
         if report_path:
+            # Improve saved image quality
             old_dims = fig.get_size_inches()
             fig.set_size_inches(9,15)
             plt.tight_layout(rect=(0,0,1,0.97))
             fig.savefig(f'{report_path}_decay_graphs.png',
                         dpi=300)
+            # Restore screen quality
             fig.set_size_inches(old_dims)
 
 
@@ -949,16 +1063,13 @@ if __name__ == '__main__':
     calc_t1 = False
     calc_t2 = False
     # comment lines below to supress calculation
-    calc_t1 = True;
-    #calc_t2 = True
-    plate_num = 5
+    #calc_t1 = True;
+    calc_t2 = True
+    plate_num = 4
     report_path = './relaxout'
     
     
     if calc_t1:
-        template_dcm = pydicom.read_file(
-            TEMPLATE_VALUES[f'plate{plate_num}']['t1']['filename'])
-    
         # get list of pydicom objects
         # target_folder = os.path.join(
         #     os.path.dirname(os.path.realpath(__file__)), '..', 'tests', 'data',
@@ -980,7 +1091,7 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        output_dict = main(dcm_target_list, template_dcm, calc_t1=True,
+        output_dict = main(dcm_target_list, calc_t1=True,
                            show_template_fit=True, show_relax_fits=True,
                            plate_number=plate_num, report_path=report_path)
         #t1_rois = t1_image_stack.ROI_time_series
@@ -1004,7 +1115,7 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        output_dict = main(dcm_target_list, template_dcm,
+        output_dict = main(dcm_target_list, 
                            show_template_fit=True, calc_t2=True,
                            plate_number=plate_num, report_path=report_path)
         #t2_rois = t2_image_stack.ROI_time_series

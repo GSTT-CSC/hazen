@@ -344,13 +344,27 @@ class TestRelaxometry(unittest.TestCase):
         """Test exception raised if neither T1 nor T2 to be claculated."""
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=False,
-                          calc_t2=False)
+                          calc_t2=False, plate_number=5)
 
     def test_both_t1_or_t2(self):
         """Test exception raised if neither T1 nor T2 to be claculated."""
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=True,
-                          calc_t2=True)
+                          calc_t2=True, plate_number=5)
+        
+    def test_t1_siemens(self):
+        """Test T1 values on Siemens images."""
+        dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in
+                self.T1_FILES]
+        t1_results = hazen_relaxometry.main(dcms, plate_number=5,
+                                            calc_t1=True)
+        # `t1_results` is a dict with one item where we don't know the key.
+        # Need to extract via unpacking
+        results, = t1_results.values()
+        np.testing.assert_allclose(results['calc_times'], self.PLATE5_T1,
+                                   rtol=0.02, atol=1)
+
+            
 
         
 if __name__ == '__main__':
