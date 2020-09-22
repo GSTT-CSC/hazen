@@ -30,7 +30,7 @@ Overview
 
 TODO
 ====
-
+    Get r-squared measure of fit
 
 
 FEATURE ENHANCEMENT
@@ -627,7 +627,7 @@ class ImageStack():
             3. Overlay of (1) and (2)
             4. Overlay of RT transformed template and (2)
         """
-        plt.figure()
+        fig = plt.figure()
         plt.subplot(2, 2, 1)
         plt.imshow(self.template8bit, cmap='gray')
         plt.title('Template')
@@ -656,6 +656,8 @@ class ImageStack():
         plt.axis('off')
 
         plt.tight_layout()
+        
+        return fig
 
     def order_by(self, att):
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
@@ -855,6 +857,7 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify either calc_t1=True OR calc_t2=True.')
     
+    # Set up parameters specific to T1 or T2
     if calc_t1:
         ImStack = T1ImageStack
         relax_str = 't1'
@@ -873,23 +876,34 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
     image_stack.generate_fit_function()
 
     if show_template_fit:
-        image_stack.plot_fit()
+        fig = image_stack.plot_fit()
+        if report_path:
+            old_dims = fig.get_size_inches()
+            fig.set_size_inches(24,24)
+            for subplt in fig.get_axes():
+                subplt.title.set_fontsize(40)
+            fig.savefig(f'{report_path}_template_fit.png',
+                        dpi=150)
+            for subplt in fig.get_axes():
+                subplt.title.set_fontsize('large')
+            fig.set_size_inches(old_dims)
+
     
     relax_published = \
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str]\
             ['relax_times']
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
+    frac_time_diff = (image_stack.relax_times - relax_published) \
+            / relax_published
     
     if show_relax_fits:
-        smooth_times = range(0,1000,10)
         rois = image_stack.ROI_time_series
         fig = plt.figure()
         fig.suptitle(relax_str.upper() + ' relaxometry fits')
-        percent_diff = (image_stack.relax_times - relax_published) * 100 \
-            / relax_published
+        
         for i in range(14):
-            plt.subplot(4,4,i+1)
+            plt.subplot(5,3,i+1)
             plt.plot(smooth_times, 
                       image_stack.fit_function(
                           np.array(smooth_times),
@@ -898,12 +912,27 @@ def main(dcm_target_list, template_dcm=None, show_template_fit=True,
             plt.plot(rois[i].times, rois[i].means, 'rx')
             plt.title(f'[{i+1}] fit={image_stack.relax_times[i]:.4g}, '
                       f'pub={relax_published[i]:.4g} '
-                      f'({percent_diff[i]:+.2f}%)',
+                      f'({frac_time_diff[i]*100:+.2f}%)',
                       fontsize=8)
-        plt.tight_layout(rect=(0,0,0.95,1)) # Leave suptitle space at top
+        #plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
+        if report_path:
+            old_dims = fig.get_size_inches()
+            fig.set_size_inches(9,15)
+            plt.tight_layout(rect=(0,0,1,0.97))
+            fig.savefig(f'{report_path}_decay_graphs.png',
+                        dpi=300)
+            fig.set_size_inches(old_dims)
 
+
+    # Generate output dict
+    output = dict(plate=image_stack.plate_number,
+                  relaxation_type=relax_str,
+                  calc_times=image_stack.relax_times,
+                  manufacturers_times=relax_published,
+                  frac_time_difference=frac_time_diff)
     
-    return image_stack  # for debugging only
+    output_key='RELAXOMETRY_KEY'
+    return {output_key:output}
  
       
 
@@ -923,6 +952,8 @@ if __name__ == '__main__':
     calc_t1 = True;
     #calc_t2 = True
     plate_num = 5
+    report_path = './relaxout'
+    
     
     if calc_t1:
         template_dcm = pydicom.read_file(
@@ -949,10 +980,10 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        t1_image_stack = main(dcm_target_list, template_dcm, calc_t1=True,
-                              show_template_fit=True, show_relax_fits=True,
-                              plate_number=plate_num)
-        t1_rois = t1_image_stack.ROI_time_series
+        output_dict = main(dcm_target_list, template_dcm, calc_t1=True,
+                           show_template_fit=True, show_relax_fits=True,
+                           plate_number=plate_num, report_path=report_path)
+        #t1_rois = t1_image_stack.ROI_time_series
     
     if calc_t2:
         template_dcm = pydicom.read_file(
@@ -973,7 +1004,7 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        t2_image_stack = main(dcm_target_list, template_dcm,
-                              show_template_fit=True, calc_t2=True,
-                              plate_number=plate_num)
-        t2_rois = t2_image_stack.ROI_time_series
+        output_dict = main(dcm_target_list, template_dcm,
+                           show_template_fit=True, calc_t2=True,
+                           plate_number=plate_num, report_path=report_path)
+        #t2_rois = t2_image_stack.ROI_time_series
