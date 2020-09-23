@@ -1056,31 +1056,21 @@ if __name__ == '__main__':
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
     
-    #Test Error checking
-    #main([], calc_t1=True, calc_t2=True)
-    #main([], calc_t1=False, calc_t2=False)
-    
     calc_t1 = False
     calc_t2 = False
     # comment lines below to supress calculation
-    #calc_t1 = True;
+    calc_t1 = True;
     calc_t2 = True
-    plate_num = 4
     report_path = './relaxout'
     
     
     if calc_t1:
         # get list of pydicom objects
-        # target_folder = os.path.join(
-        #     os.path.dirname(os.path.realpath(__file__)), '..', 'tests', 'data',
-        #     'relaxometry', 'T1', 'site2 20180925', 'plate 5')
-
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                       '..', 'tests', 'data', 'relaxometry', 'T1',
-                                      'site1 20200218', 'plate 5')
+                                      'site1_20200218', 'plate5')
+        plate_num = 5
         
-        #target_folder = "C:\OneDrive\BHSCT\OneDrive - Belfast Health & Social Care Trust\DICOM files\T1 measurement anomaly"
- 
         dcm_target_list = []
         (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
         for filename in filenames:
@@ -1091,10 +1081,9 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        output_dict = main(dcm_target_list, calc_t1=True,
-                           show_template_fit=True, show_relax_fits=True,
-                           plate_number=plate_num, report_path=report_path)
-        #t1_rois = t1_image_stack.ROI_time_series
+        t1_output_dict = main(dcm_target_list, calc_t1=True,
+                              show_template_fit=True, show_relax_fits=True,
+                              plate_number=plate_num, report_path=report_path)
     
     if calc_t2:
         template_dcm = pydicom.read_file(
@@ -1104,7 +1093,9 @@ if __name__ == '__main__':
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                      '..', 'tests', 'data', 'relaxometry', 'T2',
-                                     'site1 20200218', 'plate 4')
+                                     'site1_20200218', 'plate4')
+        plate_num = 4
+        
         dcm_target_list = []
         (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
         for filename in filenames:
@@ -1115,7 +1106,6 @@ if __name__ == '__main__':
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
     
-        output_dict = main(dcm_target_list, 
-                           show_template_fit=True, calc_t2=True,
-                           plate_number=plate_num, report_path=report_path)
-        #t2_rois = t2_image_stack.ROI_time_series
+        t2_output_dict = main(dcm_target_list, calc_t2=True,
+                              show_template_fit=True, show_relax_fits=True,
+                              plate_number=plate_num, report_path=report_path)

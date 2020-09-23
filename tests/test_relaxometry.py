@@ -29,15 +29,15 @@ class TestRelaxometry(unittest.TestCase):
                            [11 + np.sqrt(3)/2, 19.5 + np.sqrt(3)]]
     
     # T1_FILES are in random order to test sorting    
-    T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1 20200218',
-                          'plate 5')
+    T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1_20200218',
+                          'plate5')
     T1_FILES = ['20530320', '20530224', '20530416', '20530272', '20530464',
                 '20530368']
     T1_TI_SORTED = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0]
 
     # T2_FILES are in random order to test sorting
-    T2_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2', 'site1 20200218',
-                          'plate 4')
+    T2_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2', 'site1_20200218',
+                          'plate4')
     T2_FILES = ['20528529', '20528577', '20528625', '20528673',
                 '20528721', '20528769', '20530528', '20530576',
                 '20530624', '20530672', '20530720', '20530768',
@@ -55,7 +55,7 @@ class TestRelaxometry(unittest.TestCase):
     TEMPLATE_PATH_T1_P5 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
                                        'Template_plate5_T1_signed')
     TEMPLATE_TARGET_PATH_T1_P5 = os.path.join(
-        TEST_DATA_DIR, 'relaxometry', 'T1', 'site1 20200218', 'plate 5',
+        TEST_DATA_DIR, 'relaxometry', 'T1', 'site1_20200218', 'plate5',
         '20530224')
     TEMPLATE_TEST_COORDS_ROW_COL = [[56, 95], [62, 117], [81, 133], [104, 134],
                                     [124, 121], [133, 98], [127, 75],
@@ -111,7 +111,7 @@ class TestRelaxometry(unittest.TestCase):
                        178.9, 131.9, 93.8, 67.9, 45.8, 33.4, 23.6]
 
     SITE2_T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
-                                'site2 20180925', 'plate 5')
+                                'site2_20180925', 'plate5')
     SITE2_T1_FILES = ['77189804', '77189870', '77189936', '77190002',
                       '77190068', '77190134']
 
