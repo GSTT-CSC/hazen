@@ -248,6 +248,10 @@ def pixel_LUT(dcmfile):
     This function converts the ``.pixel_array`` using the LUT values in the
     DICOM header.
 
+    For Philips scanners the private DICOM fields 2005,100d (=SI) and 2005,100e
+    (=SS) are used as inverse scaling factors are used instead to perform the
+    inverse transformation [1]_
+
     Parameters
     ----------
     dcmfile : Pydicom.dataset.FileDataset
@@ -258,8 +262,21 @@ def pixel_LUT(dcmfile):
     numpy.array
         Values in ``dcmfile.pixel_array`` transformed using DICOM LUT.
 
+    References
+    ----------
+    .. [1] Chenevert, Thomas L., et al. "Errors in quantitative image analysis
+     due to platform-dependent image scaling." Translational Oncology 7.1
+     (2014): 65-71. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3998685/
+
     """
-    return pydicom.pixel_data_handlers.util.apply_modality_lut(
+    # Check for Philips
+    if dcmfile.Manufacturer.startswith('Philips'):
+        ss = dcmfile['2005100e'].value # Scale slope
+        si = dcmfile['2005100d'].value # Scale intercept
+
+        return (dcmfile.pixel_array - si) / ss
+    else:
+        return pydicom.pixel_data_handlers.util.apply_modality_lut(
             dcmfile.pixel_array, dcmfile)
 
 
@@ -531,7 +548,7 @@ class ROITimeSeries():
             self.times = [x[time_attr].value.real for x in dcm_images]
         self.pixel_values = [
             pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
-        
+
         self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
     
     def __len__(self):
@@ -547,7 +564,6 @@ class ROITimeSeries():
         -------
         List of mean pixel value in ROI for each sample.
         """
-        # return [np.mean(self.pixel_values[i]) for i in range(len(self))]
         return [np.mean(pvs) for pvs in self.pixel_values]
 
 
@@ -578,7 +594,7 @@ class ImageStack():
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
         """
-        self.plate_number=plate_number
+        self.plate_number = plate_number
         # Store template pixel array, after LUT in 0028,1052 and 0028,1053
         # applied
         self.template_dcm = template_dcm
@@ -644,7 +660,7 @@ class ImageStack():
                                        None, 0, 255, norm_type=cv.NORM_MINMAX,
                                        dtype=cv.CV_8U)
 
-        # initialise transofrmation fitting parameters.
+        # initialise transformation fitting parameters.
         number_of_iterations = 500
         termination_eps = 1e-10
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
@@ -1059,7 +1075,7 @@ if __name__ == '__main__':
     calc_t1 = False
     calc_t2 = False
     # comment lines below to supress calculation
-    calc_t1 = True;
+    calc_t1 = True
     calc_t2 = True
     report_path = './relaxout'
     
@@ -1086,10 +1102,6 @@ if __name__ == '__main__':
                               plate_number=plate_num, report_path=report_path)
     
     if calc_t2:
-        template_dcm = pydicom.read_file(
-            TEMPLATE_VALUES[f'plate{plate_num}']['t2']['filename'])
-
-    
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                      '..', 'tests', 'data', 'relaxometry', 'T2',
@@ -1109,3 +1121,4 @@ if __name__ == '__main__':
         t2_output_dict = main(dcm_target_list, calc_t2=True,
                               show_template_fit=True, show_relax_fits=True,
                               plate_number=plate_num, report_path=report_path)
+    plt.show()

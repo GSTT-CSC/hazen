@@ -115,7 +115,57 @@ class TestRelaxometry(unittest.TestCase):
     SITE2_T1_FILES = ['77189804', '77189870', '77189936', '77190002',
                       '77190068', '77190134']
 
- 
+    # Site 4 values from Philips scanner
+    SITE4_T1_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                   'site4_philips', 'plate4')
+
+    SITE4_T1_P4_FILES = ['IM_0604', 'IM_0614', 'IM_0624', 'IM_0634', 'IM_0644',
+                         'IM_0654']
+
+    SITE4_T1_P4 = [2207.79, 1977.82, 1824.62, 1508.57, 1215.05,
+                   986.90, 767.73, 592.15, 443.97, 324.34, 235.42,
+                   162.76, 121.01, 85.62]
+
+    SITE4_T1_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                   'site4_philips', 'plate5')
+
+    SITE4_T1_P5_FILES = ['IM_0603', 'IM_0613', 'IM_0623', 'IM_0633', 'IM_0643',
+                         'IM_0653']
+
+    SITE4_T1_P5 = [1856.54, 1414.10, 973.43, 706.07, 500.16, 354.23, 251.70,
+                   175.92, 129.89, 91.89, 65.44, 45.51, 32.39, 23.12]
+
+    SITE4_T2_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
+                                   'site4_philips', 'plate4')
+
+    SITE4_T2_P4_FILES = ['IM_0439', 'IM_0440', 'IM_0441', 'IM_0442', 'IM_0443',
+                         'IM_0444', 'IM_0445', 'IM_0446', 'IM_0447', 'IM_0448',
+                         'IM_0449', 'IM_0450', 'IM_0451', 'IM_0452', 'IM_0453',
+                         'IM_0454', 'IM_0455', 'IM_0456', 'IM_0457', 'IM_0458',
+                         'IM_0459', 'IM_0460', 'IM_0461', 'IM_0462', 'IM_0463',
+                         'IM_0464', 'IM_0465', 'IM_0466', 'IM_0467', 'IM_0468',
+                         'IM_0469', 'IM_0470']
+
+    SITE4_T2_P4 = [830.93, 597.30, 437.69, 313.22, 220.64, 157.19, 110.05, 78.48,
+                   55.53, 39.33, 27.20, 18.24, 13.17, 9.38]
+
+
+    SITE4_T2_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
+                                   'site4_philips', 'plate5')
+
+    SITE4_T2_P5_FILES = ['IM_0407', 'IM_0408', 'IM_0409', 'IM_0410', 'IM_0411',
+                         'IM_0412', 'IM_0413', 'IM_0414', 'IM_0415', 'IM_0416',
+                         'IM_0417', 'IM_0418', 'IM_0419', 'IM_0420', 'IM_0421',
+                         'IM_0422', 'IM_0423', 'IM_0424', 'IM_0425', 'IM_0426',
+                         'IM_0427', 'IM_0428', 'IM_0429', 'IM_0430', 'IM_0431',
+                         'IM_0432', 'IM_0433', 'IM_0434', 'IM_0435', 'IM_0436',
+                         'IM_0437', 'IM_0438']
+
+    SITE4_T2_P5 = [1637.27, 1210.97, 844.49, 615.70, 445.75, 313.76, 223.06,
+                   155.87, 114.94, 81.03, 57.27, 39.23, 28.33, 19.89]
+
+
+
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
         warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
@@ -364,8 +414,52 @@ class TestRelaxometry(unittest.TestCase):
         np.testing.assert_allclose(results['calc_times'], self.PLATE5_T1,
                                    rtol=0.02, atol=1)
 
-            
+    def test_t1_p4_philips(self):
+        """Test T1 values on plate 4 on Philips."""
+        dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
+                for fname in self.SITE4_T1_P4_FILES]
+        t1_results = hazen_relaxometry.main(dcms, plate_number=4,
+                                            calc_t1=True)
+        # `t1_results` is a dict with one item where we don't know the key.
+        # Need to extract via unpacking
+        results, = t1_results.values()
+        np.testing.assert_allclose(results['calc_times'],
+                                   self.SITE4_T1_P4,
+                                   rtol=0.02, atol=1)
 
-        
+    def test_t1_p5_philips(self):
+        """Test T1 values on plate 5 on Philips."""
+        dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
+                for fname in self.SITE4_T1_P5_FILES]
+        t1_results = hazen_relaxometry.main(dcms, plate_number=5,
+                                            calc_t1=True)
+        results, = t1_results.values()
+        np.testing.assert_allclose(results['calc_times'],
+                                   self.SITE4_T1_P5,
+                                   rtol=0.02, atol=1)
+
+    def test_t2_p4_philips(self):
+        """Test T2 values on plate 4 on Philips."""
+        dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
+                for fname in self.SITE4_T2_P4_FILES]
+        t2_results = hazen_relaxometry.main(dcms, plate_number=4,
+                                            calc_t2=True)
+        results, = t2_results.values()
+        np.testing.assert_allclose(results['calc_times'],
+                                   self.SITE4_T2_P4,
+                                   rtol=0.02, atol=1)
+
+    def test_t2_p5_philips(self):
+        """Test T2 values on plate 4 on Philips."""
+        dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
+                for fname in self.SITE4_T2_P5_FILES]
+        t2_results = hazen_relaxometry.main(dcms, plate_number=5,
+                                            calc_t2=True)
+        results, = t2_results.values()
+        np.testing.assert_allclose(results['calc_times'],
+                                   self.SITE4_T2_P5,
+                                   rtol=0.02, atol=1)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)
