@@ -635,6 +635,8 @@ class ImageStack():
 
         Further details
         ---------------
+        Untested for situations where the template matrix is larger than the
+        image (lack of data!). Tested for images larger than templates.
 
         TODO
         ----
@@ -643,16 +645,25 @@ class ImageStack():
         as pixel values are highly variable between scanners and manufacturers.
 
         Need to check if image is real valued, typically signed then shifted so
-        background is 2048, or magnitude image. Currently it assumes magnitude
-        image.
-
+        background is 2048, or magnitude image. Currently it forces converts
+        all images to magnitude images before regression.
         """
         target_px = pixel_LUT(self.images[0])
+        template_px = self.template_px
+
+        # Pad template or target pixels if required
+        scale_factor = len(target_px) / len(template_px)
+        pad_size = np.subtract(template_px.shape, target_px.shape)
+        assert pad_size[0] == pad_size[1], "Image matrices must be square."
+        if pad_size[0] > 0: # pad target--UNTESTED
+            target_px = np.pad(target_px, pad_width=(0,pad_size[0]))
+        elif pad_size[0] < 0: # pad template
+            template_px = np.pad(template_px, pad_width=(0,-pad_size[0]))
 
         # Always fit on magnitude images for simplicity. May be suboptimal
         # TODO check for better solution
         self.template8bit = \
-            cv.normalize(abs(self.template_px),
+            cv.normalize(abs(template_px),
                          None, 0, 255, norm_type=cv.NORM_MINMAX,
                          dtype=cv.CV_8U)
 
@@ -665,7 +676,12 @@ class ImageStack():
         termination_eps = 1e-10
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
                     number_of_iterations, termination_eps)
-        self.warp_matrix = np.eye(2, 3, dtype=np.float32)
+        self.warp_matrix = scale_factor * np.eye(2, 3, dtype=np.float32)
+
+        self.scaled_template8bit = cv.warpAffine(self.template8bit,
+                                                 self.warp_matrix,
+                                                 (self.template8bit.shape[1],
+                                                  self.template8bit.shape[0]))
 
         # Apply transformation
         self.template_cc, self.warp_matrix = \
@@ -708,7 +724,7 @@ class ImageStack():
                 plt.plot(line[1], line[0], color='r', alpha=1)
 
         plt.subplot(2, 2, 3)
-        plt.imshow(self.template8bit/2 + self.target8bit/2, cmap='gray')
+        plt.imshow(self.scaled_template8bit/2 + self.target8bit/2, cmap='gray')
         plt.title('Image / template overlay')
         plt.axis('off')
 
@@ -1074,7 +1090,7 @@ if __name__ == '__main__':
     
     calc_t1 = False
     calc_t2 = False
-    # comment lines below to supress calculation
+    # comment lines below to suppress calculation
     calc_t1 = True
     calc_t2 = True
     report_path = './relaxout'

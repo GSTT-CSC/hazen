@@ -164,6 +164,41 @@ class TestRelaxometry(unittest.TestCase):
     SITE4_T2_P5 = [1637.27, 1210.97, 844.49, 615.70, 445.75, 313.76, 223.06,
                    155.87, 114.94, 81.03, 57.27, 39.23, 28.33, 19.89]
 
+    # Data to test 256*256 input image with 192*192 template
+    PATH_256_MATRIX = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                   'site3_ge', 'plate4', 'Z675')
+
+    TARGET_COORDS_256 = np.array([[ 75, 125], [ 85, 155], [111, 173],
+                                  [142, 175], [168, 155], [177, 127],
+                                  [168,  95], [142,  76], [110,  76],
+                                  [ 85,  95], [106, 106], [105, 146],
+                                  [146, 147], [147, 105]])
+
+    SITE3_T1_P4_VALS = [1688.86, 1719.20, 1630.20, 1434.49, 1200.83, 991.49, 774.25,
+                        595.16, 443.76, 325.61, 234.83, 164.16, 121.54, 73.16]
+    SITE3_T1_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                   'site3_GE', 'plate4')
+    SITE3_T1_P4_FILES = ['Z675', 'Z679', 'Z682', 'Z837', 'Z839', 'Z842']
+
+    SITE3_T1_P5_VALS = [1702.05, 1302.77, 945.81, 692.32, 499.89, 351.64, 250.61,
+                        174.67, 127.77, 89.40, 63.14, 43.45, 30.12, 17.11]
+    SITE3_T1_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
+                                   'site3_GE', 'plate5')
+    SITE3_T1_P5_FILES = ['Z677', 'Z678', 'Z683', 'Z838', 'Z840', 'Z844']
+
+    SITE3_T2_P4_VALS = [942.22, 661.83, 464.63, 329.72, 229.59, 163.36, 115.27,
+                        82.77, 58.49, 41.64, 28.69, 19.47, 14.25, 10.30]
+    SITE3_T2_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
+                                   'site3_GE', 'plate4')
+    SITE3_T2_P4_FILES = ['Z815', 'Z816', 'Z820', 'Z822', 'Z826', 'Z827', 'Z831',
+                         'Z832']
+
+    SITE3_T2_P5_VALS = [1878.80, 1227.30, 790.39, 582.16, 419.24, 298.09, 216.68,
+                        154.16, 114.25, 80.52, 57.17, 39.56, 28.10, 19.72]
+    SITE3_T2_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
+                                   'site3_GE', 'plate5')
+    SITE3_T2_P5_FILES = ['Z812', 'Z813', 'Z814', 'Z819', 'Z823', 'Z825', 'Z830',
+                         'Z834']
 
 
     def test_transform_coords(self):
@@ -459,6 +494,46 @@ class TestRelaxometry(unittest.TestCase):
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P5,
                                    rtol=0.02, atol=1)
+
+    def test_scale_up_template(self):
+        """Test fit for 256x256 GE image with 192x192 template"""
+        template_dcm = pydicom.read_file(
+            hazen_relaxometry.TEMPLATE_VALUES['plate4']['t1']['filename'])
+
+        target_dcm = pydicom.dcmread(self.PATH_256_MATRIX)
+        t1_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
+                                                        template_dcm,
+                                                        plate_number=4)
+        t1_image_stack.template_fit()
+
+        transformed_coordinates_xy = hazen_relaxometry.transform_coords(
+            hazen_relaxometry.TEMPLATE_VALUES['plate4']['sphere_centres_row_col'],
+            t1_image_stack.warp_matrix,
+            input_row_col=True, output_row_col=True)
+
+        # test to within +/- 1 pixel (also checks YX-XY change)
+        np.testing.assert_allclose(
+            transformed_coordinates_xy, self.TARGET_COORDS_256,
+            atol=1)
+
+    def test_ge(self):
+        """Test relaxometry values on GE."""
+        for plate in (4,5):
+            for tparam in ('T1', 'T2'):
+                calc_t1 = tparam == 'T1'
+                calc_t2 = tparam == 'T2'
+                dcms = [pydicom.dcmread(os.path.join(
+                    getattr(self,f'SITE3_{tparam}_P{plate}_DIR'), fname))
+                        for fname in getattr(self,f'SITE3_{tparam}_P{plate}_FILES')]
+
+                t_results = hazen_relaxometry.main(dcms, plate_number=plate,
+                                                 calc_t2=calc_t2,
+                                                 calc_t1=calc_t1)
+                results, = t_results.values()
+                np.testing.assert_allclose(
+                    results['calc_times'],
+                    getattr(self,f'SITE3_{tparam}_P{plate}_VALS'),
+                    rtol=0.02, atol=1)
 
 
 if __name__ == '__main__':
