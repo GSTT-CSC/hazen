@@ -174,6 +174,7 @@ class TestRelaxometry(unittest.TestCase):
                                   [ 85,  95], [106, 106], [105, 146],
                                   [146, 147], [147, 105]])
 
+    # Site 3 from GE scanner
     SITE3_T1_P4_VALS = [1688.86, 1719.20, 1630.20, 1434.49, 1200.83, 991.49, 774.25,
                         595.16, 443.76, 325.61, 234.83, 164.16, 121.54, 73.16]
     SITE3_T1_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',

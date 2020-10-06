@@ -59,6 +59,9 @@ Feature enhancements
 Template fit on bolt holes--possibly better with large rotation angles
     -have bolthole template, find 3 positions in template and image, figure out
     transformation.
+
+Template fit on outline image--poss run though edge detection algorithms then
+fit.
     
 Use normalised structuring element in ROITimeSeries. This will allow correct
 calculation of mean if elements are not 0 or 1.
@@ -240,12 +243,12 @@ def transform_coords(coords, rt_matrix, input_row_col=True,
     return out_coords
 
 
-def pixel_LUT(dcmfile):
+def pixel_rescale(dcmfile):
     """
-    Transforms pixel values according to LUT in DICOM header.
+    Transforms pixel values according to scale values in DICOM header.
     
     DICOM pixel values arrays cannot directly represent signed or float values.
-    This function converts the ``.pixel_array`` using the LUT values in the
+    This function converts the ``.pixel_array`` using the scaling values in the
     DICOM header.
 
     For Philips scanners the private DICOM fields 2005,100d (=SI) and 2005,100e
@@ -260,7 +263,7 @@ def pixel_LUT(dcmfile):
     Returns
     -------
     numpy.array
-        Values in ``dcmfile.pixel_array`` transformed using DICOM LUT.
+        Values in ``dcmfile.pixel_array`` transformed using DICOM scaling.
 
     References
     ----------
@@ -547,7 +550,7 @@ class ROITimeSeries():
         if time_attr is not None:
             self.times = [x[time_attr].value.real for x in dcm_images]
         self.pixel_values = [
-            pixel_LUT(img)[self.ROI_mask > 0] for img in dcm_images]
+            pixel_rescale(img)[self.ROI_mask > 0] for img in dcm_images]
 
         self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
     
@@ -595,11 +598,11 @@ class ImageStack():
             relaxometry or 'EchoTime' for T2.
         """
         self.plate_number = plate_number
-        # Store template pixel array, after LUT in 0028,1052 and 0028,1053
+        # Store template pixel array, after scaling in 0028,1052 and 0028,1053
         # applied
         self.template_dcm = template_dcm
         if template_dcm is not None:
-            self.template_px = pixel_LUT(template_dcm)
+            self.template_px = pixel_rescale(template_dcm)
             
         self.dicom_order_key = dicom_order_key
         self.images = image_slices  # store images
@@ -648,7 +651,7 @@ class ImageStack():
         background is 2048, or magnitude image. Currently it forces converts
         all images to magnitude images before regression.
         """
-        target_px = pixel_LUT(self.images[0])
+        target_px = pixel_rescale(self.images[0])
         template_px = self.template_px
 
         # Pad template or target pixels if required
@@ -711,17 +714,9 @@ class ImageStack():
         plt.title('Template')
         plt.axis('off')
 
-        plt.subplot(2, 2, 2)
-        plt.imshow(self.target8bit, cmap='gray')
+        ax = plt.subplot(2, 2, 2)
+        self.plot_rois(new_fig=False)
         plt.title('Image')
-        plt.axis('off')
-        if hasattr(self, 'ROI_time_series'):
-            combined_ROI_map = np.zeros_like(self.ROI_time_series[0].ROI_mask)
-            for roi in self.ROI_time_series:
-                combined_ROI_map += roi.ROI_mask
-            lines = outline_mask(combined_ROI_map)
-            for line in lines:
-                plt.plot(line[1], line[0], color='r', alpha=1)
 
         plt.subplot(2, 2, 3)
         plt.imshow(self.scaled_template8bit/2 + self.target8bit/2, cmap='gray')
@@ -735,6 +730,39 @@ class ImageStack():
 
         plt.tight_layout()
         
+        return fig
+
+    def plot_rois(self, new_fig=True):
+        """
+        Plot ROIs on image for visual check on template fitting.
+
+        Parameters
+        ----------
+        new_fig : bool, optional
+            Create new figure if True. Otherwise create in current axis (e.g.
+            as a subplot). The default is True.
+
+        Returns
+        -------
+            matplotlib figure handle if a new figure was created, otherwise
+            None.
+
+        """
+        fig=None
+        if new_fig:
+            # Create image in a new figure (not a subplot)
+            fig = plt.figure()
+
+        plt.imshow(self.target8bit, cmap='gray')
+        plt.axis('off')
+        if hasattr(self, 'ROI_time_series'):
+            combined_ROI_map = np.zeros_like(self.ROI_time_series[0].ROI_mask)
+            for roi in self.ROI_time_series:
+                combined_ROI_map += roi.ROI_mask
+            lines = outline_mask(combined_ROI_map)
+            for line in lines:
+                plt.plot(line[1], line[0], color='r', alpha=1)
+
         return fig
 
     def order_by(self, att):
@@ -787,7 +815,7 @@ class T1ImageStack(ImageStack):
     def generate_fit_function(self):
         """"Create T1 fit function for magnitude/signed image and variable TI."""
         #  check if image is signed or magnitude
-        if np.all(pixel_LUT(self.images[0]) >= 0):
+        if np.all(pixel_rescale(self.images[0]) >= 0):
             mag_image = True
         else:
             mag_image = False
@@ -925,7 +953,7 @@ class T2ImageStack(ImageStack):
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
         #  can be implemented with rois[i].times[1::2] and .means[1::2]
         bounds = ([0, 0, 0], [np.inf, np.inf, 10])
-        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function, 
+        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function,
                                                     rois[i].times[1:],
                                                     rois[i].means[1:],
                                                     p0=[self.t2_est[i],
@@ -950,7 +978,7 @@ class T2ImageStack(ImageStack):
 
 def main(dcm_target_list, *, plate_number,
          show_template_fit=False, show_relax_fits=False, calc_t1=False,
-         calc_t2=False, report_path=False):
+         calc_t2=False, report_path=False, show_rois=False):
     """
     Calculate T1 or T2 values for relaxometry phantom.
     
@@ -1032,7 +1060,13 @@ def main(dcm_target_list, *, plate_number,
                 subplt.title.set_fontsize('large')
             fig.set_size_inches(old_dims)
 
-    
+    if show_rois:
+        fig = image_stack.plot_rois()
+        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_num})')
+        if report_path:
+           fig.savefig(f'{report_path}_rois.png',
+                        dpi=300)
+
     relax_published = \
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str]\
             ['relax_times']
@@ -1071,14 +1105,34 @@ def main(dcm_target_list, *, plate_number,
 
 
     # Generate output dict
+    index_im = image_stack.images[0]
     output = dict(plate=image_stack.plate_number,
                   relaxation_type=relax_str,
                   calc_times=image_stack.relax_times,
                   manufacturers_times=relax_published,
-                  frac_time_difference=frac_time_diff)
-    
-    output_key='RELAXOMETRY_KEY'
+                  frac_time_difference=frac_time_diff,
+                  institution_name=index_im.InstitutionName,
+                  manufacturer=index_im.Manufacturer,
+                  model=index_im.ManufacturerModelName,
+                  date=index_im.StudyDate)
+
+    detailed_output = {
+        'filenames' : [im.filename for im in image_stack.images],
+        'ROI_means' : {i:im.means for i,im in enumerate(image_stack.ROI_time_series)},
+        'TE' : [im.EchoTime for im in image_stack.images],
+        'TR' : [im.RepetitionTime for im in image_stack.images],
+        'TI' : [im.InversionTime if hasattr(im, 'InversionTime') else None\
+                for im in image_stack.images],
+        # fit_paramters (T1) = [[T1, A0, A1] for each ROI]
+        # fit_parameters (T2) = [[T2, A0, C] for each ROI]
+        'fit_parameters' : [param[0] for param in image_stack.relax_fit]
+        }
+
+    output['detailed'] = detailed_output
+
+    output_key = 'RELAXOMETRY_KEY' # TODO change from temp key
     return {output_key:output}
+    #return image_stack  # TEMP for debugging
  
       
 
@@ -1092,7 +1146,7 @@ if __name__ == '__main__':
     calc_t2 = False
     # comment lines below to suppress calculation
     calc_t1 = True
-    calc_t2 = True
+    #calc_t2 = True
     report_path = './relaxout'
     
     
@@ -1114,7 +1168,8 @@ if __name__ == '__main__':
                              os.path.join(target_folder, filename))
     
         t1_output_dict = main(dcm_target_list, calc_t1=True,
-                              show_template_fit=True, show_relax_fits=True,
+                              show_template_fit=False, show_relax_fits=True,
+                              show_rois=True,
                               plate_number=plate_num, report_path=report_path)
     
     if calc_t2:
