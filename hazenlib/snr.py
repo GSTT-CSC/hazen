@@ -303,10 +303,12 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
     ----------
     data
     measured_slice_width
+    report_path
 
     Returns
     -------
     results: list
+
     """
     results = {}
 
@@ -333,5 +335,4 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         results[f"snr_smoothing_normalised_{key}"] = round(normalised_snr, 2)
 
     return results
-
 
