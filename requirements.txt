@@ -1,6 +1,6 @@
 SQLAlchemy_Utils==0.33.11
 alembic==1.0.10
-celery==4.3.0
+celery==4.3.1
 numpy==1.17.0
 Werkzeug==0.15.4
 scikit_image==0.14.2
