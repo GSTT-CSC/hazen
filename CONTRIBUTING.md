@@ -30,6 +30,7 @@ To run local, install sonar-scanner. Edit properties file in conf so that url is
 ## Releasing
 
 - Produce requirements.txt: __pipreqs --force --savepath ./requirements.txt --ignore bin,hazen-venv ./__
+- Check what requirements have been edited as pipreqs is not perfect e.g. scikit_image instead of skimage
 - Make sure all tests are passing
 - Update version in hazenlib/\_\_init\_\_.py, remove 'dev'.
 - Update docs (try sphinx-apidoc for autodocumentation of modules)

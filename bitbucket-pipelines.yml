@@ -10,9 +10,8 @@ stepdefinitions:
       script:
         - pip install --upgrade pip
         - pip install -r requirements.txt
-        - pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=./test-reports/junit.xml tests/
-        - mkdir ./xunit-reports/
-        - cp ./test-reports/junit.xml ./xunit-reports/xunit-result-1.xml
+        - pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=junit.xml tests/
+
       services:
         - postgres
 
@@ -22,7 +21,7 @@ stepdefinitions:
       - pipe: sonarsource/sonarcloud-scan:1.0.1
         variables:
           SONAR_TOKEN: ${SONAR_TOKEN}
-          EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X'
+          EXTRA_ARGS: '-Dsonar.branch.name=$BITBUCKET_BRANCH -X -Dsonar.python.coverage.reportPaths=**/coverage.xml -Dsonar.python.xunit.reportPath=**/junit.xml'
          
       - bash <(curl -f .coverage.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
