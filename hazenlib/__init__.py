@@ -75,12 +75,12 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 Welcome to the Hazen Command Line Interface
 Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--report]
-    hazen -h|--help     Show this screen.
-    hazen -v|--version  Show version.
+    hazen -h|--help
+    hazen -v|--version
 Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
-    <folder>  Directory containing dicom files to be processed.
-    --report  Create report file in current working directory
+    <folder>
+    --report
 """
 import os
 import pprint
@@ -90,7 +90,7 @@ import pydicom
 from docopt import docopt
 import numpy as np
 
-__version__ = '0.1.10'
+__version__ = '0.3.0'
 EXCLUDED_FILES = ['.DS_Store']
 
 
@@ -136,9 +136,9 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
-            return manufacturer
-    else:
-        raise Exception(f'{manufacturer} not recognised manufacturer')
+            return item
+
+    raise Exception(f'{manufacturer} not recognised manufacturer')
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
@@ -152,24 +152,17 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """
-    .. todo::
-        NOTE THIS DOES NOT ACCOUNT FOR PHASE FOV CURRENTLY.
-        Philips dicom without pixel bandwidth field - calculates pixel bandwidth from water-fat shift field.
-        Deal with magic number in Philips calc
+    Returns PixelBandwidth
 
     Parameters
     ----------
-    dcm
+    dcm: pydicom.Dataset
 
     Returns
     -------
-
+    bandwidth: float
     """
-    if get_manufacturer(dcm) == 'Philips':
-        bandwidth = 3.4 * 63.8968 / dcm.Private_2001_1022
-    else:
-        bandwidth = dcm.PixelBandwidth
-
+    bandwidth = dcm.PixelBandwidth
     return bandwidth
 
 
@@ -225,6 +218,64 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
     return dx, dy
 
+def get_TR(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns Repetition Time (TR)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    TR: float
+    """
+
+    try:
+        TR = dcm.RepetitionTime
+    except:
+        print('Warning: Could not find Repetition Time. Using default value of 1000 ms')
+        TR = 1000
+    return TR
+
+def get_rows(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image rows (rows)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    rows: float
+    """
+    try:
+        rows = dcm.Rows
+    except:
+        print('Warning: Could not find Number of matrix rows. Using default value of 256')
+        rows=256
+
+    return rows
+
+def get_columns(dcm: pydicom.Dataset) -> (float):
+    """
+    Returns number of image columns (columns)
+
+    Parameters
+    ----------
+    dcm: pydicom.Dataset
+
+    Returns
+    -------
+    columns: float
+    """
+    try:
+        columns = dcm.Columns
+    except:
+        print('Warning: Could not find matrix size (columns). Using default value of 256.')
+        columns = 256
+    return columns
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
@@ -242,12 +293,14 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif 'toshiba' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise Exception('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
 
+
 def main():
     arguments = docopt(__doc__, version=__version__)
+
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
@@ -262,7 +315,7 @@ def main():
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        return pp.pprint(task.main(dicom_objects, measured_slice_width, report))
+        return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
 
-    return pp.pprint(task.main(dicom_objects, report))
+    return pp.pprint(task.main(dicom_objects, report_path=report))
 
