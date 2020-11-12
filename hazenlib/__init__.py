@@ -90,7 +90,7 @@ import pydicom
 from docopt import docopt
 import numpy as np
 
-__version__ = '0.1.10'
+__version__ = '0.3.0'
 EXCLUDED_FILES = ['.DS_Store']
 
 

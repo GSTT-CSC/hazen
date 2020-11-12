@@ -16,6 +16,7 @@ import sys
 import cv2 as cv
 import numpy as np
 import pydicom
+from scipy import ndimage
 
 import hazenlib
 import hazenlib.tools
@@ -81,29 +82,29 @@ def get_normalised_snr_factor(dcm: pydicom.Dataset, measured_slice_width=None) -
     return normalised_snr_factor
 
 
-def conv2d(dcm: pydicom.Dataset, f) -> np.array:
+def filtered_image(dcm: pydicom.Dataset) -> np.array:
     """
     Performs a 2D convolution (for filtering images)
+    uses uniform_filter SciPy function
 
     parameters:
     ---------------
     a: array to be filtered
-    f: filter kernel
 
     returns:
     ---------------
     filtered numpy array
     """
     a = dcm.pixel_array.astype('int')
-    s = f.shape + tuple(np.subtract(a.shape, f.shape) + 1)
-    strd = np.lib.stride_tricks.as_strided
-    subM = strd(a, shape=s, strides=a.strides * 2)
-    return np.einsum('ij,ijkl->kl', f, subM)
+
+    # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
+    filtered_array=ndimage.uniform_filter(a,9,mode='constant')
+    return filtered_array
 
 
 def get_noise_image(dcm: pydicom.Dataset) -> np.array:
     """
-    Separates the image noise by smoothing the image and subtracing the smoothed image
+    Separates the image noise by smoothing the image and subtracting the smoothed image
     from the original.
 
     parameters:
@@ -112,25 +113,13 @@ def get_noise_image(dcm: pydicom.Dataset) -> np.array:
 
     returns:
     ---------------
-    Inoise: image representing the image noise
+    Imnoise: image representing the image noise
     """
     a = dcm.pixel_array.astype('int')
-    # Create 3x3 boxcar kernel
-    # size = (3, 3)
-    # kernel = np.ones(size) / 9
 
-    # implementing 9 x 9 kernel to match matlab (and McCann 2013 for Head Coil, although note McCann 2013 recommends 25 x 25 for Body Coil)
-    size = (9, 9)
-    kernel = np.ones(size) / 81
+    # Convolve image with boxcar/uniform kernel
+    imsmoothed = filtered_image(dcm)
 
-    # Convolve image with boxcar kernel
-    imsmoothed = conv2d(dcm, kernel)
-    # Pad the array (to counteract the pixels lost from the convolution)
-    # imsmoothed = np.pad(imsmoothed, 1, 'minimum')
-
-    # changed padding to align with new kernel size - more padding required
-
-    imsmoothed = np.pad(imsmoothed, 4, 'minimum')
 
     # Subtract smoothed array from original
     imnoise = a - imsmoothed
