@@ -285,7 +285,7 @@ def pixel_rescale(dcmfile):
 
 def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     """
-    Generate T1 signal function and jacobian with interpreted TRs.
+    Generate T1 signal function and jacobian with interpolated TRs.
     
     Signal intensity on T1 decay is a function of both TI and TR. Ideally, TR
     should be constant and at least 5*T1. However, scan time can be reduced by
@@ -319,16 +319,23 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
         S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
     
     t1_jacobian : function
-        Returns tuple of partial derivatives for curve fitting.
+        Tuple of partial derivatives for curve fitting.
+
+    eqn_str : string
+        String representation of fit function.
     """
     #  Create piecewise liner fit function. k=1 gives linear, s=0 ensures all
-    #  points are on line. Using UnivariateSpline (rather than numpy.interp()
+    #  points are on line. Using UnivariateSpline (rather than numpy.interp())
     #  enables derivative calculation if required.
     tr = UnivariateSpline(ti_interp_vals, tr_interp_vals, k=1, s=0)
     # tr_der = tr.derivative()
-    
+
+    eqn_str = 'a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))'
+    if mag_image:
+        eqn_str = f'abs({eqn_str})'
+
     def _t1_function_signed(ti, t1, a0, a1):
-        pv = a0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1)) 
+        pv = a0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1))
         return pv
     
     def t1_function(ti, t1, a0, a1):
@@ -351,7 +358,7 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
         
         return jacobian.T
     
-    return t1_function, t1_jacobian
+    return t1_function, t1_jacobian, eqn_str
 
 
 def est_t1_a0(ti, tr, t1, pv):
@@ -422,7 +429,7 @@ def t2_function(te, t2, a0, c):
 
 def t2_jacobian(te, t2, a0, c):
     """
-    Jacobian of ``ts_function`` used for curve fitting.
+    Jacobian of ``t2_function`` used for curve fitting.
 
     Parameters
     ----------
@@ -803,6 +810,8 @@ class ImageStack():
     
     def generate_fit_function(self):
         """Null method in base class, may be overwritten in subclass."""
+        self.fit_eqn_str = 'No fit equation defined. If you are reading this, '
+        'something went wrong.'
 
 
 class T1ImageStack(ImageStack):
@@ -819,10 +828,10 @@ class T1ImageStack(ImageStack):
             mag_image = True
         else:
             mag_image = False
-        self.fit_function, self.fit_jacobian = \
+        self.fit_function, self.fit_jacobian, self.fit_eqn_str = \
             generate_t1_function(self.ROI_time_series[0].times,
                                  self.ROI_time_series[0].trs,
-                                 mag_image = mag_image)
+                                 mag_image=mag_image)
     
     def initialise_fit_parameters(self, t1_estimates):
         """
@@ -901,6 +910,7 @@ class T2ImageStack(ImageStack):
         
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
+        self.fit_eqn_str = 'a0 * np.exp(-te / t2) + c'
         
     def initialise_fit_parameters(self, t2_estimates):
         """
@@ -1125,15 +1135,17 @@ def main(dcm_target_list, *, plate_number,
                 for im in image_stack.images],
         # fit_paramters (T1) = [[T1, A0, A1] for each ROI]
         # fit_parameters (T2) = [[T2, A0, C] for each ROI]
-        'fit_parameters' : [param[0] for param in image_stack.relax_fit]
+        'fit_parameters' : [param[0] for param in image_stack.relax_fit],
+        'fit_equation' : image_stack.fit_eqn_str
         }
 
     output['detailed'] = detailed_output
 
-    output_key = 'RELAXOMETRY_KEY' # TODO change from temp key
+    output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
+    f"P{image_stack.plate_number}_{relax_str}"
+
     return {output_key:output}
-    #return image_stack  # TEMP for debugging
- 
+
       
 
 # Code below is for development only and should be deleted before release.
@@ -1143,6 +1155,7 @@ if __name__ == '__main__':
     from pydicom.errors import InvalidDicomError
     
     calc_t1 = False
+
     calc_t2 = False
     # comment lines below to suppress calculation
     calc_t1 = True
@@ -1155,7 +1168,8 @@ if __name__ == '__main__':
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                       '..', 'tests', 'data', 'relaxometry', 'T1',
                                       'site1_20200218', 'plate5')
-        plate_num = 5
+        target_folder = r'G:\UHD\t1\p4'
+        plate_num = 4
         
         dcm_target_list = []
         (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
