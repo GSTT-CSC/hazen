@@ -1006,6 +1006,9 @@ def main(dcm_target_list, *, plate_number,
     show_relax_fits : bool, optional
         If True, displays graphs to show relaxometry fitting. The  default
         is False.
+    show_rois : bool, optional
+        If True, display original image with ROIs overlaid. The default is
+        False
     calc_t1 : bool, optional
         Calculate T1. The default is False.
     calc_t2 : bool, optional
@@ -1072,7 +1075,7 @@ def main(dcm_target_list, *, plate_number,
 
     if show_rois:
         fig = image_stack.plot_rois()
-        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_num})')
+        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
         if report_path:
            fig.savefig(f'{report_path}_rois.png',
                         dpi=300)
@@ -1144,6 +1147,7 @@ def main(dcm_target_list, *, plate_number,
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
     f"P{image_stack.plate_number}_{relax_str}"
 
+    plt.show(block=True)
     return {output_key:output}
 
       
@@ -1206,4 +1210,3 @@ if __name__ == '__main__':
         t2_output_dict = main(dcm_target_list, calc_t2=True,
                               show_template_fit=True, show_relax_fits=True,
                               plate_number=plate_num, report_path=report_path)
-    plt.show()

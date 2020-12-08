@@ -178,26 +178,26 @@ class TestRelaxometry(unittest.TestCase):
     SITE3_T1_P4_VALS = [1688.86, 1719.20, 1630.20, 1434.49, 1200.83, 991.49, 774.25,
                         595.16, 443.76, 325.61, 234.83, 164.16, 121.54, 73.16]
     SITE3_T1_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
-                                   'site3_GE', 'plate4')
+                                   'site3_ge', 'plate4')
     SITE3_T1_P4_FILES = ['Z675', 'Z679', 'Z682', 'Z837', 'Z839', 'Z842']
 
     SITE3_T1_P5_VALS = [1702.05, 1302.77, 945.81, 692.32, 499.89, 351.64, 250.61,
                         174.67, 127.77, 89.40, 63.14, 43.45, 30.12, 17.11]
     SITE3_T1_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
-                                   'site3_GE', 'plate5')
+                                   'site3_ge', 'plate5')
     SITE3_T1_P5_FILES = ['Z677', 'Z678', 'Z683', 'Z838', 'Z840', 'Z844']
 
     SITE3_T2_P4_VALS = [942.22, 661.83, 464.63, 329.72, 229.59, 163.36, 115.27,
                         82.77, 58.49, 41.64, 28.69, 19.47, 14.25, 10.30]
     SITE3_T2_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
-                                   'site3_GE', 'plate4')
+                                   'site3_ge', 'plate4')
     SITE3_T2_P4_FILES = ['Z815', 'Z816', 'Z820', 'Z822', 'Z826', 'Z827', 'Z831',
                          'Z832']
 
     SITE3_T2_P5_VALS = [1878.80, 1227.30, 790.39, 582.16, 419.24, 298.09, 216.68,
                         154.16, 114.25, 80.52, 57.17, 39.56, 28.10, 19.72]
     SITE3_T2_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
-                                   'site3_GE', 'plate5')
+                                   'site3_ge', 'plate5')
     SITE3_T2_P5_FILES = ['Z812', 'Z813', 'Z814', 'Z819', 'Z823', 'Z825', 'Z830',
                          'Z834']
 
