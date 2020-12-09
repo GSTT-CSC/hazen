@@ -387,12 +387,12 @@ def est_t1_a0(ti, tr, t1, pv):
     return -pv / (1 - 2*np.exp(-ti/t1) + np.exp(-tr/t1))
 
 
-def t2_function(te, t2, a0, c):
+def t2_function(te, t2, a0):
     """
     Calculated pixel value given TE, T2, A0 and C.
     
     Calculates pixel intensity from::
-        pv = a0 * np.exp(-te / t2) + c
+        pv = a0 * np.exp(-te / t2)
 
     Parameters
     ----------
@@ -402,9 +402,6 @@ def t2_function(te, t2, a0, c):
         T2 decay constant.
     a0 : float
         Initial signal magnitude.
-    c : float
-        Constant offset, theoretically 0, but models Rician noise in magnitude
-        data.
 
     Returns
     -------
@@ -420,14 +417,11 @@ def t2_function(te, t2, a0, c):
     reaches the noise floor.
 
     """
-    #c=0  # remove comment to disable constant in equation
-    pv = a0 * np.exp(-te / t2) + c
-    # uncomment to implement noise floor of 'c'. Also need to change t2_jacobian
-    #pv = np.fmax(a0 * np.exp(-te / t2), c) 
+    pv = a0 * np.exp(-te / t2)
     return pv
 
 
-def t2_jacobian(te, t2, a0, c):
+def t2_jacobian(te, t2, a0):
     """
     Jacobian of ``t2_function`` used for curve fitting.
 
@@ -439,26 +433,21 @@ def t2_jacobian(te, t2, a0, c):
         T2 decay constant.
     a0 : float
         Initial signal magnitude.
-    c : float
-        Constant offset, theoretically 0.
 
     Returns
     -------
     array
-        [t2_der, a0_der, c_der].T, where x_der is a 1-D array of the partial
+        [t2_der, a0_der].T, where x_der is a 1-D array of the partial
         derivatives at each ``te``.
 
     """
     t2_der = a0 * te / t2**2 * np.exp(-te/t2)
     a0_der = np.exp(-te / t2)
-    c_der = np.full_like(t2_der, 1.0)
-    #pv = t2_function(te, t2, a0, c)
-    #c_der = np.where(pv > c, np.zeros_like(t2_der), np.full_like(t2_der, 1.0))
-    jacobian = np.array([t2_der, a0_der, c_der])
+    jacobian = np.array([t2_der, a0_der])
     return jacobian.T
 
 
-def est_t2_a0(te, t2, pv, c):
+def est_t2_a0(te, t2, pv, c=0.0):
     """
     Initial guess at A0 to seed curve fitting.
 
@@ -810,8 +799,6 @@ class ImageStack():
     
     def generate_fit_function(self):
         """Null method in base class, may be overwritten in subclass."""
-        self.fit_eqn_str = 'No fit equation defined. If you are reading this, '
-        'something went wrong.'
 
 
 class T1ImageStack(ImageStack):
@@ -910,11 +897,11 @@ class T2ImageStack(ImageStack):
         
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
-        self.fit_eqn_str = 'a0 * np.exp(-te / t2) + c'
+        self.fit_eqn_str = 'a0 * np.exp(-te / t2)'
         
     def initialise_fit_parameters(self, t2_estimates):
         """
-        Estimate fit parameters (t2, a0, c) for T1 curve fitting.
+        Estimate fit parameters (t2, a0, c) for T2 curve fitting.
         
         T2 estimates are provided.
         
@@ -940,6 +927,9 @@ class T2ImageStack(ImageStack):
         # estimate a0 from second image--first image is too low.
         self.a0_est = est_t2_a0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
+        # Get maximum time to use on fitting algorithm (5*t2_est)
+        # Truncating data after this avoids fitting Rician noise
+        self.max_fit_times = 5 * t2_estimates
 
 
     def find_relax_times(self):
@@ -962,18 +952,22 @@ class T2ImageStack(ImageStack):
         #  Omit the first image data from the curve fit. This is achieved by
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
         #  can be implemented with rois[i].times[1::2] and .means[1::2]
-        bounds = ([0, 0, 0], [np.inf, np.inf, 10])
-        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function,
-                                                    rois[i].times[1:],
-                                                    rois[i].means[1:],
-                                                    p0=[self.t2_est[i],
-                                                        self.a0_est[i],
-                                                        self.c_est[i]],
-                                                    jac=self.fit_jacobian,
-                                                    bounds=bounds,
-                                                    method='trf')
-                          for i in range(len(rois))]
-    
+        bounds = ([0, 0], [np.inf, np.inf])
+        self.relax_fit = []
+        for i in range(len(rois)):
+            times = [t for t in rois[i].times if t < self.max_fit_times[i]]
+            self.relax_fit.append(
+                scipy.optimize.curve_fit(self.fit_function,
+                                         times[1:],
+                                         rois[i].means[1:len(times)],
+                                         p0=[self.t2_est[i],
+                                             self.a0_est[i]],
+                                         jac=self.fit_jacobian,
+                                         bounds=bounds,
+                                         method='trf'
+                )
+            )
+
     @property
     def t2s(self):
         """List of T2 values for each ROI."""
@@ -1147,7 +1141,7 @@ def main(dcm_target_list, *, plate_number,
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
     f"P{image_stack.plate_number}_{relax_str}"
 
-    plt.show(block=True)
+    plt.show()
     return {output_key:output}
 
       
@@ -1162,8 +1156,8 @@ if __name__ == '__main__':
 
     calc_t2 = False
     # comment lines below to suppress calculation
-    calc_t1 = True
-    #calc_t2 = True
+    #calc_t1 = True
+    calc_t2 = True
     report_path = './relaxout'
     
     
