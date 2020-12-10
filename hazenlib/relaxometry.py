@@ -107,36 +107,37 @@ TEMPLATE_VALUES = {
         'sphere_centres_row_col': (
             (56, 94), (62, 117), (81, 132), (105, 134), (125, 120), (133, 99),
             (127, 75), (108, 60), (84, 59), (64, 72), (80, 81), (78, 111),
-            (109, 113), (111, 82)),
+            (109, 113), (111, 82), (148, 118)),
         'bolt_centres_row_col': (),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T1_signed'),
             'relax_times':
                 np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
                           752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
-                          83.3])},
+                          83.3, 2700])},
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T2'),
             'relax_times':
                 np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
-                          64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])}},
+                          64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15,
+                          2400])}},
 
     'plate5': {
         'sphere_centres_row_col': (
             (56, 95), (62, 117), (81, 133), (104, 134), (124, 121), (133, 98),
             (127, 75), (109, 61), (84, 60), (64, 72), (80, 81), (78, 111),
-            (109, 113), (110, 82)),
+            (109, 113), (110, 82), (97, 43)),
         'bolt_centres_row_col': ((52, 80), (92, 141), (138, 85)),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
             'relax_times':
                 np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1, 184.6,
-                          132.7, 92.7, 65.4, 46.32, 32.45, 22.859])},
+                          132.7, 92.7, 65.4, 46.32, 32.45, 22.859, 2700])},
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
             'relax_times':
                 np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2, 227.7,
-                          161.9, 117.1, 81.9, 57.7, 41.0, 28.7, 20.2])}}}
+                          161.9, 117.1, 81.9, 57.7, 41.0, 28.7, 20.2, 2400])}}}
 
 
 def outline_mask(im):
@@ -1088,7 +1089,7 @@ def main(dcm_target_list, *, plate_number,
         fig = plt.figure()
         fig.suptitle(relax_str.upper() + ' relaxometry fits')
 
-        for i in range(14):
+        for i in range(15):
             plt.subplot(5, 3, i + 1)
             plt.plot(smooth_times,
                      image_stack.fit_function(
@@ -1096,10 +1097,14 @@ def main(dcm_target_list, *, plate_number,
                          *np.array(image_stack.relax_fit[i][0])),
                      'b-')
             plt.plot(rois[i].times, rois[i].means, 'rx')
-            plt.title(f'[{i + 1}] fit={image_stack.relax_times[i]:.4g}, '
-                      f'pub={relax_published[i]:.4g} '
-                      f'({frac_time_diff[i] * 100:+.2f}%)',
-                      fontsize=8)
+            if i == 14:
+                plt.title(f'[Free water] fit={image_stack.relax_times[i]:.4g}',
+                          fontsize=8)
+            else:
+                plt.title(f'[{i + 1}] fit={image_stack.relax_times[i]:.4g}, '
+                          f'pub={relax_published[i]:.4g} '
+                          f'({frac_time_diff[i] * 100:+.2f}%)',
+                          fontsize=8)
         # plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
         if report_path:
             # Improve saved image quality
@@ -1155,8 +1160,8 @@ if __name__ == '__main__':
 
     calc_t2 = False
     # comment lines below to suppress calculation
-    # calc_t1 = True
-    calc_t2 = True
+    calc_t1 = True
+    # calc_t2 = True
     report_path = './relaxout'
 
     if calc_t1:
@@ -1164,8 +1169,7 @@ if __name__ == '__main__':
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                      '..', 'tests', 'data', 'relaxometry', 'T1',
                                      'site1_20200218', 'plate5')
-        target_folder = r'G:\UHD\t1\p4'
-        plate_num = 4
+        plate_num = 5
 
         dcm_target_list = []
         (_, _, filenames) = next(os.walk(target_folder))  # get filenames, don't go to subfolders
