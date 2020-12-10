@@ -90,9 +90,10 @@ class TestRelaxometry(unittest.TestCase):
     PLATE5_T1 = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
                  131.7, 93.3, 66.6, 45.1, 32.5, 22.4]
 
+    # Values from testing (to check for variations)
     PLATE4_T2 = [816.633328, 590.521423, 430.902617, 310.985158, 217.258533,
                  156.093083, 109.839424,  79.269721,  55.998743,  39.044842,
-                 27.143183,  18.448322,  12.514836,   7.852311]
+                 27.143183,  18.448322,  12.514836,   9.351455]
 
     TEMPLATE_PATH_T2 = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
                                     'Template_plate4_T2')

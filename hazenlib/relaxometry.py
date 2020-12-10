@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Measure T1 and T2 in Caliber relaxometry phantom.
 
@@ -46,8 +45,10 @@ Algorithm overview
     measurements.
 6. Determine relaxation time (T1 or T2) by fitting the decay equation to
     the ROI data for each sphere. The published values of the relaxation
-    times are used to seed the optimisation algorithm. Optionally plot
-    and save the decay curves.
+    times are used to seed the optimisation algorithm. For T2 fitting the
+    input data are truncated for TE > 5*T2 to avoid fitting Rician noise in
+    magnitude images with low signal intensity. Optionally plot and save the
+    decay curves.
 7. Return plate number, relaxation type (T1 or T2), measured relaxation
     times, published relaxation times, and fractional differences in a
     dictionary.
@@ -62,7 +63,7 @@ Template fit on bolt holes--possibly better with large rotation angles
 
 Template fit on outline image--poss run though edge detection algorithms then
 fit.
-    
+
 Use normalised structuring element in ROITimeSeries. This will allow correct
 calculation of mean if elements are not 0 or 1.
 
@@ -95,49 +96,49 @@ import hazenlib.exceptions
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             'data', 'relaxometry')
 TEMPLATE_VALUES = {
-    'plate3':{
-        'sphere_centres_row_col':(),
-        'bolt_centres_row_col':(),
-        't1':{
-            'filename':'',
-            'relax_times':[]}},
-    
-    'plate4':{
-        'sphere_centres_row_col':(
+    'plate3': {
+        'sphere_centres_row_col': (),
+        'bolt_centres_row_col': (),
+        't1': {
+            'filename': '',
+            'relax_times': []}},
+
+    'plate4': {
+        'sphere_centres_row_col': (
             (56, 94), (62, 117), (81, 132), (105, 134), (125, 120), (133, 99),
             (127, 75), (108, 60), (84, 59), (64, 72), (80, 81), (78, 111),
             (109, 113), (111, 82)),
-        'bolt_centres_row_col':(),
-        't1':{
-            'filename':os.path.join(TEMPLATE_DIR, 'Plate4_T1_signed'),
+        'bolt_centres_row_col': (),
+        't1': {
+            'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T1_signed'),
             'relax_times':
                 np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
                           752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
                           83.3])},
-        't2':{
-            'filename':os.path.join(TEMPLATE_DIR, 'Plate4_T2'),
+        't2': {
+            'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T2'),
             'relax_times':
                 np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
                           64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15])}},
-    
-    'plate5':{
-        'sphere_centres_row_col':(
+
+    'plate5': {
+        'sphere_centres_row_col': (
             (56, 95), (62, 117), (81, 133), (104, 134), (124, 121), (133, 98),
             (127, 75), (109, 61), (84, 60), (64, 72), (80, 81), (78, 111),
             (109, 113), (110, 82)),
-        'bolt_centres_row_col':((52, 80), (92, 141), (138, 85)),
-        't1':{
-            'filename':os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
+        'bolt_centres_row_col': ((52, 80), (92, 141), (138, 85)),
+        't1': {
+            'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
             'relax_times':
                 np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1, 184.6,
                           132.7, 92.7, 65.4, 46.32, 32.45, 22.859])},
-        't2':{
-            'filename':os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
+        't2': {
+            'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
             'relax_times':
                 np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2, 227.7,
                           161.9, 117.1, 81.9, 57.7, 41.0, 28.7, 20.2])}}}
 
-    
+
 def outline_mask(im):
     """
     Create contour lines to outline pixels.
@@ -175,13 +176,13 @@ def outline_mask(im):
     im0 = np.diff(im0, n=1, axis=1)
     starts = np.argwhere(im0 == 1)
     ends = np.argwhere(im0 == -1)
-    lines += [([s[0]-.5, s[0]-.5], [s[1]+.5, e[1]+.5]) for s, e
+    lines += [([s[0] - .5, s[0] - .5], [s[1] + .5, e[1] + .5]) for s, e
               in zip(starts, ends)]
 
     im1 = np.diff(im1, n=1, axis=0).T
     starts = np.argwhere(im1 == 1)
     ends = np.argwhere(im1 == -1)
-    lines += [([s[1]+.5, e[1]+.5], [s[0]-.5, s[0]-.5]) for s, e
+    lines += [([s[1] + .5, e[1] + .5], [s[0] - .5, s[0] - .5]) for s, e
               in zip(starts, ends)]
 
     return lines
@@ -274,8 +275,8 @@ def pixel_rescale(dcmfile):
     """
     # Check for Philips
     if dcmfile.Manufacturer.startswith('Philips'):
-        ss = dcmfile['2005100e'].value # Scale slope
-        si = dcmfile['2005100d'].value # Scale intercept
+        ss = dcmfile['2005100e'].value  # Scale slope
+        si = dcmfile['2005100d'].value  # Scale intercept
 
         return (dcmfile.pixel_array - si) / ss
     else:
@@ -337,27 +338,27 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     def _t1_function_signed(ti, t1, a0, a1):
         pv = a0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1))
         return pv
-    
+
     def t1_function(ti, t1, a0, a1):
         pv = _t1_function_signed(ti, t1, a0, a1)
         if mag_image:
             return abs(pv)
         else:
             return pv
-    
+
     def t1_jacobian(ti, t1, a0, a1):
-        t1_der = a0 / (t1**2) * (-ti * a1* np.exp(-ti/t1) + tr(ti)
-                                 * np.exp(-tr(ti)/t1))
-        a0_der = 1 - a1 * np.exp(-ti/t1) + np.exp(-tr(ti)/t1)
-        a1_der = -a0 * np.exp(-ti/t1)
+        t1_der = a0 / (t1 ** 2) * (-ti * a1 * np.exp(-ti / t1) + tr(ti)
+                                   * np.exp(-tr(ti) / t1))
+        a0_der = 1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1)
+        a1_der = -a0 * np.exp(-ti / t1)
         jacobian = np.array([t1_der, a0_der, a1_der])
-        
+
         if mag_image:
             pv = _t1_function_signed(ti, t1, a0, a1)
-            jacobian = (jacobian * (pv>=0)) - (jacobian * (pv<0))
-        
+            jacobian = (jacobian * (pv >= 0)) - (jacobian * (pv < 0))
+
         return jacobian.T
-    
+
     return t1_function, t1_jacobian, eqn_str
 
 
@@ -384,7 +385,7 @@ def est_t1_a0(ti, tr, t1, pv):
         Initial A0 guess for calculating T1 relaxation time.
 
     """
-    return -pv / (1 - 2*np.exp(-ti/t1) + np.exp(-tr/t1))
+    return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
 
 
 def t2_function(te, t2, a0):
@@ -441,7 +442,7 @@ def t2_jacobian(te, t2, a0):
         derivatives at each ``te``.
 
     """
-    t2_der = a0 * te / t2**2 * np.exp(-te/t2)
+    t2_der = a0 * te / t2 ** 2 * np.exp(-te / t2)
     a0_der = np.exp(-te / t2)
     jacobian = np.array([t2_der, a0_der])
     return jacobian.T
@@ -468,7 +469,7 @@ def est_t2_a0(te, t2, pv, c=0.0):
         Initial A0 estimate ``A0 = (pv - c) / np.exp(-te/t2)``.
 
     """
-    return (pv - c) / np.exp(-te/t2)
+    return (pv - c) / np.exp(-te / t2)
 
 
 class ROITimeSeries():
@@ -531,7 +532,7 @@ class ROITimeSeries():
             will be incorrect. If ``None``, use a 5x5 square. The default is
             ``None``.
         """
-        
+
         if kernel is None:
             kernel = self.SAMPLE_ELEMENT
         self.POI_mask = np.zeros((dcm_images[0].pixel_array.shape[0],
@@ -542,18 +543,18 @@ class ROITimeSeries():
         self.ROI_mask = np.zeros_like(self.POI_mask)
         self.ROI_mask = scipy.ndimage.filters.convolve(self.POI_mask, kernel)
         self._time_attr = time_attr
-        
+
         if time_attr is not None:
             self.times = [x[time_attr].value.real for x in dcm_images]
         self.pixel_values = [
             pixel_rescale(img)[self.ROI_mask > 0] for img in dcm_images]
 
         self.trs = [x['RepetitionTime'].value.real for x in dcm_images]
-    
+
     def __len__(self):
         """Number of time samples in series."""
         return len(self.pixel_values)
-    
+
     @property
     def means(self):
         """
@@ -571,7 +572,6 @@ class ImageStack():
     Object to hold image_slices and methods for T1, T2 calculation.
     """
 
-    
     def __init__(self, image_slices, template_dcm, plate_number=None,
                  dicom_order_key=None):
         """
@@ -599,12 +599,11 @@ class ImageStack():
         self.template_dcm = template_dcm
         if template_dcm is not None:
             self.template_px = pixel_rescale(template_dcm)
-            
+
         self.dicom_order_key = dicom_order_key
         self.images = image_slices  # store images
         if dicom_order_key is not None:
             self.order_by(dicom_order_key)
-
 
     def template_fit(self, image_index=0):
         """
@@ -654,10 +653,10 @@ class ImageStack():
         scale_factor = len(target_px) / len(template_px)
         pad_size = np.subtract(template_px.shape, target_px.shape)
         assert pad_size[0] == pad_size[1], "Image matrices must be square."
-        if pad_size[0] > 0: # pad target--UNTESTED
-            target_px = np.pad(target_px, pad_width=(0,pad_size[0]))
-        elif pad_size[0] < 0: # pad template
-            template_px = np.pad(template_px, pad_width=(0,-pad_size[0]))
+        if pad_size[0] > 0:  # pad target--UNTESTED
+            target_px = np.pad(target_px, pad_width=(0, pad_size[0]))
+        elif pad_size[0] < 0:  # pad template
+            template_px = np.pad(template_px, pad_width=(0, -pad_size[0]))
 
         # Always fit on magnitude images for simplicity. May be suboptimal
         # TODO check for better solution
@@ -715,17 +714,17 @@ class ImageStack():
         plt.title('Image')
 
         plt.subplot(2, 2, 3)
-        plt.imshow(self.scaled_template8bit/2 + self.target8bit/2, cmap='gray')
+        plt.imshow(self.scaled_template8bit / 2 + self.target8bit / 2, cmap='gray')
         plt.title('Image / template overlay')
         plt.axis('off')
 
         plt.subplot(2, 2, 4)
-        plt.imshow(self.warped_template8bit/2 + self.target8bit/2, cmap='gray')
+        plt.imshow(self.warped_template8bit / 2 + self.target8bit / 2, cmap='gray')
         plt.title('Image / fitted template overlay')
         plt.axis('off')
 
         plt.tight_layout()
-        
+
         return fig
 
     def plot_rois(self, new_fig=True):
@@ -744,7 +743,7 @@ class ImageStack():
             None.
 
         """
-        fig=None
+        fig = None
         if new_fig:
             # Create image in a new figure (not a subplot)
             fig = plt.figure()
@@ -764,7 +763,7 @@ class ImageStack():
     def order_by(self, att):
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
         self.images.sort(key=lambda x: x[att].value.real)
-        
+
     def generate_time_series(self, coords_row_col, fit_coords=True,
                              kernel=None):
         """
@@ -788,7 +787,7 @@ class ImageStack():
         num_coords = np.size(coords_row_col, axis=0)
         if fit_coords:
             coords_row_col = transform_coords(coords_row_col, self.warp_matrix,
-                                              input_row_col=True, 
+                                              input_row_col=True,
                                               output_row_col=True)
 
         self.ROI_time_series = []
@@ -796,7 +795,7 @@ class ImageStack():
             self.ROI_time_series.append(ROITimeSeries(
                 self.images, coords_row_col[i], time_attr=self.dicom_order_key,
                 kernel=kernel))
-    
+
     def generate_fit_function(self):
         """Null method in base class, may be overwritten in subclass."""
 
@@ -807,7 +806,7 @@ class T1ImageStack(ImageStack):
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
                          dicom_order_key='InversionTime')
-    
+
     def generate_fit_function(self):
         """"Create T1 fit function for magnitude/signed image and variable TI."""
         #  check if image is signed or magnitude
@@ -819,7 +818,7 @@ class T1ImageStack(ImageStack):
             generate_t1_function(self.ROI_time_series[0].times,
                                  self.ROI_time_series[0].trs,
                                  mag_image=mag_image)
-    
+
     def initialise_fit_parameters(self, t1_estimates):
         """
         Estimate fit parameters (t1, a0, a1) for T1 curve fitting.
@@ -867,21 +866,21 @@ class T1ImageStack(ImageStack):
 
         """
         rois = self.ROI_time_series
-        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function, 
+        self.relax_fit = [scipy.optimize.curve_fit(self.fit_function,
                                                    rois[i].times,
-                                                   rois[i].means, 
+                                                   rois[i].means,
                                                    p0=[self.t1_est[i],
                                                        self.a0_est[i],
                                                        self.a1_est[i]],
                                                    jac=self.fit_jacobian,
                                                    method='lm')
-                    for i in range(len(rois))]
-         
+                          for i in range(len(rois))]
+
     @property
     def t1s(self):
         """List T1 values for each ROI."""
         return [fit[0][0] for fit in self.relax_fit]
-    
+
     @property
     def relax_times(self):
         """List of T1 for each ROI."""
@@ -890,15 +889,15 @@ class T1ImageStack(ImageStack):
 
 class T2ImageStack(ImageStack):
     """Calculate T2 relaxometry."""
-    
+
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
                          dicom_order_key='EchoTime')
-        
+
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
         self.fit_eqn_str = 'a0 * np.exp(-te / t2)'
-        
+
     def initialise_fit_parameters(self, t2_estimates):
         """
         Estimate fit parameters (t2, a0, c) for T2 curve fitting.
@@ -931,7 +930,6 @@ class T2ImageStack(ImageStack):
         # Truncating data after this avoids fitting Rician noise
         self.max_fit_times = 5 * t2_estimates
 
-
     def find_relax_times(self):
         """
         Calculate T2 values. Access as ``image_stack.t2s``
@@ -948,6 +946,8 @@ class T2ImageStack(ImageStack):
         echoes for exponential T2 fitting. Journal of Magnetic Resonance 
         Imaging, 48(5), 1432-1440. https://doi.org/10.1002/jmri.26052
         """
+        # Require at least 4 samples (nb first sample is omitted)
+        min_number_times = 4
         rois = self.ROI_time_series
         #  Omit the first image data from the curve fit. This is achieved by
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
@@ -956,6 +956,8 @@ class T2ImageStack(ImageStack):
         self.relax_fit = []
         for i in range(len(rois)):
             times = [t for t in rois[i].times if t < self.max_fit_times[i]]
+            if len(times) < min_number_times:
+                times = rois[i].times[:min_number_times]
             self.relax_fit.append(
                 scipy.optimize.curve_fit(self.fit_function,
                                          times[1:],
@@ -965,7 +967,7 @@ class T2ImageStack(ImageStack):
                                          jac=self.fit_jacobian,
                                          bounds=bounds,
                                          method='trf'
-                )
+                                         )
             )
 
     @property
@@ -977,7 +979,6 @@ class T2ImageStack(ImageStack):
     def relax_times(self):
         """List of T2 values for each ROI."""
         return self.t2s
-
 
 
 def main(dcm_target_list, *, plate_number,
@@ -1028,24 +1029,24 @@ def main(dcm_target_list, *, plate_number,
     if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify either calc_t1=True OR calc_t2=True.')
-    
+
     # Set up parameters specific to T1 or T2
     if calc_t1:
         ImStack = T1ImageStack
         relax_str = 't1'
-        smooth_times = range(0,1000,10)
+        smooth_times = range(0, 1000, 10)
         template_dcm = pydicom.read_file(
             TEMPLATE_VALUES[f'plate{plate_number}']['t1']['filename'])
 
     elif calc_t2:
         ImStack = T2ImageStack
         relax_str = 't2'
-        smooth_times = range(0,500,5)
+        smooth_times = range(0, 500, 5)
         template_dcm = pydicom.read_file(
             TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
 
     image_stack = ImStack(dcm_target_list, template_dcm,
-                         plate_number=plate_number)
+                          plate_number=plate_number)
     image_stack.template_fit()
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}']
@@ -1057,7 +1058,7 @@ def main(dcm_target_list, *, plate_number,
         if report_path:
             old_dims = fig.get_size_inches()
             # Improve saved image quality
-            fig.set_size_inches(24,24)
+            fig.set_size_inches(24, 24)
             for subplt in fig.get_axes():
                 subplt.title.set_fontsize(40)
             fig.savefig(f'{report_path}_template_fit.png',
@@ -1071,45 +1072,44 @@ def main(dcm_target_list, *, plate_number,
         fig = image_stack.plot_rois()
         plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
         if report_path:
-           fig.savefig(f'{report_path}_rois.png',
+            fig.savefig(f'{report_path}_rois.png',
                         dpi=300)
 
     relax_published = \
-        TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str]\
+        TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str] \
             ['relax_times']
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
     frac_time_diff = (image_stack.relax_times - relax_published) \
-            / relax_published
-    
+                     / relax_published
+
     if show_relax_fits:
         rois = image_stack.ROI_time_series
         fig = plt.figure()
         fig.suptitle(relax_str.upper() + ' relaxometry fits')
-        
+
         for i in range(14):
-            plt.subplot(5,3,i+1)
-            plt.plot(smooth_times, 
-                      image_stack.fit_function(
-                          np.array(smooth_times),
-                          *np.array(image_stack.relax_fit[i][0])),
-                      'b-')
+            plt.subplot(5, 3, i + 1)
+            plt.plot(smooth_times,
+                     image_stack.fit_function(
+                         np.array(smooth_times),
+                         *np.array(image_stack.relax_fit[i][0])),
+                     'b-')
             plt.plot(rois[i].times, rois[i].means, 'rx')
-            plt.title(f'[{i+1}] fit={image_stack.relax_times[i]:.4g}, '
+            plt.title(f'[{i + 1}] fit={image_stack.relax_times[i]:.4g}, '
                       f'pub={relax_published[i]:.4g} '
-                      f'({frac_time_diff[i]*100:+.2f}%)',
+                      f'({frac_time_diff[i] * 100:+.2f}%)',
                       fontsize=8)
-        #plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
+        # plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
         if report_path:
             # Improve saved image quality
             old_dims = fig.get_size_inches()
-            fig.set_size_inches(9,15)
-            plt.tight_layout(rect=(0,0,1,0.97))
+            fig.set_size_inches(9, 15)
+            plt.tight_layout(rect=(0, 0, 1, 0.97))
             fig.savefig(f'{report_path}_decay_graphs.png',
                         dpi=300)
             # Restore screen quality
             fig.set_size_inches(old_dims)
-
 
     # Generate output dict
     index_im = image_stack.images[0]
@@ -1124,53 +1124,51 @@ def main(dcm_target_list, *, plate_number,
                   date=index_im.StudyDate)
 
     detailed_output = {
-        'filenames' : [im.filename for im in image_stack.images],
-        'ROI_means' : {i:im.means for i,im in enumerate(image_stack.ROI_time_series)},
-        'TE' : [im.EchoTime for im in image_stack.images],
-        'TR' : [im.RepetitionTime for im in image_stack.images],
-        'TI' : [im.InversionTime if hasattr(im, 'InversionTime') else None\
-                for im in image_stack.images],
+        'filenames': [im.filename for im in image_stack.images],
+        'ROI_means': {i: im.means for i, im in enumerate(image_stack.ROI_time_series)},
+        'TE': [im.EchoTime for im in image_stack.images],
+        'TR': [im.RepetitionTime for im in image_stack.images],
+        'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
+               for im in image_stack.images],
         # fit_paramters (T1) = [[T1, A0, A1] for each ROI]
         # fit_parameters (T2) = [[T2, A0, C] for each ROI]
-        'fit_parameters' : [param[0] for param in image_stack.relax_fit],
-        'fit_equation' : image_stack.fit_eqn_str
-        }
+        'fit_parameters': [param[0] for param in image_stack.relax_fit],
+        'fit_equation': image_stack.fit_eqn_str
+    }
 
     output['detailed'] = detailed_output
 
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
-    f"P{image_stack.plate_number}_{relax_str}"
+                 f"P{image_stack.plate_number}_{relax_str}"
 
     plt.show()
-    return {output_key:output}
+    return {output_key: output}
 
-      
 
 # Code below is for development only and should be deleted before release.
 if __name__ == '__main__':
 
     import logging  # better to set up module level logging
     from pydicom.errors import InvalidDicomError
-    
+
     calc_t1 = False
 
     calc_t2 = False
     # comment lines below to suppress calculation
-    #calc_t1 = True
+    # calc_t1 = True
     calc_t2 = True
     report_path = './relaxout'
-    
-    
+
     if calc_t1:
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                      '..', 'tests', 'data', 'relaxometry', 'T1',
-                                      'site1_20200218', 'plate5')
+                                     '..', 'tests', 'data', 'relaxometry', 'T1',
+                                     'site1_20200218', 'plate5')
         target_folder = r'G:\UHD\t1\p4'
         plate_num = 4
-        
+
         dcm_target_list = []
-        (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
+        (_, _, filenames) = next(os.walk(target_folder))  # get filenames, don't go to subfolders
         for filename in filenames:
             try:
                 with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
@@ -1178,21 +1176,21 @@ if __name__ == '__main__':
             except InvalidDicomError:
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
-    
+
         t1_output_dict = main(dcm_target_list, calc_t1=True,
                               show_template_fit=False, show_relax_fits=True,
                               show_rois=True,
                               plate_number=plate_num, report_path=report_path)
-    
+
     if calc_t2:
         # get list of pydicom objects
         target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                      '..', 'tests', 'data', 'relaxometry', 'T2',
                                      'site1_20200218', 'plate4')
         plate_num = 4
-        
+
         dcm_target_list = []
-        (_,_,filenames) = next(os.walk(target_folder)) # get filenames, don't go to subfolders
+        (_, _, filenames) = next(os.walk(target_folder))  # get filenames, don't go to subfolders
         for filename in filenames:
             try:
                 with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
@@ -1200,7 +1198,7 @@ if __name__ == '__main__':
             except InvalidDicomError:
                 logging.info(' Skipped non-DICOM file %r',
                              os.path.join(target_folder, filename))
-    
+
         t2_output_dict = main(dcm_target_list, calc_t2=True,
                               show_template_fit=True, show_relax_fits=True,
                               plate_number=plate_num, report_path=report_path)
