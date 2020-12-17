@@ -81,7 +81,6 @@ import scipy.ndimage
 import scipy.optimize
 from scipy.interpolate import UnivariateSpline
 
-# import hazenlib
 import hazenlib.exceptions
 
 # Use dict to store template and reference information
@@ -254,8 +253,8 @@ def pixel_rescale(dcmfile):
     DICOM header.
 
     For Philips scanners the private DICOM fields 2005,100d (=SI) and 2005,100e
-    (=SS) are used as inverse scaling factors are used instead to perform the
-    inverse transformation [1]_
+    (=SS) are used as inverse scaling factors to perform the inverse
+    transformation [1]_
 
     Parameters
     ----------
@@ -367,8 +366,6 @@ def est_t1_a0(ti, tr, t1, pv):
     """
     Return initial guess of A0 to seed T1 curve fitting.
 
-    
-
     Parameters
     ----------
     ti : array_like
@@ -409,14 +406,6 @@ def t2_function(te, t2, a0):
     -------
     pv : array_like
         Theoretical pixel values at each TE.
-        
-    Notes
-    -----
-    The '+ c' constant models Rician noise in magnitude images (where Gaussian
-    noise in low signals gets rectified producing a bias). This is an
-    acceptable model for short T2 samples. However, it reduces the fit on long
-    T2 samples as the slow decay resembles a constant and the signal never
-    reaches the noise floor.
 
     """
     pv = a0 * np.exp(-te / t2)
@@ -451,7 +440,7 @@ def t2_jacobian(te, t2, a0):
 
 def est_t2_a0(te, t2, pv, c=0.0):
     """
-    Initial guess at A0 to seed curve fitting.
+    Initial guess for A0 to seed curve fitting.
 
     Parameters
     ----------
@@ -646,6 +635,9 @@ class ImageStack():
         Need to check if image is real valued, typically signed then shifted so
         background is 2048, or magnitude image. Currently it forces converts
         all images to magnitude images before regression.
+
+        Despite these limitations, this method works well in practice for small
+        angle rotations.
         """
         target_px = pixel_rescale(self.images[0])
         template_px = self.template_px
@@ -660,7 +652,6 @@ class ImageStack():
             template_px = np.pad(template_px, pad_width=(0, -pad_size[0]))
 
         # Always fit on magnitude images for simplicity. May be suboptimal
-        # TODO check for better solution
         self.template8bit = \
             cv.normalize(abs(template_px),
                          None, 0, 255, norm_type=cv.NORM_MINMAX,
@@ -775,7 +766,7 @@ class ImageStack():
         coords_row_col : array_like
             Array of coordinates points of interest (POIs) for each centre of
             each ROI. They should be in [[col0, row0], [col1, row1], ...]
-            format (i.e. y, x).
+            format.
         fit_coords : bool, optional
             If ``True``, the coordinates provided are for the template ROIs and
             will be transformed to the image space using ``transfor_coords()``.
@@ -802,7 +793,15 @@ class ImageStack():
 
 
 class T1ImageStack(ImageStack):
-    """Calculate T1 relaxometry."""
+    """
+    Calculate T1 relaxometry.
+
+    Overloads the following methods from ``ImageStack``:
+        ``generate_fit_function``
+        ``initialise_fit_parameters``
+        ``find_relax_times``
+
+    """
 
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
@@ -889,7 +888,15 @@ class T1ImageStack(ImageStack):
 
 
 class T2ImageStack(ImageStack):
-    """Calculate T2 relaxometry."""
+    """
+    Calculate T2 relaxometry.
+
+    Overloads the following methods from ``ImageStack``:
+        ``generate_fit_function``
+        ``initialise_fit_parameters``
+        ``find_relax_times``
+
+    """
 
     def __init__(self, image_slices, template_dcm=None, plate_number=None):
         super().__init__(image_slices, template_dcm, plate_number=plate_number,
@@ -933,9 +940,14 @@ class T2ImageStack(ImageStack):
 
     def find_relax_times(self):
         """
-        Calculate T2 values. Access as ``image_stack.t2s``
+        Calculate T2 values. Access as ``image_stack.t2s``.
         
-        Uses the 'skip first echo' fit method [1]_.
+        Uses the 'skip first echo' fit method [1]_. At times >> T2, the signal
+        is dwarfed by Rician noise (for magnitude images). This can lead to
+        inaccuracies in determining T2 as the measured signal does not tend to
+        zero. To counter this, the signal is truncated after
+        ``self.max_fit_times[i]``. At least three signals are used in the fit
+        even if this exceeds the above criteria.
     
         Returns
         -------
@@ -1046,6 +1058,7 @@ def main(dcm_target_list, *, plate_number,
         template_dcm = pydicom.read_file(
             TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
 
+    output_files_path = {}  # save path to output files
     image_stack = ImStack(dcm_target_list, template_dcm,
                           plate_number=plate_number)
     image_stack.template_fit()
@@ -1060,10 +1073,11 @@ def main(dcm_target_list, *, plate_number,
             old_dims = fig.get_size_inches()
             # Improve saved image quality
             fig.set_size_inches(24, 24)
+            save_path = f'{report_path}_template_fit.png'
             for subplt in fig.get_axes():
                 subplt.title.set_fontsize(40)
-            fig.savefig(f'{report_path}_template_fit.png',
-                        dpi=150)
+            fig.savefig(save_path, dpi=150)
+            output_files_path['template_fit'] = save_path
             # Restore screen quality
             for subplt in fig.get_axes():
                 subplt.title.set_fontsize('large')
@@ -1073,8 +1087,10 @@ def main(dcm_target_list, *, plate_number,
         fig = image_stack.plot_rois()
         plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
         if report_path:
-            fig.savefig(f'{report_path}_rois.png',
-                        dpi=300)
+            save_path = f'{report_path}_rois.png'
+            fig.savefig(save_path, dpi=300)
+            output_files_path['rois'] = save_path
+
 
     relax_published = \
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str] \
@@ -1111,8 +1127,9 @@ def main(dcm_target_list, *, plate_number,
             old_dims = fig.get_size_inches()
             fig.set_size_inches(9, 15)
             plt.tight_layout(rect=(0, 0, 1, 0.97))
-            fig.savefig(f'{report_path}_decay_graphs.png',
-                        dpi=300)
+            save_path = f'{report_path}_decay_graphs.png'
+            fig.savefig(save_path, dpi=300)
+            output_files_path['decay_graphs'] = save_path
             # Restore screen quality
             fig.set_size_inches(old_dims)
 
@@ -1126,7 +1143,8 @@ def main(dcm_target_list, *, plate_number,
                   institution_name=index_im.InstitutionName,
                   manufacturer=index_im.Manufacturer,
                   model=index_im.ManufacturerModelName,
-                  date=index_im.StudyDate)
+                  date=index_im.StudyDate,
+                  output_graphics=output_files_path)
 
     detailed_output = {
         'filenames': [im.filename for im in image_stack.images],
@@ -1148,61 +1166,3 @@ def main(dcm_target_list, *, plate_number,
 
     plt.show()
     return {output_key: output}
-
-
-# Code below is for development only and should be deleted before release.
-if __name__ == '__main__':
-
-    import logging  # better to set up module level logging
-    from pydicom.errors import InvalidDicomError
-
-    calc_t1 = False
-
-    calc_t2 = False
-    # comment lines below to suppress calculation
-    calc_t1 = True
-    # calc_t2 = True
-    report_path = './relaxout'
-
-    if calc_t1:
-        # get list of pydicom objects
-        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                     '..', 'tests', 'data', 'relaxometry', 'T1',
-                                     'site1_20200218', 'plate5')
-        plate_num = 5
-
-        dcm_target_list = []
-        (_, _, filenames) = next(os.walk(target_folder))  # get filenames, don't go to subfolders
-        for filename in filenames:
-            try:
-                with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
-                    dcm_target_list.append(dcm_target)
-            except InvalidDicomError:
-                logging.info(' Skipped non-DICOM file %r',
-                             os.path.join(target_folder, filename))
-
-        t1_output_dict = main(dcm_target_list, calc_t1=True,
-                              show_template_fit=False, show_relax_fits=True,
-                              show_rois=True,
-                              plate_number=plate_num, report_path=report_path)
-
-    if calc_t2:
-        # get list of pydicom objects
-        target_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                     '..', 'tests', 'data', 'relaxometry', 'T2',
-                                     'site1_20200218', 'plate4')
-        plate_num = 4
-
-        dcm_target_list = []
-        (_, _, filenames) = next(os.walk(target_folder))  # get filenames, don't go to subfolders
-        for filename in filenames:
-            try:
-                with pydicom.dcmread(os.path.join(target_folder, filename)) as dcm_target:
-                    dcm_target_list.append(dcm_target)
-            except InvalidDicomError:
-                logging.info(' Skipped non-DICOM file %r',
-                             os.path.join(target_folder, filename))
-
-        t2_output_dict = main(dcm_target_list, calc_t2=True,
-                              show_template_fit=True, show_relax_fits=True,
-                              plate_number=plate_num, report_path=report_path)
