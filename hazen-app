@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# hazen-app
+# A wrapper script for invoking hazen with docker
+
+# Put this script in $PATH as `hazen-app`
+
+# source: https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
+
+# todo: add functions to update docker image if newer version available
+
+# Helper function
+check_cmd_in_path(){
+  cmd=$1
+  which $cmd > /dev/null 2>&1 || error 1 "$cmd not found!"
+}
+
+# Guards (checks for dependencies)
+check_cmd_in_path docker
+
+# Set up mounted volumes, environment, and run our containerized command
+exec docker run \
+  --rm \
+  --mount type=bind,source="$(pwd)",target=/home/hazen_user/data \
+  -w /home/hazen_user/data \
+  docker_hazen:latest
