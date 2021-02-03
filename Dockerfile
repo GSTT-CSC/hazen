@@ -7,7 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python setup.py install
 USER hazen_user
 WORKDIR ../data
-CMD ["hazen","--host=0.0.0.0"]
+ENTRYPOINT ["hazen"]
 
 # docker build -t docker_hazen .
 ## run interactive
