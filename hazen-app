@@ -6,7 +6,9 @@
 #   A wrapper script for invoking hazen with docker
 
 # INSTALL INSTRUCTIONS
-#   Put this script in /usr/local/bin as `hazen-app`
+#   Run "chmod 700 <path to hazen-app file>" to give user the right permissions to execute
+#   Copy this script to /usr/local/bin "cp <path to hazen-app file> /usr/local/bin"
+#   run "hazen-app" in terminal
 
 # SOURCES:
 #   https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
