@@ -12,5 +12,6 @@ ENTRYPOINT ["hazen"]
 # docker build -t docker_hazen .
 ## run interactive
 # docker run -it --rm --name hazen --mount type=bind,source="$(pwd)",target=/home/hazen_user/data docker_hazen /bin/bash
+#docker run -it --entrypoint /bin/bash --mount type=bind,source="$(pwd)",target=/home/hazen_user/data gsttmriphysics/hazen
 ## run normal
 # docker run --rm --mount type=bind,source="$(pwd)",target=/home/hazen_user/data -w /home/hazen_user/data docker_hazen
