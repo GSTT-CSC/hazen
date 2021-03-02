@@ -308,8 +308,8 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     
     This function factory returns a function which calculates the signal
     magnitude using the expression::
-        S = s0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
-    where ``s0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
+        S = S0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+    where ``S0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
     varies due to inhomogeneous B0 field, ``t1`` is the longitudinal
     relaxation time, and the repetition time, ``TR``, is calculated  from
     ``TI`` using piecewise linear interpolation.
@@ -328,7 +328,7 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     Returns
     -------
     t1_function : function
-        S = s0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+        S = S0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
     
     t1_jacobian : function
         Tuple of partial derivatives for curve fitting.
@@ -346,26 +346,26 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     if mag_image:
         eqn_str = f'abs({eqn_str})'
 
-    def _t1_function_signed(ti, t1, a0, a1):
-        pv = a0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1))
+    def _t1_function_signed(ti, t1, s0, a1):
+        pv = s0 * (1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1))
         return pv
 
-    def t1_function(ti, t1, a0, a1):
-        pv = _t1_function_signed(ti, t1, a0, a1)
+    def t1_function(ti, t1, s0, a1):
+        pv = _t1_function_signed(ti, t1, s0, a1)
         if mag_image:
             return abs(pv)
         else:
             return pv
 
-    def t1_jacobian(ti, t1, a0, a1):
-        t1_der = a0 / (t1 ** 2) * (-ti * a1 * np.exp(-ti / t1) + tr(ti)
+    def t1_jacobian(ti, t1, s0, a1):
+        t1_der = s0 / (t1 ** 2) * (-ti * a1 * np.exp(-ti / t1) + tr(ti)
                                    * np.exp(-tr(ti) / t1))
-        a0_der = 1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1)
-        a1_der = -a0 * np.exp(-ti / t1)
-        jacobian = np.array([t1_der, a0_der, a1_der])
+        s0_der = 1 - a1 * np.exp(-ti / t1) + np.exp(-tr(ti) / t1)
+        a1_der = -s0 * np.exp(-ti / t1)
+        jacobian = np.array([t1_der, s0_der, a1_der])
 
         if mag_image:
-            pv = _t1_function_signed(ti, t1, a0, a1)
+            pv = _t1_function_signed(ti, t1, s0, a1)
             jacobian = (jacobian * (pv >= 0)) - (jacobian * (pv < 0))
 
         return jacobian.T
@@ -373,9 +373,9 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     return t1_function, t1_jacobian, eqn_str
 
 
-def est_t1_a0(ti, tr, t1, pv):
+def est_t1_s0(ti, tr, t1, pv):
     """
-    Return initial guess of A0 to seed T1 curve fitting.
+    Return initial guess of s0 to seed T1 curve fitting.
 
     Parameters
     ----------
@@ -391,7 +391,7 @@ def est_t1_a0(ti, tr, t1, pv):
     Returns
     -------
     array_like
-        Initial A0 guess for calculating T1 relaxation time.
+        Initial s0 guess for calculating T1 relaxation time.
 
     """
     return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
@@ -423,7 +423,7 @@ def t2_function(te, t2, s0):
     return pv
 
 
-def t2_jacobian(te, t2, a0):
+def t2_jacobian(te, t2, s0):
     """
     Jacobian of ``t2_function`` used for curve fitting.
 
@@ -433,25 +433,25 @@ def t2_jacobian(te, t2, a0):
         Echo times.
     t2 : float
         T2 decay constant.
-    a0 : float
+    s0 : float
         Initial signal magnitude.
 
     Returns
     -------
     array
-        [t2_der, a0_der].T, where x_der is a 1-D array of the partial
+        [t2_der, s0_der].T, where x_der is a 1-D array of the partial
         derivatives at each ``te``.
 
     """
-    t2_der = a0 * te / t2 ** 2 * np.exp(-te / t2)
-    a0_der = np.exp(-te / t2)
-    jacobian = np.array([t2_der, a0_der])
+    t2_der = s0 * te / t2 ** 2 * np.exp(-te / t2)
+    s0_der = np.exp(-te / t2)
+    jacobian = np.array([t2_der, s0_der])
     return jacobian.T
 
 
-def est_t2_a0(te, t2, pv, c=0.0):
+def est_t2_s0(te, t2, pv, c=0.0):
     """
-    Initial guess for A0 to seed curve fitting.
+    Initial guess for s0 to seed curve fitting.
 
     Parameters
     ----------
@@ -467,7 +467,7 @@ def est_t2_a0(te, t2, pv, c=0.0):
     Returns
     -------
     array_like
-        Initial A0 estimate ``A0 = (pv - c) / np.exp(-te/t2)``.
+        Initial s0 estimate ``s0 = (pv - c) / np.exp(-te/t2)``.
 
     """
     return (pv - c) / np.exp(-te / t2)
@@ -836,8 +836,8 @@ class T1ImageStack(ImageStack):
         
         T1 estimates are provided.
         
-        A0 is estimated using abs(est_t1_a0(ti, tr, t1_est, mean_pv))
-            For each ROI, A0 is calculated using from both the smallest and
+        s0 is estimated using abs(est_t1_s0(ti, tr, t1_est, mean_pv))
+            For each ROI, s0 is calculated using from both the smallest and
             largest TI, and the value with the largest mean_pv used. This
             guards against the case where division by a mean_pv close to zero
             causes a large rounding error.
@@ -859,13 +859,13 @@ class T1ImageStack(ImageStack):
         rois = self.ROI_time_series
         rois_first_mean = np.array([roi.means[0] for roi in rois])
         rois_last_mean = np.array([roi.means[-1] for roi in rois])
-        a0_est_last = abs(est_t1_a0(rois[0].times[-1], rois[0].trs[-1],
+        s0_est_last = abs(est_t1_s0(rois[0].times[-1], rois[0].trs[-1],
                                     t1_estimates, rois_last_mean))
-        a0_est_first = abs(est_t1_a0(rois[0].times[0], rois[0].trs[0],
+        s0_est_first = abs(est_t1_s0(rois[0].times[0], rois[0].trs[0],
                                      t1_estimates, rois_first_mean))
-        self.a0_est = np.where(rois_first_mean > rois_last_mean,
-                               a0_est_first, a0_est_last)
-        self.a1_est = np.full_like(self.a0_est, 2.0)
+        self.s0_est = np.where(rois_first_mean > rois_last_mean,
+                               s0_est_first, s0_est_last)
+        self.a1_est = np.full_like(self.s0_est, 2.0)
 
     def find_relax_times(self):
         """
@@ -881,7 +881,7 @@ class T1ImageStack(ImageStack):
                                                    rois[i].times,
                                                    rois[i].means,
                                                    p0=[self.t1_est[i],
-                                                       self.a0_est[i],
+                                                       self.s0_est[i],
                                                        self.a1_est[i]],
                                                    jac=self.fit_jacobian,
                                                    method='lm')
@@ -923,7 +923,7 @@ class T2ImageStack(ImageStack):
         
         T2 estimates are provided.
         
-        A0 is estimated using est_t2_a0(te, t2_est, mean_pv, c).
+        s0 is estimated using est_t2_s0(te, t2_est, mean_pv, c).
             
         C is estimated as 0.0, the theoretical value assuming Gaussian noise.
    
@@ -943,7 +943,7 @@ class T2ImageStack(ImageStack):
         rois_second_mean = np.array([roi.means[1] for roi in rois])
         self.c_est = np.full_like(self.t2_est, 0.0)
         # estimate s0 from second image--first image is too low.
-        self.a0_est = est_t2_a0(rois[0].times[1], t2_estimates,
+        self.s0_est = est_t2_s0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
         # Get maximum time to use on fitting algorithm (5*t2_est)
         # Truncating data after this avoids fitting Rician noise
@@ -987,7 +987,7 @@ class T2ImageStack(ImageStack):
                                          times[1:],
                                          rois[i].means[1:len(times)],
                                          p0=[self.t2_est[i],
-                                             self.a0_est[i]],
+                                             self.s0_est[i]],
                                          jac=self.fit_jacobian,
                                          bounds=bounds,
                                          method='trf'
@@ -1164,8 +1164,8 @@ def main(dcm_target_list, *, plate_number,
         'TR': [im.RepetitionTime for im in image_stack.images],
         'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
                for im in image_stack.images],
-        # fit_paramters (T1) = [[T1, A0, A1] for each ROI]
-        # fit_parameters (T2) = [[T2, A0, C] for each ROI]
+        # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
+        # fit_parameters (T2) = [[T2, s0, C] for each ROI]
         'fit_parameters': [param[0] for param in image_stack.relax_fit],
         'fit_equation': image_stack.fit_eqn_str
     }
