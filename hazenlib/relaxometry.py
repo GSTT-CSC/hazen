@@ -5,14 +5,26 @@ Introduction
 ============
 
 This module determines the T1 and T2 decay constants for the relaxometry
-spheres in the Caliber (HPD) system phantom https://qmri.com/system-phantom/
-(plates 4 and 5). Values are compared to published values (without temperature
-correction). Graphs of fit and phantom registration images can optionally be
-produced.
+spheres in the Caliber (HPD) system phantom
+qmri.com/qmri-solutions/t1-t2-pd-imaging-phantom (plates 4 and 5). Values are
+compared to published values (without temperature correction). Graphs of fit
+and phantom registration images can optionally be produced.
 
-Information on scan parameters is available from the 'Download Specs' option
-in the above website (T1-VTI sequence). Scan times can be decreased for T1
-acquisitions by:
+T1 measurements should be obtained using 2D inversion recovery SE sequences
+with coronal acquisitions through plates 4 and 5. The sequences should be
+repeated at sufficient TI values to enable the signal decay curves to be
+accurately modelled.
+
+T2 measurements should be obtained using 2D SE coronal SE acquisitions with
+variable TEs. Using multi-contrast sequences on Siemens and Philips scanners
+should result in a time saving whilst maintaining image quality.
+
+Further details of recommended scan parameters for GE, Philips and Siemens
+scanners are available in the 'System Phantom Manual' which can be downloaded
+from the above website. (T1-VTI and T2 sequences). However, these may result in
+long scan times.
+
+Scan times can be decreased for T1 acquisitions by:
     1. Use TI/ms = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0].
     2. Use TR = 1000 ms (or minimum possible if longer than 1000 ms).
 The algorithm will accommodate a variation in TR with TI and incomplete recovery
@@ -20,7 +32,6 @@ due to short TR.
 
 T2 acquisition protocol can be shortened by:
     1. Use TR = 2000 ms.
-    2. Use scanner's built-in 32 echo sequence.
 
 
 Algorithm overview
@@ -297,8 +308,8 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     
     This function factory returns a function which calculates the signal
     magnitude using the expression::
-        S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
-    where ``a0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
+        S = s0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+    where ``s0`` is the recovered intensity, ``a1`` is theoretically 2.0 but
     varies due to inhomogeneous B0 field, ``t1`` is the longitudinal
     relaxation time, and the repetition time, ``TR``, is calculated  from
     ``TI`` using piecewise linear interpolation.
@@ -317,7 +328,7 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     Returns
     -------
     t1_function : function
-        S = a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
+        S = s0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))
     
     t1_jacobian : function
         Tuple of partial derivatives for curve fitting.
@@ -331,7 +342,7 @@ def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
     tr = UnivariateSpline(ti_interp_vals, tr_interp_vals, k=1, s=0)
     # tr_der = tr.derivative()
 
-    eqn_str = 'a0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))'
+    eqn_str = 's0 * (1 - a1 * np.exp(-TI / t1) + np.exp(-TR / t1))'
     if mag_image:
         eqn_str = f'abs({eqn_str})'
 
@@ -386,12 +397,12 @@ def est_t1_a0(ti, tr, t1, pv):
     return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
 
 
-def t2_function(te, t2, a0):
+def t2_function(te, t2, s0):
     """
-    Calculated pixel value given TE, T2, A0 and C.
+    Calculated pixel value given TE, T2, S0 and C.
     
-    Calculates pixel intensity from::
-        pv = a0 * np.exp(-te / t2)
+    Calculates pixel value from::
+        S = S0 * np.exp(-te / t2)
 
     Parameters
     ----------
@@ -399,8 +410,8 @@ def t2_function(te, t2, a0):
         Echo times.
     t2 : float
         T2 decay constant.
-    a0 : float
-        Initial signal magnitude.
+    S0 : float
+        Initial pixel magnitude.
 
     Returns
     -------
@@ -408,7 +419,7 @@ def t2_function(te, t2, a0):
         Theoretical pixel values at each TE.
 
     """
-    pv = a0 * np.exp(-te / t2)
+    pv = s0 * np.exp(-te / t2)
     return pv
 
 
@@ -821,7 +832,7 @@ class T1ImageStack(ImageStack):
 
     def initialise_fit_parameters(self, t1_estimates):
         """
-        Estimate fit parameters (t1, a0, a1) for T1 curve fitting.
+        Estimate fit parameters (t1, s0, a1) for T1 curve fitting.
         
         T1 estimates are provided.
         
@@ -904,11 +915,11 @@ class T2ImageStack(ImageStack):
 
         self.fit_function = t2_function
         self.fit_jacobian = t2_jacobian
-        self.fit_eqn_str = 'a0 * np.exp(-te / t2)'
+        self.fit_eqn_str = 's0 * np.exp(-te / t2)'
 
     def initialise_fit_parameters(self, t2_estimates):
         """
-        Estimate fit parameters (t2, a0, c) for T2 curve fitting.
+        Estimate fit parameters (t2, s0, c) for T2 curve fitting.
         
         T2 estimates are provided.
         
@@ -931,7 +942,7 @@ class T2ImageStack(ImageStack):
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
         self.c_est = np.full_like(self.t2_est, 0.0)
-        # estimate a0 from second image--first image is too low.
+        # estimate s0 from second image--first image is too low.
         self.a0_est = est_t2_a0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
         # Get maximum time to use on fitting algorithm (5*t2_est)
