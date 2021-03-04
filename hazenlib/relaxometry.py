@@ -1041,7 +1041,7 @@ class T2ImageStack(ImageStack):
         return self.t2s
 
 
-def main(dcm_target_list, *, plate_number,
+def main(dcm_target_list, *, plate_number=None,
          show_template_fit=False, show_relax_fits=False, calc_t1=False,
          calc_t2=False, report_path=False, show_rois=False):
     """
@@ -1090,20 +1090,35 @@ def main(dcm_target_list, *, plate_number,
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify either calc_t1=True OR calc_t2=True.')
 
+    # check plate number specified and either 4 or 5
+    if plate_number not in [4, 5]:
+        raise hazenlib.exceptions.ArgumentCombinationError(
+            'Must specify plate_number (4 or 5)')
+
     # Set up parameters specific to T1 or T2
     if calc_t1:
         ImStack = T1ImageStack
         relax_str = 't1'
         smooth_times = range(0, 1000, 10)
-        template_dcm = pydicom.read_file(
-            TEMPLATE_VALUES[f'plate{plate_number}']['t1']['filename'])
+        try:
+            template_dcm = pydicom.read_file(
+                TEMPLATE_VALUES[f'plate{plate_number}']['t1']['filename'])
+        except KeyError:
+            print(f'Could not find template with plate number: {plate_number}.'
+                  f' Please pass plate number as arg.')
+            exit()
 
     elif calc_t2:
         ImStack = T2ImageStack
         relax_str = 't2'
         smooth_times = range(0, 500, 5)
-        template_dcm = pydicom.read_file(
-            TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
+        try:
+            template_dcm = pydicom.read_file(
+                TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
+        except KeyError:
+            print(f'Could not find template with plate number: {plate_number}.'
+                  f' Please pass plate number as arg.')
+            exit()
 
     output_files_path = {}  # save path to output files
     image_stack = ImStack(dcm_target_list, template_dcm,

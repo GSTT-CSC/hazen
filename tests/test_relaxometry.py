@@ -426,13 +426,13 @@ class TestRelaxometry(unittest.TestCase):
                                    rtol=0.02, atol=1)
 
     def test_neither_t1_or_t2(self):
-        """Test exception raised if neither T1 nor T2 to be claculated."""
+        """Test exception raised if neither T1 nor T2 to be calculated."""
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=False,
                           calc_t2=False, plate_number=5)
 
     def test_both_t1_or_t2(self):
-        """Test exception raised if neither T1 nor T2 to be claculated."""
+        """Test exception raised if neither T1 nor T2 to be calculated."""
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=True,
                           calc_t2=True, plate_number=5)
@@ -534,6 +534,11 @@ class TestRelaxometry(unittest.TestCase):
                     results['calc_times'],
                     getattr(self,f'SITE3_{tparam}_P{plate}_VALS'),
                     rtol=0.02, atol=1)
+
+    def test_plate_number_not_specified(self):
+        """Test exception raised if plate_number not specified."""
+        self.assertRaises(ArgumentCombinationError,
+                          hazen_relaxometry.main, [], calc_t1=True)
 
 
 if __name__ == '__main__':
