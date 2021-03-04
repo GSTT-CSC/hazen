@@ -10,28 +10,65 @@ qmri.com/qmri-solutions/t1-t2-pd-imaging-phantom (plates 4 and 5). Values are
 compared to published values (without temperature correction). Graphs of fit
 and phantom registration images can optionally be produced.
 
-T1 measurements should be obtained using 2D inversion recovery SE sequences
-with coronal acquisitions through plates 4 and 5. The sequences should be
-repeated at sufficient TI values to enable the signal decay curves to be
-accurately modelled.
 
-T2 measurements should be obtained using 2D SE coronal SE acquisitions with
-variable TEs. Using multi-contrast sequences on Siemens and Philips scanners
-should result in a time saving whilst maintaining image quality.
+Scan parameters
+===============
 
-Further details of recommended scan parameters for GE, Philips and Siemens
-scanners are available in the 'System Phantom Manual' which can be downloaded
-from the above website. (T1-VTI and T2 sequences). However, these may result in
-long scan times.
+Manufacturer's details of recommended scan parameters for GE, Philips and
+Siemens scanners are available in the 'System Phantom Manual' which can be
+downloaded from the above website (T1-VTI and T2 sequences). However, these may
+result in long scan times. The parameters below were used to acquire the
+images used in testing this module. They are provided for information only.
 
-Scan times can be decreased for T1 acquisitions by:
-    1. Use TI/ms = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0].
-    2. Use TR = 1000 ms (or minimum possible if longer than 1000 ms).
-The algorithm will accommodate a variation in TR with TI and incomplete recovery
-due to short TR.
 
-T2 acquisition protocol can be shortened by:
-    1. Use TR = 2000 ms.
+T1 Relaxometry
+--------------
+
+Sequence: Spin echo with inversion recovery
+Plane: Coronal
+TR (ms): 1000 (or minimum achievable if longer--see note)
+TE (ms): 10
+TI (ms): {50.0, 100.0, 200.0, 400.0, 600.0, 800.0}
+Flip angle: 180 degrees
+Matrix: 192 x 192
+FoV (mm): 250 x 250
+Slices: 2 (or 3 to acquire plate 3 with PD spheres)
+Slice width (mm): 5
+Distance factor: 35 mm / 700%
+NSA: 1
+Receive bandwidth:
+    GE (kHz): 15.63
+    Philips (Hz / px): 109
+    Siemens (Hz / px): 130
+Reconstruction: Normalised
+
+Note: Some scanners may require a longer TR for long TI values. This algorithm
+will accommodate a variation in TR with TI and incomplete recovery due to short
+TR.
+
+
+T2 Relaxometry
+--------------
+
+Sequence:
+    GE: T2 map (TE values fixed)
+    Other manufacturers: Spin echo multi contrast
+Plane: Coronal
+TR (ms): 2000
+Number of contrasts: maximum
+TE (ms): minimum
+Flip angle: 90 degrees
+Matrix: 192 x 192
+FoV (mm): 250 x 250
+Slices: 2 (or 3 to acquire plate 3 with PD spheres)
+Slice width (mm): 5
+Distance factor: 35 mm / 700%
+NSA: 1
+Receive bandwidth:
+    GE (kHz): 15.63
+    Philips (Hz / px): 109
+    Siemens (Hz / px): 130
+Reconstruction: Normalised
 
 
 Algorithm overview
@@ -63,7 +100,6 @@ Algorithm overview
 7. Return plate number, relaxation type (T1 or T2), measured relaxation
     times, published relaxation times, and fractional differences in a
     dictionary.
-
 
 
 Feature enhancements
@@ -473,7 +509,7 @@ def est_t2_s0(te, t2, pv, c=0.0):
     return (pv - c) / np.exp(-te / t2)
 
 
-class ROITimeSeries():
+class ROITimeSeries:
     """
     Samples at one image location (ROI) at numerous sample times.
     
