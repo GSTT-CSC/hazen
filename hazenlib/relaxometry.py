@@ -422,7 +422,7 @@ def est_t1_s0(ti, tr, t1, pv):
     t1 : array_like
         Estimated T1 (typically from manufacturer's documentation).
     pv : array_like
-        Mean pixel value in ROI.
+        Mean pixel value (signal) in ROI.
 
     Returns
     -------
@@ -452,7 +452,7 @@ def t2_function(te, t2, s0):
     Returns
     -------
     pv : array_like
-        Theoretical pixel values at each TE.
+        Theoretical pixel values (signal) at each TE.
 
     """
     pv = s0 * np.exp(-te / t2)
@@ -496,7 +496,7 @@ def est_t2_s0(te, t2, pv, c=0.0):
     t2 : array_like
         T2 decay constant.
     pv : array_like
-        Mean pixel value in ROI with ``te`` echo time.
+        Mean pixel value (signal) in ROI with ``te`` echo time.
     c : array_like
         Constant offset, theoretically ``full_like(te, 0.0)``.
 
@@ -507,6 +507,22 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
+
+def rms(arr):
+    """
+    Calculate RMS of an array.
+
+    Parameters
+    ----------
+    arr : array_like
+         Input array
+
+    Returns
+    -------
+    rms : float
+        sqrt(mean(square(arr)))
+    """
+    return np.sqrt(np.mean(np.square(arr)))
 
 
 class ROITimeSeries:
@@ -1043,7 +1059,7 @@ class T2ImageStack(ImageStack):
 
 def main(dcm_target_list, *, plate_number=None,
          show_template_fit=False, show_relax_fits=False, calc_t1=False,
-         calc_t2=False, report_path=False, show_rois=False):
+         calc_t2=False, report_path=False, show_rois=False, verbose=False):
     """
     Calculate T1 or T2 values for relaxometry phantom.
     
@@ -1072,16 +1088,30 @@ def main(dcm_target_list, *, plate_number=None,
         If a valid file root, save template_fit images and relax_fit graphs.
         These must first have been generated with ``show_template_fit=True``
         or ``show_relax_fit=True``. The default is False.
-
-    Returns
-    -------
-    dict
-        {
+    verbose : bool, optional
+        Provide verbose output. If True, the following key / values will be
+        added to the output dictionary:
             plate : plate_number,
             relaxation_type : 't1' | 't2',
             calc_times : list of T1|T2 for each sphere,
             manufacturers_times : list of manufacturer's values for T1|T2,
             frac_time_difference : (calc_times - manufacturers_times) / manufacturers_times
+            institution_name=index_im.InstitutionName,
+            manufacturer=index_im.Manufacturer,
+            model=index_im.ManufacturerModelName,
+            date=index_im.StudyDate,
+            output_graphics=output_files_path
+            detailed_output : dict with extensive information
+
+        The default is False.
+
+    Returns
+    -------
+
+    dict
+        {
+            rms_frac_time_difference : RMS fractional difference between
+                calculated relaxometry times and manufacturer provided data.
         }
     """
 
@@ -1197,31 +1227,34 @@ def main(dcm_target_list, *, plate_number=None,
 
     # Generate output dict
     index_im = image_stack.images[0]
-    output = dict(plate=image_stack.plate_number,
-                  relaxation_type=relax_str,
-                  calc_times=image_stack.relax_times,
-                  manufacturers_times=relax_published,
-                  frac_time_difference=frac_time_diff,
-                  institution_name=index_im.InstitutionName,
-                  manufacturer=index_im.Manufacturer,
-                  model=index_im.ManufacturerModelName,
-                  date=index_im.StudyDate,
-                  output_graphics=output_files_path)
+    # last value is for background water. Strip before calculating RMS frac error
+    output = {'rms_frac_time_difference' : rms(frac_time_diff[:-1])}
+    if verbose:
+        output.update(dict(plate=image_stack.plate_number,
+                      relaxation_type=relax_str,
+                      calc_times=image_stack.relax_times,
+                      manufacturers_times=relax_published,
+                      frac_time_difference=frac_time_diff,
+                      institution_name=index_im.InstitutionName,
+                      manufacturer=index_im.Manufacturer,
+                      model=index_im.ManufacturerModelName,
+                      date=index_im.StudyDate,
+                      output_graphics=output_files_path))
 
-    detailed_output = {
-        'filenames': [im.filename for im in image_stack.images],
-        'ROI_means': {i: im.means for i, im in enumerate(image_stack.ROI_time_series)},
-        'TE': [im.EchoTime for im in image_stack.images],
-        'TR': [im.RepetitionTime for im in image_stack.images],
-        'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
-               for im in image_stack.images],
-        # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
-        # fit_parameters (T2) = [[T2, s0, C] for each ROI]
-        'fit_parameters': [param[0] for param in image_stack.relax_fit],
-        'fit_equation': image_stack.fit_eqn_str
-    }
+        detailed_output = {
+            'filenames': [im.filename for im in image_stack.images],
+            'ROI_means': {i: im.means for i, im in enumerate(image_stack.ROI_time_series)},
+            'TE': [im.EchoTime for im in image_stack.images],
+            'TR': [im.RepetitionTime for im in image_stack.images],
+            'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
+                   for im in image_stack.images],
+            # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
+            # fit_parameters (T2) = [[T2, s0, C] for each ROI]
+            'fit_parameters': [param[0] for param in image_stack.relax_fit],
+            'fit_equation': image_stack.fit_eqn_str
+        }
 
-    output['detailed'] = detailed_output
+        output['detailed'] = detailed_output
 
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
                  f"P{image_stack.plate_number}_{relax_str}"

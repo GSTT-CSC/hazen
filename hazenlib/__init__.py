@@ -320,7 +320,8 @@ def main():
 
     # Relaxometry arguments
     relaxometry_cli_args = {'--calc_t1','--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits', '--show_rois'}
+                            '--show_template_fit', '--show_relax_fits', '--show_rois',
+                            '--verbose'}
     # Make a list of keys that have truthy values
     relaxometry_cli_args_used = [arg for arg in relaxometry_cli_args if arguments[arg]]
 
