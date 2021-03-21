@@ -1,0 +1,102 @@
+#!/bin/bash
+
+# hazen-app
+
+# DESCRIPTION
+#   A wrapper script for invoking hazen with docker
+
+# INSTALL INSTRUCTIONS
+#   Run "chmod 700 <path to hazen-app file>" to give user the right permissions to execute
+#   Copy this script to /usr/local/bin "cp <path to hazen-app file> /usr/local/bin"
+#   run "hazen-app" in terminal
+
+# USAGE
+#   run "hazen-app -h" for help and usage description
+#   To run a specific build of hazen use the -b <tag> flag before the standard positional arguments e.g.
+#   "hazen-app -b build_000 slice_position slice_positon_folder/ --report"
+
+# SOURCES:
+#   https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
+#   https://stackoverflow.com/questions/26423515/how-to-automatically-update-your-docker-containers-if-base-images-are-updated
+
+# DOCKER REGISTRY INFO
+BASE_IMAGE="hazen"
+ORGANISATION="gsttmriphysics"
+REGISTRY="docker.io"
+IMAGE="$REGISTRY/$ORGANISATION/$BASE_IMAGE"
+
+# FUNCTIONS
+check_bash(){
+  if ! [ -n "$BASH_VERSION" ];then
+    echo "Called script with non-bash shell, calling self with bash....";
+    SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+    /bin/bash ${SCRIPTPATH}/hazen-app
+    exit;
+  fi
+}
+
+check_cmd_in_path(){
+  cmd=$1
+  which $cmd > /dev/null 2>&1 || error 1 "$cmd not found! please install $cmd to continue"
+}
+
+check_internet_connections(){
+  echo -e "GET http://google.com HTTP/1.0\n\n" | nc google.com 80 > /dev/null 2>&1
+  if [ $? -eq 0 ]; then
+      internet_status=true
+    else
+      echo "WARNING: No internet connection, unable to verify Hazen version"
+      internet_status=false
+  fi
+}
+
+#check_hazen_version(){
+#  LATEST=`docker inspect --format='{{index .RepoDigests 0}}' $IMAGE`
+#  LOCAL=`docker image inspect --format "{{.Id}}" $IMAGE`
+#
+#  if [ "$LOCAL" == "$LATEST" ];then
+#    :
+#  else
+#      echo -n "Newer version of Hazen available: upgrade now? (y/n)"
+#      old_stty_cfg=$(stty -g)
+#      stty raw -echo ; answer=$(head -c 1) ; stty $old_stty_cfg # Careful playing with stty
+#      if echo "$answer" | grep -iq "^y" ;then
+#          docker pull $$REPO_IMAGE
+#      else
+#          echo "Continuing with old version"
+#      fi
+#  fi
+#}
+
+while getopts b: flag
+  do
+      case "${flag}" in
+        b) BUILD_TAG=${OPTARG};;
+        *) echo "invalid arg provided"
+      esac
+  done
+  shift $(( OPTIND - 1 ))
+
+# MAIN
+check_bash
+check_cmd_in_path docker
+check_internet_connections
+
+# define requested version with cmd line argument
+if [ -z "$BUILD_TAG" ]; then # no command line argument supplied
+    APP_IMAGE=$IMAGE:latest
+  else
+    APP_IMAGE=$IMAGE:$BUILD_TAG
+fi
+
+# pull requested version
+if [ "$internet_status" = true ]; then
+  docker pull $APP_IMAGE
+fi
+
+# Set up mounted volumes, environment, and run our containerized command
+exec docker run \
+    --rm \
+    --mount type=bind,source="$(pwd)",target=/home/hazen_user/data \
+    -w /home/hazen_user/data \
+    $APP_IMAGE "$@"
