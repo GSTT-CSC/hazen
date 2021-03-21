@@ -30,3 +30,9 @@ class MultipleShapesError(ShapeDetectionError):
 
         super(ShapeDetectionError, self).__init__(msg)
         self.shape = shape
+        
+
+class ArgumentCombinationError(Exception):
+    """Argument combination not valid."""
+    def __init__(self, msg='Invalid combination of arguments.'):
+        super().__init__(msg)
