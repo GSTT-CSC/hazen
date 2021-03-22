@@ -12,6 +12,7 @@ stepdefinitions:
         - pip install -r requirements.txt
         - pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=junit.xml tests/
 
+
       services:
         - postgres
 
@@ -26,11 +27,18 @@ stepdefinitions:
       - bash <(curl -f .coverage.xml  https://codecov.io/bash) -t $CODECOV_TOKEN
 
   - deploying: &deploying
-      name: Deploy to Heroku
+      name: Deploy to Heroku and dockerhub
       deployment: staging   # set to test, staging or production
       # trigger: manual  # uncomment to have a manual step
       script:
         - git push https://heroku:$HEROKU_API_KEY@git.heroku.com/$HEROKU_APP_NAME.git $BITBUCKET_BRANCH:master
+        - docker login -u $DOCKER_HUB_USER -p $DOCKER_HUB_PASSWORD
+        - docker build -t gsttmriphysics/hazen .
+        - docker push gsttmriphysics/hazen
+        - docker tag gsttmriphysics/hazen:latest gsttmriphysics/hazen:build_$BITBUCKET_BUILD_NUMBER
+        - docker push gsttmriphysics/hazen:build_$BITBUCKET_BUILD_NUMBER
+      services:
+        - docker
 
 pipelines:
   branches:
@@ -45,7 +53,7 @@ pipelines:
     hotfix/*:
       - step: *testing
       - step: *reporting
-      - step: *deploying
+#      - step: *deploying // should we be deploying hotfix builds? more controlled to merge into master and deploy from there
   default:
     - step: *testing
     - step: *reporting
