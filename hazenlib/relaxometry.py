@@ -137,7 +137,7 @@ import hazenlib.exceptions
 # Access as:
 #    TEMPLATE_VALUES[f'plate{plate_num}']['sphere_centres_row_col']
 #    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['filename']
-#    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['relax_times']
+#    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['1.5T'|'3.0T']['relax_times']
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             'data', 'relaxometry')
@@ -157,16 +157,24 @@ TEMPLATE_VALUES = {
         'bolt_centres_row_col': (),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T1_signed'),
-            'relax_times':
-                np.array([2376.0, 2183.0, 1870.0, 1539.0, 1237.0, 1030.0,
-                          752.2, 550.2, 413.4, 292.9, 194.9, 160.2, 106.4,
-                          83.3, 2700])},
+            'relax_times': {
+                '1.5T':
+                    np.array([2376, 2183, 1870, 1539, 1237, 1030, 752.2, 550.2,
+                              413.4, 292.9, 194.9, 160.2, 106.4, 83.3, 2700]),
+                '3.0T':
+                    np.array([2480, 2173, 1907, 1604, 1332, 1044, 801.7, 608.6,
+                              458.4, 336.5, 244.2, 176.6, 126.9, 90.9, 2700])}},
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate4_T2'),
-            'relax_times':
-                np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
-                          64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15,
-                          2400])}},
+            'relax_times': {
+                '1.5T':
+                    np.array([939.4, 594.3, 416.5, 267.0, 184.9, 140.6, 91.76,
+                              64.84, 45.28, 30.62, 19.76, 15.99, 10.47, 8.15,
+                              2400]),
+                '3.0T':
+                    np.array([581.3, 403.5, 278.1, 190.94, 133.27, 96.89,
+                              64.07, 46.42, 31.97, 22.56, 15.813, 11.237,
+                              7.911, 5.592, 2400])}}},
 
     'plate5': {
         'sphere_centres_row_col': (
@@ -176,14 +184,27 @@ TEMPLATE_VALUES = {
         'bolt_centres_row_col': ((52, 80), (92, 141), (138, 85)),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
-            'relax_times':
-                np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1, 184.6,
-                          132.7, 92.7, 65.4, 46.32, 32.45, 22.859, 2700])},
+            'relax_times':{
+                '1.5T':
+                    np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
+                              184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859,
+                              2700]),
+                '3.0T':
+                    np.array([1989, 1454, 984.1, 706, 496.7, 351.5, 247.13,
+                              175.3, 125.9, 89.0, 62.7, 44.53, 30.84,
+                              21.719, 2700])}},
+
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
-            'relax_times':
-                np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2, 227.7,
-                          161.9, 117.1, 81.9, 57.7, 41.0, 28.7, 20.2, 2400])}}}
+            'relax_times':{
+                '1.5T':
+                    np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2,
+                              227.7, 161.9, 117.1, 81.9, 57.7, 41.0, 28.7,
+                              20.2, 2400]),
+                '3.0T':
+                    np.array([1465, 1076, 717.9, 510.1, 359.6, 255.5, 180.8,
+                              127.3, 90.3, 64.3, 45.7, 31.86, 22.38,
+                              15.83, 2400])}}}}
 
 
 def outline_mask(im):
@@ -657,6 +678,17 @@ class ImageStack():
         self.images = image_slices  # store images
         if dicom_order_key is not None:
             self.order_by(dicom_order_key)
+
+        b0_val = self.images[0]['MagneticFieldStrength'].value
+        if b0_val == 1.5:
+            self.b0_str = '1.5T'
+        elif b0_val == 3.0:
+            self.b0_str = '3.0T'
+        else:
+            # TODO incorporate warning through e.g. logging module
+            print('Unable to match B0 to default values. Using 1.5T.\n'
+                  f" {self.images[0]['MagneticFieldStrength']}")
+            self.b0_str = '1.5T'
 
     def template_fit(self, image_index=0):
         """
@@ -1186,7 +1218,7 @@ def main(dcm_target_list, *, plate_number=None,
 
     relax_published = \
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str] \
-            ['relax_times']
+            ['relax_times'][image_stack.b0_str]
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
     frac_time_diff = (image_stack.relax_times - relax_published) \
