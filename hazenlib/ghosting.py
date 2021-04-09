@@ -52,7 +52,7 @@ def get_signal_bounding_box(array: np.ndarray):
     lower_row = max(signal_row)
     left_column = min(signal_column)
     right_column = max(signal_column)
-
+    # print(left_column, right_column, upper_row, lower_row,)
     return left_column, right_column, upper_row, lower_row,
 
 
@@ -106,13 +106,14 @@ def get_background_rois(dcm, signal_centre):
 
 
 def get_background_slices(background_rois, slice_radius=5):
+
     slices = [(np.array(range(roi[0]-slice_radius, roi[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
     return slices #returns cols then rows
 
 
 def get_eligible_area(signal_bounding_box, dcm, slice_radius=5): #sig bounding box is cols then rows, function returns ghost area
-
+    print(f"slice radius is {slice_radius}")
     left_column, right_column, upper_row, lower_row = signal_bounding_box
 
     # take into account when phantom is off edge of image
@@ -151,11 +152,12 @@ def get_eligible_area(signal_bounding_box, dcm, slice_radius=5): #sig bounding b
             eligible_columns = range(left_column, right_column)
             eligible_rows_adj = range(slice_radius + slice_radius , upper_row - padding_from_box - slice_radius)
             eligible_columns_adj = range(left_column + slice_radius, right_column - slice_radius)
-
-    return eligible_columns, eligible_rows, eligible_columns_adj, eligible_rows_adj
+    print(eligible_columns, eligible_rows, eligible_columns_adj, eligible_rows_adj)
+    return eligible_columns, eligible_rows, eligible_columns_adj, eligible_rows_adj #can delete
 
 
 def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5): #sig bounding box is cols then rows
+    print(slice_radius)
     max_mean = 0
     max_index = (0, 0)
     windows = {}
@@ -179,6 +181,7 @@ def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5): #sig bounding box
         range(max_index[0] - slice_radius, max_index[0] + slice_radius)
     )
     #ghost_slice returns columns, rows of indexes
+    # print(max_index)
     return ghost_slice
 
 
@@ -199,6 +202,7 @@ def get_ghosting(dcm, plotting=False) -> dict:
 
     noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=slice_radius)])
     eligible_area = get_eligible_area(bbox, dcm, slice_radius=slice_radius)
+    # print(eligible_area)
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
     if plotting:
@@ -231,6 +235,7 @@ def get_ghosting(dcm, plotting=False) -> dict:
         img = cv.rectangle(img.copy(), (col1, row1), (col2, row2), (255, 0, 0), 1)
 
         ax.imshow(img)
+        # print(ghosting)
         return fig, ghosting
 
     return None, ghosting
