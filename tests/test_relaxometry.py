@@ -200,7 +200,7 @@ class TestRelaxometry(unittest.TestCase):
     SITE3_T2_P5_FILES = ['Z812', 'Z813', 'Z814', 'Z819', 'Z823', 'Z825', 'Z830',
                          'Z834']
 
-    # Site 5 tests - Philisp 3T
+    # Site 5 tests - Philips 3T
     SITE5_T1_P4_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
                                    'site5_philips_3T', 'plate4')
 
