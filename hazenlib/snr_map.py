@@ -14,7 +14,7 @@ reduce SNR measurements made by other methods.
 
 Algorithm overview
 ==================
-1. Apply gaussian blur to original image to create smooth image.
+1. Apply boxcar smoothing to original image to create smooth image.
 2. Create noise image by subtracting smooth image from original image.
 3. Create image mask to remove background using e.g. Otsu's method.
 4. Calculate SNR using McCann's method and overlay ROIs on image.
