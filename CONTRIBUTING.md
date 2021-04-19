@@ -100,12 +100,14 @@ To run local, install sonar-scanner. Edit properties file in conf so that url is
 ## The Code reviewing process
 
 - After your pull request has been submitted, Haris is the final reviewer.
-
 ## Releasing
 
 - Haris will create a new ‘Release’ branch from develop
 - Haris, as maintainer, is responsible for releasing new version of code
 - Any edits or documentation updates will be made in the ‘Release’ branch
 - Finally, the ‘Release’ branch is merged with ‘master’ and a new version is tagged for release!
-
-
+- Produce requirements.txt: __pipreqs --force --savepath ./requirements.txt --ignore bin,hazen-venv ./__
+- Check what requirements have been edited as pipreqs is not perfect e.g. scikit_image instead of skimage
+- Make sure all tests are passing
+- Update version in hazenlib/\_\_init\_\_.py, remove 'dev'.
+- Update docs (try sphinx-apidoc for autodocumentation of modules)
