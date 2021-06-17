@@ -10,9 +10,6 @@ from tests import TEST_DATA_DIR
 class TestSnrMap(unittest.TestCase):
 
     siemens_1 = os.path.join(TEST_DATA_DIR, 'snr', 'Siemens', 'tra_250_2meas_1.IMA')
-    siemens_2 = os.path.join(TEST_DATA_DIR, 'snr', 'tra_250_2meas_1.ima')
-    siemens_3 = os.path.join(TEST_DATA_DIR, 'snr', r'tra_250_2meas_1.IMA')
-
 
     def test_snr_value(self):
 

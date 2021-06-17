@@ -16,7 +16,8 @@ Algorithm overview
 ==================
 1. Apply boxcar smoothing to original image to create smooth image.
 2. Create noise image by subtracting smooth image from original image.
-3. Create image mask to remove background using e.g. Otsu's method.
+3. Create image mask to remove background using e.g.
+     skimage.filters.threshold_minimum
 4. Calculate SNR using McCann's method and overlay ROIs on image.
 5. Estimate local noise as standard deviation of pixel values in ROI centred on
     a pixel. Repeat for each pixel in the noise image.
@@ -30,15 +31,13 @@ method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 
 import logging
 import pydicom
-# import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
 
 from scipy import ndimage
-# import skimage.util
-from skimage import filters, morphology
+from skimage import filters
 
 # Set up logger
 log = logging.getLogger(__name__)
@@ -121,7 +120,10 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
             report_path = key
 
         #  Create original, smoothed and noise images
-        #  need to cast as float to prevent wrap
+        #  ==========================================
+
+        #  cast as float to allow non-integer values for smoothing
+
         original_image = dcm.pixel_array.astype(float)
 
         smooth_image = ndimage.filters.uniform_filter(original_image,
@@ -169,11 +171,9 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
                         original_image.shape)
 
         #  Calculate ROIs
-        #  Create ROI coordinates here; centre on image centroid
+        #  ==============
 
-        #  Use centre of phantom
-        #  Threshold with Otsu
-        # threshold = filters.threshold_otsu(smooth_image)  # Use smooth image to reduce noise
+        # Threshold from smooth_image to reduce noise effects
         threshold = filters.threshold_minimum(smooth_image)
         phantom_mask = smooth_image > threshold
 
@@ -191,9 +191,10 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
         roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
 
         #  Calculate SNR
+        #  =============
+
         roi_signal = []
         roi_noise = []
-
 
         for [x, y] in roi_corners:
             roi_signal.append(original_image[x:x + roi_size, y:y + roi_size].mean())
@@ -209,9 +210,11 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
                   roi_signal, roi_noise, roi_snr)
 
         #  Plot images
-        fig_detailed, axs = plt.subplots(1, 4, sharex=True, sharey=True, figsize=(8, 2.8))
-        fig_summary, axs2 = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(6, 2.8))
-        # axs = (signal, smooth, noise)
+        fig_detailed, axs = plt.subplots(1, 4, sharex=True, sharey=True,
+                                         figsize=(8, 2.8))
+        fig_summary, axs2 = plt.subplots(1, 2, sharex=True, sharey=True,
+                                         figsize=(6, 2.8))
+
         fig_detailed.suptitle('SNR = %.2f (file: %s)'
                      % (snr, os.path.basename(dcm.filename)))
         axs[0].imshow(original_image, cmap='gray')
@@ -247,8 +250,10 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
 
         #  Generate local SNR parametric map
         #  =================================
-        #  For a faster implementation see:
+
+        #  If you need a faster (less transparent) implementation, see:
         #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
+
         noise_map = ndimage.filters.generic_filter(noise_image, sample_std,
                                                    size=roi_size)
         signal_map = ndimage.filters.uniform_filter(original_image, size=roi_size)

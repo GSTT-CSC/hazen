@@ -75,7 +75,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 Welcome to the Hazen Command Line Interface
 Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
-    [--show_relax_fits] [--show_rois]
+    [--show_relax_fits] [--show_rois] [--verbose]
     hazen -h|--help
     hazen -v|--version
 Options:
@@ -319,7 +319,7 @@ def main():
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
 
     # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1','--calc_t2', '--plate_number',
+    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
                             '--show_template_fit', '--show_relax_fits', '--show_rois',
                             '--verbose'}
     # Make a list of keys that have truthy values
@@ -336,5 +336,7 @@ def main():
         for key in relaxometry_cli_args:
             relaxometry_args[key[2:]] = arguments[key]
 
-    return pp.pprint(task.main(dicom_objects, report_path=report, **relaxometry_args))
+        return pp.pprint(task.main(dicom_objects, report_path=report, **relaxometry_args))
+
+    return pp.pprint(task.main(dicom_objects, report_path=report))
 
