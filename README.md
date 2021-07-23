@@ -1,4 +1,3 @@
-# THIS REPOSITORY IS RETIRED, please go to: https://github.com/GSTT-CSC/hazen
 
 ## Contributors
 
