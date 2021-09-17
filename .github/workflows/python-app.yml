@@ -11,7 +11,6 @@ on:
       - main
 
 jobs:
-  build:
   # Label of the container job
   container-job:
     # Containers must run in Linux based operating systems
@@ -36,7 +35,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
