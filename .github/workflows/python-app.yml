@@ -26,9 +26,9 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_DB: 'hazen_test'
-          POSTGRES_USER: 'test_user'
-          POSTGRES_PASSWORD: 'test_user_password'
+          POSTGRES_DB: hazen_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_user_password
         # Set health checks to wait until postgres has started
         options: >-
           --health-cmd pg_isready
