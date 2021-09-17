@@ -12,11 +12,9 @@ on:
 
 jobs:
   # Label of the container job
-  container-job:
+  test:
     # Containers must run in Linux based operating systems
     runs-on: ubuntu-latest
-    # Docker Hub image that `container-job` executes in
-    container: python:3.6.15
 
     # Service containers to run with `container-job`
     services:
@@ -37,11 +35,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    env:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_PASSWORD: 'test_user_password'
-      POSTGRES_USER: 'test_user'
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
@@ -60,6 +53,5 @@ jobs:
 #        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
 #        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
-      if: always()  # run if flake8 fails - overrides default success()
       run: |
         pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=junit.xml tests/
