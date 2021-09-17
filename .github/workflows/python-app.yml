@@ -5,10 +5,10 @@ name: Python application
 
 on:
   push:
-  pull_request:
-    branches:
-      - develop
-      - main
+#  pull_request:
+#    branches:
+#      - develop
+#      - main
 
 jobs:
   # Label of the container job
@@ -37,6 +37,11 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+    env:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_PASSWORD: 'test_user_password'
+      POSTGRES_USER: 'test_user'
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python 3.6
