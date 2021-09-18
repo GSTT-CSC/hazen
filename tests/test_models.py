@@ -8,7 +8,7 @@ from app.models import User, Acquisition
 
 class TestConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'postgres://test_user:test_user_passowrd@localhost:5432/hazen_test'
+    SQLALCHEMY_DATABASE_URI = 'postgres://test_user:test_user_password@localhost:5432/hazen_test'
 
 
 class UserModelCase(unittest.TestCase):
