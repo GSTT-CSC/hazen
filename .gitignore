@@ -24,3 +24,5 @@ hazen_getting_started.pdf
 /.cache/
 /.bash_history
 /junit.xml
+pytest-coverage.txt
+pytest.xml
