@@ -62,7 +62,6 @@ jobs:
 
     - name: Test with pytest
       run: |
-#        pytest --cov=hazenlib --cov=app --cov-report xml tests/
         coverage run -m --source=hazenlib pytest tests/ --cache-clear --cov=hazenlib --continue-on-collection-errors 2>&1 | tee pytest-coverage.txt
 
     - name: Comment coverage
