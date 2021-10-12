@@ -65,6 +65,7 @@ jobs:
         coverage run -m --source=hazenlib  pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt
 
     - name: Pytest coverage comment
+      if: always()
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
       with:
@@ -72,6 +73,7 @@ jobs:
         junitxml-path: ./pytest.xml
 
     - name: Create the coverage Badge
+      if: always()
       uses: schneegans/dynamic-badges-action@v1.0.0
       with:
         auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
