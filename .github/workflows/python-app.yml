@@ -5,10 +5,11 @@ name: Python tests
 
 on:
   push:
-#  pull_request:
-#    branches:
-#      - develop
-#      - main
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
 
 jobs:
   # Label of the container job
@@ -37,21 +38,32 @@ jobs:
           --health-retries 5
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Python 3.6
       uses: actions/setup-python@v2
       with:
         python-version: 3.6
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-#    - name: Lint with flake8
-#      run: |
-#        # stop the build if there are Python syntax errors or undefined names
-#        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-#        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-#        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+    - name: Setup flake8 annotations
+      uses: rbialon/flake8-annotations@v1
+
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        # flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
     - name: Test with pytest
       run: |
-        pytest --cov=hazenlib --cov=app --cov-report xml --junitxml=junit.xml tests/
+#        pytest --cov=hazenlib --cov=app --cov-report xml tests/
+        coverage run -m --source=hazenlib pytest tests/ --cache-clear --cov=hazenlib --continue-on-collection-errors 2>&1 | tee pytest-coverage.txt
+
+    - name: Comment coverage
+      uses: coroo/pytest-coverage-commentator@v1.0.2
