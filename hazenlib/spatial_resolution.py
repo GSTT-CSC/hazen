@@ -461,7 +461,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[9].set_title('line spread function')
         axes[9].plot(lsf)
         axes[10].set_title('normalised MTF')
-        axes[10].plot(norm_mtf)
+        axes[10].plot(norm_mtf[60:120])
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
     return res
