@@ -15,6 +15,7 @@ import traceback
 
 import cv2 as cv
 import numpy as np
+from numpy.fft import fftfreq
 
 import hazenlib
 
