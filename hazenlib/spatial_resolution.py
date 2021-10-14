@@ -424,6 +424,10 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     x, y = get_edge_profile_coords(angle, intercept, spacing)
     u, esf = get_esf(edge_arr, y)
     lsf = maivis_deriv(u, esf)
+    lsf = np.array(lsf)
+    n=lsf.size
+    freqs= fftfreq(n)
+    mask = freqs > 0
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
@@ -461,7 +465,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[9].set_title('line spread function')
         axes[9].plot(lsf)
         axes[10].set_title('normalised MTF')
-        axes[10].plot(norm_mtf[60:120])
+        axes[10].plot(freqs[mask],norm_mtf[mask])
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
     return res
