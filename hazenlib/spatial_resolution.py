@@ -427,12 +427,12 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     lsf = maivis_deriv(u, esf)
     lsf = np.array(lsf)
     n=lsf.size
-    mask = freqs >= 0
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
     freqs= fftfreq(n, profile_length/n)
+    mask = freqs >= 0
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
 
