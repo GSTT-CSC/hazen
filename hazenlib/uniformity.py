@@ -132,7 +132,7 @@ def main(data: list, report_path=False) -> dict:
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
         except AttributeError as e:
-            print(e)
+            logging.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
 
         if report_path:

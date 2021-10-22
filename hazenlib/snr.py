@@ -183,17 +183,17 @@ def get_object_centre(dcm) -> (int, int):
             # shape_detector.detect()
             # contour = shape_detector.shapes['rectangle'][1]
             # angle, centre, size = cv.minAreaRect(contour)
-            # print((angle, centre, size))
+              logging.info((angle, centre, size))
             # im = cv.drawContours(dcm.pixel_array.copy(), [shape_detector.contours[0]], -1, (0, 255, 255), 10)
             # plt.imshow(im)
             # plt.savefig("rectangles.png")
-            # print(shape_detector.shapes.keys())
+              logging.info(shape_detector.shapes.keys())
             raise
     elif orientation == 'Transverse':
         try:
             col, row, r = shape_detector.get_shape('circle')
         except exc.MultipleShapesError:
-            print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+            logging.info('Warning! Found multiple circles in image, will assume largest circle is phantom.')
             col, row, r = get_largest_circle(shape_detector.shapes['circle'])
     else:
         raise Exception("Direction must be Transverse, Sagittal or Coronal.")
@@ -324,7 +324,7 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
         except AttributeError as e:
-            print(e)
+            logging.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
 
         if report_path:

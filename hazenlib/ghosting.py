@@ -236,7 +236,7 @@ def main(data: list, report=False) -> dict:
         try:
             key = f"{dcm.SeriesDescription.replace(' ', '_')}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"
         except AttributeError as e:
-            print(e)
+            logging.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             fig, results[key] = get_ghosting(dcm, report)

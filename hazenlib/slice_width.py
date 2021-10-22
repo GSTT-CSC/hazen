@@ -665,7 +665,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logging.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             result = get_slice_width(dcm, report_path)

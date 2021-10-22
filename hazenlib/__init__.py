@@ -74,7 +74,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--log=<lvl>]
     hazen -h|--help
     hazen -v|--version
 Options:
@@ -82,6 +82,7 @@ Options:
     <folder>
     --report
 """
+import logging
 import os
 import pprint
 import importlib
@@ -310,6 +311,26 @@ def main():
         report = True
     else:
         report = False
+
+    level = {
+        "critical": logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+
+    }
+
+
+    if arguments['--log'] is level:
+        level = level.get(arguments['--log'],)
+        logging.getLogger().setLevel(level)
+
+    else:
+       logging.basicConfig()
+       logging.getLogger().setLevel(logging.WARNING)
+
+
 
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")

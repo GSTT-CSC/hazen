@@ -490,7 +490,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logging.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             results[key] = calculate_mtf(dcm, report_path)
