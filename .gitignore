@@ -21,3 +21,8 @@ hazen.egg-info
 docs/_build
 hazen_getting_started.pdf
 .DS_Store
+/.cache/
+/.bash_history
+/junit.xml
+pytest-coverage.txt
+pytest.xml

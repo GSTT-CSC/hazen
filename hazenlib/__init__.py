@@ -74,11 +74,12 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--log=<lvl>]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
+    [--show_relax_fits] [--show_rois] [--log=<lvl>]
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
     <folder>
     --report
 
@@ -343,5 +344,23 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
 
-    return pp.pprint(task.main(dicom_objects, report_path=report))
+    # Relaxometry arguments
+    relaxometry_cli_args = {'--calc_t1','--calc_t2', '--plate_number',
+                            '--show_template_fit', '--show_relax_fits', '--show_rois',
+                            '--verbose'}
+    # Make a list of keys that have truthy values
+    relaxometry_cli_args_used = [arg for arg in relaxometry_cli_args if arguments[arg]]
+
+    if not arguments['<task>'] == 'relaxometry':
+        if len(relaxometry_cli_args_used) > 0:
+            error_string = f"Option(s) {relaxometry_cli_args_used} can only be used with relaxometry"
+            raise Exception(error_string)
+    else:
+        # Pass arguments with dictionary, stripping initial double dash ('--')
+        relaxometry_args = {}
+
+        for key in relaxometry_cli_args:
+            relaxometry_args[key[2:]] = arguments[key]
+
+    return pp.pprint(task.main(dicom_objects, report_path=report, **relaxometry_args))
 

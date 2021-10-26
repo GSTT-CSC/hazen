@@ -8,7 +8,7 @@ from app.models import User, Acquisition
 
 class TestConfig(Config):
     TESTING = True
-    SQLALCHEMY_DATABASE_URI = 'postgres://test_user:test_user_passowrd@localhost:5432/hazen_test'
+    SQLALCHEMY_DATABASE_URI = 'postgres://test_user:test_user_password@localhost:5432/hazen_test'
 
 
 class UserModelCase(unittest.TestCase):
@@ -35,6 +35,7 @@ class UserModelCase(unittest.TestCase):
         self.assertEqual(u.avatar(128), ('https://www.gravatar.com/avatar/'
                                          'd4c74594d841139328695756648b6bd6'
                                          '?d=identicon&s=128'))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
