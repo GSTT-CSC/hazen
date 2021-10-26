@@ -12,6 +12,9 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
+import logging
+
+
 
 import cv2 as cv
 import numpy as np
@@ -401,7 +404,7 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
-def calculate_mtf_for_edge(dicom, edge, report_path=False):
+def calculate_mtf_for_edge(dicom, edge, report_path=True):
     pixels = dicom.pixel_array
     pe = dicom.InPlanePhaseEncodingDirection
 
@@ -430,6 +433,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     profile_length = max(y.flatten()) - min(y.flatten())
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
+
 
     if report_path:
         import matplotlib.pyplot as plt
@@ -463,6 +467,11 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[10].set_title('normalised MTF')
         axes[10].plot(norm_mtf)
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
+
+
+
+
+
 
     return res
 
@@ -501,3 +510,4 @@ def main(data: list, report_path=False) -> dict:
             continue
 
     return results
+

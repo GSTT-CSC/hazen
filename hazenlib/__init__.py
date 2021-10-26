@@ -45,8 +45,8 @@ MMMMMMMMMMMMMMMMNd';loc:;'',:cccclc:,.......:;,cc:cl,'cc;.......      .lONMMMMMM
 MMMMMMMMMMMMMMMMXl';cccc;;:,'.. ..''''.....,c;:l:cc,,:c:,'.''.....      .;d0NMMM
 MMMMMMMMMMMMMMMMKc'',:loc::;,...'c;''...'',:;';lcc;,c:,,,.''.. ....     ....;d0W
 MMMMMMMMMMMMMMWXxlc;',ll:;;:;...;l;''',;:c:,..':;,;;;'.'..''. ............    .:
-MMMMMMMMMMMMN0o;:do;',;,;ooc:,',,:;',:::cc;.'',:,.,,,'.....................  .  
-MMMMMMMMMN0d;...,lc,'.':odl::;;:,';;;clc:;,'..,,''''.'...................... .  
+MMMMMMMMMMMMN0o;:do;',;,;ooc:,',,:;',:::cc;.'',:,.,,,'.....................  .
+MMMMMMMMMN0d;...,lc,'.':odl::;;:,';;;clc:;,'..,,''''.'...................... .
 MMMMMMWKd;.  ....;cc'.:odollc;::'.';,;l:,,;,.',.'',,.',,,'......................
 MMMMWKd,..........;;..,:ooloccol;',:;,lc,,',';:,;:'...''.........''''''''''..'''
 MMMW0d:'..........',..';cclooxxdooll::oc;,...:c',:,.,:;'.''''..''',;;,,,,,,,;ccl
@@ -60,10 +60,10 @@ MMMMMMMMMMMMMMMMMMMMMMMMWN0xoc:cccccldkxxkOOO0KXNWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
-                                                  
-                                                  
-`7MMF'  `7MMF'                                    
-  MM      MM                                      
+
+
+`7MMF'  `7MMF'
+  MM      MM
   MM      MM   ,6"Yb.  M""MMV .gP"Ya  7MMpMMMb.
   MMmmmmmmMM  8)   MM  '  AMV ,M'   Yb  MM    MM
   MM      MM   ,pm9MM    AMV  8M~~~~~'  MM    MM
@@ -81,6 +81,8 @@ Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting
     <folder>
     --report
+
+
 """
 import logging
 import os
@@ -201,7 +203,6 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
@@ -218,6 +219,7 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
             raise Exception('Manufacturer not recognised')
 
     return dx, dy
+
 
 def get_TR(dcm: pydicom.Dataset) -> (float):
     """
@@ -239,6 +241,7 @@ def get_TR(dcm: pydicom.Dataset) -> (float):
         TR = 1000
     return TR
 
+
 def get_rows(dcm: pydicom.Dataset) -> (float):
     """
     Returns number of image rows (rows)
@@ -255,9 +258,10 @@ def get_rows(dcm: pydicom.Dataset) -> (float):
         rows = dcm.Rows
     except:
         print('Warning: Could not find Number of matrix rows. Using default value of 256')
-        rows=256
+        rows = 256
 
     return rows
+
 
 def get_columns(dcm: pydicom.Dataset) -> (float):
     """
@@ -277,6 +281,7 @@ def get_columns(dcm: pydicom.Dataset) -> (float):
         print('Warning: Could not find matrix size (columns). Using default value of 256.')
         columns = 256
     return columns
+
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
@@ -317,18 +322,18 @@ def main():
         "debug": logging.DEBUG,
         "info": logging.INFO,
         "warning": logging.WARNING,
-        "error": logging.ERROR,
+        "error": logging.ERROR
 
     }
 
 
     if arguments['--log'] is level:
-        level = level.get(arguments['--log'],)
+        level = level.get(arguments['--log'])
         logging.getLogger().setLevel(level)
-
     else:
        logging.basicConfig()
-       logging.getLogger().setLevel(logging.WARNING)
+       logging.getLogger().setLevel(logging.INFO)
+
 
 
 

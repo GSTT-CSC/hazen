@@ -17,6 +17,7 @@ neil.heraghty@nhs.net
 14/05/2018
 
 """
+
 import sys
 import traceback
 
@@ -132,7 +133,7 @@ def main(data: list, report_path=False) -> dict:
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
         except AttributeError as e:
-            logging.info(e)
+            print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
 
         if report_path:

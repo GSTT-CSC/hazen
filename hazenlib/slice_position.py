@@ -4,6 +4,7 @@ Local Otsu thresholding
 http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
 """
+import logging
 import sys
 import os
 import traceback
@@ -58,16 +59,16 @@ def get_rods_coords(dcm: pydicom.Dataset):
         x, y, r = shape_detector.get_shape('circle')
 
     except hazenlib.exceptions.MultipleShapesError as e:
-        logging.info(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
+        # logging.info(f'Warning: found multiple shapes: {list(shape_detector.shapes.keys())}')
         shape_detector.find_contours()
         shape_detector.detect()
         x, y, r = 0, 0, 0
         for contour in shape_detector.shapes['circle']:
             (new_x, new_y), new_r = cv.minEnclosingCircle(contour)
             if new_r > r:
-                logging.info(f"Found bigger circle: {new_x}, {new_y}, {new_r}")
+                # logging.info(f"Found bigger circle: {new_x}, {new_y}, {new_r}")
                 x, y, r = new_x, new_y, new_r
-          logging.info(f"Found circle with x={x},y={y},r={r}")
+            # logging.info(f"Found circle with x={x},y={y},r={r}")
 
     except hazenlib.exceptions.ShapeError:
         raise

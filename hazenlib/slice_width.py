@@ -2,7 +2,7 @@
 Assumptions:
 Square voxels, no multi-frame support
 """
-
+import logging
 from math import pi
 import sys
 import traceback
@@ -108,6 +108,7 @@ def get_rods(dcm):
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
+
 
     return rods
 

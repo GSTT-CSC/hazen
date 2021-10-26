@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 import cv2 as cv
 import imutils
 import numpy as np
@@ -109,7 +110,7 @@ class ShapeDetector:
         self.detect()
 
         if shape not in self.shapes.keys():
-            logging.info(self.shapes.keys())
+            print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
