@@ -2,11 +2,12 @@
 Assumptions:
 Square voxels, no multi-frame support
 """
-import logging
+
 from math import pi
 import sys
 import traceback
 from copy import copy
+from logger import logger
 
 import numpy as np
 from scipy import ndimage
@@ -666,7 +667,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            logging.info(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             result = get_slice_width(dcm, report_path)
