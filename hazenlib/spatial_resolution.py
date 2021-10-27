@@ -12,7 +12,7 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
-import logging
+from logger import logger
 
 
 
@@ -504,7 +504,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            logging.info(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             results[key] = calculate_mtf(dcm, report_path)
