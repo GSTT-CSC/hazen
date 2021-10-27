@@ -318,7 +318,7 @@ def main():
     else:
         report = False
 
-    level = {
+    log_levels = {
         "critical": logging.CRITICAL,
         "debug": logging.DEBUG,
         "info": logging.INFO,
@@ -328,12 +328,13 @@ def main():
     }
 
 
-    if arguments['--log'] is level:
-        level = level.get(arguments['--log'])
+    if arguments['--log'] in log_levels.keys():
+        level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
     else:
-       logging.basicConfig()
+      # logging.basicConfig()
        logging.getLogger().setLevel(logging.INFO)
+
 
 
 
