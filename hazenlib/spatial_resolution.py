@@ -440,7 +440,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(11, 1)
         fig.set_size_inches(5, 36)
-        fig.tight_layout(pad=1)
+        fig.tight_layout(pad=4)
         axes[0].set_title('raw pixels')
         axes[0].imshow(pixels, cmap='gray')
         axes[1].set_title('rescaled to byte')
@@ -463,10 +463,13 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         fig.colorbar(im, ax=axes[7])
         axes[8].set_title('edge spread function')
         axes[8].plot(esf)
+        axes[8].set_xlabel('mm')
         axes[9].set_title('line spread function')
         axes[9].plot(lsf)
+        axes[9].set_xlabel('mm')
         axes[10].set_title('normalised MTF')
         axes[10].plot(freqs[mask],norm_mtf[mask])
+        axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
     return res
