@@ -357,8 +357,11 @@ def get_edge_profile_coords(angle, intercept, spacing):
     # we are only interested in the rotated y positions as there correspond to the distance of the data from the edge
     rotated_mtf_y_positions = -original_mtf_x_positions * np.sin(angle) + (
             original_mtf_y_positions - intercept) * np.cos(angle)
+    
+    rotated_mtf_x_positions = original_mtf_x_positions*np.cos(angle) + (
+        original_mtf_y_positions - intercept) * np.sin(angle)
 
-    return original_mtf_x_positions, rotated_mtf_y_positions
+    return rotated_mtf_x_positions, rotated_mtf_y_positions
 
 
 def get_esf(edge_arr, y):
