@@ -324,9 +324,9 @@ def get_edge(edge_arr, mean_value, spacing):
 
 
 def get_edge_angle_and_intercept(x_edge, y_edge):
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #  Apply least squares method for the edge
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;Apply least squares method for the edge
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     mean_x = np.mean(x_edge)
     mean_y = np.mean(y_edge)
