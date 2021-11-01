@@ -59,7 +59,7 @@ def tri_thresh(image):
 
     return tri_thresh
 
-# Threshold image
-ithresh = np.zeros(ifilt.shape)
-mask = ifilt > tri_thresh
-ithresh[mask] = 1
+# # Threshold image
+# ithresh = np.zeros(ifilt.shape)
+# mask = ifilt > tri_thresh
+# ithresh[mask] = 1
