@@ -299,7 +299,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
   
-  def is_dicom_file(filename):
+def is_dicom_file(filename):
         """
         Util function to check if file is a dicom file
         the first 128 bytes are preamble
