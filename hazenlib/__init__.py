@@ -298,6 +298,27 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
+  
+  def is_dicom_file(filename):
+        """
+        Util function to check if file is a dicom file
+        the first 128 bytes are preamble
+        the next 4 bytes should contain DICM otherwise it is not a dicom
+
+        :param filename: file to check for the DICM header block
+        :type filename: str
+        :returns: True if it is a dicom file
+        """
+        file_stream = open(filename, 'rb')
+        file_stream.seek(128)
+        data = file_stream.read(4)
+        file_stream.close()
+        if data == b'DICM':
+            return True
+        else:
+            return False
+  
+  
 
 def main():
     arguments = docopt(__doc__, version=__version__)
@@ -305,7 +326,7 @@ def main():
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
-    dicom_objects = [pydicom.read_file(x, force=True) for x in files]
+    dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
     if arguments['--report']:
         report = True
