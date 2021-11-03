@@ -7,7 +7,7 @@ from math import pi
 import sys
 import traceback
 from copy import copy
-from logger import logger
+from hazenlib.logger import logger
 
 import numpy as np
 from scipy import ndimage
