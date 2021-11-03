@@ -12,7 +12,7 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
-from logger import logger
+from hazenlib.logger import logger
 
 
 
