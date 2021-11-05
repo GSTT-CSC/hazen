@@ -4,7 +4,7 @@ Local Otsu thresholding
 http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
 """
-from logger import logger
+from hazenlib.logger import logger
 import sys
 import os
 import traceback
