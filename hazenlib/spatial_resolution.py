@@ -327,9 +327,9 @@ def get_edge(edge_arr, mean_value, spacing):
 
 
 def get_edge_angle_and_intercept(x_edge, y_edge):
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #  Apply least squares method for the edge
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;Apply least squares method for the edge
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     mean_x = np.mean(x_edge)
     mean_y = np.mean(y_edge)
@@ -360,8 +360,11 @@ def get_edge_profile_coords(angle, intercept, spacing):
     # we are only interested in the rotated y positions as there correspond to the distance of the data from the edge
     rotated_mtf_y_positions = -original_mtf_x_positions * np.sin(angle) + (
             original_mtf_y_positions - intercept) * np.cos(angle)
+    
+    rotated_mtf_x_positions = original_mtf_x_positions*np.cos(angle) + (
+        original_mtf_y_positions - intercept) * np.sin(angle)
 
-    return original_mtf_x_positions, rotated_mtf_y_positions
+    return rotated_mtf_x_positions, rotated_mtf_y_positions
 
 
 def get_esf(edge_arr, y):
@@ -444,7 +447,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=True):
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(11, 1)
         fig.set_size_inches(5, 36)
-        fig.tight_layout(pad=1)
+        fig.tight_layout(pad=4)
         axes[0].set_title('raw pixels')
         axes[0].imshow(pixels, cmap='gray')
         axes[1].set_title('rescaled to byte')
@@ -467,10 +470,13 @@ def calculate_mtf_for_edge(dicom, edge, report_path=True):
         fig.colorbar(im, ax=axes[7])
         axes[8].set_title('edge spread function')
         axes[8].plot(esf)
+        axes[8].set_xlabel('mm')
         axes[9].set_title('line spread function')
         axes[9].plot(lsf)
+        axes[9].set_xlabel('mm')
         axes[10].set_title('normalised MTF')
         axes[10].plot(freqs[mask],norm_mtf[mask])
+        axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
 

@@ -1153,6 +1153,11 @@ def main(dcm_target_list, *, plate_number=None,
             'Must specify either calc_t1=True OR calc_t2=True.')
 
     # check plate number specified and either 4 or 5
+    try:
+        plate_number = int(plate_number)  # convert to int if required
+    except(ValueError, TypeError):
+        pass # will raise error at next statement
+
     if plate_number not in [4, 5]:
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify plate_number (4 or 5)')
