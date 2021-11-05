@@ -32,8 +32,10 @@ Quality assurance framework for Magnetic Resonance Imaging
 
 ---
 ### Docker
-To use the docker version of hazen simply run the `hazen-app` script in a terminal. For ease of use it is recommended
-to copy the hazen-app script to location accessible on the path such as `/usr/local/bin` so you can run it from any location.
+To use the docker version of hazen simply run the `hazen-app` script in a terminal. Docker must be installed on the host 
+system for this method to work, see [docker installation instructions](https://docs.docker.com/engine/install).
+For ease of use it is recommended to copy the hazen-app script to location accessible on the path such as `/usr/local/bin` 
+so you can run it from any location.
 
 e.g.
 ```bash
