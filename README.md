@@ -18,7 +18,7 @@ Quality assurance framework for Magnetic Resonance Imaging
 <a href="https://github.com/GSTT-CSC/hazen/issues">Request Feature</a>
 </p>
 <p align="center">
-  <img src="https://github.com/GSTT-CSC/hazen/actions/workflows/python-app.yml/badge.svg">
+  <img src="https://github.com/GSTT-CSC/hazen/actions/workflows/tests_release.yml/badge.svg?branch=master">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/laurencejackson/ba102d5f3e592fcd50451c2eff8a803d/raw/hazen_pytest-coverage-comment.json">
 </p>
 
