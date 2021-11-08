@@ -408,7 +408,7 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
-def calculate_mtf_for_edge(dicom, edge, report_path=True):
+def calculate_mtf_for_edge(dicom, edge, report_path=False):
     pixels = dicom.pixel_array
     pe = dicom.InPlanePhaseEncodingDirection
 
