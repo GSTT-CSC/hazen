@@ -4,6 +4,8 @@ Tests functions in the hazenlib.__init__.py file
 import unittest
 import pydicom
 import hazenlib
+import os
+import hazenlib.tools as hazen_tools
 
 from tests import TEST_DATA_DIR
 
@@ -81,5 +83,34 @@ class TestFactorsGEeFilm(TestHazenlib):
         self.dcm = pydicom.read_file(self.file)
 
 
+class Test_is_Dicom_file(unittest.TestCase):
+
+
+    def test_is_dicom(self):
+        folder = r".\tests\data\tools"
+        files = [os.path.join(folder, x) for x in os.listdir(folder)]
+
+
+        result = hazen_tools.is_dicom_file(files[1])
+        self.assertTrue(result)
+
+
+        result = hazen_tools.is_dicom_file(files[0])
+        self.assertFalse(result)
+
+    def test_is_dicom_yes(self):
+        filename = r".\tests\data\tools\dicom_yes.dcm"
+        result = hazen_tools.is_dicom_file(filename)
+        self.assertTrue(result)
+
+    def test_is_dicom_no(self):
+        filename = r".\tests\data\tools\dicom_no.jfif"
+        result = hazen_tools.is_dicom_file(filename)
+        self.assertFalse(result)
+
+
+
+if __name__ == "__main__":
+    unittest.main()
 
 

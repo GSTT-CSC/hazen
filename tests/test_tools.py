@@ -75,3 +75,13 @@ class TestShapeDetector(TestTools):
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
         assert (centre, size, angle) == (self.cor2_rectangle_centre, self.cor2_rectangle_size, self.cor2_rectangle_angle)
+
+class Test_is_Dicom_file(unittest.TestCase):
+
+    def test_is_dicom(self):
+        folder =.\tests\data\tools
+        files = [os.path.join(folder, x) for x in os.listdir(folder)]
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files]
+        result = hazen_tools.is_dicom_file(dicom_objects)
+        self.assertEqual(dicom_objects[0], True)
+        self.assertEqual(dicom_objects[1], False)
