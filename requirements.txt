@@ -36,4 +36,5 @@ sphinx_rtd_theme
 m2r
 python-dateutil
 email_validator
+colorlog
 

@@ -12,6 +12,9 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
+from hazenlib.logger import logger
+
+
 
 import cv2 as cv
 import numpy as np
@@ -439,6 +442,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
 
+
     if report_path:
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(11, 1)
@@ -475,6 +479,11 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
+
+
+
+
+
     return res
 
 
@@ -501,7 +510,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             results[key] = calculate_mtf(dcm, report_path)
@@ -512,3 +521,4 @@ def main(data: list, report_path=False) -> dict:
             continue
 
     return results
+
