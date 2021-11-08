@@ -67,7 +67,7 @@ jobs:
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
 
-    - name: Create the coverage Badge
+    - name: Update the coverage Badge
       if: github.event.pull_request.base.ref == 'master'  # if pull request is merging into master
       uses: schneegans/dynamic-badges-action@v1.0.0
       with:
