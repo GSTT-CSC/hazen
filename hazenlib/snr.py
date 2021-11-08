@@ -259,10 +259,10 @@ def get_object_centre(dcm) -> (int, int):
                 print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
                 col, row, r = get_largest_circle(shape_detector.shapes['circle'])
         else:
-            raise Exception("Direction must be Transverse, Sagittal or Coronal.")
+            raise exc.ShapeError("Unable to identify phantom shape.")
 
     # Threshold Detection
-    except:
+    except exc.ShapeError:
         # print('Shape Detection failed. Performing Thresholding ...')
         _, mask = threshold_image(dcm)
         row, col = get_binary_mask_centre(mask)
