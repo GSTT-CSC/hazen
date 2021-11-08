@@ -16,7 +16,9 @@ import sys
 import cv2 as cv
 import numpy as np
 import pydicom
+import skimage.filters
 from scipy import ndimage
+from skimage import filters
 
 import hazenlib
 import hazenlib.tools
@@ -125,6 +127,65 @@ def get_noise_image(dcm: pydicom.Dataset) -> np.array:
     imnoise = a - imsmoothed
 
     return imnoise
+
+
+def threshold_image(dcm: pydicom.Dataset):
+    """
+    Threshold images
+
+    parameters:
+    ---------------
+    a: image array from dcmread and .pixelarray
+
+    returns:
+    ---------------
+    imthresholded: thresholded image
+    mask: threshold mask
+    """
+    a = dcm.pixel_array.astype('int')
+
+    threshold_value = skimage.filters.threshold_li(a)  # threshold_li: Pixels > this value are assumed foreground
+    # print('threshold_value =', threshold_value)
+    mask = a > threshold_value
+    imthresholded = np.zeros_like(a)
+    imthresholded[mask] = a[mask]
+
+    # # For debugging: Threshold figures:
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # fig, ax = plt.subplots(2, 2)
+    # ax[0, 0].imshow(a)
+    # ax[0, 1].imshow(mask)
+    # ax[1, 0].imshow(imthresholded)
+    # ax[1, 1].imshow(a-imthresholded)
+    # fig.savefig("../THRESHOLD.png")
+
+    return imthresholded, mask
+
+
+def get_binary_mask_centre(binary_mask) -> (int, int):
+    """
+    Return centroid coordinates of binary polygonal shape
+
+    parameters:
+    ---------------
+    binary_mask: mask of a shape
+
+    returns:
+    ---------------
+    centroid_coords: (col:int, row:int)
+    """
+
+    from skimage import util
+    from skimage.measure import label, regionprops
+    img = util.img_as_ubyte(binary_mask) > 0
+    label_img = label(img, connectivity=img.ndim)
+    props = regionprops(label_img)
+    col = int(props[0].centroid[0])
+    row = int(props[0].centroid[1])
+    # print('Centroid coords [x,y] =', col, row)
+
+    return int(col), int(row)
 
 
 def get_roi_samples(ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int) -> list:
