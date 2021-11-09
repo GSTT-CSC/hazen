@@ -23,6 +23,14 @@ from numpy.fft import fftfreq
 import hazenlib
 
 
+def blur_image(img,blur_value):
+    kernel = np.ones((blur_value,blur_value),np.float32)/(blur_value)**2
+    img = np.array(img)
+
+    img = cv.filter2D(img,-1,kernel)
+    return img
+
+
 def maivis_deriv(x, a, h=1, n=1, axis=-1):
     """
     Performs differentiation the same way as done with MAIVIS to find the line spread function (LSF). This function has been re-implemented from IDL code written by Ioannis.
@@ -413,6 +421,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     pe = dicom.InPlanePhaseEncodingDirection
 
     img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
+    img = blur_image(img,5)
     thresh = thresh_image(img)
     circle = get_circles(img)
     square, box = find_square(thresh)
@@ -484,7 +493,11 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
 
 
 
+
     return res
+
+
+
 
 
 def calculate_mtf(dicom, report_path=False):
@@ -502,6 +515,9 @@ def calculate_mtf(dicom, report_path=False):
     return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
+
+
+
 def main(data: list, report_path=False) -> dict:
     results = {}
     for dcm in data:
@@ -513,7 +529,7 @@ def main(data: list, report_path=False) -> dict:
             logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
-            results[key] = calculate_mtf(dcm, report_path)
+            results[key] = calculate_mtf(dcm, report_path=True)
 
         except Exception as e:
             print(f"Could not calculate the spatial resolution for {key} because of : {e}")
