@@ -5,7 +5,11 @@ import unittest
 import pydicom
 import hazenlib
 
+
+
+
 from tests import TEST_DATA_DIR
+
 
 class TestHazenlib(unittest.TestCase):
     # Data by ImplementationVersionName
@@ -15,6 +19,7 @@ class TestHazenlib(unittest.TestCase):
     COLUMNS = 512
     TR_CHECK = 500
     BW = 205.0
+    ENHANCED = False
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
@@ -34,6 +39,15 @@ class TestHazenlib(unittest.TestCase):
     def test_get_TR(self):
         TR = hazenlib.get_TR(self.dcm)
         assert TR == self.TR_CHECK
+
+    def test_is_enhanced_dicom(self):
+        enhanced = hazenlib.is_enhanced_dicom(self.dcm)
+        assert enhanced == self.ENHANCED
+
+
+
+
+
 
 class TestFactorsPhilipsMR531(TestHazenlib):
     #PHILIPS_MR_53_1
@@ -79,6 +93,16 @@ class TestFactorsGEeFilm(TestHazenlib):
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
         self.dcm = pydicom.read_file(self.file)
+
+
+
+
+
+
+
+if __name__ == "__main__":
+    unittest.main()
+
 
 
 
