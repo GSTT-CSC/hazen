@@ -352,7 +352,7 @@ def get_edge_profile_coords(angle, intercept, spacing):
     for row in range(19):
         original_mtf_x_positions = np.row_stack((original_mtf_x_positions, original_mtf_x_position))
 
-    original_mtf_y_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
     original_mtf_y_positions = copy.copy(original_mtf_y_position)
     for row in range(19):
         original_mtf_y_positions = np.column_stack((original_mtf_y_positions, original_mtf_y_position))
@@ -478,6 +478,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[10].plot(freqs[mask],norm_mtf[mask])
         axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
+
 
 
 
