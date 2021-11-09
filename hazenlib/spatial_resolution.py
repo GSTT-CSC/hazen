@@ -352,7 +352,7 @@ def get_edge_profile_coords(angle, intercept, spacing):
     for row in range(19):
         original_mtf_x_positions = np.row_stack((original_mtf_x_positions, original_mtf_x_position))
 
-    original_mtf_y_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
     original_mtf_y_positions = copy.copy(original_mtf_y_position)
     for row in range(19):
         original_mtf_y_positions = np.column_stack((original_mtf_y_positions, original_mtf_y_position))
@@ -484,10 +484,11 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
 
 
 
+
     return res
 
 
-def calculate_mtf(dicom, report_path=False):
+def calculate_mtf(dicom, report_path=True):
 
     pe = dicom.InPlanePhaseEncodingDirection
     pe_result, fe_result = None, None
@@ -502,7 +503,7 @@ def calculate_mtf(dicom, report_path=False):
     return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
-def main(data: list, report_path=False) -> dict:
+def main(data: list, report_path=True) -> dict:
     results = {}
     for dcm in data:
         try:
