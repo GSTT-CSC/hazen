@@ -488,7 +488,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     return res
 
 
-def calculate_mtf(dicom, report_path=True):
+def calculate_mtf(dicom, report_path=False):
 
     pe = dicom.InPlanePhaseEncodingDirection
     pe_result, fe_result = None, None
@@ -503,7 +503,7 @@ def calculate_mtf(dicom, report_path=True):
     return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
 
 
-def main(data: list, report_path=True) -> dict:
+def main(data: list, report_path=False) -> dict:
     results = {}
     for dcm in data:
         try:
