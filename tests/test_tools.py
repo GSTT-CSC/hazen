@@ -81,8 +81,8 @@ class Test_is_Dicom_file(unittest.TestCase):
 
 
     def test_is_dicom(self):
-        folder = r".\tests\data\tools"
-        files = [os.path.join(folder, x) for x in os.listdir(folder)]
+        folder = r"./tests/data/tools"
+        files = [os.path.join(folder, x).replace("\\","/") for x in os.listdir(folder)]
 
 
         result = hazen_tools.is_dicom_file(files[1])
@@ -93,14 +93,14 @@ class Test_is_Dicom_file(unittest.TestCase):
         self.assertFalse(result)
 
     def test_is_dicom_yes(self):
-        folder = r".\tests\data\tools"
-        files = [os.path.join(folder, x) for x in os.listdir(folder)]
+        folder = r"./tests/data/tools"
+        files = [os.path.join(folder, x).replace("\\","/") for x in os.listdir(folder)]
         result = hazen_tools.is_dicom_file(files[1])
         self.assertTrue(result)
 
     def test_is_dicom_no(self):
-        folder = r".\tests\data\tools"
-        files = [os.path.join(folder, x) for x in os.listdir(folder)]
+        folder = r"./tests/data/tools"
+        files = [os.path.join(folder, x).replace("\\","/") for x in os.listdir(folder)]
         result = hazen_tools.is_dicom_file(files[0])
         self.assertFalse(result)
 
