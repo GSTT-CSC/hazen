@@ -23,6 +23,7 @@ from skimage import filters
 import hazenlib
 import hazenlib.tools
 import hazenlib.exceptions as exc
+from hazenlib.logger import logger
 
 
 def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
@@ -234,14 +235,16 @@ def get_object_centre(dcm) -> (int, int):
 
     # Shape Detection
     try:
+        logger.debug('Performing phantom shape detection.')
         shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
         orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
 
         if orientation in ['Sagittal', 'Coronal']:
+            logger.debug('Orientation = sagittal or coronal.')
             # orientation is sagittal to patient
             try:
                 (col, row), size, angle = shape_detector.get_shape('rectangle')
-            except exc.ShapeError:
+            except exc.ShapeError as e:
                 # shape_detector.find_contours()
                 # shape_detector.detect()
                 # contour = shape_detector.shapes['rectangle'][1]
@@ -251,19 +254,20 @@ def get_object_centre(dcm) -> (int, int):
                 # plt.imshow(im)
                 # plt.savefig("rectangles.png")
                 # print(shape_detector.shapes.keys())
-                raise
+                raise e
         elif orientation == 'Transverse':
+            logger.debug('Orientation = transverse.')
             try:
                 col, row, r = shape_detector.get_shape('circle')
             except exc.MultipleShapesError:
-                print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+                logger.info('Warning! Found multiple circles in image, will assume largest circle is phantom.')
                 col, row, r = get_largest_circle(shape_detector.shapes['circle'])
         else:
             raise exc.ShapeError("Unable to identify phantom shape.")
 
     # Threshold Detection
     except exc.ShapeError:
-        # print('Shape Detection failed. Performing Thresholding ...')
+        logger.info('Shape detection failed. Performing object centre measurement by thresholding.')
         _, mask = threshold_image(dcm)
         row, col = get_binary_mask_centre(mask)
 
@@ -311,6 +315,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
         fig.savefig(report_path + ".png")
 
     return snr, normalised_snr
+
 
 def get_largest_circle(circles):
     largest_r = 0
