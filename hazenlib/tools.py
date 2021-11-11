@@ -110,7 +110,7 @@ class ShapeDetector:
         self.detect()
 
         if shape not in self.shapes.keys():
-            print(self.shapes.keys())
+            # print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
