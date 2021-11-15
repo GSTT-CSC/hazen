@@ -174,9 +174,9 @@ def thresh_image(img, bound=150):
 
 
 def find_square(img):
-    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
 
-    for c in cnts[1]:
+    for c in cnts:
         perimeter = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
         if len(approx) == 4:
