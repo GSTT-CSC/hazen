@@ -362,18 +362,6 @@ def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
         n_ramp = 47
         n_plateau = 55
 
-    # print('Test: get_initial')
-    # print('profile =', profile)
-    # print('profile shape =', profile.shape)
-    # print('profile type =', type(profile))
-    # print('slice thk =', slice_thickness)
-    #
-    # trapezoid_centre = int(round(np.median(np.argwhere(profile < np.mean(profile)))))
-    # print('trap type =', type(trapezoid_centre))
-    # print('Trap centre =', trapezoid_centre)
-    # # trapezoid_centre = int(trapezoid_centre)
-    # print('trap type =', type(trapezoid_centre))
-
     trapezoid_centre = int(round(np.median(np.argwhere(profile < np.mean(profile)))))
 
     n_total = len(profile)
