@@ -4,6 +4,7 @@ Tests functions in the hazenlib.__init__.py file
 import unittest
 import pydicom
 import hazenlib
+import os
 
 
 
@@ -20,6 +21,8 @@ class TestHazenlib(unittest.TestCase):
     TR_CHECK = 500
     BW = 205.0
     ENHANCED = False
+    PIX_ARRAY = 1
+
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
@@ -44,6 +47,35 @@ class TestHazenlib(unittest.TestCase):
         enhanced = hazenlib.is_enhanced_dicom(self.dcm)
         assert enhanced == self.ENHANCED
 
+    def test_get_num_of_frames(self):
+        pix_arr = hazenlib.get_num_of_frames(self.dcm)
+        assert pix_arr == self.PIX_ARRAY
+
+    def test_get_slice_thickness(self):
+        SLICE_THICK = self.dcm.SliceThickness
+        slice_thick = hazenlib.get_slice_thickness(self.dcm)
+        assert slice_thick == SLICE_THICK
+
+    def test_get_pixel_size(self):
+        PIX_SIZE = self.dcm.PixelSpacing
+        PIX_SIZE=tuple(PIX_SIZE)
+        pix_size = hazenlib.get_pixel_size(self.dcm)
+        assert pix_size == PIX_SIZE
+
+    def test_get_average(self):
+        AVG = self.dcm.NumberOfAverages
+        avg = hazenlib.get_average(self.dcm)
+        assert avg == AVG
+
+
+
+
+    #def test_get_manufacturer(self):
+        #supported = ['ge', 'siemens', 'philips', 'toshiba']
+        #manu_test = hazenlib.get_manufacturer(self.dcm)
+        #assert manu_test == self.supported
+        #return print(hazenlib.get_manufacturer(self.dcm))
+#
 
 
 
@@ -100,10 +132,7 @@ class TestFactorsGEeFilm(TestHazenlib):
 
 
 
+
+
 if __name__ == "__main__":
     unittest.main()
-
-
-
-
-
