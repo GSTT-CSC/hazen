@@ -5,6 +5,7 @@ import unittest
 import pydicom
 import hazenlib
 import os
+import numpy as np
 
 
 
@@ -15,13 +16,15 @@ from tests import TEST_DATA_DIR
 class TestHazenlib(unittest.TestCase):
     # Data by ImplementationVersionName
     # all test values are taken from DICOM headers
-
+    MANUFACTURER = "philips"
     ROWS = 512
     COLUMNS = 512
     TR_CHECK = 500
     BW = 205.0
     ENHANCED = False
     PIX_ARRAY = 1
+
+
 
 
     def setUp(self):
@@ -67,15 +70,12 @@ class TestHazenlib(unittest.TestCase):
         avg = hazenlib.get_average(self.dcm)
         assert avg == AVG
 
+    def test_get_manufacturer(self):
+        assert hazenlib.get_manufacturer(self.dcm) == self.MANUFACTURER
 
 
 
-    #def test_get_manufacturer(self):
-        #supported = ['ge', 'siemens', 'philips', 'toshiba']
-        #manu_test = hazenlib.get_manufacturer(self.dcm)
-        #assert manu_test == self.supported
-        #return print(hazenlib.get_manufacturer(self.dcm))
-#
+
 
 
 
@@ -84,6 +84,7 @@ class TestHazenlib(unittest.TestCase):
 class TestFactorsPhilipsMR531(TestHazenlib):
     #PHILIPS_MR_53_1
 
+    MANUFACTURER = 'philips'
     ROWS = 512
     COLUMNS = 512
     TR_CHECK = 500
@@ -99,6 +100,7 @@ class TestFactorsSiemensMRVE11C(TestHazenlib):
     COLUMNS = 256
     TR_CHECK = 500
     BW = 130.0
+    MANUFACTURER = 'siemens'
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
@@ -110,6 +112,7 @@ class TestFactorsToshibaTMMRDCMV30(TestHazenlib):
     COLUMNS = 256
     TR_CHECK = 45.0
     BW = 244.0
+    MANUFACTURER = 'toshiba'
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
@@ -121,10 +124,28 @@ class TestFactorsGEeFilm(TestHazenlib):
     COLUMNS = 256
     TR_CHECK = 1000.0
     BW = 156.25
+    MANUFACTURER ='ge'
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
         self.dcm = pydicom.read_file(self.file)
+
+
+
+class Test(unittest.TestCase):
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+        self.dcm = pydicom.read_file(self.file)
+        self.dcm = self.dcm.pixel_array
+
+    def test_isupper(self):
+        test_array = np.array([[1,2], [3,4]])
+        TEST_OUT = np.array([[63,127],[191,255]])
+        test_array = hazenlib.rescale_to_byte(test_array)
+        test_array = test_array.tolist()
+        TEST_OUT = TEST_OUT.tolist()
+        self.assertListEqual(test_array, TEST_OUT)
 
 
 
