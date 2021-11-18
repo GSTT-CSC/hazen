@@ -115,7 +115,6 @@ def rescale_to_byte2(a):
     #image=np.interp(array, (array.min(), array.max()), (0, 255))
     b = (a - np.min(a)) / np.ptp(a)
     img = (255 * (a - np.min(a)) / np.ptp(a)).astype(int)
-    import pdb; pdb.set_trace()
     return img.astype('uint8')
     #c = np.where(c == 0, 1, c)
     #print("c shape", c.shape)
@@ -123,7 +122,6 @@ def rescale_to_byte2(a):
     #print(c.flatten())
     #print("array shape", array.shape)
     #print("c shape", c.shape)
-    import pdb; pdb.set_trace()
     return image.reshape(array.shape).astype('uint8')
 
 
