@@ -27,12 +27,15 @@ class TestHazenlib(unittest.TestCase):
 
 
 
+
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
         self.dcm = pydicom.read_file(self.file)
+
     def test_get_bandwidth(self):
         bw = hazenlib.get_bandwidth(self.dcm)
         assert bw == self.BW
+
 
     def test_get_rows(self):
         rows = hazenlib.get_rows(self.dcm)
@@ -73,9 +76,11 @@ class TestHazenlib(unittest.TestCase):
     def test_get_manufacturer(self):
         assert hazenlib.get_manufacturer(self.dcm) == self.MANUFACTURER
 
-
-
-
+file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+dcm = pydicom.read_file(file)
+FOV = dcm.Columns * dcm.PixelSpacing[0]
+fov = hazenlib.get_field_of_view(dcm)
+assert fov == FOV
 
 
 
@@ -94,6 +99,14 @@ class TestFactorsPhilipsMR531(TestHazenlib):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
         self.dcm = pydicom.read_file(self.file)
 
+file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+dcm = pydicom.read_file(file)
+FOV = dcm.Columns * dcm.PixelSpacing[0]
+fov = hazenlib.get_field_of_view(dcm)
+assert fov == FOV
+
+
+
 class TestFactorsSiemensMRVE11C(TestHazenlib):
     #SIEMENS_MR_VE11C
     ROWS = 256
@@ -105,6 +118,14 @@ class TestFactorsSiemensMRVE11C(TestHazenlib):
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
         self.dcm = pydicom.read_file(self.file)
+        FOV = self.dcm.Columns * self.dcm.PixelSpacing[0]
+
+file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+dcm = pydicom.read_file(file)
+FOV = dcm.Columns * dcm.PixelSpacing[0]
+fov = hazenlib.get_field_of_view(dcm)
+assert fov == FOV
+
 
 class TestFactorsToshibaTMMRDCMV30(TestHazenlib):
     # TOSHIBA_TM_MR_DCM_V3_0
@@ -117,6 +138,16 @@ class TestFactorsToshibaTMMRDCMV30(TestHazenlib):
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
         self.dcm = pydicom.read_file(self.file)
+        FOV = self.dcm.Columns * self.dcm.PixelSpacing[0]
+
+
+file = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
+dcm = pydicom.read_file(file)
+FOV = dcm.Columns * dcm.PixelSpacing[0]
+fov = hazenlib.get_field_of_view(dcm)
+assert fov == FOV
+
+
 
 class TestFactorsGEeFilm(TestHazenlib):
     # GE_eFILM
@@ -129,6 +160,9 @@ class TestFactorsGEeFilm(TestHazenlib):
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
         self.dcm = pydicom.read_file(self.file)
+
+
+
 
 
 
@@ -151,9 +185,11 @@ class Test(unittest.TestCase):
 
 
 
-
-
-
-
 if __name__ == "__main__":
     unittest.main()
+
+
+
+
+
+
