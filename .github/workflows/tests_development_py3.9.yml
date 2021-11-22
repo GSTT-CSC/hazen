@@ -31,19 +31,28 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-    - name: Set up Python 3.9
+    - uses: actions/checkout@v2
+
+    - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v2
       with:
         auto-update-conda: true
         python-version: 3.9
+        environment-file: environment.yml
+        auto-activate-base: false
 
     - name: Conda info
       shell: bash -l {0}
       run: conda info
 
     - name: Conda list
-      shell: pwsh
+      shell: bash -l {0}
       run: conda list
+
+    - name: Conda info/list without bash
+      run: |
+        - conda info
+        - conda list
 
     - name: Setup flake8 annotations
       uses: rbialon/flake8-annotations@v1
