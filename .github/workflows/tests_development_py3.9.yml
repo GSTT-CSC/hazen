@@ -37,8 +37,9 @@ jobs:
       uses: conda-incubator/setup-miniconda@v2
       with:
         activate-environment: anaconda-client-env
-        environment-file: environment.yml
+        environment-file: etc/example-environment.yml
         python-version: 3.9
+        condarc-file: etc/example-condarc.yml
         auto-activate-base: false
 
     - name: Conda info
