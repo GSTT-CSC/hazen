@@ -112,20 +112,6 @@ def rescale_to_byte(array):
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
     return image_equalized.reshape(array.shape).astype('uint8')
 
-def rescale_to_byte2(a):
-    #image = (255 * (array - np.min(array)) / np.ptp(array)).astype(int)
-    #image=np.interp(array, (array.min(), array.max()), (0, 255))
-    b = (a - np.min(a)) / np.ptp(a)
-    img = (255 * (a - np.min(a)) / np.ptp(a)).astype(int)
-    return img.astype('uint8')
-    #c = np.where(c == 0, 1, c)
-    #print("c shape", c.shape)
-    #c = c.flatten()
-    #print(c.flatten())
-    #print("array shape", array.shape)
-    #print("c shape", c.shape)
-    return image.reshape(array.shape).astype('uint8')
-
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """
