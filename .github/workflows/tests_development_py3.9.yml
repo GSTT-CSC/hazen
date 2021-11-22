@@ -39,13 +39,21 @@ jobs:
       with:
         python-version: 3.9
 
-    - name: Install dependencies
+    - name: Install conda
       run: |
         # $CONDA is an environment variable pointing to the root of the miniconda directory
         $CONDA/bin/conda env update --file environment.yml --name base
-        conda env create --prefix ~/venv/hazen-3.9-miniforge --file environment.yml
-        python -m pip install --upgrade pip
-        pip install flake8 pytest pytest-cov
+
+    - name: Install dependencies
+      run: |
+        $CONDA/bin/conda install flake8
+        # stop the build if there are Python syntax errors or undefined names
+        $CONDA/bin/flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        $CONDA/bin/flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+#        conda env create --prefix ~/venv/hazen-3.9-miniforge --file environment.yml
+#        python -m pip install --upgrade pip
+#        pip install flake8 pytest pytest-cov
 
     - name: Setup flake8 annotations
       uses: rbialon/flake8-annotations@v1
