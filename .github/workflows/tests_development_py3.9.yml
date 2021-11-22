@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     # Service containers to run with `container-job`
     services:
       # Label used to access the service container
@@ -42,15 +45,12 @@ jobs:
         auto-activate-base: false
 
     - name: Conda info
-      shell: bash -l {0}
       run: conda info
 
     - name: Conda list
-      shell: bash -l {0}
       run: conda list
 
     - name: Install flake8 & pytest
-      shell: bash -l {0}
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest pytest-cov
