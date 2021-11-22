@@ -10,6 +10,14 @@ import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc
 
+def round_tuple(tup):
+    """
+    quickly round tuples
+    """
+    deci_places = 2
+    tup = tuple(map(lambda x: round(x, deci_places) or x, tup))
+    return tup
+
 
 def get_image_orientation(iop):
     """
@@ -129,6 +137,8 @@ class ShapeDetector:
 
         if shape == 'rectangle' or shape == 'square':
             (x,y), size, angle = cv.minAreaRect(contour)
+            size = (size[1], size[0])
+            angle = angle-90
             return (x,y), size, angle
 
 
