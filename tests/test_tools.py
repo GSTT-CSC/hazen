@@ -63,18 +63,36 @@ class TestShapeDetector(TestTools):
         arr = pydicom.read_file(self.SAG_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
+        centre = hazen_tools.round_tuple(centre)
+        size = hazen_tools.round_tuple(size)
+        angle = round(angle, 2)
+        self.rectangle_centre = hazen_tools.round_tuple(self.rectangle_centre)
+        self.rectangle_size = hazen_tools.round_tuple(self.rectangle_size)
+        self.rectangle_angle = round(self.rectangle_angle, 2)
         assert (centre, size, angle) == (self.rectangle_centre, self.rectangle_size, self.rectangle_angle)
 
     def test_cor_rectangle(self):
         arr = pydicom.read_file(self.COR_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
+        centre = hazen_tools.round_tuple(centre)
+        size = hazen_tools.round_tuple(size)
+        angle = round(angle, 2)
+        self.cor_rectangle_centre = hazen_tools.round_tuple(self.cor_rectangle_centre)
+        self.cor_rectangle_size = hazen_tools.round_tuple(self.cor_rectangle_size)
+        self.cor_rectangle_angle = round(self.cor_rectangle_angle, 2)
         assert (centre, size, angle) == (self.cor_rectangle_centre, self.cor_rectangle_size, self.cor_rectangle_angle)
 
     def test_cor2_rectangle(self):
         arr = pydicom.read_file(self.COR2_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
+        centre = hazen_tools.round_tuple(centre)
+        size = hazen_tools.round_tuple(size)
+        angle = round(angle, 2)
+        self.cor2_rectangle_centre = hazen_tools.round_tuple(self.cor2_rectangle_centre)
+        self.cor2_rectangle_size = hazen_tools.round_tuple(self.cor2_rectangle_size)
+        self.cor2_rectangle_angle = round(self.cor2_rectangle_angle, 2)
         assert (centre, size, angle) == (self.cor2_rectangle_centre, self.cor2_rectangle_size, self.cor2_rectangle_angle)
 
 class Test_is_Dicom_file(unittest.TestCase):
