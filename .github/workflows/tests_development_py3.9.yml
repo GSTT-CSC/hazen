@@ -49,11 +49,6 @@ jobs:
       shell: bash -l {0}
       run: conda list
 
-    - name: Conda info/list without bash
-      run: |
-        - conda info
-        - conda list
-
     - name: Setup flake8 annotations
       uses: rbialon/flake8-annotations@v1
 
