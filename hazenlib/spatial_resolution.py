@@ -183,6 +183,16 @@ def find_square(img):
             # compute the bounding box of the contour and use the
             # bounding box to compute the aspect ratio
             rect = cv.minAreaRect(approx)
+
+            # OpenCV 4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap rect[1] order & rotate rect[2] by -90
+            # – convert tuple>list>tuple to do this
+            rectAsList = list(rect)
+            rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
+            rectAsList[2] = rectAsList[2] - 90
+            rect = tuple(rectAsList)
+
             box = cv.boxPoints(rect)
             box = np.int0(box)
             w, h = rect[1]
