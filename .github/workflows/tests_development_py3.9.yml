@@ -32,19 +32,18 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python 3.9
-
-    - uses: conda-incubator/setup-miniconda@v2
-      with:
-        auto-update-conda: true
-        python-version: 3.9
-    - name: Conda info
-      shell: bash -l {0}
-      run: conda info
-    - name: Conda list
-      shell: pwsh
-      run: conda list
+      - uses: actions/checkout@v2
+      - name: Set up Python 3.9
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: 3.9
+      - name: Conda info
+        shell: bash -l {0}
+        run: conda info
+      - name: Conda list
+        shell: pwsh
+        run: conda list
 #      uses: actions/setup-python@v2
 #      with:
 #        python-version: 3.9
