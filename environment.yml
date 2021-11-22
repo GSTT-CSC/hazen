@@ -1,7 +1,7 @@
 name: hazen-3.9-miniforge
 
 dependencies:
-  - pip=21.3.1
+  - pip #=21.3.1
   - python=3.9.7
   - scikit-image
 #  - psycopg2-binary
