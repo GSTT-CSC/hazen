@@ -36,9 +36,9 @@ jobs:
     - name: Set up Conda
       uses: conda-incubator/setup-miniconda@v2
       with:
-        auto-update-conda: true
-        python-version: 3.9
+        activate-environment: anaconda-client-env
         environment-file: environment.yml
+        python-version: 3.9
         auto-activate-base: false
 
     - name: Conda info
