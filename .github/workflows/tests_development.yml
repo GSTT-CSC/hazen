@@ -11,6 +11,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
     # Service containers to run with `container-job`
     services:
       # Label used to access the service container
@@ -30,20 +33,27 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v2
+    - name: Set up Conda
+      uses: conda-incubator/setup-miniconda@v2.1.1
       with:
-        python-version: 3.6
+        activate-environment: anaconda-client-env
+        environment-file: environment.yml
+        python-version: 3.9
+        auto-activate-base: false
 
-    - name: Install dependencies
+    - name: Conda info
+      run: conda info
+
+    - name: Conda list
+      run: conda list
+
+    - name: Install flake8 & pytest
       run: |
         python -m pip install --upgrade pip
         pip install flake8 pytest pytest-cov
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
     - name: Setup flake8 annotations
       uses: rbialon/flake8-annotations@v1
