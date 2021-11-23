@@ -4,7 +4,7 @@
 <a href="https://github.com/github_username/repo_name">
     <img src="https://raw.githubusercontent.com/GSTT-CSC/gstt-csc.github.io/main/assets/transparent-CSC-logo-cropped.png" alt="Logo" width="40%">
   </a>
-<h1 align="center">Hazen</h1>
+<h1 align="center">hazen</h1>
 <p align="center">
 Quality assurance framework for Magnetic Resonance Imaging
 <br />
@@ -25,12 +25,81 @@ Quality assurance framework for Magnetic Resonance Imaging
 ## Overview
 
 ---
+hazen is a software framework for performing automated analysis of MRI Quality Assurance data.
+
+Some examples of what hazen can perform:
+
+| SNR measurements   | Spatial Resolution measurements |
+| ------------------ | ------------------------------- |
+| _insert snr image_ | _insert spatial res image_      |
+| snr explanation    | spatial res explanation         |
 
 
+## Installation
+
+---
+
+### Prerequisites
+
+ - Python v3.9
+   - conda is required for hazen installation on Mac M1 silicon (arm64 architecture)
+ - Git
+
+### Install
+
+First, clone this repo, then follow the instructions for your operating system. To clone:
+```bash
+git clone git@github.com:GSTT-CSC/hazen.git
+```
+
+#### MacOS
+
+```bash
+# Download and install conda (we have tested with both Miniforge and Miniconda):
+brew install miniforge
+
+# Create and activate virtual environment
+conda create --name hazen-venv --file environment.yml
+conda activate hazen-venv
+
+# Build hazen
+cd /path/to/hazen/git/repo
+python setup.py install
+
+# Run tests to make sure everything is working
+pytest tests/
+```
+
+#### Linux
+
+_Instructions TBC_
 
 ## Usage
 
 ---
+
+### Command Line
+The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory.  
+
+The following command performs an SNR measurement on the provided example Philips DICOMs:
+
+`hazen snr tests/data/snr/Philips`
+
+The following command performs a spatial resolution measurement on example data provided by the East Kent Trust:
+
+`hazen spatial_resolution tests/data/resolution/philips`
+
+To see the full list of available tools, enter:
+
+`hazen -h`
+
+The `--report` option provides additional information for some of the functions. For example, the user can gain additional insight into the performance of the snr function by entering:
+
+`hazen snr tests/data/snr/Philips --report`
+
+### Web Interface
+WIP: we are developing a web interface for hazen.
+
 ### Docker
 To use the docker version of hazen simply run the `hazen-app` script in a terminal. Docker must be installed on the host 
 system for this method to work, see [docker installation instructions](https://docs.docker.com/engine/install).
@@ -58,12 +127,19 @@ docker.io/gsttmriphysics/hazen:latest
 
 ## Contributors
 
-Read CONTRIBUTING.md
-
 ---
+
+If you want to contribute to the development of hazen, please take a look at: `CONTRIBUTING.md`.
+
+
 
 ## Users
 
-Nothing to see here. Maybe see hazen/docs.
-
 ---
+
+Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have any problems installing or running hazen.
+
+We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with hazen, or the results are unexpected, please submit an Issue and we will investigate. 
+
+
+
