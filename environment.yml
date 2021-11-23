@@ -4,13 +4,12 @@ dependencies:
   - pip #=21.3.1
   - python=3.9.7
   - scikit-image=0.18.3
-#  - psycopg2-binary=2.9.2
   - pip:
     - SQLAlchemy_Utils==0.33.11
     - alembic==1.0.10
     - celery==4.3.1
     - numpy==1.21.0
-    - Werkzeug==0.15.4
+    - Werkzeug==0.15.6
     - opencv-python==4.5.4.58
     - Flask_Migrate==2.5.1
     - pytest>=6.2
