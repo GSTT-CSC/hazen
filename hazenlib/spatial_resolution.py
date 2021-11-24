@@ -70,6 +70,9 @@ def maivis_deriv(x, a, h=1, n=1, axis=-1):
     b.extend([b[-1]] * 3)
     return b
 
+def deri(a):
+    b = np.gradient(a)
+    return b
 
 def create_line_iterator(P1, P2, img):
     """
@@ -430,7 +433,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
     x, y = get_edge_profile_coords(angle, intercept, spacing)
     u, esf = get_esf(edge_arr, y)
-    lsf = maivis_deriv(u, esf)
+    lsf = deri(esf)
     lsf = np.array(lsf)
     n=lsf.size
     mtf = abs(np.fft.fft(lsf))
