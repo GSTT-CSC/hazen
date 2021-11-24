@@ -266,7 +266,7 @@ class TestCliParser(unittest.TestCase):
 
         output = hazenlib.main()
 
-        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959415}}
+        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959426}}
         self.assertDictEqual(dict1, output)
 
 if __name__ == "__main__":
