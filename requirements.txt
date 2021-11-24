@@ -1,4 +1,4 @@
-scikit-image=0.18.3
+scikit-image==0.18.3
 SQLAlchemy_Utils==0.33.11
 alembic==1.0.10
 celery==4.3.1
