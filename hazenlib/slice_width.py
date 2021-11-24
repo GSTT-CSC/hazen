@@ -7,6 +7,7 @@ from math import pi
 import sys
 import traceback
 from copy import copy
+from hazenlib.logger import logger
 
 import numpy as np
 from scipy import ndimage
@@ -108,6 +109,7 @@ def get_rods(dcm):
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
+
 
     return rods
 
@@ -665,7 +667,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             result = get_slice_width(dcm, report_path)

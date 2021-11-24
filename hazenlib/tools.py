@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 import cv2 as cv
 import imutils
 import numpy as np
@@ -109,7 +110,7 @@ class ShapeDetector:
         self.detect()
 
         if shape not in self.shapes.keys():
-            print(self.shapes.keys())
+            # print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
@@ -129,4 +130,26 @@ class ShapeDetector:
         if shape == 'rectangle' or shape == 'square':
             (x,y), size, angle = cv.minAreaRect(contour)
             return (x,y), size, angle
+
+
+
+def is_dicom_file(filename):
+        """
+        Util function to check if file is a dicom file
+        the first 128 bytes are preamble
+        the next 4 bytes should contain DICM otherwise it is not a dicom
+
+        :param filename: file to check for the DICM header block
+        :type filename: str
+        :returns: True if it is a dicom file
+        """
+        file_stream = open(filename, 'rb')
+        file_stream.seek(128)
+        data = file_stream.read(4)
+        file_stream.close()
+        if data == b'DICM':
+            return True
+        else:
+            return False
+
 

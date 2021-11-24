@@ -16,11 +16,14 @@ import sys
 import cv2 as cv
 import numpy as np
 import pydicom
+import skimage.filters
 from scipy import ndimage
+from skimage import filters
 
 import hazenlib
 import hazenlib.tools
 import hazenlib.exceptions as exc
+from hazenlib.logger import logger
 
 
 def two_inputs_match(dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
@@ -102,7 +105,7 @@ def filtered_image(dcm: pydicom.Dataset) -> np.array:
     return filtered_array
 
 
-def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
+def get_noise_image(dcm: pydicom.Dataset) -> np.array:
     """
     Separates the image noise by smoothing the image and subtracting the smoothed image
     from the original.
@@ -125,6 +128,65 @@ def smoothed_subtracted_image(dcm: pydicom.Dataset) -> np.array:
     imnoise = a - imsmoothed
 
     return imnoise
+
+
+def threshold_image(dcm: pydicom.Dataset):
+    """
+    Threshold images
+
+    parameters:
+    ---------------
+    a: image array from dcmread and .pixelarray
+
+    returns:
+    ---------------
+    imthresholded: thresholded image
+    mask: threshold mask
+    """
+    a = dcm.pixel_array.astype('int')
+
+    threshold_value = skimage.filters.threshold_li(a)  # threshold_li: Pixels > this value are assumed foreground
+    # print('threshold_value =', threshold_value)
+    mask = a > threshold_value
+    imthresholded = np.zeros_like(a)
+    imthresholded[mask] = a[mask]
+
+    # # For debugging: Threshold figures:
+    # from matplotlib import pyplot as plt
+    # plt.figure()
+    # fig, ax = plt.subplots(2, 2)
+    # ax[0, 0].imshow(a)
+    # ax[0, 1].imshow(mask)
+    # ax[1, 0].imshow(imthresholded)
+    # ax[1, 1].imshow(a-imthresholded)
+    # fig.savefig("../THRESHOLD.png")
+
+    return imthresholded, mask
+
+
+def get_binary_mask_centre(binary_mask) -> (int, int):
+    """
+    Return centroid coordinates of binary polygonal shape
+
+    parameters:
+    ---------------
+    binary_mask: mask of a shape
+
+    returns:
+    ---------------
+    centroid_coords: (col:int, row:int)
+    """
+
+    from skimage import util
+    from skimage.measure import label, regionprops
+    img = util.img_as_ubyte(binary_mask) > 0
+    label_img = label(img, connectivity=img.ndim)
+    props = regionprops(label_img)
+    col = int(props[0].centroid[0])
+    row = int(props[0].centroid[1])
+    # print('Centroid coords [x,y] =', col, row)
+
+    return int(col), int(row)
 
 
 def get_roi_samples(ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int) -> list:
@@ -171,32 +233,43 @@ def get_object_centre(dcm) -> (int, int):
 
     """
 
-    shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
-    orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
+    # Shape Detection
+    try:
+        logger.debug('Performing phantom shape detection.')
+        shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
+        orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
 
-    if orientation in ['Sagittal', 'Coronal']:
-        # orientation is sagittal to patient
-        try:
-            (col, row), size, angle = shape_detector.get_shape('rectangle')
-        except exc.ShapeError:
-            # shape_detector.find_contours()
-            # shape_detector.detect()
-            # contour = shape_detector.shapes['rectangle'][1]
-            # angle, centre, size = cv.minAreaRect(contour)
-            # print((angle, centre, size))
-            # im = cv.drawContours(dcm.pixel_array.copy(), [shape_detector.contours[0]], -1, (0, 255, 255), 10)
-            # plt.imshow(im)
-            # plt.savefig("rectangles.png")
-            # print(shape_detector.shapes.keys())
-            raise
-    elif orientation == 'Transverse':
-        try:
-            col, row, r = shape_detector.get_shape('circle')
-        except exc.MultipleShapesError:
-            print('Warning! Found multiple circles in image, will assume largest circle is phantom.')
-            col, row, r = get_largest_circle(shape_detector.shapes['circle'])
-    else:
-        raise Exception("Direction must be Transverse, Sagittal or Coronal.")
+        if orientation in ['Sagittal', 'Coronal']:
+            logger.debug('Orientation = sagittal or coronal.')
+            # orientation is sagittal to patient
+            try:
+                (col, row), size, angle = shape_detector.get_shape('rectangle')
+            except exc.ShapeError as e:
+                # shape_detector.find_contours()
+                # shape_detector.detect()
+                # contour = shape_detector.shapes['rectangle'][1]
+                # angle, centre, size = cv.minAreaRect(contour)
+                # print((angle, centre, size))
+                # im = cv.drawContours(dcm.pixel_array.copy(), [shape_detector.contours[0]], -1, (0, 255, 255), 10)
+                # plt.imshow(im)
+                # plt.savefig("rectangles.png")
+                # print(shape_detector.shapes.keys())
+                raise e
+        elif orientation == 'Transverse':
+            logger.debug('Orientation = transverse.')
+            try:
+                col, row, r = shape_detector.get_shape('circle')
+            except exc.MultipleShapesError:
+                logger.info('Warning! Found multiple circles in image, will assume largest circle is phantom.')
+                col, row, r = get_largest_circle(shape_detector.shapes['circle'])
+        else:
+            raise exc.ShapeError("Unable to identify phantom shape.")
+
+    # Threshold Detection
+    except exc.ShapeError:
+        logger.info('Shape detection failed. Performing object centre measurement by thresholding.')
+        _, mask = threshold_image(dcm)
+        row, col = get_binary_mask_centre(mask)
 
     return int(col), int(row)
 
@@ -216,7 +289,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
 
     """
     col, row = get_object_centre(dcm=dcm)
-    noise_img = smoothed_subtracted_image(dcm=dcm)
+    noise_img = get_noise_image(dcm=dcm)
 
     signal = [np.mean(roi) for roi in get_roi_samples(ax=None, dcm=dcm, centre_col=col, centre_row=row)]
 
@@ -242,6 +315,7 @@ def snr_by_smoothing(dcm: pydicom.Dataset, measured_slice_width=None, report_pat
         fig.savefig(report_path + ".png")
 
     return snr, normalised_snr
+
 
 def get_largest_circle(circles):
     largest_r = 0
@@ -335,4 +409,6 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         results[f"snr_smoothing_normalised_{key}"] = round(normalised_snr, 2)
 
     return results
+
+
 

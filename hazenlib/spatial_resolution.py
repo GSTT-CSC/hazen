@@ -12,9 +12,13 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
+from hazenlib.logger import logger
+
+
 
 import cv2 as cv
 import numpy as np
+from numpy.fft import fftfreq
 
 import hazenlib
 
@@ -323,9 +327,9 @@ def get_edge(edge_arr, mean_value, spacing):
 
 
 def get_edge_angle_and_intercept(x_edge, y_edge):
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    #  Apply least squares method for the edge
-    # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # ;Apply least squares method for the edge
+    # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     mean_x = np.mean(x_edge)
     mean_y = np.mean(y_edge)
@@ -348,7 +352,7 @@ def get_edge_profile_coords(angle, intercept, spacing):
     for row in range(19):
         original_mtf_x_positions = np.row_stack((original_mtf_x_positions, original_mtf_x_position))
 
-    original_mtf_y_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
     original_mtf_y_positions = copy.copy(original_mtf_y_position)
     for row in range(19):
         original_mtf_y_positions = np.column_stack((original_mtf_y_positions, original_mtf_y_position))
@@ -356,8 +360,11 @@ def get_edge_profile_coords(angle, intercept, spacing):
     # we are only interested in the rotated y positions as there correspond to the distance of the data from the edge
     rotated_mtf_y_positions = -original_mtf_x_positions * np.sin(angle) + (
             original_mtf_y_positions - intercept) * np.cos(angle)
+    
+    rotated_mtf_x_positions = original_mtf_x_positions*np.cos(angle) + (
+        original_mtf_y_positions - intercept) * np.sin(angle)
 
-    return original_mtf_x_positions, rotated_mtf_y_positions
+    return rotated_mtf_x_positions, rotated_mtf_y_positions
 
 
 def get_esf(edge_arr, y):
@@ -424,18 +431,23 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     x, y = get_edge_profile_coords(angle, intercept, spacing)
     u, esf = get_esf(edge_arr, y)
     lsf = maivis_deriv(u, esf)
+    lsf = np.array(lsf)
+    n=lsf.size
     mtf = abs(np.fft.fft(lsf))
     norm_mtf = mtf / mtf[0]
     mtf_50 = min([i for i in range(len(norm_mtf) - 1) if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]])
     profile_length = max(y.flatten()) - min(y.flatten())
+    freqs= fftfreq(n, profile_length/n)
+    mask = freqs >= 0
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
+
 
     if report_path:
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(11, 1)
         fig.set_size_inches(5, 36)
-        fig.tight_layout(pad=1)
+        fig.tight_layout(pad=4)
         axes[0].set_title('raw pixels')
         axes[0].imshow(pixels, cmap='gray')
         axes[1].set_title('rescaled to byte')
@@ -458,11 +470,20 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         fig.colorbar(im, ax=axes[7])
         axes[8].set_title('edge spread function')
         axes[8].plot(esf)
+        axes[8].set_xlabel('mm')
         axes[9].set_title('line spread function')
         axes[9].plot(lsf)
+        axes[9].set_xlabel('mm')
         axes[10].set_title('normalised MTF')
-        axes[10].plot(norm_mtf)
+        axes[10].plot(freqs[mask],norm_mtf[mask])
+        axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
+
+
+
+
+
+
 
     return res
 
@@ -490,7 +511,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             results[key] = calculate_mtf(dcm, report_path)
@@ -501,3 +522,4 @@ def main(data: list, report_path=False) -> dict:
             continue
 
     return results
+
