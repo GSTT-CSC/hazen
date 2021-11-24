@@ -310,13 +310,33 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
   
 
+def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse_relaxometry_data(arguments, dicom_objects, report):   #
+
+    # Relaxometry arguments
+    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
+                            '--show_template_fit', '--show_relax_fits',
+                            '--show_rois', '--verbose'}
+
+    # Pass arguments with dictionary, stripping initial double dash ('--')
+    relaxometry_args = {}
+
+    for key in relaxometry_cli_args:
+        relaxometry_args[key[2:]] = arguments[key]
+
+    return task.main(dicom_objects, report_path = report,
+                               **relaxometry_args)
+
+
+
+
+
+
 def main():
     arguments = docopt(__doc__, version=__version__)
-
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
-    dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+    dicom_objects = [pydicom.read_file(x, force=True) for x in files]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
     if arguments['--report']:
         report = True
@@ -332,34 +352,26 @@ def main():
 
     }
 
-
     if arguments['--log'] in log_levels.keys():
         level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
     else:
-      # logging.basicConfig()
-       logging.getLogger().setLevel(logging.INFO)
-        
+        # logging.basicConfig()
+        logging.getLogger().setLevel(logging.INFO)
+
+
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
+        return task.main(dicom_objects, measured_slice_width, report_path=report)
 
     if arguments['<task>'] == 'relaxometry':
-        # Relaxometry arguments
-        relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                                '--show_template_fit', '--show_relax_fits',
-                                '--show_rois', '--verbose'}
+        return parse_relaxometry_data(task, arguments, dicom_objects, report)
 
-        # Pass arguments with dictionary, stripping initial double dash ('--')
-        relaxometry_args = {}
+    ret = task.main(dicom_objects, report_path=report)
+    pprint.pprint(ret)
+    return ret
 
-        for key in relaxometry_cli_args:
-            relaxometry_args[key[2:]] = arguments[key]
 
-        return pp.pprint(task.main(dicom_objects, report_path=report,
-                                   **relaxometry_args))
-
-    return pp.pprint(task.main(dicom_objects, report_path=report))
 
