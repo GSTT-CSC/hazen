@@ -1,6 +1,8 @@
 """
 Tests functions in the hazenlib.__init__.py file
 """
+
+
 import unittest
 import pydicom
 import hazenlib
@@ -8,8 +10,6 @@ import os
 import numpy as np
 
 
-
-import hazenlib.tools as hazen_tools
 
 
 from tests import TEST_DATA_DIR
@@ -37,6 +37,7 @@ class TestHazenlib(unittest.TestCase):
     def test_get_bandwidth(self):
         bw = hazenlib.get_bandwidth(self.dcm)
         assert bw == self.BW
+
 
 
     def test_get_rows(self):
@@ -151,6 +152,7 @@ assert fov == FOV
 
 
 
+
 class TestFactorsGEeFilm(TestHazenlib):
     # GE_eFILM
     ROWS = 256
@@ -164,8 +166,12 @@ class TestFactorsGEeFilm(TestHazenlib):
         self.dcm = pydicom.read_file(self.file)
 
 
-if __name__ == "__main__":
-    unittest.main()
+file = str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm')
+dcm = pydicom.read_file(file)
+#FOV = dcm.Columns * dcm.PixelSpacing[0]
+#fov = hazenlib.get_field_of_view(dcm)
+#print(fov)
+
 
 
 
@@ -187,7 +193,114 @@ class Test(unittest.TestCase):
 
 
 
+from docopt import docopt
 
+from hazenlib.logger import logger
+
+from pprint import pprint
+
+import sys
+
+import os
+
+
+class TestCliParser(unittest.TestCase):
+
+    def setUp(self):
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
+        self.dcm = pydicom.read_file(self.file)
+
+
+
+    def test_cli_parser1(self):
+        dict1 = {'--calc_t1': False,
+        '--calc_t2': False,
+        '--help': False,
+        '--log': None,
+        '--measured_slice_width': None,
+        '--plate_number': None,
+        '--report': False,
+        '--show_relax_fits': False,
+        '--show_rois': False,
+        '--show_template_fit': False,
+        '--verbose': False,
+        '--version': False,
+        '-h': False,
+        '-v': False,
+        '<folder>': 'c:\\users\\lucrezia\\documents\\github\\hazen\\tests\\data\\resolution\\eastkent\\256_sag.IMA',
+        '<task>': 'relaxometry',
+        'Options:': False,
+        'ghosting': False,
+        'relaxometry': False,
+        'slice_position': False,
+        'slice_width': False,
+        'snr': False,
+        'spatial_resolution': False,
+        'uniformity': False}
+
+        doc = hazenlib.__doc__
+        file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+        dict2 = docopt(doc, ["relaxometry", file])
+        self.assertDictEqual(dict1, dict2)
+
+
+    def test1_logger(self):
+        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
+
+        sys.argv = [item.replace("\\","/") for item in sys.argv]
+
+        hazenlib.main()
+
+        logging = hazenlib.logging
+
+        self.assertEqual(logging.root.level, logging.WARNING)
+
+
+    def test2_logger(self):
+        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+
+        hazenlib.main()
+
+        logging = hazenlib.logging
+
+        self.assertEqual(logging.root.level, logging.INFO)
+
+
+    def test_main_snr_exception(self):
+        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\snr\\Siemens\\", "--measured_slice_width=10"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+
+        self.assertRaises(Exception, hazenlib.main)
+
+    def test_snr_measured_slice_width(self):
+        sys.argv = ["hazen", "snr", ".\\tests\\data\\snr\\GE", "--measured_slice_width", "1"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+
+        output=hazenlib.main()
+
+        dict1={'snr_subtraction_measured_SNR SAG MEAS1_23_1': 183.97,
+         'snr_subtraction_normalised_SNR SAG MEAS1_23_1': 7593.04,
+               'snr_smoothing_measured_SNR SAG MEAS1_23_1': 184.41,
+               'snr_smoothing_normalised_SNR SAG MEAS1_23_1': 7610.83,
+               'snr_smoothing_measured_SNR SAG MEAS2_24_1': 189.38,
+               'snr_smoothing_normalised_SNR SAG MEAS2_24_1': 7816.0}
+
+        self.assertDictEqual(dict1, output)
+
+
+    def test_relaxometyr(self):
+        sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\",  "--plate_number", "4", "--calc_t1"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+
+        output = hazenlib.main()
+
+        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959415}}
+        self.assertDictEqual(dict1, output)
 
 if __name__ == "__main__":
     unittest.main()
