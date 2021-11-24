@@ -211,39 +211,6 @@ class TestCliParser(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
 
-
-    def test_cli_parser1(self):
-        dict1 = {'--calc_t1': False,
-        '--calc_t2': False,
-        '--help': False,
-        '--log': None,
-        '--measured_slice_width': None,
-        '--plate_number': None,
-        '--report': False,
-        '--show_relax_fits': False,
-        '--show_rois': False,
-        '--show_template_fit': False,
-        '--verbose': False,
-        '--version': False,
-        '-h': False,
-        '-v': False,
-        '<folder>': 'c:\\users\\lucrezia\\documents\\github\\hazen\\tests\\data\\resolution\\eastkent\\256_sag.IMA',
-        '<task>': 'relaxometry',
-        'Options:': False,
-        'ghosting': False,
-        'relaxometry': False,
-        'slice_position': False,
-        'slice_width': False,
-        'snr': False,
-        'spatial_resolution': False,
-        'uniformity': False}
-
-        doc = hazenlib.__doc__
-        file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
-        dict2 = docopt(doc, ["relaxometry", file])
-        self.assertDictEqual(dict1, dict2)
-
-
     def test1_logger(self):
         sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
 
