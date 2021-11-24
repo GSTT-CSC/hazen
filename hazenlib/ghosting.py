@@ -228,7 +228,7 @@ def get_ghosting(dcm, plotting=False) -> dict:
     return None, ghosting
 
 
-def main(data: list, report=False) -> dict:
+def main(data: list, report_path=False) -> dict:
 
     results = {}
     # figures = []
@@ -239,8 +239,8 @@ def main(data: list, report=False) -> dict:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
-            fig, results[key] = get_ghosting(dcm, report)
-            if report:
+            fig, results[key] = get_ghosting(dcm, report_path)
+            if report_path:
                 fig.savefig(key + '.png')
 
         except Exception as e:

@@ -4,6 +4,8 @@ Tests functions in the hazenlib.__init__.py file
 import unittest
 import pydicom
 import hazenlib
+import os
+import hazenlib.tools as hazen_tools
 
 from tests import TEST_DATA_DIR
 
@@ -81,5 +83,7 @@ class TestFactorsGEeFilm(TestHazenlib):
         self.dcm = pydicom.read_file(self.file)
 
 
+if __name__ == "__main__":
+    unittest.main()
 
 
