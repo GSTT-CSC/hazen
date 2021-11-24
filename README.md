@@ -24,7 +24,8 @@ Quality assurance framework for Magnetic Resonance Imaging
 
 ## Overview
 
----
+Please 'star' this repository to receive release updates!
+
 
 
 
@@ -55,8 +56,30 @@ docker.io/gsttmriphysics/hazen:latest
     'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69}
 ```
 
+## Releasing
+The Release Manager should ensure:
+- All outstanding issues for that release have been closed or transferred to future release
+- All tests are passing on Github Actions
+- All documentation has been updated included version numbers
+- Update version number in `hazenlib/__init__.py`
+- Merge the release branch into master
+- Create release on Github with new version tag (tag = version number)
 
-## Contributors
+- RMs of other branches should update their release from the new master release as soon as possible and deal with any merge conflicts.
+
+
+![image](https://user-images.githubusercontent.com/19840489/143266366-06e33949-12c7-44b4-9ed7-c0a795b5d492.png)
+
+- RMs: Tom Roberts, Lucrezia Cester
+
+
+---
+
+## Contributing
+- The Release Manager should create a release branch for the future planned release e.g. release-X.X.X
+- The RMs shall organise backlog refinement sessions to ensure issues are allocated to the appropriate release
+- The RM should ensure their release branch is kept up-to-date with master
+- PRs should be merged into the appropriate release branch for the issue(s) it is addressing
 
 Read CONTRIBUTING.md
 
