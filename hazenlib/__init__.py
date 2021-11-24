@@ -369,9 +369,7 @@ def main():
     if arguments['<task>'] == 'relaxometry':
         return parse_relaxometry_data(task, arguments, dicom_objects, report)
 
-    ret = task.main(dicom_objects, report_path=report)
-    pprint.pprint(ret)
-    return ret
+    return pp.pprint(task.main(dicom_objects, report_path=report))
 
 
 
