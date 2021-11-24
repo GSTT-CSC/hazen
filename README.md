@@ -62,9 +62,8 @@ The Release Manager should ensure:
 - All tests are passing on Github Actions
 - All documentation has been updated included version numbers
 - Update version number in `hazenlib/__init__.py`
-- Tag commit with version number 
 - Merge the release branch into master
-- Tag the release on Github to generate the Changelog
+- Create release on Github with new version tag (tag = version number)
 
 - RMs of other branches should update their release from the new master release as soon as possible and deal with any merge conflicts.
 
