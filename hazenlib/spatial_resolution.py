@@ -195,7 +195,7 @@ def find_square(img):
 
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
-            if 0.95 < ar < 1.05:
+            if 0.92 < ar < 1.08:
                 break
 
     # points should start at top-right and go anti-clockwise
