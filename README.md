@@ -100,7 +100,7 @@ python3 -m venv ./hazen-venv
 source hazen-venv/bin/activate
 
 # Install requirements
-pip install --upgrade pip
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 
 # Install hazen
