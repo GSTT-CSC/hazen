@@ -8,6 +8,11 @@ import pydicom
 import hazenlib
 import os
 import numpy as np
+from docopt import docopt
+from hazenlib.logger import logger
+from pprint import pprint
+import sys
+import os
 
 
 
@@ -193,15 +198,7 @@ class Test(unittest.TestCase):
 
 
 
-from docopt import docopt
 
-from hazenlib.logger import logger
-
-from pprint import pprint
-
-import sys
-
-import os
 
 
 class TestCliParser(unittest.TestCase):
