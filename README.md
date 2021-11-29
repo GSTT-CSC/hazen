@@ -22,9 +22,10 @@
 </p>
 <p align="center">Please <b>STAR</b> this repo to receive updates about new versions of hazen!</p>
 
+---
+
 ## Overview
 
----
 hazen is a software framework for performing automated analysis of magnetic resonance imaging (MRI) Quality Assurance data.
 
 It provides automatic quantitative analysis for the following measurements of MRI phantom data:
@@ -41,10 +42,9 @@ Some example outputs from hazen:
 | ------------------ | ------------------------------- |
 | ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting-example.png)      |
 
+---
 
 ## Installation
-
----
 
 ### Prerequisites
 
@@ -61,6 +61,7 @@ git clone git@github.com:GSTT-CSC/hazen.git
 ```
 
 #### Docker
+
 We recommend using the Docker version of hazen as it is easy to get up-and-running and is linked to the most stable release. Refer to the [Docker installation instructions](https://docs.docker.com/engine/install) to install Docker on your host computer.
 
 For ease of use, it is recommended to copy the `hazen-app` script to a location accessible on the path such as `/usr/local/bin`. This will allow you to run hazen from any location on your computer. Then, to use Docker hazen, simply run the `hazen-app` script appended with the function you want to use (e.g.: `snr`). 
@@ -87,6 +88,7 @@ docker.io/gsttmriphysics/hazen:latest
 ```
 
 #### Linux & MacOS
+
 For developers, hazen can be installed using `pip`. We highly recommend using a virtual environment.
 
 ```bash
@@ -109,6 +111,7 @@ pytest tests/
 ```
 
 #### MacOS using M1 processors (Apple silicon arm64 architecture)
+
 For developers using MacOS with M1 processors, installation via `conda` is required. This is because various Python packages have not been updated to install with `pip`. Installation of hazen via conda is a temporary workaround. 
 
 ```bash
@@ -129,11 +132,12 @@ python setup.py install
 pytest tests/
 ```
 
-## Usage
-
 ---
 
+## Usage
+
 ### Command Line
+
 The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory. If you are not using the Docker version of hazen, replace `hazen-app` with `hazen` in the following commands.
 
 To perform an SNR measurement on the provided example Philips DICOMs:
@@ -153,19 +157,18 @@ The `--report` option provides additional information for some of the functions.
 `hazen-app snr tests/data/snr/Philips --report`
 
 ### Web Interface
+
 WIP: we are developing a web interface for hazen.
+
+---
 
 ## Contributors
 
----
-
 If you want to contribute to the development of hazen, please take a look at: `CONTRIBUTING.md`.
 
-
+---
 
 ## Users
-
----
 
 Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have any problems installing or running hazen.
 
