@@ -336,7 +336,7 @@ def main():
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
-    dicom_objects = [pydicom.read_file(x, force=True) for x in files]
+    dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
     if arguments['--report']:
         report = True
