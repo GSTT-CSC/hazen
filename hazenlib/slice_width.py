@@ -362,7 +362,7 @@ def get_initial_trapezoid_fit_and_coefficients(profile, slice_thickness):
         n_ramp = 47
         n_plateau = 55
 
-    trapezoid_centre = int(round(np.median(np.argwhere(profile < np.mean(profile)))))
+    trapezoid_centre = round(np.median(np.argwhere(profile < np.mean(profile)))).astype(int)
 
     n_total = len(profile)
     n_left_baseline = int(trapezoid_centre - round(n_plateau / 2) - n_ramp - 1)
