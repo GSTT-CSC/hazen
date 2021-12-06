@@ -10,14 +10,6 @@ import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc
 
-def round_tuple(tup):
-    """
-    quickly round tuples
-    """
-    deci_places = 2
-    tup = tuple(map(lambda x: round(x, deci_places) or x, tup))
-    return tup
-
 
 def get_image_orientation(iop):
     """
