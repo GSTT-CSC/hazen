@@ -33,7 +33,8 @@ amqp==2.4.2
 sphinxcontrib-needs==0.4.3
 sphinxcontrib-napoleon
 sphinx_rtd_theme
-m2r<0.2.1
+m2r
+mistune<2.0.0
 python-dateutil
 email_validator
 colorlog
