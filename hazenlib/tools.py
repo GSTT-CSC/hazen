@@ -129,6 +129,11 @@ class ShapeDetector:
 
         if shape == 'rectangle' or shape == 'square':
             (x,y), size, angle = cv.minAreaRect(contour)
+            # OpenCV v4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap size order & rotate angle by -90
+            size = (size[1], size[0])
+            angle = angle-90
             return (x,y), size, angle
 
 
