@@ -66,15 +66,3 @@ jobs:
       with:
         pytest-coverage-path: ./pytest-coverage.txt
         junitxml-path: ./pytest.xml
-
-    - name: Update the coverage Badge
-      if: github.event.pull_request.base.ref == 'master'  # if pull request is merging into master
-      uses: schneegans/dynamic-badges-action@v1.0.0
-      with:
-        auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
-        gistID: ba102d5f3e592fcd50451c2eff8a803d
-        filename: hazen_pytest-coverage-comment.json
-        label: Test coverage
-        message: ${{ steps.coverageComment.outputs.coverage }}
-        color: ${{ steps.coverageComment.outputs.color }}
-        namedLogo: python
