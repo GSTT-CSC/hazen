@@ -11,10 +11,10 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-      strategy:
-        matrix:
-          os: [ ubuntu-latest, macos-latest ]
-          python-version: [ '3.9', '3.10' ]
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        python-version: [ '3.9', '3.10' ]
     defaults:
       run:
         shell: bash -l {0}
