@@ -2,7 +2,6 @@ name: hazen-3.9-miniforge
 
 dependencies:
   - pip #=21.3.1
-  - python=3.9.7
   - scikit-image=0.18.3
   - pip:
     - SQLAlchemy_Utils==0.33.11
