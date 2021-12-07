@@ -49,7 +49,6 @@ Some example outputs from hazen:
 ### Prerequisites
 
  - Python v3.9
-   - conda is required for hazen installation on Mac M1 silicon (arm64 architecture)
  - Git
  - Docker
 
@@ -92,6 +91,13 @@ docker.io/gsttmriphysics/hazen:latest
 For developers, hazen can be installed using `pip`. We highly recommend using a virtual environment.
 
 ```bash
+# Install OpenSSL
+brew update
+brew upgrade
+brew install openssl
+export LDFLAGS="-L`brew --prefix openssl`/lib"
+export CPPFLAGS="-I`brew --prefix openssl`/include"
+
 # Go to local hazen repo directory
 cd hazen
 
@@ -104,28 +110,6 @@ pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 
 # Install hazen
-python setup.py install
-
-# Run tests to ensure everything is working
-pytest tests/
-```
-
-#### MacOS using M1 processors (Apple silicon arm64 architecture)
-
-For developers using MacOS with M1 processors, installation via `conda` is required. This is because various Python packages have not been updated to install with `pip`. Installation of hazen via conda is a temporary workaround. 
-
-```bash
-# Download and install conda (we have tested with both Miniforge and Miniconda):
-brew update
-brew upgrade
-brew install miniforge
-
-# Create and activate virtual environment
-conda create --name hazen-venv --file environment.yml
-conda activate hazen-venv
-
-# Build hazen
-cd hazen
 python setup.py install
 
 # Run tests to ensure everything is working
