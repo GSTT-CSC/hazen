@@ -1,8 +1,8 @@
-scikit-image==0.19.0
+scikit-image
 SQLAlchemy_Utils==0.33.11
 alembic==1.0.10
 celery==4.3.1
-numpy==1.21.0
+numpy
 Werkzeug==0.15.6
 opencv-python==4.5.4.58
 Flask_Migrate==2.5.1
