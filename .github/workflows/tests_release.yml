@@ -50,15 +50,3 @@ jobs:
       run: |
         set -o pipefail
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
-
-    - name: Update the coverage Badge
-      if: ${GITHUB_REF##*/} == 'main'  # if commit is on main branch
-      uses: schneegans/dynamic-badges-action@v1.0.0
-      with:
-        auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
-        gistID: ba102d5f3e592fcd50451c2eff8a803d
-        filename: hazen_pytest-coverage-comment.json
-        label: Test coverage
-        message: ${{ steps.coverageComment.outputs.coverage }}
-        color: ${{ steps.coverageComment.outputs.color }}
-        namedLogo: python
