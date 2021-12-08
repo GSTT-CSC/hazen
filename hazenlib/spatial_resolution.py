@@ -71,6 +71,7 @@ def maivis_deriv(x, a, h=1, n=1, axis=-1):
     return b
 
 def deri(a):
+    # This function calculated the LSF by taking the derivative of the ESF. Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
     b = np.gradient(a)
     return b
 
