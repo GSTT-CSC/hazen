@@ -71,7 +71,7 @@ In Terminal:
 cd hazen
 cp ./hazen-app /usr/local/bin
 
-# run hazen
+# run hazen with CLI arguments
 hazen-app snr tests/data/snr/Siemens/
 
 latest: Pulling from gsttmriphysics/hazen
