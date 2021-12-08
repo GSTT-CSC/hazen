@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - 'master'
-      - 'release/**'
+      - 'release/*'
 
 jobs:
   test:
