@@ -112,7 +112,7 @@ def rescale_to_byte(array):
     # use linear interpolation of cdf to find new pixel values
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
     return image_equalized.reshape(array.shape).astype('uint8')
-
+#
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """
