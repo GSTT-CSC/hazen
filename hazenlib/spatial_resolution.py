@@ -174,15 +174,25 @@ def thresh_image(img, bound=150):
 
 
 def find_square(img):
-    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
 
-    for c in cnts[1]:
+    for c in cnts:
         perimeter = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
         if len(approx) == 4:
             # compute the bounding box of the contour and use the
             # bounding box to compute the aspect ratio
             rect = cv.minAreaRect(approx)
+
+            # OpenCV 4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap rect[1] order & rotate rect[2] by -90
+            # – convert tuple>list>tuple to do this
+            rectAsList = list(rect)
+            rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
+            rectAsList[2] = rectAsList[2] - 90
+            rect = tuple(rectAsList)
+
             box = cv.boxPoints(rect)
             box = np.int0(box)
             w, h = rect[1]
@@ -195,7 +205,7 @@ def find_square(img):
 
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
-            if 0.95 < ar < 1.05:
+            if 0.92 < ar < 1.08:
                 break
 
     # points should start at top-right and go anti-clockwise

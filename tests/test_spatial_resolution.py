@@ -142,31 +142,31 @@ class TestSpatialResolution(unittest.TestCase):
 class TestPhilipsResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')
     dicom = pydicom.read_file(str(RESOLUTION_DATA / 'philips' / "IM-0004-0002.dcm"))
-    TEST_SQUARE = [[293, 203], [215, 218], [231, 297], [309, 282]]
+    TEST_SQUARE = [[293, 203], [215, 218], [230, 297], [308, 282]]
     CIRCLE = [[[257, 245, 199]]]
     TOP_CENTRE = {'x': 254, 'y': 210}
-    CENTRE = {'x': 301, 'y': 242}
+    CENTRE = {'x': 300, 'y': 242}
     VOID_MEAN = 12.29
-    EDGE_MEAN = 150.2975
+    EDGE_MEAN = 133.57
     TOP_EDGE_MEAN = 205.28
-    SIGNAL_MEAN = 348.5025
+    SIGNAL_MEAN = 348.5525
     MTF_FE = 0.4923415061063675
-    MTF_PE = 0.5415756567170043
-    bisecting_normal = (282, 246, 320, 238)
+    MTF_PE = 0.4923415061063675
+    bisecting_normal = (281, 245, 319, 239)
 
 
 class TestEastKentResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')
     dicom = pydicom.read_file(str(RESOLUTION_DATA / 'eastkent' / "256_sag.IMA"))
-    TEST_SQUARE = [[142, 105], [103, 113], [111, 152], [150, 144]]
+    TEST_SQUARE = [[142, 105], [104, 113], [112, 152], [150, 144]]
     CIRCLE = [[[127, 128, 96]]]
-    TOP_CENTRE = {'x': 122, 'y': 109}
+    TOP_CENTRE = {'x': 123, 'y': 109}
     CENTRE = {'x': 146, 'y': 124}
     VOID_MEAN = 10.6375
     EDGE_MEAN = 530.86
-    TOP_EDGE_MEAN = 660.4125
+    TOP_EDGE_MEAN = 648.46
 
     SIGNAL_MEAN = 1576.69
-    MTF_FE = 0.984683012212735
+    MTF_FE = 0.9924200730536655
     MTF_PE = 0.9924200730536658
     bisecting_normal = (137, 126, 155, 122)
