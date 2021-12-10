@@ -11,6 +11,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
         python-version: [ '3.9', '3.10' ]
@@ -36,4 +37,3 @@ jobs:
       if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
       run: |
         hazen snr tests/data/snr/Siemens --report
-

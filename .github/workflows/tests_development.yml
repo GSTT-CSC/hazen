@@ -1,6 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
+
 name: Development tests
 
 on:
@@ -10,6 +11,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ ubuntu-latest ]
         python-version: [ '3.9', '3.10' ]
@@ -65,7 +67,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        set -o pipefail
+        set -Eeuxo pipefail
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
 
     - name: Pytest coverage comment
