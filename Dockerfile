@@ -1,4 +1,6 @@
 FROM python:3.9
+RUN apt-get update
+RUN apt-get install ffmpeg libsm6 libxext6 -y
 RUN groupadd -r hazen_user && useradd --create-home --shell /bin/bash -r -g hazen_user hazen_user
 COPY . /home/hazen_user/hazen
 WORKDIR /home/hazen_user/hazen
