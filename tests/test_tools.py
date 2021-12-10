@@ -1,6 +1,7 @@
 import unittest
 import os
 
+import numpy as np
 import pydicom
 
 import hazenlib.tools as hazen_tools
@@ -63,19 +64,26 @@ class TestShapeDetector(TestTools):
         arr = pydicom.read_file(self.SAG_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
-        assert (centre, size, angle) == (self.rectangle_centre, self.rectangle_size, self.rectangle_angle)
+        np.testing.assert_allclose(centre, self.rectangle_centre, rtol=1e-04)
+        np.testing.assert_allclose(size, self.rectangle_size, rtol=1e-04)
+        np.testing.assert_allclose(angle, self.rectangle_angle, rtol=1e-04)
 
     def test_cor_rectangle(self):
         arr = pydicom.read_file(self.COR_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
-        assert (centre, size, angle) == (self.cor_rectangle_centre, self.cor_rectangle_size, self.cor_rectangle_angle)
+        np.testing.assert_allclose(centre, self.cor_rectangle_centre, rtol=1e-04)
+        np.testing.assert_allclose(size, self.cor_rectangle_size, rtol=1e-04)
+        np.testing.assert_allclose(angle, self.cor_rectangle_angle, rtol=1e-04)
 
     def test_cor2_rectangle(self):
         arr = pydicom.read_file(self.COR2_RECTANGLE_PHANTOM_FILE).pixel_array
         shape_detector = hazen_tools.ShapeDetector(arr=arr)
         centre, size, angle = shape_detector.get_shape('rectangle')
-        assert (centre, size, angle) == (self.cor2_rectangle_centre, self.cor2_rectangle_size, self.cor2_rectangle_angle)
+        np.testing.assert_allclose(centre, self.cor2_rectangle_centre, rtol=1e-04)
+        np.testing.assert_allclose(size, self.cor2_rectangle_size, rtol=1e-04)
+        np.testing.assert_allclose(angle, self.cor2_rectangle_angle, rtol=1e-04)
+
 
 class Test_is_Dicom_file(unittest.TestCase):
 

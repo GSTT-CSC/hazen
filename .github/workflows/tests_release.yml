@@ -7,11 +7,16 @@ on:
   push:
     branches:
       - 'master'
-      - 'develop'
+      - 'release/*'
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.9', '3.10' ]
     # Service containers to run with `container-job`
     services:
       # Label used to access the service container
@@ -35,10 +40,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 3.6
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
@@ -48,6 +53,5 @@ jobs:
 
     - name: Test with pytest
       run: |
-        set -o pipefail
+        set -Eeuxo pipefail
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
-
