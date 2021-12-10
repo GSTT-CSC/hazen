@@ -311,6 +311,8 @@ def get_field_of_view(dcm: pydicom.Dataset):
   
 
 def main():
+    logging.info('Hazen version {0}'.format(__version__))
+    
     arguments = docopt(__doc__, version=__version__)
 
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
@@ -359,6 +361,6 @@ def main():
 
         return pp.pprint(task.main(dicom_objects, report_path=report,
                                    **relaxometry_args))
-    logging.info('Hazen {0}'.format(__version__))
+
     return pp.pprint(task.main(dicom_objects, report_path=report))
 
