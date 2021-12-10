@@ -140,7 +140,7 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['ge', 'siemens', 'philips', 'toshiba']
+    supported = ['ge', 'siemens', 'philips', 'toshiba', 'canon']
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:

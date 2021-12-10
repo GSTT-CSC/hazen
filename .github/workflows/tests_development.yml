@@ -5,8 +5,6 @@ name: Development tests
 
 on:
   pull_request:
-    branches:
-      - '*'
 
 jobs:
   test:
@@ -78,8 +76,8 @@ jobs:
         junitxml-path: ./pytest.xml
 
     - name: Update the coverage Badge
-      if: github.event.pull_request.base.ref == 'main'  # if pull request is merging into master
-      uses: schneegans/dynamic-badges-action@v1.1.0
+      if: github.event.pull_request.base.ref == 'main'  # if pull request is merging into main
+      uses: schneegans/dynamic-badges-action@v1.0.0
       with:
         auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
         gistID: ba102d5f3e592fcd50451c2eff8a803d
