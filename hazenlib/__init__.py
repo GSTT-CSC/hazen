@@ -308,11 +308,8 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
-  
 
 def main():
-    logging.info('Hazen version {0}'.format(__version__))
-    
     arguments = docopt(__doc__, version=__version__)
 
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
@@ -338,9 +335,9 @@ def main():
         level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
     else:
-      # logging.basicConfig()
-       logging.getLogger().setLevel(logging.INFO)
-        
+        # logging.basicConfig()
+        logging.getLogger().setLevel(logging.INFO)
+
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
@@ -363,4 +360,3 @@ def main():
                                    **relaxometry_args))
 
     return pp.pprint(task.main(dicom_objects, report_path=report))
-
