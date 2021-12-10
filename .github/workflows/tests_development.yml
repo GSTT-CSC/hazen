@@ -65,10 +65,9 @@ jobs:
 
     - name: Test with pytest
       run: |
-        set -o pipefail
+        set -Eeuxo pipefail
 #        pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ ; echo $?
-        set +o pipefail
 
     - name: Pytest coverage comment
       id: coverageComment
