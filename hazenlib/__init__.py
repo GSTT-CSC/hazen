@@ -332,7 +332,6 @@ def main():
 
     }
 
-
     if arguments['--log'] in log_levels.keys():
         level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
@@ -360,6 +359,6 @@ def main():
 
         return pp.pprint(task.main(dicom_objects, report_path=report,
                                    **relaxometry_args))
-
+    logging.info('Hazen {0}'.format(__version__))
     return pp.pprint(task.main(dicom_objects, report_path=report))
 

@@ -54,3 +54,4 @@ jobs:
       run: |
         set -o pipefail
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
+        set +o pipefail
