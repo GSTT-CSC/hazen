@@ -171,8 +171,9 @@ We have used hazen with MRI data from a handful of different MRI scanners, inclu
 The Release Manager should ensure:
 - All outstanding issues for the current release have been closed, or, transferred to future release.
 - All tests are passing on Github Actions.
-- All documentation has been updated with correct version numbers.
-- The version number in `hazenlib/__init__.py` has been updated.
+- All documentation has been updated with correct version numbers:
+   - Version number in `docs/conf.py`
+   - Version number in `hazenlib/__init__.py`
 - The `release` branch has been merged into `main` branch
 - A new release has been created with a new version tag (tag = version number)
 
