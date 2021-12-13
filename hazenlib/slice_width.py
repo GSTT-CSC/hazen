@@ -83,7 +83,8 @@ def get_rods(dcm):
     # smooth the image with a 0.5sig kernal - this is to avoid noise being counted in .label function
     # img_tmp = ndimage.gaussian_filter(arr, 0.5)
     # commented out smoothing as not in original MATLAB - Haris
-    img_tmp = arr
+
+     img_tmp = arr
     # step over a range of threshold levels from 0 to the max in the image
     # using the ndimage.label function to count the features for each threshold
     for x in range(0, img_max):
@@ -110,6 +111,21 @@ def get_rods(dcm):
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
 
+    # # For debugging:
+    from matplotlib import pyplot as plt
+    plt.figure()
+    plt.imshow(labeled_array)
+    for idx, i in enumerate(rods):
+        plt.plot(rods[idx].x,rods[idx].y,'ro',markersize=1)
+    plt.show()
+    plt.savefig("../test-image.png")
+
+    # fig, ax = plt.figure()
+    # ax.plot(labeled_array)
+    # ax.scatter(rods[0])
+    # fig.tight_layout()
+    # plt.show()
+    # plt.savefig("../test-image.png")
 
     return rods
 
