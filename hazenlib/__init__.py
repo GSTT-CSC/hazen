@@ -92,6 +92,9 @@ from docopt import docopt
 import numpy as np
 
 __version__ = '0.3.0'
+
+import hazenlib.exceptions
+
 EXCLUDED_FILES = ['.DS_Store']
 
 
@@ -311,32 +314,27 @@ def main():
         report = True
     else:
         report = False
-
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
 
-    # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits', '--show_rois',
-                            '--verbose'}
-    # Make a list of keys that have truthy values
-    relaxometry_cli_args_used = [arg for arg in relaxometry_cli_args if arguments[arg]]
 
-    if not arguments['<task>'] == 'relaxometry':
-        if len(relaxometry_cli_args_used) > 0:
-            error_string = f"Option(s) {relaxometry_cli_args_used} can only be used with relaxometry"
-            raise Exception(error_string)
-    else:
+    if arguments['<task>'] == 'relaxometry':
+        # Relaxometry arguments
+        relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
+                                '--show_template_fit', '--show_relax_fits',
+                                '--show_rois', '--verbose'}
+
         # Pass arguments with dictionary, stripping initial double dash ('--')
         relaxometry_args = {}
 
         for key in relaxometry_cli_args:
             relaxometry_args[key[2:]] = arguments[key]
 
-        return pp.pprint(task.main(dicom_objects, report_path=report, **relaxometry_args))
+        return pp.pprint(task.main(dicom_objects, report_path=report,
+                                   **relaxometry_args))
 
     return pp.pprint(task.main(dicom_objects, report_path=report))
 
