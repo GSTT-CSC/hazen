@@ -100,3 +100,34 @@ class TestSnrGE(TestSnr):
         val = hazenlib.snr.main(data=[self.test_file, self.test_file_2])
         self.assertTrue(self.LOWER_SMOOTHED_SNR <= val["snr_smoothing_normalised_SNR SAG MEAS1_23_1"] <= self.UPPER_SMOOTHED_SNR)
         self.assertTrue(self.LOWER_SUBTRACT_SNR <= val["snr_subtraction_normalised_SNR SAG MEAS1_23_1"] <= self.UPPER_SUBTRACT_SNR)
+
+
+class TestSnrThreshold(TestSnr):
+    # SIEMENS VIDA
+    # Example of shape detection failure
+
+    SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'snr_threshold')
+
+    OBJECT_CENTRE = (133, 125)
+    SNR_NORM_FACTOR = 13.537071812733949  # value taken from Hazen
+    IMAGE_SMOOTHED_SNR = 5640.03  # TODO: get this value from Matlab, as in other tests (currently using Hazen value)
+    IMAGE_SUBTRACT_SNR = 4951.05  # TODO: get this value from Matlab, as in other tests (currently using Hazen value)
+
+    # setting +/- 2% range for SNR results
+    UPPER_SMOOTHED_SNR = IMAGE_SMOOTHED_SNR * 1.02
+    LOWER_SMOOTHED_SNR = IMAGE_SMOOTHED_SNR * 0.98
+
+    UPPER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 1.02
+    LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
+
+    def setUp(self):
+        self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
+        self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
+
+    def test_get_object_centre(self):
+        assert hazenlib.snr.get_object_centre(self.test_file) == self.OBJECT_CENTRE
+
+    def test_image_snr(self):
+        val = hazenlib.snr.main(data=[self.test_file, self.test_file_2])
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val["snr_smoothing_normalised_Hd_SNR_SAG_ORIG_22001_1"] <= self.UPPER_SMOOTHED_SNR)
+        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val["snr_subtraction_normalised_Hd_SNR_SAG_ORIG_22001_1"] <= self.UPPER_SUBTRACT_SNR)

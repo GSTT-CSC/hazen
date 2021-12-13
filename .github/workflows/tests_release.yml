@@ -1,16 +1,22 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 
-name: Tests
+name: Release tests
 
 on:
-  pull_request:
+  push:
     branches:
-      - '*'
+      - 'master'
+      - 'release/*'
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.9', '3.10' ]
     # Service containers to run with `container-job`
     services:
       # Label used to access the service container
@@ -34,10 +40,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Python 3.6
+    - name: Set up Python
       uses: actions/setup-python@v2
       with:
-        python-version: 3.6
+        python-version: ${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
@@ -45,35 +51,7 @@ jobs:
         pip install flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-    - name: Setup flake8 annotations
-      uses: rbialon/flake8-annotations@v1
-
-    - name: Lint with flake8
-      run: |
-        # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-
     - name: Test with pytest
       run: |
-        set -o pipefail
+        set -Eeuxo pipefail
         pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=hazenlib tests/ | tee pytest-coverage.txt ; echo $?
-
-    - name: Pytest coverage comment
-      id: coverageComment
-      uses: MishaKav/pytest-coverage-comment@main
-      with:
-        pytest-coverage-path: ./pytest-coverage.txt
-        junitxml-path: ./pytest.xml
-
-    - name: Create the coverage Badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
-      with:
-        auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
-        gistID: ba102d5f3e592fcd50451c2eff8a803d
-        filename: hazen_pytest-coverage-comment.json
-        label: Test coverage
-        message: ${{ steps.coverageComment.outputs.coverage }}
-        color: ${{ steps.coverageComment.outputs.color }}
-        namedLogo: python

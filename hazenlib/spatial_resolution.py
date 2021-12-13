@@ -12,6 +12,9 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 import copy
 import sys
 import traceback
+from hazenlib.logger import logger
+
+
 
 import cv2 as cv
 import numpy as np
@@ -171,15 +174,25 @@ def thresh_image(img, bound=150):
 
 
 def find_square(img):
-    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
+    cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
 
-    for c in cnts[1]:
+    for c in cnts:
         perimeter = cv.arcLength(c, True)
         approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
         if len(approx) == 4:
             # compute the bounding box of the contour and use the
             # bounding box to compute the aspect ratio
             rect = cv.minAreaRect(approx)
+
+            # OpenCV 4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap rect[1] order & rotate rect[2] by -90
+            # – convert tuple>list>tuple to do this
+            rectAsList = list(rect)
+            rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
+            rectAsList[2] = rectAsList[2] - 90
+            rect = tuple(rectAsList)
+
             box = cv.boxPoints(rect)
             box = np.int0(box)
             w, h = rect[1]
@@ -192,7 +205,7 @@ def find_square(img):
 
             # a square will have an aspect ratio that is approximately
             # equal to one, otherwise, the shape is a rectangle
-            if 0.95 < ar < 1.05:
+            if 0.92 < ar < 1.08:
                 break
 
     # points should start at top-right and go anti-clockwise
@@ -349,7 +362,7 @@ def get_edge_profile_coords(angle, intercept, spacing):
     for row in range(19):
         original_mtf_x_positions = np.row_stack((original_mtf_x_positions, original_mtf_x_position))
 
-    original_mtf_y_position = np.array([x * spacing[0] for x in range(20)])
+    original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
     original_mtf_y_positions = copy.copy(original_mtf_y_position)
     for row in range(19):
         original_mtf_y_positions = np.column_stack((original_mtf_y_positions, original_mtf_y_position))
@@ -439,6 +452,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     mtf_frequency = 10.0 * mtf_50 / profile_length
     res = 10 / (2 * mtf_frequency)
 
+
     if report_path:
         import matplotlib.pyplot as plt
         fig, axes = plt.subplots(11, 1)
@@ -475,6 +489,12 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
         axes[10].set_xlabel('lp/mm')
         fig.savefig(f'{report_path}_{pe}_{edge}.png')
 
+
+
+
+
+
+
     return res
 
 
@@ -501,7 +521,7 @@ def main(data: list, report_path=False) -> dict:
             if report_path:
                 report_path = key
         except AttributeError as e:
-            print(e)
+            logger.info(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
             results[key] = calculate_mtf(dcm, report_path)
@@ -512,3 +532,4 @@ def main(data: list, report_path=False) -> dict:
             continue
 
     return results
+

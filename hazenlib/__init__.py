@@ -45,8 +45,8 @@ MMMMMMMMMMMMMMMMNd';loc:;'',:cccclc:,.......:;,cc:cl,'cc;.......      .lONMMMMMM
 MMMMMMMMMMMMMMMMXl';cccc;;:,'.. ..''''.....,c;:l:cc,,:c:,'.''.....      .;d0NMMM
 MMMMMMMMMMMMMMMMKc'',:loc::;,...'c;''...'',:;';lcc;,c:,,,.''.. ....     ....;d0W
 MMMMMMMMMMMMMMWXxlc;',ll:;;:;...;l;''',;:c:,..':;,;;;'.'..''. ............    .:
-MMMMMMMMMMMMN0o;:do;',;,;ooc:,',,:;',:::cc;.'',:,.,,,'.....................  .  
-MMMMMMMMMN0d;...,lc,'.':odl::;;:,';;;clc:;,'..,,''''.'...................... .  
+MMMMMMMMMMMMN0o;:do;',;,;ooc:,',,:;',:::cc;.'',:,.,,,'.....................  .
+MMMMMMMMMN0d;...,lc,'.':odl::;;:,';;;clc:;,'..,,''''.'...................... .
 MMMMMMWKd;.  ....;cc'.:odollc;::'.';,;l:,,;,.',.'',,.',,,'......................
 MMMMWKd,..........;;..,:ooloccol;',:;,lc,,',';:,;:'...''.........''''''''''..'''
 MMMW0d:'..........',..';cclooxxdooll::oc;,...:c',:,.,:;'.''''..''',;;,,,,,,,;ccl
@@ -60,10 +60,10 @@ MMMMMMMMMMMMMMMMMMMMMMMMWN0xoc:cccccldkxxkOOO0KXNWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
-                                                  
-                                                  
-`7MMF'  `7MMF'                                    
-  MM      MM                                      
+
+
+`7MMF'  `7MMF'
+  MM      MM
   MM      MM   ,6"Yb.  M""MMV .gP"Ya  7MMpMMMb.
   MMmmmmmmMM  8)   MM  '  AMV ,M'   Yb  MM    MM
   MM      MM   ,pm9MM    AMV  8M~~~~~'  MM    MM
@@ -75,14 +75,17 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 Welcome to the Hazen Command Line Interface
 Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
-    [--show_relax_fits] [--show_rois] [--verbose]
+    [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
     hazen -v|--version
 Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
+
+
 """
+import logging
 import os
 import pprint
 import importlib
@@ -90,8 +93,9 @@ import importlib
 import pydicom
 from docopt import docopt
 import numpy as np
+from hazenlib.tools import is_dicom_file
 
-__version__ = '0.3.0'
+__version__ = '0.4.0'
 
 import hazenlib.exceptions
 
@@ -136,7 +140,7 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['ge', 'siemens', 'philips', 'toshiba']
+    supported = ['ge', 'siemens', 'philips', 'toshiba', 'canon']
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
@@ -204,7 +208,6 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
@@ -221,6 +224,7 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
             raise Exception('Manufacturer not recognised')
 
     return dx, dy
+
 
 def get_TR(dcm: pydicom.Dataset) -> (float):
     """
@@ -242,6 +246,7 @@ def get_TR(dcm: pydicom.Dataset) -> (float):
         TR = 1000
     return TR
 
+
 def get_rows(dcm: pydicom.Dataset) -> (float):
     """
     Returns number of image rows (rows)
@@ -258,9 +263,10 @@ def get_rows(dcm: pydicom.Dataset) -> (float):
         rows = dcm.Rows
     except:
         print('Warning: Could not find Number of matrix rows. Using default value of 256')
-        rows=256
+        rows = 256
 
     return rows
+
 
 def get_columns(dcm: pydicom.Dataset) -> (float):
     """
@@ -280,6 +286,7 @@ def get_columns(dcm: pydicom.Dataset) -> (float):
         print('Warning: Could not find matrix size (columns). Using default value of 256.')
         columns = 256
     return columns
+
 
 def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
@@ -308,12 +315,29 @@ def main():
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
-    dicom_objects = [pydicom.read_file(x, force=True) for x in files]
+    dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
     if arguments['--report']:
         report = True
     else:
         report = False
+
+    log_levels = {
+        "critical": logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR
+
+    }
+
+    if arguments['--log'] in log_levels.keys():
+        level = log_levels[arguments['--log']]
+        logging.getLogger().setLevel(level)
+    else:
+        # logging.basicConfig()
+        logging.getLogger().setLevel(logging.INFO)
+
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
@@ -337,4 +361,3 @@ def main():
                                    **relaxometry_args))
 
     return pp.pprint(task.main(dicom_objects, report_path=report))
-
