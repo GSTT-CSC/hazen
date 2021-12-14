@@ -49,33 +49,15 @@ check_internet_connections(){
       internet_status=false
   fi
 }
-
-#check_hazen_version(){
-#  LATEST=`docker inspect --format='{{index .RepoDigests 0}}' $IMAGE`
-#  LOCAL=`docker image inspect --format "{{.Id}}" $IMAGE`
 #
-#  if [ "$LOCAL" == "$LATEST" ];then
-#    :
-#  else
-#      echo -n "Newer version of Hazen available: upgrade now? (y/n)"
-#      old_stty_cfg=$(stty -g)
-#      stty raw -echo ; answer=$(head -c 1) ; stty $old_stty_cfg # Careful playing with stty
-#      if echo "$answer" | grep -iq "^y" ;then
-#          docker pull $$REPO_IMAGE
-#      else
-#          echo "Continuing with old version"
-#      fi
-#  fi
-#}
-
-while getopts b: flag
-  do
-      case "${flag}" in
-        b) BUILD_TAG=${OPTARG};;
-        *) echo "invalid arg provided"
-      esac
-  done
-  shift $(( OPTIND - 1 ))
+#while getopts b: flag
+#  do
+#      case "${flag}" in
+#        b) BUILD_TAG=${OPTARG};;
+#        *) echo "invalid arg provided"
+#      esac
+#  done
+#  shift $(( OPTIND - 1 ))
 
 # MAIN
 check_bash
@@ -92,6 +74,8 @@ fi
 # pull requested version
 if [ "$internet_status" = true ]; then
   docker pull $APP_IMAGE
+  else
+    echo "No internet connection, unable to check for latest version"
 fi
 
 # Set up mounted volumes, environment, and run our containerized command
@@ -99,4 +83,4 @@ exec docker run \
     --rm \
     --mount type=bind,source="$(pwd)",target=/home/hazen_user/data \
     -w /home/hazen_user/data \
-    $APP_IMAGE "$@"
+    $APP_IMAGE $@
