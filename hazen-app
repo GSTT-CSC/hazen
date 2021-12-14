@@ -54,7 +54,8 @@ check_internet_connections(){
 while getopts :b: flag
   do
       case "${flag}" in
-        b) BUILD_TAG=${OPTARG};;
+        b) BUILD_TAG=${OPTARG}
+          shift "$(( OPTIND - 1 ))";;
       esac
   done
 
@@ -78,9 +79,13 @@ if [ "$internet_status" = true ]; then
     echo "No internet connection, unable to check for latest version"
 fi
 
+command="docker run \
+                --rm \
+                --mount type=bind,source=$(pwd),target=/home/hazen_user/data \
+                -w /home/hazen_user/data \
+                ${APP_IMAGE} $@"
+
+echo running: ${command}
+
 # Set up mounted volumes, environment, and run our containerized command
-exec docker run \
-    --rm \
-    --mount type=bind,source="$(pwd)",target=/home/hazen_user/data \
-    -w /home/hazen_user/data \
-    $APP_IMAGE $@
+exec ${command}
