@@ -3,7 +3,7 @@
 # hazen-app
 
 # DESCRIPTION
-#   A wrapper script for invoking hazen with docker
+#   A wrapper script for invoking hazen with docker.
 
 # INSTALL INSTRUCTIONS
 #   Run "chmod 700 <path to hazen-app file>" to give user the right permissions to execute
@@ -14,6 +14,16 @@
 #   run "hazen-app -h" for help and usage description
 #   To run a specific build of hazen use the -b <tag> flag before the standard positional arguments e.g.
 #   "hazen-app -b build_000 slice_position slice_positon_folder/ --report"
+
+# ADDITIONAL NOTES
+#   This script wraps all the necessary `docker run` arguments and passes them to the hazen container. As the hazen
+#   docker image entry point is the 'hazen' command the user is then able to use the container in the same way as they
+#   would the hazen CLI, i.e. the `hazen <TASK> <PATH?> <ARG>` syntax.
+#
+#   It is important to note that if this script is updated the user must copy the new version of the hazen-app script
+#   to /usr/local/bin before running it, and overwrite/remove any old versions.
+#
+#   In addition this script will provide some basic checks and warnings to the user.
 
 # SOURCES:
 #   https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
