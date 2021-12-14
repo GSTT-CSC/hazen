@@ -50,14 +50,13 @@ check_internet_connections(){
   fi
 }
 #
-#while getopts b: flag
-#  do
-#      case "${flag}" in
-#        b) BUILD_TAG=${OPTARG};;
-#        *) echo "invalid arg provided"
-#      esac
-#  done
-#  shift $(( OPTIND - 1 ))
+
+while getopts :b: flag
+  do
+      case "${flag}" in
+        b) BUILD_TAG=${OPTARG};;
+      esac
+  done
 
 # MAIN
 check_bash
@@ -73,6 +72,7 @@ fi
 
 # pull requested version
 if [ "$internet_status" = true ]; then
+  echo $APP_IMAGE
   docker pull $APP_IMAGE
   else
     echo "No internet connection, unable to check for latest version"
