@@ -45,6 +45,7 @@ def get_signal_bounding_box(array: np.ndarray):
         if voxel > signal_limit:
             signal.append(idx)
 
+
     signal_column = sorted([voxel[1] for voxel in signal])
     signal_row = sorted([voxel[0] for voxel in signal])
 
@@ -52,7 +53,6 @@ def get_signal_bounding_box(array: np.ndarray):
     lower_row = max(signal_row)
     left_column = min(signal_column)
     right_column = max(signal_column)
-
     return left_column, right_column, upper_row, lower_row,
 
 
@@ -111,6 +111,7 @@ def get_background_slices(background_rois, slice_radius=5):
     slices = [(np.array(range(roi[0]-slice_radius, roi[0]+slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
         range(roi[1]-slice_radius, roi[1]+slice_radius), dtype=np.intp))for roi in background_rois]
 
+
     return slices
 
 
@@ -131,51 +132,59 @@ def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
             # signal is in left half
             eligible_columns = range(right_column + padding_from_box, dcm.Columns - slice_radius)
             eligible_rows = range(upper_row, lower_row)
+            ghost_slice = np.array(
+                range(right_column + padding_from_box, dcm.Columns - slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
+                range(upper_row, lower_row)
+            )
         else:
             # signal is in right half
             eligible_columns = range(slice_radius, left_column - padding_from_box)
             eligible_rows = range(upper_row, lower_row)
+            ghost_slice = np.array(
+                range(slice_radius, left_column - padding_from_box), dtype=np.intp)[:,
+                          np.newaxis], np.array(
+                range(upper_row, lower_row))
 
     else:
         if upper_row < dcm.Rows / 2:
             # signal is in top half
             eligible_rows = range(lower_row + padding_from_box, dcm.Rows - slice_radius)
             eligible_columns = range(left_column, right_column)
+            ghost_slice = np.array(
+            range(lower_row + padding_from_box, dcm.Rows - slice_radius), dtype = np.intp)[:,
+            np.newaxis], np.array(
+        range(left_column, right_column))
         else:
             # signal is in bottom half
             eligible_rows = range(slice_radius, upper_row - padding_from_box)
             eligible_columns = range(left_column, right_column)
+            ghost_slice = np.array(
+                range(slice_radius, upper_row - padding_from_box), dtype=np.intp)[:,
+                          np.newaxis], np.array(
+                range(left_column, right_column))
 
     return eligible_columns, eligible_rows
 
 
-def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
-    max_mean = 0
-    max_index = (0, 0)
-    windows = {}
-    arr = dcm.pixel_array
 
-    eligible_columns, eligible_rows = get_eligible_area(signal_bounding_box, dcm, slice_radius)
-    for idx, centre_voxel in np.ndenumerate(arr):
-        if idx[0] not in eligible_rows or idx[1] not in eligible_columns:
-            continue
-        else:
-            windows[idx] = arr[idx[0]-slice_radius:idx[0]+slice_radius, idx[1]-slice_radius:idx[1]+slice_radius]
 
-    for idx, window in windows.items():
-        if np.mean(window) > max_mean:
-            max_mean = np.mean(window)
-            max_index = idx
 
+def get_ghost_slice2(signal_bounding_box, dcm, slice_radius=5):
+    eligible_area = get_eligible_area(signal_bounding_box, dcm, slice_radius=slice_radius)
     ghost_slice = np.array(
-        range(max_index[1] - slice_radius, max_index[1] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
-        range(max_index[0] - slice_radius, max_index[0] + slice_radius)
+        range(min(eligible_area[1]),max(eligible_area[1])), dtype=np.intp)[:, np.newaxis], np.array(
+        range(min(eligible_area[0]), max(eligible_area[0]))
     )
-    #ghost_slice returns columns, rows of indexes
     return ghost_slice
 
 
-def get_ghosting(dcm, plotting=False) -> dict:
+
+
+
+
+
+
+def get_ghosting(dcm, report_path=False) -> dict:
 
     bbox = get_signal_bounding_box(dcm.pixel_array)
 
@@ -183,23 +192,35 @@ def get_ghosting(dcm, plotting=False) -> dict:
     # ROIs need to be 10mmx10mm
     slice_radius = int(10//(2*x))
 
+
     signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
-    ghost_col, ghost_row = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
-    ghost = dcm.pixel_array[(ghost_row, ghost_col)]
+    ghost_col, ghost_row = get_ghost_slice2(bbox, dcm, slice_radius=slice_radius)
+    ghost = dcm.pixel_array[(ghost_col, ghost_row)]
     signal_col, signal_row = get_signal_slice(bbox, slice_radius=slice_radius)
     phantom = dcm.pixel_array[(signal_row, signal_col)]
 
-    noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=slice_radius)])
+
+
+    noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=30)])
+
+
+
+
     eligible_area = get_eligible_area(bbox, dcm, slice_radius=slice_radius)
+
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
-    if plotting:
+    if report_path:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         x1, x2, y1, y2 = bbox
 
-        img = hazenlib.rescale_to_byte(dcm.pixel_array)
+        img = dcm.pixel_array
+        img = img.astype('float64')
+        #print('this is img',img)
+        img *= 255.0 / img.max()
+        #img = hazenlib.rescale_to_byte(dcm.pixel_array)
         img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
         for roi in background_rois:
@@ -223,25 +244,28 @@ def get_ghosting(dcm, plotting=False) -> dict:
         img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
         ax.imshow(img)
+        fig.savefig(f'{report_path}.png')
         return fig, ghosting
 
     return None, ghosting
 
 
-def main(data: list, report_path=False) -> dict:
+def main(data: list, report_path = False) -> dict:
 
     results = {}
-    # figures = []
+    #figures = []
     for dcm in data:
         try:
             key = f"{dcm.SeriesDescription.replace(' ', '_')}_{dcm.EchoTime}ms_NSA-{dcm.NumberOfAverages}"
+            if report_path:
+               report_path = key
         except AttributeError as e:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}"
         try:
-            fig, results[key] = get_ghosting(dcm, report_path)
-            if report_path:
-                fig.savefig(key + '.png')
+            fig, results[key] = get_ghosting(dcm, report_path=True)
+
+
 
         except Exception as e:
             print(f"Could not calculate the ghosting for {key} because of : {e}")
@@ -251,5 +275,7 @@ def main(data: list, report_path=False) -> dict:
     return results
 
 
+
 if __name__ == "__main__":
     main([os.path.join(sys.argv[1], i) for i in os.listdir(sys.argv[1])])
+
