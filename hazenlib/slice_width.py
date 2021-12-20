@@ -12,6 +12,8 @@ from hazenlib.logger import logger
 import numpy as np
 from scipy import ndimage
 from scipy.interpolate import interp1d
+import scipy.optimize as opt
+from skimage.measure import regionprops
 
 import hazenlib
 
