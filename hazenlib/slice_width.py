@@ -260,6 +260,8 @@ def baseline_correction(profile, sample_spacing):
 def gauss_2D(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
     """
     Create 2D Gaussian
+    Based on code by Siân Culley, UCL/KCL
+    See also: https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 
     Parameters
     ----------
@@ -294,6 +296,73 @@ def gauss_2D(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
     gauss = A * np.exp(-(a * (x - x_0) ** 2 + 2 * b * (x - x_0) * (y - y_0) + c * (y - y_0) ** 2)) + C
 
     return gauss.ravel()
+
+
+def fit_gauss_2D_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start):
+    """
+    Fit 2D Gaussian to Rods
+    - Important:
+    --- This uses a cropped region around a rod. If the cropped region is too large,
+    such that it includes signal with intensity similar to the rods, the fitting may fail.
+    --- This is a maximisation function, hence the rods should have higher signal than the surrounding region
+    Based on code by Siân Culley, UCL/KCL
+
+    Parameters
+    ----------
+    cropped_data : 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
+    gauss_amp : initial estimate of amplitude of 2D Gaussian
+    gauss_radius : initial estimate of centre of 2D Gaussian
+    box_radius : 'radius' of box around rod
+    x_start / y_start : coordinates of bounding box in original non-cropped data
+
+    Returns
+    -------
+    x0_im / y0_im : rod centroid coordinates in dimensions of original image
+    x0 / y0 : rod centroid coordinates in dimensions of cropped image
+
+    """
+
+    # get (x,y) coordinates for fitting
+    indices = np.indices(cropped_data.shape)
+
+    # estimate initial conditions for 2d gaussian fit
+    dims_crop = cropped_data.shape
+    h_crop = dims_crop[0]
+    w_crop = dims_crop[1]
+
+    A = gauss_amp  # np.max() # amp of Gaussian
+    sigma = gauss_radius / 2  # radius of 2D Gaussian
+    C = np.mean([cropped_data[0, 0], cropped_data[h_crop - 1, 0], cropped_data[0, w_crop - 1],
+                 cropped_data[h_crop - 1, w_crop - 1]])  # background – np.min(outside of rod within cropped_data)
+
+    # print("A:", A)
+    # print("box_radius:", box_radius)
+    # print("sigma:", sigma)
+    # print("C:", C, "\n")
+
+    p0 = [A, box_radius, box_radius, sigma, sigma, 0, C]
+    # print(f'initial conditions for 2d gaussian fitting: {p0}\n')
+
+    # do 2d gaussian fit to data
+    popt_single, pcov_single = opt.curve_fit(gauss_2D, indices, cropped_data.ravel(), p0=p0)
+
+    A_ = popt_single[0]
+    x0 = popt_single[1]
+    y0 = popt_single[2]
+    sigma_x = popt_single[3]
+    sigma_y = popt_single[4]
+    theta = popt_single[5]
+    C = popt_single[6]
+
+    # print(f'results of 2d gaussian fitting: \n\tamplitude = {A_} \n\tx0 = {x0} \n\ty0 = {y0} \n\tsigma_x = {sigma_x} \n\tsigma_y = {sigma_y} \n\ttheta = {theta} \n\tC = {C} \n')
+
+    # to get image coordinates need to add back on x_start and y_start
+    x0_im = x0 + x_start
+    y0_im = y0 + y_start
+
+    # print(f'Initial centre was ({rods[idx].x}, {rods[idx].y}). Refined centre is ({x0_im}, {y0_im})\n')
+
+    return x0_im, y0_im, x0, y0
 
 
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
