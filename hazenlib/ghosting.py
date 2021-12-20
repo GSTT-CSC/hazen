@@ -33,7 +33,7 @@ def calculate_ghost_intensity(ghost, phantom, noise) -> float:
     if phantom_mean < ghost_mean or phantom_mean < noise_mean:
         raise Exception(f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case ")
 
-    return 100 * (ghost_mean - noise_mean) / phantom_mean
+    return 100 * abs((ghost_mean - noise_mean)) / phantom_mean
 
 
 def get_signal_bounding_box(array: np.ndarray):
@@ -202,7 +202,7 @@ def get_ghosting(dcm, report_path=False) -> dict:
 
 
 
-    noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=30)])
+    noise = np.concatenate([dcm.pixel_array[(row, col)] for col, row in get_background_slices(background_rois, slice_radius=slice_radius)])
 
 
 
@@ -278,4 +278,5 @@ def main(data: list, report_path = False) -> dict:
 
 if __name__ == "__main__":
     main([os.path.join(sys.argv[1], i) for i in os.listdir(sys.argv[1])])
+
 
