@@ -84,7 +84,7 @@ def get_rods(dcm):
     # img_tmp = ndimage.gaussian_filter(arr, 0.5)
     # commented out smoothing as not in original MATLAB - Haris
 
-    img_tmp = arr
+     img_tmp = arr
     # step over a range of threshold levels from 0 to the max in the image
     # using the ndimage.label function to count the features for each threshold
     for x in range(0, img_max):
@@ -111,79 +111,21 @@ def get_rods(dcm):
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
 
-    # TAR -- new method
-
-    # Circular Hough method:
-    from skimage import data, color
-    from skimage.transform import hough_circle, hough_circle_peaks
-    from skimage.feature import canny
-    from skimage.draw import circle_perimeter
-    from skimage.util import img_as_ubyte
-    edges = canny(arr, sigma=3, low_threshold=100, high_threshold=200)
-
-    hough_radii = np.arange(1, 6, 1)
-    hough_res = hough_circle(edges, hough_radii)
-
-    plt.figure()
-    fig, ax = plt.subplots(ncols=5, nrows=1)
-    ax = ax.flatten()
-    for idx, i in enumerate(hough_res):
-        ax[idx].imshow(hough_res[idx])
-    plt.show()
-    plt.savefig("../_hough_res.png")
-
-    accums, cx, cy, radii = hough_circle_peaks(hough_res, hough_radii, min_xdistance=, min_ydistance=,
-                                               total_num_peaks=9)
-
-    fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(10, 4))
-    image = color.gray2rgb(arr)
-    for center_y, center_x, radius in zip(cy, cx, radii):
-        circy, circx = circle_perimeter(center_y, center_x, radius,
-                                        shape=image.shape)
-        image[circy, circx] = (220, 20, 20)
-
-    ax.imshow(image, cmap=plt.cm.gray)
-    plt.show()
-    plt.savefig("../_hough.png")
-
-    # Plot figures:
+    # # For debugging:
     from matplotlib import pyplot as plt
     plt.figure()
-    fig, ax = plt.subplots(1, 4)
-
-    # Old Method
-    ax[0].set_title(f'Magnitude Image')
-    ax[0].imshow(arr, cmap='gray')
-    ax[1].set_title(f'Labelled Image')
-    ax[1].imshow(labeled_array)
-    ax[2].set_title(f'Rod Coordinates')
-    ax[2].imshow(arr, cmap='gray')
+    plt.imshow(labeled_array)
     for idx, i in enumerate(rods):
-        ax[2].plot(rods[idx].x, rods[idx].y, 'ro', markersize=0.5)
-
-    # Hough Method
-    ax[3].set_title(f'canny - edges')
-    ax[3].imshow(edges)
-
-    fig.suptitle('Finding Rods')
-    fig.tight_layout()
+        plt.plot(rods[idx].x,rods[idx].y,'ro',markersize=1)
     plt.show()
-    plt.savefig("../_arrays.png")
-    # end TAR
+    plt.savefig("../test-image.png")
 
-    plt.figure()
-    plt.imshow(edges)
-    plt.show()
-    plt.savefig("../_canny.png")
-
-    # # # For debugging:
-    # from matplotlib import pyplot as plt
-    # plt.figure()
-    # plt.imshow(labeled_array)
-    # for idx, i in enumerate(rods):
-    #     plt.plot(rods[idx].x, rods[idx].y, 'ro', markersize=1)
+    # fig, ax = plt.figure()
+    # ax.plot(labeled_array)
+    # ax.scatter(rods[0])
+    # fig.tight_layout()
     # plt.show()
-    # plt.savefig("../rods-image.png")
+    # plt.savefig("../test-image.png")
 
     return rods
 
