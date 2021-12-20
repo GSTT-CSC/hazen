@@ -29,7 +29,6 @@ method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
 
-import logging
 import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
@@ -40,15 +39,7 @@ import skimage.morphology
 from scipy import ndimage
 from skimage import filters
 
-# Set up logger
-log = logging.getLogger(__name__)
-log.setLevel('WARNING')
-# Need to configure STDERR logger level if not already done
-if len(log.handlers) == 0:
-    std_err_handle = logging.StreamHandler()
-    std_err_format = logging.Formatter('%(name)s : %(levelname)s : %(message)s')
-    std_err_handle.setFormatter(std_err_format)
-    log.addHandler(std_err_handle)
+from hazenlib.logger import logger
 
 
 # helper functions
@@ -136,7 +127,7 @@ def get_rois(smooth_image, roi_distance, roi_size):
 
     #  Get centroid (=centre of mass for binary image) and convert to array
     image_centre = np.array(ndimage.measurements.center_of_mass(mask))
-    log.debug('image_centre = %r.', image_centre)
+    logger.debug('image_centre = %r.', image_centre)
 
     #  Store corner of centre ROI, cast as int for indexing
     roi_corners = [np.rint(image_centre - roi_size / 2).astype(int)]
@@ -151,6 +142,29 @@ def get_rois(smooth_image, roi_distance, roi_size):
 
 
 def calc_snr(original_image, noise_image, roi_corners, roi_size):
+    """
+    Calculate SNR
+
+    Parameters
+    ----------
+    original_image : array
+
+    noise_image : array
+
+    roi_corners : list of 2-element arrays
+        Coordinates of corners of ROIs.
+        E.g. [array([114, 121]), array([74, 81]), array([154,  81]),
+        array([ 74, 161]), array([154, 161])]
+
+    roi_size : int
+        Length of ROI square in pixels
+
+    Returns
+    -------
+    snr : float
+        Average SNR measured over ROIs
+
+    """
     roi_signal = []
     roi_noise = []
 
@@ -164,7 +178,7 @@ def calc_snr(original_image, noise_image, roi_corners, roi_size):
     roi_snr = np.array(roi_signal) / np.array(roi_noise)
     snr = roi_snr.mean()
 
-    log.debug('ROIs signal=%r, noise=%r, snr=%r',
+    logger.debug('ROIs signal=%r, noise=%r, snr=%r',
               roi_signal, roi_noise, roi_snr)
 
     return snr
@@ -180,7 +194,8 @@ def calc_snr_map(original_image, noise_image, roi_size):
 
     noise_image : array
 
-    roi_size : array
+    roi_size : int
+        Length of ROI square in pixels.
 
     Returns
     -------
@@ -253,6 +268,40 @@ def draw_roi_rectangles(ax, roi_corners, roi_size):
 
 def plot_detailed(dcm, original_image, smooth_image, noise_image, snr_map,
                   phantom_mask, image_centre, roi_corners, roi_size, snr):
+    """
+
+    Parameters
+    ----------
+    dcm : pydicom object
+        Used to get original file name
+
+    original_image : array
+
+    smooth_image : array
+
+    noise_image : array
+
+    snr_map : array
+
+    phantom_mask : bool array
+
+    image_centre : array
+            Coordinates of centre of mass of phantom
+
+    roi_corners : list of coordinates of corners of ROIs used for sampling
+            regions for SNR calculation
+
+    roi_size : int
+        Length of ROI square in pixels
+
+    snr : float
+        Average SNR measured over ROIs (for plot title)
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Handle to plot
+    """
     fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
                                      figsize=(8, 2.8))
     fig.suptitle('SNR = %.2f (file: %s)'
@@ -277,6 +326,27 @@ def plot_detailed(dcm, original_image, smooth_image, noise_image, snr_map,
 
 
 def plot_summary(original_image, snr_map, roi_corners, roi_size):
+    """
+
+    Parameters
+    ----------
+    original_image : array
+
+    snr_map : array
+
+    roi_corners : list of coordinates of corners of ROIs used for sampling
+            regions for SNR calculation
+
+    roi_size : int
+        Length of ROI square in pixels
+
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+        Handle to plot
+
+    """
     fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
                                  figsize=(6, 2.8))
     axs[0].imshow(original_image, cmap='gray')
@@ -303,25 +373,26 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
     ----------
     dcm_list : list of `pydicom.dataset.Dataset` objects
         Images from which to calculate single image SNR map.
+
     kernel_len : int, optional
         Linear extent of the boxcar kernel, should be an odd integer. The
         default is 9.
+
     roi_size : int, optional
         Length of side (in pixels) of each ROI. The default is 20.
+
     roi_distance : int, optional
         Distance from centre of image to centre of each ROI along both
         dimensions. The default is 40.
 
     Returns
     -------
-    results : list
-
-    TODO
-    ----
-    * Scale ROI distance to account for different image sizes.
-    * Pass kernel_len and roi_size parameters from command line.
-    * Allow different kernels, e.g. 'disk' instead of boxcar.
+    results : dict
     """
+    # TODO
+    # ----
+    # * Scale ROI distance to account for different image sizes.
+    # * Pass kernel_len and roi_size parameters from command line.
 
     results = {}
 
@@ -366,7 +437,7 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
         #  Warn if not 256 x 256 image
         #  TODO scale distances for other image sizes
         if original_image.shape != (256, 256):
-            log.warning('Expected image size (256, 256). Image size is %r.'
+            logger.warning('Expected image size (256, 256). Image size is %r.'
                         ' Algorithm untested with these dimensions.',
                         original_image.shape)
 
@@ -385,10 +456,6 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
 
         #  Plot images
         #  ===========
-        # fig_detailed, axs = plt.subplots(1, 4, sharex=True, sharey=True,
-        #                                  figsize=(8, 2.8))
-        # fig_summary, axs2 = plt.subplots(1, 2, sharex=True, sharey=True,
-        #                                  figsize=(6, 2.8))
         fig_detailed = plot_detailed(dcm, original_image, smooth_image,
                                      noise_image, snr_map, phantom_mask,
                                      image_centre, roi_corners, roi_size, snr)
