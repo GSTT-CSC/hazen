@@ -169,7 +169,7 @@ def get_eligible_area(signal_bounding_box, dcm, slice_radius=5):
 
 
 
-def get_ghost_slice2(signal_bounding_box, dcm, slice_radius=5):
+def get_ghost_slice(signal_bounding_box, dcm, slice_radius=5):
     eligible_area = get_eligible_area(signal_bounding_box, dcm, slice_radius=slice_radius)
     ghost_slice = np.array(
         range(min(eligible_area[1]),max(eligible_area[1])), dtype=np.intp)[:, np.newaxis], np.array(
@@ -195,7 +195,7 @@ def get_ghosting(dcm, report_path=False) -> dict:
 
     signal_centre = [(bbox[0]+bbox[1])//2, (bbox[2]+bbox[3])//2]
     background_rois = get_background_rois(dcm, signal_centre)
-    ghost_col, ghost_row = get_ghost_slice2(bbox, dcm, slice_radius=slice_radius)
+    ghost_col, ghost_row = get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
     ghost = dcm.pixel_array[(ghost_col, ghost_row)]
     signal_col, signal_row = get_signal_slice(bbox, slice_radius=slice_radius)
     phantom = dcm.pixel_array[(signal_row, signal_col)]
