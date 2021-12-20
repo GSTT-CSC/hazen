@@ -7,6 +7,7 @@ from math import pi
 import sys
 import traceback
 from copy import copy
+from copy import deepcopy
 from hazenlib.logger import logger
 
 import numpy as np
@@ -14,6 +15,7 @@ from scipy import ndimage
 from scipy.interpolate import interp1d
 import scipy.optimize as opt
 from skimage.measure import regionprops
+from matplotlib import pyplot as plt
 
 import hazenlib
 
@@ -56,7 +58,7 @@ def sort_rods(rods):
     return lower_row + middle_row + upper_row
 
 
-def get_rods(dcm):
+def get_rods(dcm, report_path=False):
     """
     Parameters
     ----------
@@ -76,7 +78,7 @@ def get_rods(dcm):
     """
 
     arr = dcm.pixel_array
-    arr_inv = np.invert(arr) # invert image for fitting (maximisation)
+    arr_inv = np.invert(arr)  # invert image for fitting (maximisation)
 
     """
     Initial Center-of-mass Rod Locator
@@ -111,7 +113,8 @@ def get_rods(dcm):
     rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
-    rods_initial = sort_rods(rods)
+    rods = sort_rods(rods)
+    rods_initial = deepcopy(rods)  # save for later
 
     """
     Gaussian 2D Rod Locator
@@ -155,11 +158,22 @@ def get_rods(dcm):
                                                                         bbox["rod_dia"][idx], bbox["radius"],
                                                                         bbox["x_start"][idx], bbox["y_start"][idx])
 
-        # axes[idx].imshow(cropped_data)
-        # axes[idx].plot(y0[idx], x0[idx], 'r.') # nb: flipped x/y
+        # note: flipped x/y
+        rods[idx].x = y0_im[idx]
+        rods[idx].y = x0_im[idx]
 
-        rods[idx].x = x0_im[idx]
-        rods[idx].y = y0_im[idx]
+    rods = sort_rods(rods)
+
+    # save figure
+    if report_path:
+        fig, axes = plt.subplots(1, 1, figsize=(15, 15))
+        axes.set_title("Rods – Initial Estimate vs. 2D Gaussian Fit")
+        axes.imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')  # center-of-mass method
+            axes.plot(rods[idx].x, rods[idx].y, 'r.')  # gauss 2D
+        # fig.savefig("../rod_centroids_combined.png")
+        fig.savefig(report_path + "_rod_centroids.png")
 
     return rods
 
