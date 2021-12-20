@@ -78,7 +78,11 @@ def get_rods(dcm, report_path=False):
     """
 
     arr = dcm.pixel_array
-    arr_inv = np.invert(arr)  # invert image for fitting (maximisation)
+
+    # inverted image for fitting (maximisation)
+    arr_inv = np.invert(arr)
+    if np.min(arr_inv) < 0:
+        arr_inv = arr_inv + abs(np.min(arr_inv))  # ensure voxel values positive for maximisation
 
     """
     Initial Center-of-mass Rod Locator
