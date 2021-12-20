@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import os
 
+import skimage.morphology
 from scipy import ndimage
 from skimage import filters
 
@@ -65,6 +66,228 @@ def sample_std(vals):
     standard deviation : ndarray, same dtype as vals.
     """
     return np.std(vals, ddof=1)
+
+
+def smooth(dcm, kernel=skimage.morphology.square(9)):
+    """
+    Create noise and smoothed images from original.
+
+    Parameters
+    ----------
+    dcm : `pydicom.dataset.Dataset` object containing one SNR image of flood
+        phantom.
+
+    kernel : array
+        Kernel used for smoothing. Default is 9x9 boxcar.
+
+    Returns
+    -------
+    original_image, smooth_image, noise_image
+    """
+    original_image = dcm.pixel_array.astype(float)
+    kernel = kernel / kernel.sum() # normalise kernel
+    smooth_image = ndimage.filters.convolve(original_image, kernel)
+
+    #  Alternative method 1: OpenCV.
+    # smooth_image = cv2.blur(original_image, (kernel_len, kernel_len))
+
+    #  Alternative method 2: scipy.ndimage.
+    # kernel = np.ones([kernel_len, kernel_len], float)
+    # kernel = kernel / kernel.sum() # normalise kernel
+    # smooth_image = ndimage.filters.convolve(original_image, kernel)
+    #  Note: filters.convolve and filters.correlate produce identical output
+    #  for symetric kernels. Be careful with other kernels.
+
+    noise_image = original_image - smooth_image
+    return original_image, smooth_image, noise_image
+
+
+def get_rois(smooth_image, roi_distance, roi_size):
+    """
+    Identify phantom and generate ROI locations.
+
+    Parameters
+    ----------
+    smooth_image : array
+        Smooted image.
+
+    roi_distance : int
+        Distance from centre of image to centre of each ROI along both
+        dimensions.
+
+    roi_size : int
+        length of rectangular ROI in pixels.
+
+    Returns
+    -------
+        mask : logical array
+            Overlay to identify phantom location on map.
+
+        roi_corners : list of coordinates of corners of ROIs used for sampling
+            regions for SNR calculation.
+
+        image_centre : array
+            Coordinates of centre of mass of phantom.
+    """
+
+    # Threshold from smooth_image to reduce noise effects
+    threshold = filters.threshold_minimum(smooth_image)
+    mask = smooth_image > threshold
+
+    #  Get centroid (=centre of mass for binary image) and convert to array
+    image_centre = np.array(ndimage.measurements.center_of_mass(mask))
+    log.debug('image_centre = %r.', image_centre)
+
+    #  Store corner of centre ROI, cast as int for indexing
+    roi_corners = [np.rint(image_centre - roi_size / 2).astype(int)]
+
+    #  Add corners of remaining ROIs
+    roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
+    roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
+    roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
+    roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
+
+    return mask, roi_corners, image_centre
+
+
+def calc_snr(original_image, noise_image, roi_corners, roi_size):
+    roi_signal = []
+    roi_noise = []
+
+    for [x, y] in roi_corners:
+        roi_signal.append(original_image[x:x + roi_size, y:y + roi_size].mean())
+        roi_noise.append(noise_image[x:x + roi_size, y:y + roi_size].std(ddof=1))
+        # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
+        # uses population std dev. Not sure which is statistically correct,
+        # but using ddof=1 for consistency with IDL code.
+
+    roi_snr = np.array(roi_signal) / np.array(roi_noise)
+    snr = roi_snr.mean()
+
+    log.debug('ROIs signal=%r, noise=%r, snr=%r',
+              roi_signal, roi_noise, roi_snr)
+
+    return snr
+
+
+def calc_snr_map(original_image, noise_image, roi_size):
+    """
+    Calculate SNR map.
+
+    Parameters
+    ----------
+    original_image : array
+
+    noise_image : array
+
+    roi_size : array
+
+    Returns
+    -------
+    snr_map : array
+        Map of local SNR values
+    """
+    #  If you need a faster (less transparent) implementation, see:
+    #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
+
+    noise_map = ndimage.filters.generic_filter(noise_image, sample_std,
+                                               size=roi_size)
+    signal_map = ndimage.filters.uniform_filter(original_image, size=roi_size)
+    snr_map = signal_map / noise_map
+
+    return snr_map
+
+
+def plot_snr_map(snr_map, fig, ax):
+    """
+    Add SNR map to a figure axis.
+
+    Parameters
+    ----------
+    snr_map : array
+
+    fig : figure handle
+
+    ax : axes handle within figure
+
+    Returns
+    -------
+    None
+    """
+    para_im = ax.imshow(snr_map, cmap='viridis', vmin=0)
+    cax = fig.add_axes([ax.get_position().x1 + 0.01,
+                        ax.get_position().y0, 0.02,
+                        ax.get_position().height])
+    plt.colorbar(para_im, cax=cax)
+    ax.set_title('SNR map')
+
+
+def draw_roi_rectangles(ax, roi_corners, roi_size):
+    """
+    Add ROI rectangle overlays to plot.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes
+        Add the ROIs to the axes.
+
+    roi_corners : list of 2-element arrays
+        Coordinates of corners of ROIs.
+        E.g. [array([114, 121]), array([74, 81]), array([154,  81]),
+        array([ 74, 161]), array([154, 161])]
+
+    roi_size : int
+        Length of ROI rectangle.
+
+    Returns
+    -------
+    None
+
+    """
+    for corner in roi_corners:
+        rect = patches.Rectangle(np.flip(corner), roi_size, roi_size,
+                                 linewidth=1, edgecolor='r',
+                                 facecolor='none')
+        ax.add_patch(rect)
+
+
+def plot_detailed(dcm, original_image, smooth_image, noise_image, snr_map,
+                  phantom_mask, image_centre, roi_corners, roi_size, snr):
+    fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
+                                     figsize=(8, 2.8))
+    fig.suptitle('SNR = %.2f (file: %s)'
+                          % (snr, os.path.basename(dcm.filename)))
+    axs[0].imshow(original_image, cmap='gray')
+    axs[0].set_title('Magnitude Image')
+    axs[1].imshow(smooth_image, cmap='gray')
+    axs[1].contour(phantom_mask, colors='y')
+    phantom_centre_marker = patches.Circle(
+        np.flip(np.rint(image_centre).astype('int')), color='y')
+    axs[1].add_patch(phantom_centre_marker)
+    axs[1].set_title('Smoothed')
+    axs[2].imshow(noise_image, cmap='gray')
+    axs[2].set_title('Noise')
+    draw_roi_rectangles(axs[0], roi_corners, roi_size)
+    draw_roi_rectangles(axs[2], roi_corners, roi_size)
+    plot_snr_map(snr_map, fig, axs[3])
+    for ax in axs:
+        ax.axis('off')
+
+    return fig
+
+
+def plot_summary(original_image, snr_map, roi_corners, roi_size):
+    fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
+                                 figsize=(6, 2.8))
+    axs[0].imshow(original_image, cmap='gray')
+    axs[0].set_title('Magnitude Image')
+
+    draw_roi_rectangles(axs[0], roi_corners, roi_size)
+    plot_snr_map(snr_map, fig, axs[1])
+    for ax in axs:
+        ax.axis('off')
+
+    return fig
 
 
 def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
@@ -121,32 +344,9 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
 
         #  Create original, smoothed and noise images
         #  ==========================================
+        original_image, smooth_image, noise_image = \
+            smooth(dcm, skimage.morphology.square(kernel_len))
 
-        #  cast as float to allow non-integer values for smoothing
-
-        original_image = dcm.pixel_array.astype(float)
-
-        smooth_image = ndimage.filters.uniform_filter(original_image,
-                                                      size=kernel_len)
-
-        #  Alternative method 1:- can use different kernels
-        #  Boxcar filter
-        #  NB morphology.disk may be better
-        # smoothing_kernel = morphology.square(kernel_len) # Boxcar kernel
-        # smoothing_kernel = smoothing_kernel / smoothing_kernel.sum() # normalise
-        # smooth_image = ndimage.filters.convolve(original_image, smoothing_kernel)
-
-        #  Alternative method 2: OpenCV.
-        # smooth_image = cv2.blur(original_image, (kernel_len, kernel_len))
-
-        #  Alternative method 3: scipy.ndimage.
-        # kernel = np.ones([kernel_len, kernel_len], float)
-        # kernel = kernel / kernel.sum() # normalise kernel
-        # smooth_image = ndimage.filters.convolve(original_image, kernel)
-        #  Note: filters.convolve and filters.correlate produce identical output
-        #  for symetric kernels. Be careful with other kernels.
-
-        noise_image = original_image - smooth_image
 
         #  Note: access NumPy arrays by column then row. E.g.
         #
@@ -170,112 +370,32 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
                         ' Algorithm untested with these dimensions.',
                         original_image.shape)
 
-        #  Calculate ROIs
-        #  ==============
-
-        # Threshold from smooth_image to reduce noise effects
-        threshold = filters.threshold_minimum(smooth_image)
-        phantom_mask = smooth_image > threshold
-
-        #  Get centroid (=centre of mass for binary image) and convert to array
-        image_centre = np.array(ndimage.measurements.center_of_mass(phantom_mask))
-        log.debug('image_centre = %r.', image_centre)
-
-        #  Store corner of centre ROI, cast as int for indexing
-        roi_corners = [np.rint(image_centre - roi_size / 2).astype(int)]
-
-        #  Add corners of remaining ROIs
-        roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
-        roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
-        roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
-        roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
+        #  Calculate mask and ROIs
+        #  =======================
+        phantom_mask, roi_corners, image_centre = \
+            get_rois(smooth_image, roi_distance, roi_size)
 
         #  Calculate SNR
         #  =============
-
-        roi_signal = []
-        roi_noise = []
-
-        for [x, y] in roi_corners:
-            roi_signal.append(original_image[x:x + roi_size, y:y + roi_size].mean())
-            roi_noise.append(noise_image[x:x + roi_size, y:y + roi_size].std(ddof=1))
-            # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
-            # uses population std dev. Not sure which is statistically correct,
-            # but using ddof=1 for consistency with IDL code.
-
-        roi_snr = np.array(roi_signal) / np.array(roi_noise)
-        snr = roi_snr.mean()
-
-        log.debug('ROIs signal=%r, noise=%r, snr=%r',
-                  roi_signal, roi_noise, roi_snr)
-
-        #  Plot images
-        fig_detailed, axs = plt.subplots(1, 4, sharex=True, sharey=True,
-                                         figsize=(8, 2.8))
-        fig_summary, axs2 = plt.subplots(1, 2, sharex=True, sharey=True,
-                                         figsize=(6, 2.8))
-
-        fig_detailed.suptitle('SNR = %.2f (file: %s)'
-                     % (snr, os.path.basename(dcm.filename)))
-        axs[0].imshow(original_image, cmap='gray')
-        axs[0].set_title('Signal')
-        axs[1].imshow(smooth_image, cmap='gray')
-        axs[1].contour(phantom_mask, colors='y')
-        phantom_centre_marker = patches.Circle(
-            np.flip(np.rint(image_centre).astype('int')), color='y')
-        #  See comment on np.flip(...) above.
-        axs[1].add_patch(phantom_centre_marker)
-        axs[1].set_title('Smoothed')
-        axs[2].imshow(noise_image, cmap='gray')
-        axs[2].set_title('Noise')
-
-        axs2[0].imshow(original_image, cmap='gray')
-        axs2[0].set_title('Signal')
-
-        #  Add ROI rectangles
-        for ax in axs[[0, 2]]:  # plot on signal and noise images, not smoothed
-            for corner in roi_corners:
-                rect = patches.Rectangle(np.flip(corner), roi_size, roi_size,
-                                         linewidth=1, edgecolor='r',
-                                         facecolor='none')
-                # See comment on np.flip(...) above.
-                ax.add_patch(rect)
-
-        for corner in roi_corners:
-            rect = patches.Rectangle(np.flip(corner), roi_size, roi_size,
-                                     linewidth=1, edgecolor='r',
-                                     facecolor='none')
-            # See comment on np.flip(...) above.
-            axs2[0].add_patch(rect)
+        snr = calc_snr(original_image, noise_image, roi_corners, roi_size)
 
         #  Generate local SNR parametric map
         #  =================================
+        snr_map = calc_snr_map(original_image, noise_image, roi_size)
 
-        #  If you need a faster (less transparent) implementation, see:
-        #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
+        #  Plot images
+        #  ===========
+        # fig_detailed, axs = plt.subplots(1, 4, sharex=True, sharey=True,
+        #                                  figsize=(8, 2.8))
+        # fig_summary, axs2 = plt.subplots(1, 2, sharex=True, sharey=True,
+        #                                  figsize=(6, 2.8))
+        fig_detailed = plot_detailed(dcm, original_image, smooth_image,
+                                     noise_image, snr_map, phantom_mask,
+                                     image_centre, roi_corners, roi_size, snr)
+        fig_summary = plot_summary(original_image, snr_map, roi_corners, roi_size)
 
-        noise_map = ndimage.filters.generic_filter(noise_image, sample_std,
-                                                   size=roi_size)
-        signal_map = ndimage.filters.uniform_filter(original_image, size=roi_size)
-        snr_map = signal_map / noise_map
-        para_im = axs[3].imshow(snr_map, cmap='viridis', vmin=0)
-        cax = fig_detailed.add_axes([axs[3].get_position().x1 + 0.01,
-                            axs[3].get_position().y0, 0.02,
-                            axs[3].get_position().height])
-        plt.colorbar(para_im, cax=cax)
-        axs[3].set_title('SNR map')
-
-        para_im2 = axs2[1].imshow(snr_map, cmap='viridis', vmin=0)
-        cax2 = fig_summary.add_axes([axs2[1].get_position().x1 + 0.01,
-                              axs2[1].get_position().y0, 0.02,
-                              axs2[1].get_position().height])
-        plt.colorbar(para_im, cax=cax2)
-        axs2[1].set_title('SNR map')
-
-        for ax in np.hstack((axs, axs2)):
-            ax.axis('off')
-
-        # save images
+        #  Save images
+        #  ===========
         if report_path:
             detailed_image_path = f'{report_path}_snr_map_detailed.png'
             summary_image_path = f'{report_path}_snr_map.png'
