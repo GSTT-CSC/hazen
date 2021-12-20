@@ -257,7 +257,7 @@ def baseline_correction(profile, sample_spacing):
             "profile_corrected_interpolated": profile_corrected_interp}
 
 
-def gauss_2D(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
+def gauss_2d(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
     """
     Create 2D Gaussian
     Based on code by Siân Culley, UCL/KCL
@@ -298,7 +298,7 @@ def gauss_2D(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
     return gauss.ravel()
 
 
-def fit_gauss_2D_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start):
+def fit_gauss_2d_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start):
     """
     Fit 2D Gaussian to Rods
     - Important:
@@ -344,7 +344,7 @@ def fit_gauss_2D_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_st
     # print(f'initial conditions for 2d gaussian fitting: {p0}\n')
 
     # do 2d gaussian fit to data
-    popt_single, pcov_single = opt.curve_fit(gauss_2D, indices, cropped_data.ravel(), p0=p0)
+    popt_single, pcov_single = opt.curve_fit(gauss_2d, indices, cropped_data.ravel(), p0=p0)
 
     A_ = popt_single[0]
     x0 = popt_single[1]
