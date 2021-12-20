@@ -257,6 +257,45 @@ def baseline_correction(profile, sample_spacing):
             "profile_corrected_interpolated": profile_corrected_interp}
 
 
+def gauss_2D(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
+    """
+    Create 2D Gaussian
+
+    Parameters
+    ----------
+    xy_tuple : grid of x-y coordinates
+    A : amplitude of 2D Gaussian
+    x_0 / y_0 : centre of 2D Gaussian
+    sigma_x / sigma_y : widths of 2D Gaussian
+    theta : rotation of Gaussian
+    C : background/intercept of 2D Gaussian
+
+    Returns
+    -------
+    gauss : 1-D list of Gaussian intensities
+
+    """
+    (x, y) = xy_tuple
+    x_0 = float(x_0)
+    y_0 = float(y_0)
+
+    cos_theta_2 = np.cos(theta) ** 2
+    sin_theta_2 = np.sin(theta) ** 2
+    cos_2_theta = np.cos(2 * theta)
+    sin_2_theta = np.sin(2 * theta)
+
+    sigma_x_2 = sigma_x ** 2
+    sigma_y_2 = sigma_y ** 2
+
+    a = cos_theta_2 / (2 * sigma_x_2) + sin_theta_2 / (2 * sigma_y_2)
+    b = -sin_2_theta / (4 * sigma_x_2) + sin_2_theta / (4 * sigma_y_2)
+    c = sin_theta_2 / (2 * sigma_x_2) + cos_theta_2 / (2 * sigma_y_2)
+
+    gauss = A * np.exp(-(a * (x - x_0) ** 2 + 2 * b * (x - x_0) * (y - y_0) + c * (y - y_0) ** 2)) + C
+
+    return gauss.ravel()
+
+
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
 
     """
