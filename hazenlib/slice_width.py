@@ -66,8 +66,8 @@ def get_rods(dcm, report_path=False):
         input DICOM file
     Returns
     -------
-    rods : array_like
-        rod positions in pixels
+    rods : array_like – centroid coordinates of rods
+    rods_initial : array_like  – initial guess at rods (center-of mass)
 
     Notes
     -------
@@ -175,16 +175,18 @@ def get_rods(dcm, report_path=False):
         # fig.savefig("../rod_centroids_combined.png")
         fig.savefig(report_path + "_rod_centroids.png")
 
-    return rods
+    return rods, rods_initial
 
 
-def plot_rods(ax, arr, rods): # pragma: no cover
+def plot_rods(ax, arr, rods, rods_initial): # pragma: no cover
     ax.imshow(arr, cmap='gray')
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
     for idx, i in enumerate(rods):
-        ax.scatter(x=i.x, y=i.y, marker=f"${mark[idx]}$", s=10, linewidths=0.4)
+        # ax.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.', markersize=2)  # center-of-mass method
+        ax.plot(rods[idx].x, rods[idx].y, 'r.', markersize=2)  # gauss 2D
+        ax.scatter(x=i.x + 5, y=i.y - 5, marker=f"${mark[idx]}$", s=30, linewidths=0.4, c="w")
 
-    ax.set_title('find rods')
+    ax.set_title('Rod Centroids')
     return ax
 
 
@@ -678,7 +680,7 @@ def get_slice_width(dcm, report_path=False):
     sample_spacing = 0.25
     pixel_size = dcm.PixelSpacing[0]
 
-    rods = get_rods(dcm)
+    rods, rods_initial = get_rods(dcm)
     horz_distances, vert_distances = get_rod_distances(rods)
     horz_distortion_mm, vert_distortion_mm = get_rod_distortions(rods, dcm)
     correction_coefficients_mm = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
@@ -764,11 +766,11 @@ def get_slice_width(dcm, report_path=False):
     if report_path:
         import matplotlib.pyplot as plt
 
-        fig, axes = plt.subplots(6, 1)
+        fig, axes = plt.subplots(6, 1, gridspec_kw={'height_ratios': [3, 1, 1, 1, 1, 1]})
         fig.set_size_inches(6, 16)
         fig.tight_layout(pad=1)
 
-        plot_rods(axes[0], arr, rods)
+        plot_rods(axes[0], arr, rods, rods_initial)
 
         axes[1].plot(np.mean(ramp_profiles["top"], axis=0), label='mean top profile')
         axes[1].plot(ramp_profiles_baseline_corrected["top"]["baseline"],
