@@ -95,7 +95,7 @@ from docopt import docopt
 import numpy as np
 from hazenlib.tools import is_dicom_file
 
-__version__ = '0.4.0'
+__version__ = '0.5.1'
 
 import hazenlib.exceptions
 
