@@ -74,15 +74,16 @@ def get_rods(dcm):
     """
 
     arr = dcm.pixel_array
+    arr_inv = np.invert(arr) # invert image for fitting (maximisation)
+
+    """
+    Initial Center-of-mass Rod Locator
+    """
 
     # threshold and binaries the image in order to locate the rods.
-    # this is achieved by masking the
     img_max = np.max(arr)  # maximum number of img intensity
     no_region = [None] * img_max
 
-    # smooth the image with a 0.5sig kernal - this is to avoid noise being counted in .label function
-    # img_tmp = ndimage.gaussian_filter(arr, 0.5)
-    # commented out smoothing as not in original MATLAB - Haris
     img_tmp = arr
     # step over a range of threshold levels from 0 to the max in the image
     # using the ndimage.label function to count the features for each threshold
@@ -108,8 +109,55 @@ def get_rods(dcm):
     rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
-    rods = sort_rods(rods)
+    rods_initial = sort_rods(rods)
 
+    """
+    Gaussian 2D Rod Locator
+    """
+
+    # setup bounding box dict
+    bbox = {"x_start": [], "x_end": [], "y_start": [], "y_end": [], "intensity_max": [], "rod_dia": [], "radius": []}
+
+    # get relevant label properties
+    rod_radius = []
+    rod_inv_intensity = []
+
+    rprops = regionprops(labeled_array, arr_inv)[1:]  # ignore first label
+    for idx, i in enumerate(rprops):
+        rod_radius.append(rprops[idx].feret_diameter_max)  # 'radius' of each label
+        rod_inv_intensity.append(rprops[idx].intensity_max)
+
+    rod_radius_mean = int(np.mean(rod_radius))
+    rod_inv_intensity_mean = int(np.mean(rod_inv_intensity))
+    bbox["radius"] = int(np.ceil((rod_radius_mean * 2) / 2))
+
+    # array bounding box regions around rods
+    ext = bbox["radius"]  # no. pixels to extend bounding box
+
+    for idx, i in enumerate(rprops):
+        bbox["x_start"].append(rprops[idx].bbox[0] - ext)
+        bbox["x_end"].append(rprops[idx].bbox[2] + ext)
+        bbox["y_start"].append(rprops[idx].bbox[1] - ext)
+        bbox["y_end"].append(rprops[idx].bbox[3] + ext)
+        bbox["intensity_max"].append(rprops[idx].intensity_max)
+        bbox["rod_dia"].append(rprops[idx].feret_diameter_max)
+
+        # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
+
+    x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
+
+    for idx in range(len(rods)):
+        cropped_data = []
+        cropped_data = arr_inv[bbox["x_start"][idx]:bbox["x_end"][idx], bbox["y_start"][idx]:bbox["y_end"][idx]]
+        x0_im[idx], y0_im[idx], x0[idx], y0[idx] = fit_gauss_2d_to_rods(cropped_data, bbox["intensity_max"][idx],
+                                                                        bbox["rod_dia"][idx], bbox["radius"],
+                                                                        bbox["x_start"][idx], bbox["y_start"][idx])
+
+        # axes[idx].imshow(cropped_data)
+        # axes[idx].plot(y0[idx], x0[idx], 'r.') # nb: flipped x/y
+
+        rods[idx].x = x0_im[idx]
+        rods[idx].y = y0_im[idx]
 
     return rods
 
