@@ -427,7 +427,7 @@ def fit_gauss_2d_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_st
     # do 2d gaussian fit to data
     popt_single, pcov_single = opt.curve_fit(gauss_2d, indices, cropped_data.ravel(), p0=p0)
 
-    A_ = popt_single[0]
+    A = popt_single[0]
     x0 = popt_single[1]
     y0 = popt_single[2]
     sigma_x = popt_single[3]

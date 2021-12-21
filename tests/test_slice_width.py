@@ -82,7 +82,6 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
-
         distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
         #print("distances")
         #print(distances)
@@ -101,8 +100,6 @@ class TestSliceWidth(unittest.TestCase):
         assert (round(horizontal_distortion, 2), round(vertical_distortion, 2)) == self.ROD_DIST
 
     def test_get_ramp_profiles(self):
-
-
         ramp_profiles = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods, self.dcm.PixelSpacing[0])
         bottom_profiles = ramp_profiles["bottom"]
         mean_bottom_profile = np.mean(bottom_profiles, axis=0).tolist()
