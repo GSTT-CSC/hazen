@@ -170,12 +170,24 @@ def get_rods(dcm, report_path=False):
 
     # save figure
     if report_path:
-        fig, axes = plt.subplots(1, 1, figsize=(15, 15))
-        axes.set_title("Rods – Initial Estimate vs. 2D Gaussian Fit")
-        axes.imshow(arr, cmap='gray')
+        fig, axes = plt.subplots(1, 3, figsize=(45, 15))
+        fig.tight_layout(pad=1)
+        # center-of-mass (original method)
+        axes[0].set_title("Initial Estimate")
+        axes[0].imshow(arr, cmap='gray')
         for idx in range(len(rods)):
-            axes.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')  # center-of-mass method
-            axes.plot(rods[idx].x, rods[idx].y, 'r.')  # gauss 2D
+            axes[0].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
+        # gauss 2D
+        axes[1].set_title("2D Gaussian Fit")
+        axes[1].imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes[1].plot(rods[idx].x, rods[idx].y, 'r.')
+        # combined
+        axes[2].set_title("Initial Estimate vs. 2D Gaussian Fit")
+        axes[2].imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes[2].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
+            axes[2].plot(rods[idx].x, rods[idx].y, 'r.')
         fig.savefig(report_path + "_rod_centroids.png")
 
     return rods, rods_initial
