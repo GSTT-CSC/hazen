@@ -77,7 +77,8 @@ class TestSliceWidth(unittest.TestCase):
         rods, _ = hazen_slice_width.get_rods(self.dcm)
         #print("rods")
         #print(rods)
-        self.assertAlmostEqual(self.rods, rods, 6)
+        for n in range(len(rods)):
+            np.testing.assert_almost_equal(self.rods[n].centroid, rods[n].centroid, 6)
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
