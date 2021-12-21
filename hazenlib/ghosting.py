@@ -211,7 +211,7 @@ def get_ghosting(dcm, report_path=False) -> dict:
 
     ghosting = calculate_ghost_intensity(ghost, phantom, noise)
 
-    if report_path:
+    if report_path == True:
         import matplotlib.pyplot as plt
         fig, ax = plt.subplots()
         x1, x2, y1, y2 = bbox
