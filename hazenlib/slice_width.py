@@ -97,18 +97,18 @@ def get_rods(dcm, report_path=False):
     # using the ndimage.label function to count the features for each threshold
     for x in range(0, img_max):
         tmp = img_tmp <= x
-        labeled_array, num_features = ndimage.label(tmp.astype(np.int))
+        labeled_array, num_features = ndimage.label(tmp.astype(int))
         no_region[x] = num_features
 
     # find the indices that correspond to 10 regions and pick the median
     index = [i for i, val in enumerate(no_region) if val == 10]
 
-    thres_ind = np.median(index).astype(np.int)
+    thres_ind = np.median(index).astype(int)
 
     # Generate the labeled array with the threshold chosen
     img_threshold = img_tmp <= thres_ind
 
-    labeled_array, num_features = ndimage.label(img_threshold.astype(np.int))
+    labeled_array, num_features = ndimage.label(img_threshold.astype(int))
 
     # check that we have got the 10 rods!
     if num_features != 10:
