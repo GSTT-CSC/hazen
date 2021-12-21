@@ -29,17 +29,15 @@ class TestSliceWidth(unittest.TestCase):
                    hazen_slice_width.Rod(128.1176, 70.4118),
                    hazen_slice_width.Rod(188.5000, 69.2222)]
 
-
-    rods = [
-        hazen_slice_width.Rod(69.16751269035532, 191.18274111675126),
-        hazen_slice_width.Rod(131.0, 189.06060606060606),
-        hazen_slice_width.Rod(189.5857142857143, 188.125),
-        hazen_slice_width.Rod(68.45833333333333, 129.79166666666666),
-        hazen_slice_width.Rod(127.26158445440957, 128.7982062780269),
-        hazen_slice_width.Rod(188.93866666666668, 127.104),
-        hazen_slice_width.Rod(68.62729124236253, 70.13034623217922),
-        hazen_slice_width.Rod(126.66222961730449, 68.3144758735441),
-        hazen_slice_width.Rod(188.20809898762656, 67.90438695163104)]
+    rods = [hazen_slice_width.Rod(70.26906602941604, 190.52291430040833),
+            hazen_slice_width.Rod(129.38344648450575, 189.5252799358382),
+            hazen_slice_width.Rod(189.6494724536544, 188.32774808447635),
+            hazen_slice_width.Rod(68.53084886954112, 130.56732921648214),
+            hazen_slice_width.Rod(127.86240947286896, 129.4605302262616),
+            hazen_slice_width.Rod(188.01124565987345, 128.2832650316875),
+            hazen_slice_width.Rod(67.97926729691507, 70.61103769200058),
+            hazen_slice_width.Rod(127.2060664869085, 69.42672715143607),
+            hazen_slice_width.Rod(187.49797283835656, 68.2890101413575)]
 
     DISTANCES = ([119.333, 119.632, 119.522], [120.022, 120.112, 120.196])
     DIST_CORR_COEFF = {"top": 0.9965, "bottom": 0.9957}
@@ -76,8 +74,7 @@ class TestSliceWidth(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
     def test_get_rods(self):
-        rods = hazen_slice_width.get_rods(self.dcm)
-
+        rods, _ = hazen_slice_width.get_rods(self.dcm)
         #print("rods")
         #print(rods)
         assert rods == self.rods
@@ -254,15 +251,15 @@ class Test512Matrix(TestSliceWidth):
                    hazen_slice_width.Rod(253.53888071406627, 135.75358569280274),
                    hazen_slice_width.Rod(374.00513210724, 135.12370483098044)]
 
-    rods = [hazen_slice_width.Rod(134.19422395407386, 376.3297092734241),
-            hazen_slice_width.Rod(255.5191606119133, 374.7890799840584),
-            hazen_slice_width.Rod(376.45583336255567, 373.7479398253673),
-            hazen_slice_width.Rod(133.73482492069846, 255.9592867481753),
-            hazen_slice_width.Rod(254.49068286441252, 254.33374023796569),
-            hazen_slice_width.Rod(375.15134878569734, 254.0979036468634),
-            hazen_slice_width.Rod(133.07301997760993, 136.86070859809843),
-            hazen_slice_width.Rod(253.53888071406627, 135.75358569280274),
-            hazen_slice_width.Rod(374.00513210724, 135.12370483098044)]
+    rods = [hazen_slice_width.Rod(134.50715482125025, 376.39901305569873),
+            hazen_slice_width.Rod(255.46730860444976, 374.7645374009015),
+            hazen_slice_width.Rod(376.3508021809186, 373.6769436835617),
+            hazen_slice_width.Rod(133.58289022243835, 256.06611582258665),
+            hazen_slice_width.Rod(254.51562676421784, 254.61914241989848),
+            hazen_slice_width.Rod(375.3779965519839, 253.83655980142507),
+            hazen_slice_width.Rod(132.7380060479853, 137.19733440032368),
+            hazen_slice_width.Rod(253.45972063728271, 135.83081591213042),
+            hazen_slice_width.Rod(374.31705777525144, 135.3055747931858)]
 
     DISTANCES = ([242.275, 241.424, 240.938], [239.472, 239.044, 238.637])
     DIST_CORR_COEFF = {'top': 1.0049, 'bottom': 1.0077}
