@@ -78,7 +78,7 @@ class TestSliceWidth(unittest.TestCase):
         #print("rods")
         #print(rods)
         for n in range(len(rods)):
-            np.testing.assert_almost_equal(self.rods[n].centroid, rods[n].centroid, 6)
+            np.testing.assert_almost_equal(self.rods[n].centroid, rods[n].centroid, 4)
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
