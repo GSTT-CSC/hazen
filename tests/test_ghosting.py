@@ -28,7 +28,6 @@ class TestGhosting(unittest.TestCase):
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
     )
 
-
     GHOSTING = (None,  0.11803264099090763)
 
     def setUp(self):
@@ -85,17 +84,15 @@ class TestCOLPEGhosting(TestGhosting):
         BACKGROUND_ROIS = [(64, 187), (64, 140), (64, 93), (64, 46)]
         PADDING_FROM_BOX = 30
         SLICE_RADIUS = 5
-        ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
-            SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+        ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
 
-        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[
-                       :,
-                       np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
-                                             dtype=np.intp)
+       SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis], 
+                      np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
+        
         GHOST_SLICE = np.array(
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
-        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
-    )
+        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
+        
         PE = "COL"
         GHOSTING = (None,  0.015138960417776908)
 
@@ -114,14 +111,12 @@ class TestAxialPhilipsBroomfields(TestGhosting):
         SLICE_RADIUS = 5
         ELIGIBLE_GHOST_AREA = range(SLICE_RADIUS, SIGNAL_BOUNDING_BOX[0] - PADDING_FROM_BOX), range(
             SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
-        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[
-                       :,
-                       np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
-                                             dtype=np.intp)
+        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis],
+                       np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
+            
         GHOST_SLICE = np.array(
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
-        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
-    )
+        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
         GHOSTING = (None,  0.007246960909896829)
 
