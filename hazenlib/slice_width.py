@@ -176,7 +176,6 @@ def get_rods(dcm, report_path=False):
         for idx in range(len(rods)):
             axes.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')  # center-of-mass method
             axes.plot(rods[idx].x, rods[idx].y, 'r.')  # gauss 2D
-        # fig.savefig("../rod_centroids_combined.png")
         fig.savefig(report_path + "_rod_centroids.png")
 
     return rods, rods_initial
@@ -684,7 +683,7 @@ def get_slice_width(dcm, report_path=False):
     sample_spacing = 0.25
     pixel_size = dcm.PixelSpacing[0]
 
-    rods, rods_initial = get_rods(dcm)
+    rods, rods_initial = get_rods(dcm, report_path)
     horz_distances, vert_distances = get_rod_distances(rods)
     horz_distortion_mm, vert_distortion_mm = get_rod_distortions(rods, dcm)
     correction_coefficients_mm = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
