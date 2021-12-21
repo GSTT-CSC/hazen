@@ -4,7 +4,7 @@ import numpy as np
 import pydicom
 import pytest
 
-import hazenlib.ghosting as hazen_ghosting
+import hazenlib.test_g as hazen_ghosting
 from tests import TEST_DATA_DIR
 
 
@@ -28,7 +28,9 @@ class TestGhosting(unittest.TestCase):
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
     )
 
+
     GHOSTING = (None,  0.11803264099090763)
+
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'IM_0001.dcm')
@@ -49,6 +51,11 @@ class TestGhosting(unittest.TestCase):
         assert 5.0 == hazen_ghosting.calculate_ghost_intensity(ghost=np.asarray([10]),
                                                phantom=np.asarray([100]),
                                         noise=np.asarray([5]))
+
+            # assert -5.0 == hazen_ghosting.calculate_ghost_intensity(ghost=np.asarray([5]),
+            #                    phantom=np.asarray([100]),
+        #                   noise=np.asarray([10]))
+
 
 
     def test_get_signal_bounding_box(self):
@@ -84,15 +91,17 @@ class TestCOLPEGhosting(TestGhosting):
         BACKGROUND_ROIS = [(64, 187), (64, 140), (64, 93), (64, 46)]
         PADDING_FROM_BOX = 30
         SLICE_RADIUS = 5
-        ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+        ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
+            SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
 
-       SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis], 
-                      np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
-        
+        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[
+                       :,
+                       np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
+                                             dtype=np.intp)
         GHOST_SLICE = np.array(
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
-        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
-        
+        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
+    )
         PE = "COL"
         GHOSTING = (None,  0.015138960417776908)
 
@@ -111,18 +120,22 @@ class TestAxialPhilipsBroomfields(TestGhosting):
         SLICE_RADIUS = 5
         ELIGIBLE_GHOST_AREA = range(SLICE_RADIUS, SIGNAL_BOUNDING_BOX[0] - PADDING_FROM_BOX), range(
             SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
-        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis],
-                       np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
-            
+        SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[
+                       :,
+                       np.newaxis], np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),
+                                             dtype=np.intp)
         GHOST_SLICE = np.array(
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
-        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
+        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0]))
+    )
 
         GHOSTING = (None,  0.007246960909896829)
 
         def setUp(self):
             self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'axial_philips_broomfields.dcm')
             self.dcm = pydicom.read_file(self.file)
+
+
 
 
 
