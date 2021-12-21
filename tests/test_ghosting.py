@@ -4,7 +4,7 @@ import numpy as np
 import pydicom
 import pytest
 
-import hazenlib.test_g as hazen_ghosting
+import hazenlib.ghosting as hazen_ghosting
 from tests import TEST_DATA_DIR
 
 
