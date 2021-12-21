@@ -47,10 +47,6 @@ class TestGhosting(unittest.TestCase):
                                                                phantom=np.asarray([100]),
                                                                noise=np.asarray([5]))
 
-            # assert -5.0 == hazen_ghosting.calculate_ghost_intensity(ghost=np.asarray([5]),
-            #                    phantom=np.asarray([100]),
-        #                   noise=np.asarray([10]))
-
 
 
     def test_get_signal_bounding_box(self):
