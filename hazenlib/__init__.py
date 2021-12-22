@@ -93,9 +93,13 @@ import importlib
 import pydicom
 from docopt import docopt
 import numpy as np
+import cv2
 from hazenlib.tools import is_dicom_file
 
+
 __version__ = '0.5.1'
+
+
 
 import hazenlib.exceptions
 
@@ -106,12 +110,10 @@ def rescale_to_byte(array):
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
     cdf = 255 * cdf / cdf[-1]  # normalize
-
     # use linear interpolation of cdf to find new pixel values
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
-
     return image_equalized.reshape(array.shape).astype('uint8')
-
+#
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """
@@ -309,9 +311,25 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 
+def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse_relaxometry_data(arguments, dicom_objects, report):   #
+
+    # Relaxometry arguments
+    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
+                            '--show_template_fit', '--show_relax_fits',
+                            '--show_rois', '--verbose'}
+
+    # Pass arguments with dictionary, stripping initial double dash ('--')
+    relaxometry_args = {}
+
+    for key in relaxometry_cli_args:
+        relaxometry_args[key[2:]] = arguments[key]
+
+    return task.main(dicom_objects, report_path = report,
+                               **relaxometry_args)
+
+
 def main():
     arguments = docopt(__doc__, version=__version__)
-
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
     folder = arguments['<folder>']
     files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
@@ -342,22 +360,15 @@ def main():
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
+        result = task.main(dicom_objects, measured_slice_width, report_path=report)
+    elif arguments['<task>'] == 'relaxometry':
+        result = parse_relaxometry_data(task, arguments, dicom_objects, report)
+    else:
+        result = task.main(dicom_objects, report_path=report)
+
+    return pp.pformat(result)
 
 
-    if arguments['<task>'] == 'relaxometry':
-        # Relaxometry arguments
-        relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                                '--show_template_fit', '--show_relax_fits',
-                                '--show_rois', '--verbose'}
-
-        # Pass arguments with dictionary, stripping initial double dash ('--')
-        relaxometry_args = {}
-
-        for key in relaxometry_cli_args:
-            relaxometry_args[key[2:]] = arguments[key]
-
-        return pp.pprint(task.main(dicom_objects, report_path=report,
-                                   **relaxometry_args))
-
-    return pp.pprint(task.main(dicom_objects, report_path=report))
+def entry_point():
+    result = main()
+    print(result)
