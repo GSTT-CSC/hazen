@@ -5,7 +5,7 @@ coverage.xml
 **/__pycache__
 .idea
 logs
-*.logs
+*.log
 uploads
 tests/data/slicepos/results
 tests/data/uniformity/results
