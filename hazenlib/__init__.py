@@ -365,10 +365,12 @@ def main():
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        return task.main(dicom_objects, measured_slice_width, report_path=report)
+        result = task.main(dicom_objects, measured_slice_width, report_path=report)
+    elif arguments['<task>'] == 'relaxometry':
+        result = parse_relaxometry_data(task, arguments, dicom_objects, report)
+    else:
+        result = task.main(dicom_objects, report_path=report)
 
-    if arguments['<task>'] == 'relaxometry':
-        return parse_relaxometry_data(task, arguments, dicom_objects, report)
+    pp.pprint(result)
 
-    return pp.pprint(task.main(dicom_objects, report_path=report))
-
+    return result
