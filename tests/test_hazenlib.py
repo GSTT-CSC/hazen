@@ -7,6 +7,7 @@ from docopt import docopt
 from hazenlib.logger import logger
 from pprint import pprint
 import sys
+import ast
 import os
 
 TEST_DICOM = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
@@ -140,7 +141,6 @@ class TestHazenlib(unittest.TestCase):
                 assert fov == test_dicoms[manufacturer]['FOV']
 
 
-
 class Test(unittest.TestCase):
 
     def setUp(self):
@@ -157,15 +157,12 @@ class Test(unittest.TestCase):
         self.assertListEqual(test_array, TEST_OUT)
 
 
-
-
 class TestCliParser(unittest.TestCase):
     maxDiff = None
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm')
         self.dcm = pydicom.read_file(self.file)
-
 
     def test1_logger(self):
         sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
@@ -178,7 +175,6 @@ class TestCliParser(unittest.TestCase):
 
         self.assertEqual(logging.root.level, logging.WARNING)
 
-
     def test2_logger(self):
         sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\"]
 
@@ -189,7 +185,6 @@ class TestCliParser(unittest.TestCase):
         logging = hazenlib.logging
 
         self.assertEqual(logging.root.level, logging.INFO)
-
 
     def test_main_snr_exception(self):
         sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\snr\\Siemens\\", "--measured_slice_width=10"]
@@ -204,8 +199,7 @@ class TestCliParser(unittest.TestCase):
         sys.argv = [item.replace("\\", "/") for item in sys.argv]
 
         output=hazenlib.main()
-
-        print(output)
+        output_dict = ast.literal_eval(output)
 
         dict1={'snr_subtraction_measured_SNR SAG MEAS2_24_1': 182.87,
          'snr_subtraction_normalised_SNR SAG MEAS2_24_1': 7547.37,
@@ -214,20 +208,19 @@ class TestCliParser(unittest.TestCase):
                'snr_smoothing_measured_SNR SAG MEAS1_23_1': 184.41,
                'snr_smoothing_normalised_SNR SAG MEAS1_23_1':  7610.83}
 
-        print(output)
         maxDiff = None
-        self.assertDictEqual(output, dict1)
+        self.assertDictEqual(output_dict, dict1)
 
-
-    def test_relaxometyr(self):
+    def test_relaxometry(self):
         sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\",  "--plate_number", "4", "--calc_t1"]
 
         sys.argv = [item.replace("\\", "/") for item in sys.argv]
 
         output = hazenlib.main()
+        output_dict = ast.literal_eval(output)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference':  0.13499936644959437}}
-        self.assertDictEqual(dict1, output)
+        self.assertDictEqual(dict1, output_dict)
 
 
 

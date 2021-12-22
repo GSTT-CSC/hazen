@@ -328,10 +328,6 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse
                                **relaxometry_args)
 
 
-
-
-
-
 def main():
     arguments = docopt(__doc__, version=__version__)
     task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
@@ -360,17 +356,14 @@ def main():
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-result = task.main(dicom_objects, measured_slice_width, report_path=report)
+        result = task.main(dicom_objects, measured_slice_width, report_path=report)
     elif arguments['<task>'] == 'relaxometry':
         result = parse_relaxometry_data(task, arguments, dicom_objects, report)
     else:
         result = task.main(dicom_objects, report_path=report)
 
-    pp.pprint(result)
-
-    return result
+    return pp.pformat(result)
