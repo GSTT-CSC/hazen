@@ -79,7 +79,7 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
 
@@ -343,6 +343,7 @@ def main():
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
         return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
+
 
     if arguments['<task>'] == 'relaxometry':
         # Relaxometry arguments
