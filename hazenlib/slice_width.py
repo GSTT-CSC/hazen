@@ -7,11 +7,15 @@ from math import pi
 import sys
 import traceback
 from copy import copy
+from copy import deepcopy
 from hazenlib.logger import logger
 
 import numpy as np
 from scipy import ndimage
 from scipy.interpolate import interp1d
+import scipy.optimize as opt
+from skimage.measure import regionprops
+from matplotlib import pyplot as plt
 
 import hazenlib
 
@@ -54,7 +58,7 @@ def sort_rods(rods):
     return lower_row + middle_row + upper_row
 
 
-def get_rods(dcm):
+def get_rods(dcm, report_path=False):
     """
     Parameters
     ----------
@@ -62,8 +66,8 @@ def get_rods(dcm):
         input DICOM file
     Returns
     -------
-    rods : array_like
-        rod positions in pixels
+    rods : array_like – centroid coordinates of rods
+    rods_initial : array_like  – initial guess at rods (center-of mass)
 
     Notes
     -------
@@ -75,31 +79,36 @@ def get_rods(dcm):
 
     arr = dcm.pixel_array
 
+    # inverted image for fitting (maximisation)
+    arr_inv = np.invert(arr)
+    if np.min(arr_inv) < 0:
+        arr_inv = arr_inv + abs(np.min(arr_inv))  # ensure voxel values positive for maximisation
+
+    """
+    Initial Center-of-mass Rod Locator
+    """
+
     # threshold and binaries the image in order to locate the rods.
-    # this is achieved by masking the
     img_max = np.max(arr)  # maximum number of img intensity
     no_region = [None] * img_max
 
-    # smooth the image with a 0.5sig kernal - this is to avoid noise being counted in .label function
-    # img_tmp = ndimage.gaussian_filter(arr, 0.5)
-    # commented out smoothing as not in original MATLAB - Haris
     img_tmp = arr
     # step over a range of threshold levels from 0 to the max in the image
     # using the ndimage.label function to count the features for each threshold
     for x in range(0, img_max):
         tmp = img_tmp <= x
-        labeled_array, num_features = ndimage.label(tmp.astype(np.int))
+        labeled_array, num_features = ndimage.label(tmp.astype(int))
         no_region[x] = num_features
 
     # find the indices that correspond to 10 regions and pick the median
     index = [i for i, val in enumerate(no_region) if val == 10]
 
-    thres_ind = np.median(index).astype(np.int)
+    thres_ind = np.median(index).astype(int)
 
     # Generate the labeled array with the threshold chosen
     img_threshold = img_tmp <= thres_ind
 
-    labeled_array, num_features = ndimage.label(img_threshold.astype(np.int))
+    labeled_array, num_features = ndimage.label(img_threshold.astype(int))
 
     # check that we have got the 10 rods!
     if num_features != 10:
@@ -109,18 +118,90 @@ def get_rods(dcm):
 
     rods = [Rod(x=x[1], y=x[0]) for x in rods]
     rods = sort_rods(rods)
+    rods_initial = deepcopy(rods)  # save for later
+
+    """
+    Gaussian 2D Rod Locator
+    """
+
+    # setup bounding box dict
+    bbox = {"x_start": [], "x_end": [], "y_start": [], "y_end": [], "intensity_max": [], "rod_dia": [], "radius": []}
+
+    # get relevant label properties
+    rod_radius = []
+    rod_inv_intensity = []
+
+    rprops = regionprops(labeled_array, arr_inv)[1:]  # ignore first label
+    for idx, i in enumerate(rprops):
+        rod_radius.append(rprops[idx].feret_diameter_max)  # 'radius' of each label
+        rod_inv_intensity.append(rprops[idx].intensity_max)
+
+    rod_radius_mean = int(np.mean(rod_radius))
+    rod_inv_intensity_mean = int(np.mean(rod_inv_intensity))
+    bbox["radius"] = int(np.ceil((rod_radius_mean * 2) / 2))
+
+    # array bounding box regions around rods
+    ext = bbox["radius"]  # no. pixels to extend bounding box
+
+    for idx, i in enumerate(rprops):
+        bbox["x_start"].append(rprops[idx].bbox[0] - ext)
+        bbox["x_end"].append(rprops[idx].bbox[2] + ext)
+        bbox["y_start"].append(rprops[idx].bbox[1] - ext)
+        bbox["y_end"].append(rprops[idx].bbox[3] + ext)
+        bbox["intensity_max"].append(rprops[idx].intensity_max)
+        bbox["rod_dia"].append(rprops[idx].feret_diameter_max)
+
+        # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
+
+    x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
+
+    for idx in range(len(rods)):
+        cropped_data = []
+        cropped_data = arr_inv[bbox["x_start"][idx]:bbox["x_end"][idx], bbox["y_start"][idx]:bbox["y_end"][idx]]
+        x0_im[idx], y0_im[idx], x0[idx], y0[idx] = fit_gauss_2d_to_rods(cropped_data, bbox["intensity_max"][idx],
+                                                                        bbox["rod_dia"][idx], bbox["radius"],
+                                                                        bbox["x_start"][idx], bbox["y_start"][idx])
+
+        # note: flipped x/y
+        rods[idx].x = y0_im[idx]
+        rods[idx].y = x0_im[idx]
+
+    rods = sort_rods(rods)
+
+    # save figure
+    if report_path:
+        fig, axes = plt.subplots(1, 3, figsize=(45, 15))
+        fig.tight_layout(pad=1)
+        # center-of-mass (original method)
+        axes[0].set_title("Initial Estimate")
+        axes[0].imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes[0].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
+        # gauss 2D
+        axes[1].set_title("2D Gaussian Fit")
+        axes[1].imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes[1].plot(rods[idx].x, rods[idx].y, 'r.')
+        # combined
+        axes[2].set_title("Initial Estimate vs. 2D Gaussian Fit")
+        axes[2].imshow(arr, cmap='gray')
+        for idx in range(len(rods)):
+            axes[2].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
+            axes[2].plot(rods[idx].x, rods[idx].y, 'r.')
+        fig.savefig(report_path + "_rod_centroids.png")
+
+    return rods, rods_initial
 
 
-    return rods
-
-
-def plot_rods(ax, arr, rods): # pragma: no cover
+def plot_rods(ax, arr, rods, rods_initial): # pragma: no cover
     ax.imshow(arr, cmap='gray')
     mark = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
     for idx, i in enumerate(rods):
-        ax.scatter(x=i.x, y=i.y, marker=f"${mark[idx]}$", s=10, linewidths=0.4)
+        # ax.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.', markersize=2)  # center-of-mass method
+        ax.plot(rods[idx].x, rods[idx].y, 'r.', markersize=2)  # gauss 2D
+        ax.scatter(x=i.x + 5, y=i.y - 5, marker=f"${mark[idx]}$", s=30, linewidths=0.4, c="w")
 
-    ax.set_title('find rods')
+    ax.set_title('Rod Centroids')
     return ax
 
 
@@ -255,6 +336,114 @@ def baseline_correction(profile, sample_spacing):
             "baseline_interpolated": baseline_interp,
             "profile_interpolated": profile_interp,
             "profile_corrected_interpolated": profile_corrected_interp}
+
+
+def gauss_2d(xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
+    """
+    Create 2D Gaussian
+    Based on code by Siân Culley, UCL/KCL
+    See also: https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
+
+    Parameters
+    ----------
+    xy_tuple : grid of x-y coordinates
+    A : amplitude of 2D Gaussian
+    x_0 / y_0 : centre of 2D Gaussian
+    sigma_x / sigma_y : widths of 2D Gaussian
+    theta : rotation of Gaussian
+    C : background/intercept of 2D Gaussian
+
+    Returns
+    -------
+    gauss : 1-D list of Gaussian intensities
+
+    """
+    (x, y) = xy_tuple
+    x_0 = float(x_0)
+    y_0 = float(y_0)
+
+    cos_theta_2 = np.cos(theta) ** 2
+    sin_theta_2 = np.sin(theta) ** 2
+    cos_2_theta = np.cos(2 * theta)
+    sin_2_theta = np.sin(2 * theta)
+
+    sigma_x_2 = sigma_x ** 2
+    sigma_y_2 = sigma_y ** 2
+
+    a = cos_theta_2 / (2 * sigma_x_2) + sin_theta_2 / (2 * sigma_y_2)
+    b = -sin_2_theta / (4 * sigma_x_2) + sin_2_theta / (4 * sigma_y_2)
+    c = sin_theta_2 / (2 * sigma_x_2) + cos_theta_2 / (2 * sigma_y_2)
+
+    gauss = A * np.exp(-(a * (x - x_0) ** 2 + 2 * b * (x - x_0) * (y - y_0) + c * (y - y_0) ** 2)) + C
+
+    return gauss.ravel()
+
+
+def fit_gauss_2d_to_rods(cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start):
+    """
+    Fit 2D Gaussian to Rods
+    - Important:
+    --- This uses a cropped region around a rod. If the cropped region is too large,
+    such that it includes signal with intensity similar to the rods, the fitting may fail.
+    --- This is a maximisation function, hence the rods should have higher signal than the surrounding region
+    Based on code by Siân Culley, UCL/KCL
+
+    Parameters
+    ----------
+    cropped_data : 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
+    gauss_amp : initial estimate of amplitude of 2D Gaussian
+    gauss_radius : initial estimate of centre of 2D Gaussian
+    box_radius : 'radius' of box around rod
+    x_start / y_start : coordinates of bounding box in original non-cropped data
+
+    Returns
+    -------
+    x0_im / y0_im : rod centroid coordinates in dimensions of original image
+    x0 / y0 : rod centroid coordinates in dimensions of cropped image
+
+    """
+
+    # get (x,y) coordinates for fitting
+    indices = np.indices(cropped_data.shape)
+
+    # estimate initial conditions for 2d gaussian fit
+    dims_crop = cropped_data.shape
+    h_crop = dims_crop[0]
+    w_crop = dims_crop[1]
+
+    A = gauss_amp  # np.max() # amp of Gaussian
+    sigma = gauss_radius / 2  # radius of 2D Gaussian
+    C = np.mean([cropped_data[0, 0], cropped_data[h_crop - 1, 0], cropped_data[0, w_crop - 1],
+                 cropped_data[h_crop - 1, w_crop - 1]])  # background – np.min(outside of rod within cropped_data)
+
+    # print("A:", A)
+    # print("box_radius:", box_radius)
+    # print("sigma:", sigma)
+    # print("C:", C, "\n")
+
+    p0 = [A, box_radius, box_radius, sigma, sigma, 0, C]
+    # print(f'initial conditions for 2d gaussian fitting: {p0}\n')
+
+    # do 2d gaussian fit to data
+    popt_single, pcov_single = opt.curve_fit(gauss_2d, indices, cropped_data.ravel(), p0=p0)
+
+    A = popt_single[0]
+    x0 = popt_single[1]
+    y0 = popt_single[2]
+    sigma_x = popt_single[3]
+    sigma_y = popt_single[4]
+    theta = popt_single[5]
+    C = popt_single[6]
+
+    # print(f'results of 2d gaussian fitting: \n\tamplitude = {A_} \n\tx0 = {x0} \n\ty0 = {y0} \n\tsigma_x = {sigma_x} \n\tsigma_y = {sigma_y} \n\ttheta = {theta} \n\tC = {C} \n')
+
+    # to get image coordinates need to add back on x_start and y_start
+    x0_im = x0 + x_start
+    y0_im = y0 + y_start
+
+    # print(f'Initial centre was ({rods[idx].x}, {rods[idx].y}). Refined centre is ({x0_im}, {y0_im})\n')
+
+    return x0_im, y0_im, x0, y0
 
 
 def trapezoid(n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
@@ -506,7 +695,7 @@ def get_slice_width(dcm, report_path=False):
     sample_spacing = 0.25
     pixel_size = dcm.PixelSpacing[0]
 
-    rods = get_rods(dcm)
+    rods, rods_initial = get_rods(dcm, report_path)
     horz_distances, vert_distances = get_rod_distances(rods)
     horz_distortion_mm, vert_distortion_mm = get_rod_distortions(rods, dcm)
     correction_coefficients_mm = get_rod_distortion_correction_coefficients(horizontal_distances=horz_distances, pixel_size=pixel_size)
@@ -592,11 +781,11 @@ def get_slice_width(dcm, report_path=False):
     if report_path:
         import matplotlib.pyplot as plt
 
-        fig, axes = plt.subplots(6, 1)
+        fig, axes = plt.subplots(6, 1, gridspec_kw={'height_ratios': [3, 1, 1, 1, 1, 1]})
         fig.set_size_inches(6, 16)
         fig.tight_layout(pad=1)
 
-        plot_rods(axes[0], arr, rods)
+        plot_rods(axes[0], arr, rods, rods_initial)
 
         axes[1].plot(np.mean(ramp_profiles["top"], axis=0), label='mean top profile')
         axes[1].plot(ramp_profiles_baseline_corrected["top"]["baseline"],

@@ -22,52 +22,9 @@ from numpy.fft import fftfreq
 
 import hazenlib
 
-
-def maivis_deriv(x, a, h=1, n=1, axis=-1):
-    """
-    Performs differentiation the same way as done with MAIVIS to find the line spread function (LSF). This function has been re-implemented from IDL code written by Ioannis.
-
-        ;differentiate the ESF the same way as done with MAIVIS to find the line spread function (LSF)
-        max_deriv=FIX(n_elements(ESF)/4)
-
-        lsf=FLTARR(4*max_deriv)
-
-        for lsf_element=0, 4*max_deriv-4 do begin
-
-        aa=ESF(lsf_element)+ESF(lsf_element+1)
-        bb=ESF(lsf_element+2)+ESF(lsf_element+3)
-        lsf(lsf_element)=(bb-aa)/2
-
-        end
-
-        ;pad the last 3 elements of the lsf
-        for lsf_element=4*max_deriv-3, 4*max_deriv-1 do begin
-        lsf(lsf_element)=lsf(4*max_deriv-4)
-        end
-
-     Parameters
-    ----------
-    a : array_like
-        Input array
-    n : int, optional
-        The number of times values are differenced.
-    axis : int, optional
-        The axis along which the difference is taken, default is the last axis.
-    Returns
-    -------
-    diff : ndarray
-        The `n` order differences. The shape of the output is the same as `a`
-        except along `axis` where the dimension is smaller by `n`.
-    See Also
-    --------
-    idl_deriv
-    numpy.diff
-
-    """
-    max_deriv = len(a) // 4
-    b = [(a[i + 2] + a[i + 3] - a[i] - a[i + 1]) / 2 for i in range(4 * max_deriv - 3)]
-    # pad last 3 elements of b
-    b.extend([b[-1]] * 3)
+def deri(a):
+    # This function calculated the LSF by taking the derivative of the ESF. Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
+    b = np.gradient(a)
     return b
 
 
@@ -418,6 +375,8 @@ def get_esf(edge_arr, y):
     return u, esf
 
 
+
+
 def calculate_mtf_for_edge(dicom, edge, report_path=False):
     pixels = dicom.pixel_array
     pe = dicom.InPlanePhaseEncodingDirection
@@ -440,7 +399,7 @@ def calculate_mtf_for_edge(dicom, edge, report_path=False):
     angle, intercept = get_edge_angle_and_intercept(x_edge, y_edge)
     x, y = get_edge_profile_coords(angle, intercept, spacing)
     u, esf = get_esf(edge_arr, y)
-    lsf = maivis_deriv(u, esf)
+    lsf = deri(esf)
     lsf = np.array(lsf)
     n=lsf.size
     mtf = abs(np.fft.fft(lsf))
