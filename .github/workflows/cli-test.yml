@@ -36,4 +36,5 @@ jobs:
     - name: test snr
       if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
       run: |
+        set -Eeuxo pipefail
         hazen snr tests/data/snr/Siemens --report

@@ -220,7 +220,8 @@ class TestCliParser(unittest.TestCase):
         output_dict = ast.literal_eval(output)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference':  0.13499936644959437}}
-        self.assertDictEqual(dict1, output_dict)
+        self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
+                               output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
 
 
 
