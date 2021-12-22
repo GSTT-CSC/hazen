@@ -97,7 +97,8 @@ import cv2
 from hazenlib.tools import is_dicom_file
 
 
-__version__ = '0.4.0'
+__version__ = '0.5.1'
+
 
 
 import hazenlib.exceptions
@@ -309,7 +310,6 @@ def get_field_of_view(dcm: pydicom.Dataset):
 
     return fov
 
-  
 
 def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse_relaxometry_data(arguments, dicom_objects, report):   #
 
@@ -371,6 +371,4 @@ def main():
         return parse_relaxometry_data(task, arguments, dicom_objects, report)
 
     return pp.pprint(task.main(dicom_objects, report_path=report))
-
-
 

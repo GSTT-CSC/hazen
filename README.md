@@ -17,10 +17,11 @@
    <a href="https://github.com/GSTT-CSC/hazen/issues">Request Feature</a>
 </p>
 <p align="center">
-  <img src="https://github.com/GSTT-CSC/hazen/actions/workflows/tests_release.yml/badge.svg?branch=master">
+  <img src="https://github.com/GSTT-CSC/hazen/actions/workflows/tests_release.yml/badge.svg?branch=main">
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/laurencejackson/ba102d5f3e592fcd50451c2eff8a803d/raw/hazen_pytest-coverage-comment.json">
 </p>
 <p align="center">Please <b>STAR</b> this repo to receive updates about new versions of hazen!</p>
+
 
 ---
 
@@ -71,7 +72,7 @@ In Terminal:
 cd hazen
 cp ./hazen-app /usr/local/bin
 
-# run hazen
+# run hazen with CLI arguments
 hazen-app snr tests/data/snr/Siemens/
 
 latest: Pulling from gsttmriphysics/hazen
@@ -170,8 +171,9 @@ We have used hazen with MRI data from a handful of different MRI scanners, inclu
 The Release Manager should ensure:
 - All outstanding issues for the current release have been closed, or, transferred to future release.
 - All tests are passing on Github Actions.
-- All documentation has been updated with correct version numbers.
-- The version number in `hazenlib/__init__.py` has been updated.
+- All documentation has been updated with correct version numbers:
+   - Version number in `docs/conf.py`
+   - Version number in `hazenlib/__init__.py`
 - The `release` branch has been merged into `main` branch
 - A new release has been created with a new version tag (tag = version number)
 
