@@ -79,7 +79,7 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
 
@@ -365,11 +365,22 @@ def main():
         raise Exception("the (--measured_slice_width) option can only be used with snr")
     elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         measured_slice_width = float(arguments['--measured_slice_width'])
-        result = task.main(dicom_objects, measured_slice_width, report_path=report)
-    elif arguments['<task>'] == 'relaxometry':
-        result = parse_relaxometry_data(task, arguments, dicom_objects, report)
-    else:
-        result = task.main(dicom_objects, report_path=report)
+
+        return pp.pprint(task.main(dicom_objects, measured_slice_width, report_path=report))
+
+
+    if arguments['<task>'] == 'relaxometry':
+        # Relaxometry arguments
+        relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
+                                '--show_template_fit', '--show_relax_fits',
+                                '--show_rois', '--verbose'}
+
+        # Pass arguments with dictionary, stripping initial double dash ('--')
+        relaxometry_args = {}
+
+        for key in relaxometry_cli_args:
+            relaxometry_args[key[2:]] = arguments[key]
+
 
     pp.pprint(result)
 
