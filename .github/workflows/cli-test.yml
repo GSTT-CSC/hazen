@@ -6,6 +6,10 @@ name: CLI test
 
 on:
   pull_request:
+  push:
+    branches:
+      - 'main'
+      - 'release/*'
 
 jobs:
   test:
