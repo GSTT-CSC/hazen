@@ -156,7 +156,7 @@ class TestPhilipsResolution(TestSpatialResolution):
     MTF_FE =  0.6017507296855603
     MTF_PE = 0.4923415061063675
     bisecting_normal = (281, 245, 319, 239)
-    print('this is phil',hazen_spatial_resolution.calculate_mtf(dicom))
+  
 
 
 class TestEastKentResolution(TestSpatialResolution):
@@ -174,4 +174,4 @@ class TestEastKentResolution(TestSpatialResolution):
     MTF_FE = 0.9924200730536655
     MTF_PE = 0.9924200730536658
     bisecting_normal = (137, 126, 155, 122)
-    print('this is east',hazen_spatial_resolution.calculate_mtf(dicom))
+   
