@@ -367,3 +367,8 @@ def main():
         result = task.main(dicom_objects, report_path=report)
 
     return pp.pformat(result)
+
+
+def entry_point():
+    result = main()
+    print(result)
