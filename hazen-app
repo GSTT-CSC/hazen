@@ -3,7 +3,7 @@
 # hazen-app
 
 # DESCRIPTION
-#   A wrapper script for invoking hazen with docker
+#   A wrapper script for invoking hazen with docker.
 
 # INSTALL INSTRUCTIONS
 #   Run "chmod 700 <path to hazen-app file>" to give user the right permissions to execute
@@ -14,6 +14,16 @@
 #   run "hazen-app -h" for help and usage description
 #   To run a specific build of hazen use the -b <tag> flag before the standard positional arguments e.g.
 #   "hazen-app -b build_000 slice_position slice_positon_folder/ --report"
+
+# ADDITIONAL NOTES
+#   This script wraps all the necessary `docker run` arguments and passes them to the hazen container. As the hazen
+#   docker image entry point is the 'hazen' command the user is then able to use the container in the same way as they
+#   would the hazen CLI, i.e. the `hazen <TASK> <PATH?> <ARG>` syntax.
+#
+#   It is important to note that if this script is updated the user must copy the new version of the hazen-app script
+#   to /usr/local/bin before running it, and overwrite/remove any old versions.
+#
+#   In addition this script will provide some basic checks and warnings to the user.
 
 # SOURCES:
 #   https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
@@ -49,33 +59,15 @@ check_internet_connections(){
       internet_status=false
   fi
 }
-
-#check_hazen_version(){
-#  LATEST=`docker inspect --format='{{index .RepoDigests 0}}' $IMAGE`
-#  LOCAL=`docker image inspect --format "{{.Id}}" $IMAGE`
 #
-#  if [ "$LOCAL" == "$LATEST" ];then
-#    :
-#  else
-#      echo -n "Newer version of Hazen available: upgrade now? (y/n)"
-#      old_stty_cfg=$(stty -g)
-#      stty raw -echo ; answer=$(head -c 1) ; stty $old_stty_cfg # Careful playing with stty
-#      if echo "$answer" | grep -iq "^y" ;then
-#          docker pull $$REPO_IMAGE
-#      else
-#          echo "Continuing with old version"
-#      fi
-#  fi
-#}
 
-while getopts b: flag
+while getopts :b: flag
   do
       case "${flag}" in
-        b) BUILD_TAG=${OPTARG};;
-        *) echo "invalid arg provided"
+        b) BUILD_TAG=${OPTARG}
+          shift "$(( OPTIND - 1 ))";;
       esac
   done
-  shift $(( OPTIND - 1 ))
 
 # MAIN
 check_bash
@@ -91,12 +83,19 @@ fi
 
 # pull requested version
 if [ "$internet_status" = true ]; then
+  echo $APP_IMAGE
   docker pull $APP_IMAGE
+  else
+    echo "No internet connection, unable to check for latest version"
 fi
 
+command="docker run \
+                --rm \
+                --mount type=bind,source=$(pwd),target=/home/hazen_user/data \
+                -w /home/hazen_user/data \
+                ${APP_IMAGE} $@"
+
+echo running: ${command}
+
 # Set up mounted volumes, environment, and run our containerized command
-exec docker run \
-    --rm \
-    --mount type=bind,source="$(pwd)",target=/home/hazen_user/data \
-    -w /home/hazen_user/data \
-    $APP_IMAGE "$@"
+exec ${command}

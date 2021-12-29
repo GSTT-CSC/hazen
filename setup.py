@@ -19,7 +19,7 @@ setuptools.setup(
     ],
     entry_points={
         'console_scripts': [
-            'hazen = hazenlib:main',
+            'hazen = hazenlib:entry_point',
         ],
     },
 )

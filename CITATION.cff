@@ -1,0 +1,44 @@
+# YAML 1.2
+---
+authors:
+  -
+    family-names: Jackson
+    given-names: Laurence
+    orcid: "https://orcid.org/0000-0002-5904-8012"
+  -
+    family-names: Roberts
+    given-names: Thomas
+    orcid: "https://orcid.org/0000-0003-0385-1057"
+  -
+    family-names: Cester
+    given-names: Lucrezia
+  -
+    family-names: Vilic
+    given-names: Dika
+  -
+    family-names: Culley
+    given-names: Siân
+    orcid: "https://orcid.org/0000-0003-2112-0143"
+  -
+    family-names: Gabriel
+    given-names: Elizabeth
+  -
+    family-names: Ansell
+    given-names: Jane
+  -
+    family-names: Heraghty
+    given-names: Neil
+  -
+    family-names: Wilson
+    given-names: Paul
+  -
+    family-names: Shuaib
+    given-names: Haris
+    orcid: "https://orcid.org/0000-0001-6975-5960"
+cff-version: "1.1.0"
+date-released: 2021-12-22
+message: "If you use hazen in your work, please cite it using these metadata."
+repository-code: "https://github.com/GSTT-CSC/hazen"
+title: hazen
+version: "0.5.2"
+...

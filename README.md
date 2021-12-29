@@ -174,6 +174,7 @@ The Release Manager should ensure:
 - All documentation has been updated with correct version numbers:
    - Version number in `docs/conf.py`
    - Version number in `hazenlib/__init__.py`
+   - Version number in `CITATION.cff`
 - The `release` branch has been merged into `main` branch
 - A new release has been created with a new version tag (tag = version number)
 
