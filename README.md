@@ -41,7 +41,7 @@ Some example outputs from hazen:
 
 | hazen snr          | hazen ghosting                  |
 | ------------------ | ------------------------------- |
-| ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting-example.png)      |
+| ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting.png)      |
 
 ---
 
