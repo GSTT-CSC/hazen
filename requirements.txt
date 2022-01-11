@@ -1,7 +1,7 @@
 scikit-image==0.19.0
 SQLAlchemy_Utils==0.37.9
 alembic==1.0.10
-# celery==5.2.3
+celery==5.2.3
 numpy==1.21.4
 Werkzeug==0.15.6
 opencv-python==4.5.4.58
@@ -29,7 +29,7 @@ PyJWT==1.7.1
 gunicorn==19.9.0
 psycopg2-binary==2.8.4
 arrow==0.13.2
-amqp==2.4.2
+amqp==5.0.9
 sphinxcontrib-needs==0.4.3
 sphinxcontrib-napoleon
 sphinx_rtd_theme
