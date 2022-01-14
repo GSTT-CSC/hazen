@@ -128,6 +128,7 @@ import skimage.morphology
 import scipy.ndimage
 import scipy.optimize
 from scipy.interpolate import UnivariateSpline
+from scipy.special import i0e, ive
 
 import hazenlib.exceptions
 
@@ -455,12 +456,18 @@ def est_t1_s0(ti, tr, t1, pv):
     return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
 
 
-def t2_function(te, t2, s0):
-    """
-    Calculated pixel value given TE, T2, S0 and C.
+def t2_function(te, t2, s0, c):
+    r"""
+    Calculated pixel value with Rician noise model.
     
     Calculates pixel value from::
-        S = S0 * np.exp(-te / t2)
+        .. math::
+            S=\sqrt{\frac{\pi \alpha^2}{2}} \exp(- \alpha) \left( (1+ 2 \alpha)
+            \  \text{I_0}(\alpha) + 2 \alpha \ \text{I_1}(\alpha) \right)
+
+            \alpha() = \left( \frac{S_0}{2 \sigma} \ \exp{\left(-\frac{\text{TE}}{\text{T}_2}\right)} \right)^2
+
+            \text{I}_n() = n^\text{th} \ \text{order modified Bessel function of the first kind}
 
     Parameters
     ----------
@@ -470,6 +477,8 @@ def t2_function(te, t2, s0):
         T2 decay constant.
     S0 : float
         Initial pixel magnitude.
+    C : float
+        Noise parameter for Rician model (equivalent to st dev).
 
     Returns
     -------
@@ -477,34 +486,15 @@ def t2_function(te, t2, s0):
         Theoretical pixel values (signal) at each TE.
 
     """
-    pv = s0 * np.exp(-te / t2)
+
+    s0 = s0
+    alpha = (s0 / (2 * c) * np.exp(-te / t2)) **2
+    # NB need to use `i0e` and `ive` below to avoid numeric inaccuracy from
+    # multiplying by huge exponentials then dividing by the same exponential
+    pv = np.sqrt(np.pi/2 * c ** 2) *  \
+         ((1 + 2 * alpha) * i0e(alpha) + 2 * alpha * ive(1, alpha))
+
     return pv
-
-
-def t2_jacobian(te, t2, s0):
-    """
-    Jacobian of ``t2_function`` used for curve fitting.
-
-    Parameters
-    ----------
-    te : array_like
-        Echo times.
-    t2 : float
-        T2 decay constant.
-    s0 : float
-        Initial signal magnitude.
-
-    Returns
-    -------
-    array
-        [t2_der, s0_der].T, where x_der is a 1-D array of the partial
-        derivatives at each ``te``.
-
-    """
-    t2_der = s0 * te / t2 ** 2 * np.exp(-te / t2)
-    s0_der = np.exp(-te / t2)
-    jacobian = np.array([t2_der, s0_der])
-    return jacobian.T
 
 
 def est_t2_s0(te, t2, pv, c=0.0):
@@ -999,7 +989,8 @@ class T2ImageStack(ImageStack):
                          dicom_order_key='EchoTime')
 
         self.fit_function = t2_function
-        self.fit_jacobian = t2_jacobian
+        self.fit_jacobian = None
+        #TODO edit fit eqn str
         self.fit_eqn_str = 's0 * np.exp(-te / t2)'
 
     def initialise_fit_parameters(self, t2_estimates):
@@ -1026,13 +1017,10 @@ class T2ImageStack(ImageStack):
         self.t2_est = t2_estimates
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
-        self.c_est = np.full_like(self.t2_est, 0.0)
+        self.c_est = np.full_like(self.t2_est, 5.0)
         # estimate s0 from second image--first image is too low.
         self.s0_est = est_t2_s0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
-        # Get maximum time to use on fitting algorithm (5*t2_est)
-        # Truncating data after this avoids fitting Rician noise
-        self.max_fit_times = 5 * t2_estimates
 
     def find_relax_times(self):
         """
@@ -1061,18 +1049,16 @@ class T2ImageStack(ImageStack):
         #  Omit the first image data from the curve fit. This is achieved by
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
         #  can be implemented with rois[i].times[1::2] and .means[1::2]
-        bounds = ([0, 0], [np.inf, np.inf])
+        bounds = ([0, 0, 1], [np.inf, np.inf, np.inf])
         self.relax_fit = []
         for i in range(len(rois)):
-            times = [t for t in rois[i].times if t < self.max_fit_times[i]]
-            if len(times) < min_number_times:
-                times = rois[i].times[:min_number_times]
             self.relax_fit.append(
                 scipy.optimize.curve_fit(self.fit_function,
-                                         times[1:],
-                                         rois[i].means[1:len(times)],
+                                         rois[i].times[1:],
+                                         rois[i].means[1:],
                                          p0=[self.t2_est[i],
-                                             self.s0_est[i]],
+                                             self.s0_est[i],
+                                             self.c_est[i]],
                                          jac=self.fit_jacobian,
                                          bounds=bounds,
                                          method='trf'
