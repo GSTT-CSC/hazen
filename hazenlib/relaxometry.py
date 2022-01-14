@@ -93,14 +93,13 @@ Algorithm overview
     measurements.
 6. Determine relaxation time (T1 or T2) by fitting the decay equation to
     the ROI data for each sphere. The published values of the relaxation
-    times are used to seed the optimisation algorithm. For T2 fitting the
-    input data are truncated for TE > 5*T2 to avoid fitting Rician noise in
-    magnitude images with low signal intensity. Optionally plot and save the
-    decay curves.
+    times are used to seed the optimisation algorithm. A Rician nose model is
+    used for T2 fitting[1]. Optionally plot and save the decay curves.
 7. Return plate number, relaxation type (T1 or T2), measured relaxation
     times, published relaxation times, and fractional differences in a
     dictionary.
 
+[1] TODO Rician model theory
 
 Feature enhancements
 ====================
@@ -115,6 +114,8 @@ Use normalised structuring element in ROITimeSeries. This will allow correct
 calculation of mean if elements are not 0 or 1.
 
 Get r-squared measure of fit.
+
+Model Rician noise in T2 fitting.
 
 """
 import pydicom
