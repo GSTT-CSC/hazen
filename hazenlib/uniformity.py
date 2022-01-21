@@ -1,129 +1,108 @@
 """
-Uniformity + Ghosting & Distortion
+ACR Uniformity
 
-Calculates uniformity for a single-slice image of a uniform MRI phantom
+Calculates uniformity for slice 7 of the ACR phantom.
 
-This script implements the IPEM/MAGNET method of measuring fractional uniformity.
-It also calculates integral uniformity using a 75% area FOV ROI and CoV for the same ROI.
+This script calculates the integral uniformity in accordance with the ACR Guidance.
+This is done by first defining a large 200cm2 ROI before placing 1cm2 ROIs at every pixel within
+the large ROI. At each point, the mean of the 1cm2 ROI is calculated. The ROIs with the maximum and
+minimum mean value are used to calculate the integral uniformity. The results are also visualised.
 
-This script also measures Ghosting within a single image of a uniform phantom.
-This follows the guidance from ACR for testing their large phantom.
+Created by Yassine Azma
+yassine.azma@rmh.nhs.uk
 
-A simple measurement of distortion is also made by comparing the height and width of the circular phantom.
-
-Created by Neil Heraghty
-neil.heraghty@nhs.net
-
-14/05/2018
-
+13/01/2022
 """
 
 import sys
 import traceback
-
 import numpy as np
-
-import hazenlib.tools
-import hazenlib.exceptions as exc
+import skimage.morphology
 
 
-def mode(a, axis=0):
-    """
-    Finds the modal value of an array. From scipy.stats.mode
+def centroid_com(dcm):
+    # Calculate centroid of object using a centre-of-mass calculation
+    thresh_img = dcm > 0.25 * np.max(dcm)
+    open_img = skimage.morphology.area_opening(thresh_img,area_threshold=500)
+    bhull = skimage.morphology.convex_hull_image(open_img)
+    coords = np.nonzero(bhull)  # row major - first array is columns
 
-    Parameters:
-    ---------------
-    a: array
+    sum_x = np.sum(coords[0])
+    sum_y = np.sum(coords[1])
+    cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
 
-    Returns:
-    ---------------
-    most_frequent: the modal value
-    old_counts: the number of times this value was counted (check this)
-    """
-    scores = np.unique(np.ravel(a))  # get ALL unique values
-    test_shape = list(a.shape)
-    test_shape[axis] = 1
-    old_most_frequent = np.zeros(test_shape)
-    old_counts = np.zeros(test_shape)
-    most_frequent = None
-
-    for score in scores:
-        template = (a == score)
-        counts = np.expand_dims(np.sum(template, axis), axis)
-        most_frequent = np.where(counts > old_counts, score, old_most_frequent)
-        old_counts = np.maximum(counts, old_counts)
-        old_most_frequent = most_frequent
-
-    return most_frequent, old_counts
+    cxy = [cxy[0].astype(int), cxy[1].astype(int)]
+    return cxy
 
 
-def get_object_centre(dcm):
-    arr = dcm.pixel_array
-    shape_detector = hazenlib.tools.ShapeDetector(arr=arr)
-    orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
+def circular_mask(centre,radius,dims):
+    # Define a circular logical mask
+    nx = np.linspace(1, dims[0], dims[0])
+    ny = np.linspace(1, dims[1], dims[1])
 
-    if orientation in ['Sagittal', 'Coronal']:
-        # orientation is sagittal to patient
-        try:
-            (x, y), size, angle = shape_detector.get_shape('rectangle')
-        except exc.ShapeError:
-            raise
-
-    elif orientation == 'Transverse':
-        # orientation is axial
-        x, y, r = shape_detector.get_shape('circle')
-
-    else:
-        raise Exception("Direction must be Transverse, Sagittal or Coronal.")
-
-    return int(x), int(y)
+    x, y = np.meshgrid(nx, ny)
+    mask = np.square(x - centre[1]) + np.square(y - centre[0]) <= np.square(radius)
+    return mask
 
 
-def get_fractional_uniformity(dcm, report_path):
+def integral_uniformity(dcm,report_path):
+    # Calculate the integral uniformity in accordance with ACR guidance.
+    img = dcm[7].pixel_array
+    res = img.PixelSpacing  # In-plane resolution from metadata
+    r_large = np.ceil(80 / res[0])  # Required pixel radius to produce ~200cm2 ROI
+    r_small = np.ceil(np.sqrt(100 / np.pi) / res[0])  # Required pixel radius to produce ~1cm2 ROI
+    d_void = np.ceil(5/res[0]) # Offset distance for rectangular void at top of phantom
+    dims = img.shape  # Dimensions of image
 
-    arr = dcm.pixel_array
-    x, y = get_object_centre(dcm)
+    cxy = centroid_com(img)
+    base_mask = circular_mask([cxy[0]+d_void,cxy[1]], r_small, dims)  # Dummy circular mask at centroid
+    coords = np.nonzero(base_mask)  # Coordinates of mask
 
-    central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
-    # Create central 10x10 ROI and measure modal value
+    lroi = circular_mask([cxy[0], cxy[1] - np.divide(5 / res[1])], r_large)
+    img_masked = lroi * img
+    lroi_extent = np.nonzero(lroi)
 
-    central_roi_mode, mode_popularity = mode(central_roi)
+    mean_val = []
+    mean_array = []
+    for ii in range(0, len(lroi_extent[0])):
+        centre = [lroi_extent[0][ii], lroi_extent[1][ii]]  # Extract coordinates of new mask centre within large ROI
+        trans_mask = [coords[0] + centre[0] - cxy[0],
+                      coords[1] + centre[1] - np.round(cxy[1])]  # Translate mask within the limits of the large ROI
+        sroi_val = img_masked[trans_mask[0], trans_mask[1]]  # Extract values within translated mask
+        if np.count_nonzero(sroi_val) < np.count_nonzero(base_mask):
+            mean_val[ii] = 0
+        else:
+            mean_val[ii] = np.mean(sroi_val[np.nonzero(sroi_val)])
+        mean_array[lroi_extent[0][ii], lroi_extent[1][ii]] = mean_val[ii]
 
-    # Create 160-pixel profiles (horizontal and vertical, centred at x,y)
-    horizontal_roi = arr[(y - 5):(y + 5), (x - 80):(x + 80)]
-    horizontal_profile = np.mean(horizontal_roi, axis=0)
-    vertical_roi = arr[(y - 80):(y + 80), (x - 5):(x + 5)]
-    vertical_profile = np.mean(vertical_roi, axis=1)
+    sig_max = np.max(mean_val)
+    sig_min = np.min(mean_val[np.nonzero(mean_val)])
 
-    # Count how many elements are within 0.9-1.1 times the modal value
-    horizontal_count = np.where(np.logical_and((horizontal_profile > (0.9 * central_roi_mode)), (horizontal_profile < (
-            1.1 * central_roi_mode))))
-    horizontal_count = len(horizontal_count[0])
-    vertical_count = np.where(np.logical_and((vertical_profile > (0.9 * central_roi_mode)), (vertical_profile < (
-            1.1 * central_roi_mode))))
-    vertical_count = len(vertical_count[0])
+    max_loc = np.where(mean_array == sig_max)
+    min_loc = np.where(mean_array == sig_min)
 
-    # Calculate fractional uniformity
-    fractional_uniformity_horizontal = horizontal_count / 160
-    fractional_uniformity_vertical = vertical_count / 160
-
+    piu = 100 * (1 - (sig_max - sig_min) / (sig_max + sig_min))
     if report_path:
+
         import matplotlib.pyplot as plt
-        from matplotlib.patches import Rectangle
-        from matplotlib.collections import PatchCollection
-        fig, ax = plt.subplots()
-        rects = [Rectangle((x - 5, y - 5), 10, 10, facecolor="None", edgecolor='red', linewidth=3),
-                 Rectangle((x - 80, y - 5), 160, 10, facecolor="None", edgecolor='green'),
-                 Rectangle((x - 5, y - 80), 10, 160, facecolor="None", edgecolor='yellow')]
-        pc = PatchCollection(rects, match_original=True)
-        ax.imshow(arr, cmap='gray')
-        ax.add_collection(pc)
-        ax.scatter(x, y, 5)
+        theta = np.linspace(0, 2 * np.pi, 360)
+        fig = plt.figure()
+        fig.set_size_inches(8, 8)
+        plt.imshow(img)
+
+        plt.scatter([max_loc[1], min_loc[1]], [max_loc[0], min_loc[0]], c='red', marker='x')
+        plt.plot(r_small * np.cos(theta) + max_loc[1], r_small * np.sin(theta) + max_loc[0], c='yellow')
+        plt.annotate('Min = ' + str(np.round(sig_min, 1)), [min_loc[1], min_loc[0] + 10 / res[0]], c='white')
+
+        plt.plot(r_small * np.cos(theta) + min_loc[1], r_small * np.sin(theta) + min_loc[0], c='yellow')
+        plt.annotate('Max = ' + str(np.round(sig_max, 1)), [max_loc[1], max_loc[0] + 10 / res[0]], c='white')
+        plt.plot(r_large * np.cos(theta) + cxy[1], r_large * np.sin(theta) + cxy[0] + 5 / res[1], c='black')
+        plt.axis('off')
+        plt.title('Percent Integral Uniformity = ' + str(np.round(piu, 1)) + '%')
 
         fig.savefig(report_path + ".png")
 
-    return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-            'vertical': {'IPEM': fractional_uniformity_vertical}}
+    return {'Percentage Integral Uniformity = ' + str(np.round(piu, 1)) + '%'}
 
 
 def main(data: list, report_path=False) -> dict:
@@ -140,7 +119,7 @@ def main(data: list, report_path=False) -> dict:
             report_path = key
 
         try:
-            result = get_fractional_uniformity(dcm, report_path)
+            result = integral_uniformity(dcm, report_path)
         except Exception as e:
             print(f"Could not calculate the uniformity for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
@@ -152,4 +131,4 @@ def main(data: list, report_path=False) -> dict:
 
 
 if __name__ == "__main__":
-    main([sys.argv[1]])
+    main([sys.argv[0]])
