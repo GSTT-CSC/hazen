@@ -112,7 +112,14 @@ def integral_uniformity(dcm, report_path):
 def main(data: list, report_path=False) -> dict:
 
     result = {}
-    z = np.array([data[x].ImagePositionPatient[2] for x in range(len(data))])
+
+    try:
+        z = np.array([data[x].ImagePositionPatient[2] for x in range(len(data))])
+    except AttributeError:
+        print(data)
+        dcm_list = data.PerFrameFunctionalGroupsSequence
+        z = np.array([dcm_list[x].PlanePositionSequence[0].ImagePositionPatient[2] for x in range(len(dcm_list))])
+
     idx_sort = np.argsort(z)
     ind = idx_sort[6]
     dcm = data[ind]
