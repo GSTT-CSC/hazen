@@ -10,7 +10,7 @@ pytest>=6.2
 coverage>=6.0.2
 Flask_Moment==0.7.0
 flask_heroku==0.1.9
-Flask==1.0.3
+Flask==1.1.4
 pydicom==1.4.1
 WTForms==2.2.1
 Flask_Dropzone==1.5.3
