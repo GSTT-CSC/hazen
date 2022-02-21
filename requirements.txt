@@ -3,7 +3,7 @@ SQLAlchemy_Utils==0.37.9
 alembic==1.0.10
 celery==5.2.3
 numpy==1.21.4
-Werkzeug==0.15.6
+Werkzeug==2.0.3
 opencv-python==4.5.4.58
 Flask_Migrate==2.5.1
 pytest>=6.2
