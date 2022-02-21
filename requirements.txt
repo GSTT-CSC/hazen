@@ -21,6 +21,7 @@ imutils==0.5.3
 matplotlib==3.4.3
 Flask_SQLAlchemy==2.5.1
 scipy==1.7.2
+MarkupSafe==2.0.1
 docopt==0.6.2
 SQLAlchemy==1.4.28
 Flask_WTF==0.14.2
