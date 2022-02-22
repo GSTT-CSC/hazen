@@ -30,6 +30,7 @@ def centroid_com(dcm):
     cxy = [cxy[0].astype(int), cxy[1].astype(int)]
     return cxy
 
+
 def hori_length(mask,centroid,res):
     dims = mask.shape
     start_h = (centroid[1], 0)
@@ -48,6 +49,13 @@ def vert_length(mask,centroid,res):
     extent_v = np.nonzero(line_profile_v)[0]
     dist_v = (extent_v[-1]-extent_v[0])*res[1]
     return dist_v
+
+
+def rot_matrix(theta):
+    theta = np.radians(theta)
+    c,s = np.cos(theta), np.sin(theta)
+    R = np.array(((c, -s), (s, c)))
+    return R
 
 
 def geo_accuracy_slice1(dcm):
@@ -73,6 +81,8 @@ def geo_accuracy_slice5(dcm):
     res = dcm.PixelSpacing  # In-plane resolution from metadata
 
     L = [hori_length(bhull,cxy,res), vert_length(bhull,cxy,res)]
+    rot_matrix_se = rot_matrix(45)
+    print(rot_matrix_se)
     return L
 
 
