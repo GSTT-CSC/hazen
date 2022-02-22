@@ -30,7 +30,27 @@ def centroid_com(dcm):
     cxy = [cxy[0].astype(int), cxy[1].astype(int)]
     return cxy
 
-def geo_accuracy_slice1(dcm,res):
+def hori_length(mask,centroid,res):
+    dims = mask.shape
+    start_h = (centroid[1], 0)
+    end_h = (centroid[1], dims[0]-1)
+    line_profile_h = skimage.measure.profile_line(mask, start_h, end_h)
+    extent_h = np.nonzero(line_profile_h)[0]
+    dist_h = (extent_h[-1]-extent_h[0])*res[0]
+    return dist_h
+
+
+def vert_length(mask,centroid,res):
+    dims = mask.shape
+    start_v = (0, centroid[0])
+    end_v = (dims[1]-1, centroid[0])
+    line_profile_v = skimage.measure.profile_line(mask, start_v, end_v)
+    extent_v = np.nonzero(line_profile_v)[0]
+    dist_v = (extent_v[-1]-extent_v[0])*res[1]
+    return dist_v
+
+
+def geo_accuracy_slice1(dcm):
     img = dcm.pixel_array
     cxy = centroid_com(img)
     thresh_img = img > 0.25 * np.max(img)
@@ -38,21 +58,31 @@ def geo_accuracy_slice1(dcm,res):
     bhull = skimage.morphology.convex_hull_image(open_img)
 
     res = dcm.PixelSpacing  # In-plane resolution from metadata
-    start_v = (cxy[1], 0)
-    end_v = (cxy[1], 255)
-    start_h = (0, cxy[0])
-    end_h = (255, cxy[0])
-    line_profile_v = skimage.measure.profile_line(bhull, start_v, end_v)
-    line_profile_h = skimage.measure.profile_line(bhull, start_h, end_h)
 
-    insert_extent_v = np.nonzero(line_profile_v)
-    insert_extent_h = np.nonzero(line_profile_h)
+    L = [hori_length(bhull,cxy,res), vert_length(bhull,cxy,res)]
+    return L
 
-    insert_dist_v = (insert_extent_v[-1]-insert_extent_v[0])*res[1]
-    insert_dist_h = (insert_extent_h[-1]-insert_extent_h[0])*res[0]
 
-    L = [insert_dist_v,insert_dist_h]
-    print(insert_extent_h)
+def geo_accuracy_slice5(dcm):
+    img = dcm.pixel_array
+    cxy = centroid_com(img)
+    thresh_img = img > 0.25 * np.max(img)
+    open_img = skimage.morphology.area_opening(thresh_img, area_threshold=500)
+    bhull = skimage.morphology.convex_hull_image(open_img)
+
+    res = dcm.PixelSpacing  # In-plane resolution from metadata
+
+    L = [hori_length(bhull,cxy,res), vert_length(bhull,cxy,res)]
+    return L
+
+
+def geo_accuracy(dcm, dcm2, report_path):
+    L1 = geo_accuracy_slice1(dcm)
+    L5 = geo_accuracy_slice5(dcm2)
+
+    Ltot = L1, L5
+    return Ltot
+
 
 def main(data: list, report_path=False) -> dict:
 
@@ -66,8 +96,9 @@ def main(data: list, report_path=False) -> dict:
         z = np.array([dcm_list[x].PlanePositionSequence[0].ImagePositionPatient[2] for x in range(len(dcm_list))])
 
     idx_sort = np.argsort(z)
-    ind = [idx_sort[0], idx_sort[5]]
+    ind = [idx_sort[0], idx_sort[4]]
     dcm = data[ind[0]]
+    dcm2 = data[ind[1]]
 
     try:
         key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
@@ -79,8 +110,12 @@ def main(data: list, report_path=False) -> dict:
         report_path = key
 
     try:
-        L = geo_accuracy_slice1(dcm, report_path)
-        result[f"geo_accuracy_slice1_{key}"] = round(L, 2)
+        L = geo_accuracy(dcm, dcm2, report_path)
+        print(L)
+        result[f"geometric_accuracy_slice1_horizontal_{key}"] = np.round(L[0][0], 2)
+        result[f"geometric_accuracy_slice1_vertical_{key}"] = np.round(L[0][1], 2)
+        result[f"geometric_accuracy_slice5_horizontal_{key}"] = np.round(L[1][0], 2)
+        result[f"geometric_accuracy_slice5_vertical_{key}"] = np.round(L[1][1], 2)
     except Exception as e:
         print(f"Could not calculate the geometric accuracy for {key} because of : {e}")
         traceback.print_exc(file=sys.stdout)
