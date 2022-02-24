@@ -20,6 +20,9 @@ authors:
     given-names: Siân
     orcid: "https://orcid.org/0000-0003-2112-0143"
   -
+    family-names: Azma
+    given-names: Yassine
+  -
     family-names: Gabriel
     given-names: Elizabeth
   -
@@ -36,9 +39,9 @@ authors:
     given-names: Haris
     orcid: "https://orcid.org/0000-0001-6975-5960"
 cff-version: "1.1.0"
-date-released: 2021-12-22
+date-released: 2022-02-24
 message: "If you use hazen in your work, please cite it using these metadata."
 repository-code: "https://github.com/GSTT-CSC/hazen"
 title: hazen
-version: "0.5.2"
+version: "0.6.0"
 ...
