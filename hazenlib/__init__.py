@@ -97,7 +97,7 @@ import cv2
 from hazenlib.tools import is_dicom_file
 
 
-__version__ = '0.5.2'
+__version__ = '0.6.0'
 
 
 
