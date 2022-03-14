@@ -121,6 +121,8 @@ def geo_accuracy(dcm, dcm2, report_path):
     L5 = geo_accuracy_slice5(dcm2)
 
     Ltot = L1, L5
+    if report_path:
+        pass
     return Ltot
 
 
