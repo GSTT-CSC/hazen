@@ -94,12 +94,18 @@ Algorithm overview
 6. Determine relaxation time (T1 or T2) by fitting the decay equation to
     the ROI data for each sphere. The published values of the relaxation
     times are used to seed the optimisation algorithm. A Rician nose model is
-    used for T2 fitting[1]. Optionally plot and save the decay curves.
+    used for T2 fitting [1]_. Optionally plot and save the decay curves.
 7. Return plate number, relaxation type (T1 or T2), measured relaxation
     times, published relaxation times, and fractional differences in a
     dictionary.
 
-[1] TODO Rician model theory
+References
+==========
+.. [1] Raya, J.G., Dietrich, O., Horng, A., Weber, J., Reiser, M.F.
+and Glaser, C., 2010. T2 measurement in articular cartilage: impact of the
+fitting method on accuracy and precision at low SNR. Magnetic Resonance in
+Medicine: An Official Journal of the International Society for Magnetic
+Resonance in Medicine, 63(1), pp.181-193.
 
 Feature enhancements
 ====================
@@ -115,22 +121,24 @@ calculation of mean if elements are not 0 or 1.
 
 Get r-squared measure of fit.
 
-Model Rician noise in T2 fitting.
-
 """
-import pydicom
-import cv2 as cv
-import numpy as np
-import matplotlib.pyplot as plt
-import os
 import os.path
-import skimage.morphology
+
+import cv2 as cv
+import matplotlib.pyplot as plt
+import numpy as np
+import pydicom
 import scipy.ndimage
 import scipy.optimize
+import skimage.morphology
 from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
 import hazenlib.exceptions
+
+# Parameters for Rician noise model
+MAX_RICIAN_NOISE = 20.0
+SEED_RICIAN_NOISE = 5.0
 
 # Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches 
@@ -324,7 +332,7 @@ def pixel_rescale(dcmfile):
 
     For Philips scanners the private DICOM fields 2005,100d (=SI) and 2005,100e
     (=SS) are used as inverse scaling factors to perform the inverse
-    transformation [1]_
+    transformation [1]_.
 
     Parameters
     ----------
@@ -460,7 +468,7 @@ def t2_function(te, t2, s0, c):
     r"""
     Calculated pixel value with Rician noise model.
     
-    Calculates pixel value from::
+    Calculates pixel value from [1]_::
         .. math::
             S=\sqrt{\frac{\pi \alpha^2}{2}} \exp(- \alpha) \left( (1+ 2 \alpha)
             \  \text{I_0}(\alpha) + 2 \alpha \ \text{I_1}(\alpha) \right)
@@ -485,6 +493,13 @@ def t2_function(te, t2, s0, c):
     pv : array_like
         Theoretical pixel values (signal) at each TE.
 
+    References
+    ----------
+    .. [1] Raya, J.G., Dietrich, O., Horng, A., Weber, J., Reiser, M.F. and
+    Glaser, C., 2010. T2 measurement in articular cartilage: impact of the
+    fitting method on accuracy and precision at low SNR. Magnetic Resonance in
+    Medicine: An Official Journal of the International Society for Magnetic
+    Resonance in Medicine, 63(1), pp.181-193.
     """
 
     s0 = s0
@@ -499,7 +514,10 @@ def t2_function(te, t2, s0, c):
 
 def est_t2_s0(te, t2, pv, c=0.0):
     """
-    Initial guess for s0 to seed curve fitting.
+    Initial guess for s0 to seed curve fitting::
+        .. math::
+            S_0=\\frac{pv-c}{exp(-TE/T_2)}
+
 
     Parameters
     ----------
@@ -515,7 +533,7 @@ def est_t2_s0(te, t2, pv, c=0.0):
     Returns
     -------
     array_like
-        Initial s0 estimate ``s0 = (pv - c) / np.exp(-te/t2)``.
+        Initial s0 estimate.
 
     """
     return (pv - c) / np.exp(-te / t2)
@@ -990,8 +1008,7 @@ class T2ImageStack(ImageStack):
 
         self.fit_function = t2_function
         self.fit_jacobian = None
-        #TODO edit fit eqn str
-        self.fit_eqn_str = 's0 * np.exp(-te / t2)'
+        self.fit_eqn_str = 'T2 with Rician noise (Raya et al 2010)'
 
     def initialise_fit_parameters(self, t2_estimates):
         """
@@ -1001,7 +1018,7 @@ class T2ImageStack(ImageStack):
         
         s0 is estimated using est_t2_s0(te, t2_est, mean_pv, c).
             
-        C is estimated as 0.0, the theoretical value assuming Gaussian noise.
+        C is estimated as 5.0.
    
         Parameters
         ----------
@@ -1017,7 +1034,7 @@ class T2ImageStack(ImageStack):
         self.t2_est = t2_estimates
         rois = self.ROI_time_series
         rois_second_mean = np.array([roi.means[1] for roi in rois])
-        self.c_est = np.full_like(self.t2_est, 5.0)
+        self.c_est = np.full_like(self.t2_est, SEED_RICIAN_NOISE)
         # estimate s0 from second image--first image is too low.
         self.s0_est = est_t2_s0(rois[0].times[1], t2_estimates,
                                 rois_second_mean, self.c_est)
@@ -1026,13 +1043,14 @@ class T2ImageStack(ImageStack):
         """
         Calculate T2 values. Access as ``image_stack.t2s``.
         
-        Uses the 'skip first echo' fit method [1]_. At times >> T2, the signal
-        is dwarfed by Rician noise (for magnitude images). This can lead to
-        inaccuracies in determining T2 as the measured signal does not tend to
-        zero. To counter this, the signal is truncated after
-        ``self.max_fit_times[i]``. At least three signals are used in the fit
-        even if this exceeds the above criteria.
-    
+        Uses the 'skip first echo' fit method [1]_ with a Rician noise model
+        [2]_. Ideally the Rician noise parameter should be determined from the
+        images rather than fitted. However, this is not possible as the noise
+        profile varies across the image due to spatial coil sensitivities and
+        whether the image is normalised or unfiltered. Fitting the noise
+        parameter makes this easier. It has an upper limit of MAX_RICIAN_NOISE,
+        currently set to 20.0.
+
         Returns
         -------
         None.
@@ -1042,14 +1060,21 @@ class T2ImageStack(ImageStack):
         .. [1] McPhee, K. C., & Wilman, A. H. (2018). Limitations of skipping 
         echoes for exponential T2 fitting. Journal of Magnetic Resonance 
         Imaging, 48(5), 1432-1440. https://doi.org/10.1002/jmri.26052
+
+        .. [2] Raya, J.G., Dietrich, O., Horng, A., Weber, J., Reiser, M.F. and
+        Glaser, C., 2010. T2 measurement in articular cartilage: impact of the
+        fitting method on accuracy and precision at low SNR. Magnetic Resonance
+        in Medicine: An Official Journal of the International Society for
+         Magnetic Resonance in Medicine, 63(1), pp.181-193.
         """
-        # Require at least 4 samples (nb first sample is omitted)
-        min_number_times = 4
+
         rois = self.ROI_time_series
         #  Omit the first image data from the curve fit. This is achieved by
         #  slicing rois[i].times[1:] and rois[i].means[1:]. Skipping odd echoes
         #  can be implemented with rois[i].times[1::2] and .means[1::2]
-        bounds = ([0, 0, 1], [np.inf, np.inf, np.inf])
+
+        bounds = ([0, 0, 1], [np.inf, np.inf, MAX_RICIAN_NOISE])
+
         self.relax_fit = []
         for i in range(len(rois)):
             self.relax_fit.append(
@@ -1237,7 +1262,6 @@ def main(dcm_target_list, *, plate_number=None,
                           f'pub={relax_published[i]:.4g} '
                           f'({frac_time_diff[i] * 100:+.2f}%)',
                           fontsize=8)
-        # plt.tight_layout(rect=(0,0,0,0.95)) # Leave suptitle space at top
         if report_path:
             # Improve saved image quality
             old_dims = fig.get_size_inches()
