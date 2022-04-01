@@ -79,7 +79,7 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
+    <task>    snr | acr_snr | slice_position | slice_width | spatial_resolution | uniformity | acr_uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
 
@@ -97,7 +97,7 @@ import cv2
 from hazenlib.tools import is_dicom_file
 
 
-__version__ = '0.5.2'
+__version__ = '0.6.0'
 
 
 
