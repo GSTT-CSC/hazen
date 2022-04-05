@@ -1,8 +1,8 @@
-scikit-image==0.19.0
+scikit-image==0.19.1
 SQLAlchemy_Utils==0.37.9
 alembic==1.0.10
 celery==5.1.2
-numpy==1.21.4
+numpy==1.22.0
 Werkzeug==0.16.1
 opencv-python==4.5.4.58
 Flask_Migrate==2.5.1
@@ -20,7 +20,7 @@ Flask_Bootstrap4==4.0.2
 imutils==0.5.3
 matplotlib==3.4.3
 Flask_SQLAlchemy==2.5.1
-scipy==1.7.2
+scipy==1.7.3
 MarkupSafe==2.0.1
 docopt==0.6.2
 SQLAlchemy==1.4.28
@@ -28,7 +28,7 @@ Flask_WTF==0.14.2
 flask_bootstrap==3.3.7.1
 PyJWT==1.7.1
 gunicorn==19.9.0
-psycopg2-binary==2.8.4
+psycopg2-binary==2.9.0
 arrow==0.13.2
 amqp==5.0.9
 sphinxcontrib-needs==0.4.3
