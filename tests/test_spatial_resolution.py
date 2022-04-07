@@ -161,7 +161,7 @@ class TestPhilipsResolution(TestSpatialResolution):
 
 class TestEastKentResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')
-    dicom = pydicom.read_file(str(RESOLUTION_DATA / 'eastkent' / "256_sag.IMA"))
+    dicom = pydicom.read_file(str(RESOLUTION_DATA / 'resolution_site01' / "256_sag.IMA"))
     TEST_SQUARE = [[142, 105], [104, 113], [112, 152], [150, 144]]
     CIRCLE = [[[127, 128, 96]]]
     TOP_CENTRE = {'x': 123, 'y': 109}
