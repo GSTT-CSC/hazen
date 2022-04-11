@@ -44,6 +44,12 @@ class TestSnr(unittest.TestCase):
         SNR_factor=hazenlib.snr.get_normalised_snr_factor(self.test_file)
         assert(SNR_factor) == self.SNR_NORM_FACTOR
 
+    def test_two_inputs_match(self):
+        dcm1 = self.test_file
+        dcm2 = self.test_file_2
+        fields_to_match = ['StudyInstanceUID', 'RepetitionTime', 'EchoTime', 'FlipAngle']
+        self.assertTrue(hazenlib.snr.two_inputs_match(dcm1,dcm2))
+
 class TestSnrPhilips(TestSnr):
     #PHILIPS_MR_53_1
     #1.5T
