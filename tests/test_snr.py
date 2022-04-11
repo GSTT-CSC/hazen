@@ -46,7 +46,9 @@ class TestSnr(unittest.TestCase):
     def test_two_inputs_match(self):
         dcm1 = self.test_file
         dcm2 = self.test_file_2
-        self.assertTrue(hazenlib.snr.two_inputs_match(dcm1,dcm2))
+        dcm3 = pydicom.read_file(str(self.SNR_DATA / 'Philips'/'Philips_IM-0011-0005.dcm'), force=True)
+        self.assertTrue(hazenlib.snr.two_inputs_match(dcm1, dcm2))
+        self.assertFalse(hazenlib.snr.two_inputs_match(dcm1, dcm3))
 
 class TestSnrPhilips(TestSnr):
     #PHILIPS_MR_53_1
