@@ -117,4 +117,4 @@ jobs:
       - name: test snr
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
-          hazen snr tests/data/snr/Siemens --report
+          hazen snr tests/data/snr/GE --report
