@@ -175,7 +175,7 @@ The Release Manager should ensure:
    - Version number in `docs/conf.py`
    - Version number in `hazenlib/__init__.py`
    - Version number in `CITATION.cff`
-- The `release` branch has been merged into `main` branch
+- The `release` branch has been merged into `main` branch.
 - A new release has been created with a new version tag (tag = version number)
 
 - RMs of other branches should update their release from the latest release as soon as possible and deal with any merge conflicts.
