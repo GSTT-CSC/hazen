@@ -65,7 +65,12 @@ plt.plot(esp)
 plt.show()
 
 #get LSF
-lsf = np.gradient(esp)
+lsf = np.gradient(esp[5:-15])
+import numpy as np
+plt.plot(lsf)
+plt.show()
+w=np.hanning(len(lsf));
+lsf= lsf*w;
 plt.plot(lsf)
 plt.show()
 
