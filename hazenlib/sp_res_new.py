@@ -83,14 +83,14 @@ print(n)
 mtf = abs(np.fft.fft(lsf))
 norm_mtf = mtf / max(mtf)
 
-#freqs= fftfreq(n, 1/n)
-#mask = freqs >= 0
-#plt.figure
-norm_mtf_smooth=polynomialfit(norm_mtf,3)
-#freqs= fftfreq(n, 1)
-freqs= np.fft.fftfreq(n, 1/2)
+#norm_mtf_smooth=polynomialfit(norm_mtf,3)
+#freqs= np.fft.fftfreq(n, 1/(8*pitch[0]))
+profile_length=len(central_col[0])
+freqs= fftfreq(n, profile_length/n)
 mask = freqs >= 0
 plt.plot(freqs[mask],norm_mtf[mask])
 plt.show()
+
+
 
 
