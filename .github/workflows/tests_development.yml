@@ -13,8 +13,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.9', '3.10' ]
+        os: [ ubuntu-latest, macos-latest ]
+        python-version: [ '3.9' ]
     defaults:
       run:
         shell: bash -l {0}
@@ -88,33 +88,3 @@ jobs:
         message: ${{ steps.coverageComment.outputs.coverage }}
         color: ${{ steps.coverageComment.outputs.color }}
         namedLogo: python
-
-  test_cli:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.9', '3.10' ]
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-cov
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-
-      - name: Install hazen
-        run: |
-          python setup.py install
-
-      - name: test snr
-        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
-        run: |
-          hazen snr tests/data/snr/Siemens --report
