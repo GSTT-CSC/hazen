@@ -54,8 +54,8 @@ class TestSnr(unittest.TestCase):
 
 
 class TestSnrPhilips(TestSnr):
-    #PHILIPS_MR_53_1
-    #1.5T
+    # PHILIPS_MR_53_1
+    # 1.5T
 
     SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'snr')
     ORIENTATION = 'Coronal'
