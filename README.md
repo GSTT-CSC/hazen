@@ -100,6 +100,16 @@ brew install openssl
 export LDFLAGS="-L`brew --prefix openssl`/lib"
 export CPPFLAGS="-I`brew --prefix openssl`/include"
 
+# For M1 Apple Macs, also install OpenBLAS and LAPACK
+brew install openblas
+export LDFLAGS="-L/usr/local/opt/openblas/lib"
+export CPPFLAGS="-I/usr/local/opt/openblas/include"
+export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig"
+brew install lapack
+export LDFLAGS="-L/usr/local/opt/lapack/lib"
+export CPPFLAGS="-I/usr/local/opt/lapack/include"
+export PKG_CONFIG_PATH="/usr/local/opt/lapack/lib/pkgconfig"
+
 # Go to local hazen repo directory
 cd hazen
 
