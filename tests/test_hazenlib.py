@@ -201,8 +201,8 @@ class TestCliParser(unittest.TestCase):
         output=hazenlib.main()
         output_dict = ast.literal_eval(output)
 
-        dict1={'snr_subtraction_measured_SNR SAG MEAS2_24_1': 183.97,
-         'snr_subtraction_normalised_SNR SAG MEAS2_24_1': 7593.04,
+        dict1={'snr_subtraction_measured_SNR SAG MEAS1_23_1': 183.97,
+         'snr_subtraction_normalised_SNR SAG MEAS1_23_1': 7593.04,
                'snr_smoothing_measured_SNR SAG MEAS2_24_1': 189.38,
                'snr_smoothing_normalised_SNR SAG MEAS2_24_1': 7816.0,
                'snr_smoothing_measured_SNR SAG MEAS1_23_1': 184.41,
