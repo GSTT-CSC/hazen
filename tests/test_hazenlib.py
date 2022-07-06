@@ -24,7 +24,7 @@ test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' 
                            'SLICE_THICKNESS': 5,
                            'PIX_SIZE': [0.48828125, 0.48828125],
                            'AVERAGE': 1},
-               'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA'),
+               'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA'),
                            'MANUFACTURER': 'siemens',
                            'ROWS': 256,
                            'COLUMNS': 256,
@@ -126,7 +126,7 @@ class TestHazenlib(unittest.TestCase):
         test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm'),
                                    'MANUFACTURER': 'philips',
                                    'FOV': 250.0},
-                       'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA'),
+                       'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA'),
                                    'MANUFACTURER': 'siemens',
                                    'FOV': 250.0},
                        'toshiba': {'file': str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm'),
@@ -144,7 +144,7 @@ class TestHazenlib(unittest.TestCase):
 class Test(unittest.TestCase):
 
     def setUp(self):
-        self.file = str(TEST_DATA_DIR / 'resolution' / 'eastkent' / '256_sag.IMA')
+        self.file = str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA')
         self.dcm = pydicom.read_file(self.file)
         self.dcm = self.dcm.pixel_array
 

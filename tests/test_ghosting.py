@@ -116,7 +116,7 @@ class TestAxialPhilipsBroomfields(TestGhosting):
     GHOSTING = (None,  0.007246960909896829)
 
     def setUp(self):
-            self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'axial_philips_broomfields.dcm')
+            self.file = str(TEST_DATA_DIR / 'ghosting' / 'GHOSTING' / 'axial_philips_ghosting.dcm')
             self.dcm = pydicom.read_file(self.file)
 
 
