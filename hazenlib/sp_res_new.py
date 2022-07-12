@@ -64,6 +64,31 @@ esp = polynomialfit(esp,20)
 plt.plot(esp)
 plt.show()
 
+
+import pandas as pd
+#project
+esp = []
+new_val=[]
+final_x_cords = []
+x_projections = []
+values = []
+rev_esp = []
+tot=[]
+esp = np.empty([0,2])
+for column in range(central_col.shape[1]):
+    x_projections = []
+    for index, value in np.ndenumerate(central_col[::-1,column]):
+        x_projection = (index[0]+1)*np.tan(0.2) + (column+1)*np.cos(0.2) #https://www.spiedigitallibrary.org/journals/optical-engineering/volume-57/issue-1/014103/Modified-slanted-edge-method-for-camera-modulation-transfer-function-measurement/10.1117/1.OE.57.1.014103.short?SSO=1
+        print(x_projection)
+        x_projection = np.round(x_projection,1)
+        tot1 = np.array([x_projection,value])
+        tot.append(tot1)
+    #rev_esp = [(x, y) for x,y in zip(x_projection, values)]
+    #final_x_cords.extend(rev_esp)
+
+df = pd.DataFrame(tot, columns = ['key', 'values'])
+b=(df.groupby('key').mean()).to_numpy()
+
 #get LSF
 lsf = np.gradient(esp[5:-15])
 import numpy as np
