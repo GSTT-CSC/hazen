@@ -33,7 +33,8 @@ arrow==0.13.2
 amqp==5.0.9
 sphinxcontrib-needs==0.4.3
 sphinxcontrib-napoleon
-sphinx_rtd_theme
+# sphinx_rtd_theme
+sphinx-rtd-theme
 m2r==0.2.1
 mistune<2.0.0
 python-dateutil
