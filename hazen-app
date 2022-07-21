@@ -1,34 +1,5 @@
 #!/bin/bash
 
-# hazen-app
-
-# DESCRIPTION
-#   A wrapper script for invoking hazen with docker.
-
-# INSTALL INSTRUCTIONS
-#   Run "chmod 700 <path to hazen-app file>" to give user the right permissions to execute
-#   Copy this script to /usr/local/bin "cp <path to hazen-app file> /usr/local/bin"
-#   run "hazen-app" in terminal
-
-# USAGE
-#   run "hazen-app -h" for help and usage description
-#   To run a specific build of hazen use the -b <tag> flag before the standard positional arguments e.g.
-#   "hazen-app -b build_000 slice_position slice_positon_folder/ --report"
-
-# ADDITIONAL NOTES
-#   This script wraps all the necessary `docker run` arguments and passes them to the hazen container. As the hazen
-#   docker image entry point is the 'hazen' command the user is then able to use the container in the same way as they
-#   would the hazen CLI, i.e. the `hazen <TASK> <PATH?> <ARG>` syntax.
-#
-#   It is important to note that if this script is updated the user must copy the new version of the hazen-app script
-#   to /usr/local/bin before running it, and overwrite/remove any old versions.
-#
-#   In addition this script will provide some basic checks and warnings to the user.
-
-# SOURCES:
-#   https://spin.atomicobject.com/2015/11/30/command-line-tools-docker/
-#   https://stackoverflow.com/questions/26423515/how-to-automatically-update-your-docker-containers-if-base-images-are-updated
-
 # DOCKER REGISTRY INFO
 BASE_IMAGE="hazen"
 ORGANISATION="gsttmriphysics"

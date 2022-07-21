@@ -1147,7 +1147,7 @@ def main(dcm_target_list, *, plate_number=None,
         }
     """
 
-    # check for exactly one relaxometry calculation
+    # check for exactly one relaxometry.py calculation
     if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify either calc_t1=True OR calc_t2=True.')

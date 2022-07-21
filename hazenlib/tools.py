@@ -1,12 +1,12 @@
+import os
 from collections import defaultdict
-
 
 import cv2 as cv
 import imutils
-import numpy as np
 import matplotlib
+import numpy as np
+from pydicom import dcmread
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc
 
@@ -136,6 +136,14 @@ class ShapeDetector:
             angle = angle-90
             return (x,y), size, angle
 
+
+def get_dicom_files(folder: str, sort=False) -> list:
+    if sort:
+        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+        file_list.sort(key=lambda x: dcmread(x).InstanceNumber)
+    else:
+        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+    return file_list
 
 
 def is_dicom_file(filename):
