@@ -4,8 +4,12 @@ import pathlib
 import numpy as np
 import pydicom
 
-import hazenlib.slice_width as hazen_slice_width
+# import hazenlib.slice_width as hazen_slice_width
 from tests import TEST_DATA_DIR
+from hazenlib.tasks.slice_width import SliceWidth
+from hazenlib.shapes import Rod
+from hazenlib.tools import get_dicom_files
+import os
 
 
 class TestSliceWidth(unittest.TestCase):
@@ -19,25 +23,25 @@ class TestSliceWidth(unittest.TestCase):
         456
         123 
     """
-    matlab_rods = [hazen_slice_width.Rod(71.2857, 191.5000),
-                   hazen_slice_width.Rod(130.5000, 190.5000),
-                   hazen_slice_width.Rod(190.6000, 189.4000),
-                   hazen_slice_width.Rod(69.5000, 131.5000),
-                   hazen_slice_width.Rod(128.7778, 130.5000),
-                   hazen_slice_width.Rod(189.1111, 129.2778),
-                   hazen_slice_width.Rod(69.0000, 71.5000),
-                   hazen_slice_width.Rod(128.1176, 70.4118),
-                   hazen_slice_width.Rod(188.5000, 69.2222)]
+    matlab_rods = [Rod(71.2857, 191.5000),
+                   Rod(130.5000, 190.5000),
+                   Rod(190.6000, 189.4000),
+                   Rod(69.5000, 131.5000),
+                   Rod(128.7778, 130.5000),
+                   Rod(189.1111, 129.2778),
+                   Rod(69.0000, 71.5000),
+                   Rod(128.1176, 70.4118),
+                   Rod(188.5000, 69.2222)]
 
-    rods = [hazen_slice_width.Rod(70.26906602941604, 190.52291430040833),
-            hazen_slice_width.Rod(129.38344648450575, 189.5252799358382),
-            hazen_slice_width.Rod(189.6494724536544, 188.32774808447635),
-            hazen_slice_width.Rod(68.53084886954112, 130.56732921648214),
-            hazen_slice_width.Rod(127.86240947286896, 129.4605302262616),
-            hazen_slice_width.Rod(188.01124565987345, 128.2832650316875),
-            hazen_slice_width.Rod(67.97926729691507, 70.61103769200058),
-            hazen_slice_width.Rod(127.2060664869085, 69.42672715143607),
-            hazen_slice_width.Rod(187.49797283835656, 68.2890101413575)]
+    rods = [Rod(70.26906602941604, 190.52291430040833),
+            Rod(129.38344648450575, 189.5252799358382),
+            Rod(189.6494724536544, 188.32774808447635),
+            Rod(68.53084886954112, 130.56732921648214),
+            Rod(127.86240947286896, 129.4605302262616),
+            Rod(188.01124565987345, 128.2832650316875),
+            Rod(67.97926729691507, 70.61103769200058),
+            Rod(127.2060664869085, 69.42672715143607),
+            Rod(187.49797283835656, 68.2890101413575)]
 
     DISTANCES = ([119.333, 119.632, 119.522], [120.022, 120.112, 120.196])
     DIST_CORR_COEFF = {"top": 0.9965, "bottom": 0.9957}
@@ -70,11 +74,12 @@ class TestSliceWidth(unittest.TestCase):
     SW_MATLAB = 5.48
 
     def setUp(self):
-        self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
-        self.dcm = pydicom.read_file(self.file)
+        # self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
+        # self.dcm = pydicom.read_file(self.file)
+        self.slice_width = SliceWidth(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'slicewidth', 'SLICEWIDTH'), sort=True))
 
     def test_get_rods(self):
-        rods, _ = hazen_slice_width.get_rods(self.dcm)
+        rods, _ = self.slice_width.get_rods(self.slice_width.data[0])
         #print("rods")
         #print(rods)
         for n in range(len(rods)):
@@ -82,25 +87,25 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_get_rod_distances(self):
         # From MATLAB Rods
-        distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
+        distances = self.slice_width.get_rod_distances(self.matlab_rods)
         #print("distances")
         #print(distances)
         assert distances == self.DISTANCES
 
     def test_get_rod_distortion_correction_coefficients(self):
-        distances = hazen_slice_width.get_rod_distances(self.matlab_rods)
+        distances = self.slice_width.get_rod_distances(self.matlab_rods)
         #print("rod distortion correction coefficient")
         #print(hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0], self.dcm.PixelSpacing[0]))
-        assert hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0], self.dcm.PixelSpacing[0]) == self.DIST_CORR_COEFF
+        assert self.slice_width.get_rod_distortion_correction_coefficients(distances[0], self.slice_width.data[0].PixelSpacing[0]) == self.DIST_CORR_COEFF
 
     def test_rod_distortions(self):
-        horizontal_distortion, vertical_distortion = hazen_slice_width.get_rod_distortions(self.matlab_rods, self.dcm)
+        horizontal_distortion, vertical_distortion = self.slice_width.get_rod_distortions(self.matlab_rods, self.slice_width.data[0])
         #print("rod distortion")
         #print(horizontal_distortion, vertical_distortion)
         assert (round(horizontal_distortion, 2), round(vertical_distortion, 2)) == self.ROD_DIST
 
     def test_get_ramp_profiles(self):
-        ramp_profiles = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods, self.dcm.PixelSpacing[0])
+        ramp_profiles = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods, self.slice_width.data[0].PixelSpacing[0])
         bottom_profiles = ramp_profiles["bottom"]
         mean_bottom_profile = np.mean(bottom_profiles, axis=0).tolist()
         #print("bottom centre ramp profile")
@@ -117,16 +122,16 @@ class TestSliceWidth(unittest.TestCase):
         # matlab top 0.0215   -2.9668  602.4568
         # matlab bottom [0.0239, -2.9349,  694.9520]
 
-        ramps = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods, self.dcm.PixelSpacing[0])
+        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods, self.slice_width.data[0].PixelSpacing[0])
 
         top_mean_ramp = np.mean(ramps["top"], axis=0)
-        top_coefficients = list(hazen_slice_width.baseline_correction(top_mean_ramp, sample_spacing=0.25)["f"])
+        top_coefficients = list(self.slice_width.baseline_correction(top_mean_ramp, sample_spacing=0.25)["f"])
         #print("top bline  corr coeff")
         #print(round(top_coefficients[0], 4))
         assert round(top_coefficients[0], 4) == self.BLINE_TOP
 
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
-        bottom_coefficients = list(hazen_slice_width.baseline_correction(bottom_mean_ramp, sample_spacing=0.25)["f"])
+        bottom_coefficients = list(self.slice_width.baseline_correction(bottom_mean_ramp, sample_spacing=0.25)["f"])
         #print("bottom bline corr coeff")
         #print(round(bottom_coefficients[0], 4))
         assert round(bottom_coefficients[0], 4) == self.BLINE_BOT
@@ -140,7 +145,7 @@ class TestSliceWidth(unittest.TestCase):
         55.0000   58.0000  156.0000  153.0000 -136.6194 and fwhm 113
         """
 
-        assert hazen_slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
+        assert self.slice_width.trapezoid(55, 58, 156, 153, -136.6194)[1] == 113
 
     def test_get_initial_trapezoid_fit_and_coefficients(self):
         """
@@ -151,22 +156,22 @@ class TestSliceWidth(unittest.TestCase):
 
         """
         sample_spacing = 0.25
-        slice_thickness = self.dcm.SliceThickness
-        ramps = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods, self.dcm.PixelSpacing[0])
+        slice_thickness = self.slice_width.data[0].SliceThickness
+        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods, self.slice_width.data[0].PixelSpacing[0])
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         ramps_baseline_corrected = {
-            "top": hazen_slice_width.baseline_correction(top_mean_ramp, sample_spacing),
-            "bottom": hazen_slice_width.baseline_correction(bottom_mean_ramp, sample_spacing)
+            "top": self.slice_width.baseline_correction(top_mean_ramp, sample_spacing),
+            "bottom": self.slice_width.baseline_correction(bottom_mean_ramp, sample_spacing)
         }
 
-        trapezoid_fit, trapezoid_fit_coefficients = hazen_slice_width.get_initial_trapezoid_fit_and_coefficients(
+        trapezoid_fit, trapezoid_fit_coefficients = self.slice_width.get_initial_trapezoid_fit_and_coefficients(
             ramps_baseline_corrected["top"]["profile_corrected_interpolated"], slice_thickness)
         #print("trap fit coeff top initial")
         #print(trapezoid_fit_coefficients[:4])
         assert trapezoid_fit_coefficients[:4] == self.TRAP_FIT_COEFF_TOP
 
-        trapezoid_fit, trapezoid_fit_coefficients = hazen_slice_width.get_initial_trapezoid_fit_and_coefficients(
+        trapezoid_fit, trapezoid_fit_coefficients = self.slice_width.get_initial_trapezoid_fit_and_coefficients(
             ramps_baseline_corrected["bottom"]["profile_corrected_interpolated"], slice_thickness)
         #print("trap fit coeff bottom initial")
         #print(trapezoid_fit_coefficients[:4])
@@ -174,17 +179,17 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_fit_trapezoid(self):
         sample_spacing = 0.25
-        slice_thickness = self.dcm.SliceThickness
+        slice_thickness = self.slice_width.data[0].SliceThickness
 
-        ramps = hazen_slice_width.get_ramp_profiles(self.dcm.pixel_array, self.matlab_rods, self.dcm.PixelSpacing[0])
+        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods, self.slice_width.data[0].PixelSpacing[0])
 
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         ramps_baseline_corrected = {
-            "top": hazen_slice_width.baseline_correction(top_mean_ramp, sample_spacing),
-            "bottom": hazen_slice_width.baseline_correction(bottom_mean_ramp, sample_spacing)
+            "top": self.slice_width.baseline_correction(top_mean_ramp, sample_spacing),
+            "bottom": self.slice_width.baseline_correction(bottom_mean_ramp, sample_spacing)
         }
-        trapezoid_fit_coefficients, baseline_fit_coefficients = hazen_slice_width.fit_trapezoid(
+        trapezoid_fit_coefficients, baseline_fit_coefficients = self.slice_width.fit_trapezoid(
             profiles=ramps_baseline_corrected["top"], slice_thickness=slice_thickness)
         #print("top trap fit coeff")
         #print(trapezoid_fit_coefficients)
@@ -204,7 +209,7 @@ class TestSliceWidth(unittest.TestCase):
         # residual error is 3735.6
 
         ## check bottom profile now
-        trapezoid_fit_coefficients, baseline_fit_coefficients = hazen_slice_width.fit_trapezoid(
+        trapezoid_fit_coefficients, baseline_fit_coefficients = self.slice_width.fit_trapezoid(
             profiles=ramps_baseline_corrected["bottom"], slice_thickness=slice_thickness)
 
         #print("bottom trap fit coeff")
@@ -221,11 +226,13 @@ class TestSliceWidth(unittest.TestCase):
             assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
 
     def test_slice_width(self):
-        results = hazen_slice_width.main([self.dcm])
-        key = f"{self.dcm.SeriesDescription}_{self.dcm.SeriesNumber}_{self.dcm.InstanceNumber}"
+        results = self.slice_width.run()
+        self.slice_width.key(self.slice_width.data[0])
+        # key = f"{self.slice_width.data[0].SeriesDescription}_{self.slice_width.data[0].SeriesNumber}_{self.slice_width.data[0].InstanceNumber}"
         #print("slice width")
         #print(results[key]['slice_width_mm'])
-        assert abs(results[key]['slice_width_mm'] - self.SW_MATLAB) < 0.1
+        # assert abs(results[key]['slice_width_mm'] - self.SW_MATLAB) < 0.1
+        assert abs(results[self.slice_width.key(self.slice_width.data[0])]['slice_width_mm'] - self.SW_MATLAB) < 0.1
 
 
 class Test512Matrix(TestSliceWidth):
@@ -237,27 +244,27 @@ class Test512Matrix(TestSliceWidth):
     The rod indices are ordered as:
         789
         456
-        123 
+        123
     """
-    matlab_rods = [hazen_slice_width.Rod(134.19422395407386, 376.3297092734241),
-                   hazen_slice_width.Rod(255.5191606119133, 374.7890799840584),
-                   hazen_slice_width.Rod(376.45583336255567, 373.7479398253673),
-                   hazen_slice_width.Rod(133.73482492069846, 255.9592867481753),
-                   hazen_slice_width.Rod(254.49068286441252, 254.33374023796569),
-                   hazen_slice_width.Rod(375.15134878569734, 254.0979036468634),
-                   hazen_slice_width.Rod(133.07301997760993, 136.86070859809843),
-                   hazen_slice_width.Rod(253.53888071406627, 135.75358569280274),
-                   hazen_slice_width.Rod(374.00513210724, 135.12370483098044)]
+    matlab_rods = [Rod(134.19422395407386, 376.3297092734241),
+                   Rod(255.5191606119133, 374.7890799840584),
+                   Rod(376.45583336255567, 373.7479398253673),
+                   Rod(133.73482492069846, 255.9592867481753),
+                   Rod(254.49068286441252, 254.33374023796569),
+                   Rod(375.15134878569734, 254.0979036468634),
+                   Rod(133.07301997760993, 136.86070859809843),
+                   Rod(253.53888071406627, 135.75358569280274),
+                   Rod(374.00513210724, 135.12370483098044)]
 
-    rods = [hazen_slice_width.Rod(134.50715482125025, 376.39901305569873),
-            hazen_slice_width.Rod(255.46730860444976, 374.7645374009015),
-            hazen_slice_width.Rod(376.3508021809186, 373.6769436835617),
-            hazen_slice_width.Rod(133.58289022243835, 256.06611582258665),
-            hazen_slice_width.Rod(254.51562676421784, 254.61914241989848),
-            hazen_slice_width.Rod(375.3779965519839, 253.83655980142507),
-            hazen_slice_width.Rod(132.7380060479853, 137.19733440032368),
-            hazen_slice_width.Rod(253.45972063728271, 135.83081591213042),
-            hazen_slice_width.Rod(374.31705777525144, 135.3055747931858)]
+    rods = [Rod(134.50715482125025, 376.39901305569873),
+            Rod(255.46730860444976, 374.7645374009015),
+            Rod(376.3508021809186, 373.6769436835617),
+            Rod(133.58289022243835, 256.06611582258665),
+            Rod(254.51562676421784, 254.61914241989848),
+            Rod(375.3779965519839, 253.83655980142507),
+            Rod(132.7380060479853, 137.19733440032368),
+            Rod(253.45972063728271, 135.83081591213042),
+            Rod(374.31705777525144, 135.3055747931858)]
 
     DISTANCES = ([242.275, 241.424, 240.938], [239.472, 239.044, 238.637])
     DIST_CORR_COEFF = {'top': 1.0049, 'bottom': 1.0077}
@@ -281,5 +288,6 @@ class Test512Matrix(TestSliceWidth):
     SW_MATLAB = 4.972852917690252
 
     def setUp(self):
-        self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
-        self.dcm = pydicom.read_file(self.file)
+        self.slice_width = SliceWidth(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'slicewidth', '512_matrix'), sort=True))
+        # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
+        # self.dcm = pydicom.read_file(self.file)

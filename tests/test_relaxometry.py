@@ -572,14 +572,14 @@ class TestRelaxometry(unittest.TestCase):
             atol=1)
 
     def test_ge(self):
-        """Test relaxometry values on GE."""
+        """Test relaxometry.py values on GE."""
         for plate in (4,5):
             for tparam in ('T1', 'T2'):
                 calc_t1 = tparam == 'T1'
                 calc_t2 = tparam == 'T2'
                 dcms = [pydicom.dcmread(os.path.join(
                     getattr(self,f'SITE3_{tparam}_P{plate}_DIR'), fname))
-                        for fname in getattr(self,f'SITE3_{tparam}_P{plate}_FILES')]
+                        for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
 
                 t_results = hazen_relaxometry.main(dcms, plate_number=plate,
                                                  calc_t2=calc_t2,

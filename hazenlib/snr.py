@@ -394,7 +394,7 @@ def main(data: list, measured_slice_width=None, report_path=False) -> dict:
         results[f"snr_subtraction_measured_{key}"] = round(snr, 2)
         results[f"snr_subtraction_normalised_{key}"] = round(normalised_snr, 2)
 
-    for idx, dcm in enumerate(data):
+    for _, dcm in enumerate(data):
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_{dcm.InstanceNumber}"
         except AttributeError as e:
