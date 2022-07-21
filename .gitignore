@@ -28,3 +28,5 @@ hazen_getting_started.pdf
 pytest-coverage.txt
 pytest.xml
 Hazen_logger.log
+*.png
+*.log

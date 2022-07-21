@@ -370,6 +370,7 @@ def main():
         logger.info(f'Calculating SNR with measured slice width {measured_slice_width}')
         result = task.run(measured_slice_width)
     elif arguments['<task>'] == 'relaxometry':
+        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = parse_relaxometry_data(task, arguments, dicom_objects, report)
     else:
