@@ -99,7 +99,6 @@ from hazenlib.HazenTask import HazenTask
 from hazenlib.tools import is_dicom_file, get_dicom_files
 
 import hazenlib.exceptions
-from hazenlib.version import __version__
 
 EXCLUDED_FILES = ['.DS_Store']
 
@@ -330,7 +329,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects,
 
 
 def main():
-    arguments = docopt(__doc__, version=__version__)
+    arguments = docopt(__doc__)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
 
     files = get_dicom_files(arguments['<folder>'])
