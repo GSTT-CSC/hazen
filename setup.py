@@ -1,5 +1,13 @@
 import setuptools
 import hazenlib
+import os
+
+lib_folder = os.path.dirname(os.path.realpath(__file__))
+requirement_path = lib_folder + '/requirements_old.txt'
+install_requires = [] # Here we'll get: ["gunicorn", "docutils>=0.3", "lxml==0.5a7"]
+if os.path.isfile(requirement_path):
+    with open(requirement_path) as f:
+        install_requires = f.read().splitlines()
 
 setuptools.setup(
     name="hazen",
@@ -10,7 +18,8 @@ setuptools.setup(
     description="An automatic MRI QA tool",
     long_description=open('README.md').read(),
     packages=setuptools.find_packages(),
-    install_requires=[],
+
+    install_requires=install_requires,
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Programming Language :: Python',
