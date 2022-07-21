@@ -98,9 +98,8 @@ from hazenlib.logger import logger
 from hazenlib.HazenTask import HazenTask
 from hazenlib.tools import is_dicom_file, get_dicom_files
 
-__version__ = '0.5.2'
-
 import hazenlib.exceptions
+from setup import VERSION as __version__
 
 EXCLUDED_FILES = ['.DS_Store']
 
