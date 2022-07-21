@@ -5,7 +5,7 @@ RUN groupadd -r hazen_user && useradd --create-home --shell /bin/bash -r -g haze
 COPY . /home/hazen_user/hazen
 WORKDIR /home/hazen_user/hazen
 RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r requirements_old.txt
+RUN pip install --no-cache-dir -r requirements.txt
 RUN python setup.py install
 USER hazen_user
 WORKDIR ../data

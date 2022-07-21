@@ -119,7 +119,7 @@ source hazen-venv/bin/activate
 
 # Install requirements
 pip install --upgrade pip setuptools wheel
-pip install -r requirements_old.txt
+pip install -r requirements.txt
 
 # Install hazen
 python setup.py install
