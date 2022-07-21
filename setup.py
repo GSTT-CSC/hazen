@@ -1,7 +1,7 @@
 import setuptools
 import os
+from hazenlib.version import __version__
 
-VERSION = '0.5.2'
 
 lib_folder = os.path.dirname(os.path.realpath(__file__))
 requirement_path = lib_folder + '/requirements.txt'
@@ -12,7 +12,7 @@ if os.path.isfile(requirement_path):
 
 setuptools.setup(
     name="hazen",
-    version=VERSION,
+    version=__version__,
     url="https://bitbucket.org/gsttmri/hazen",
     author="Shuaib, Haris",
     author_email="mohammad_haris.shuaib@kcl.ac.uk",
