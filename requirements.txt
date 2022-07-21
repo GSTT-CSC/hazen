@@ -9,3 +9,4 @@ scipy==1.7.2
 imutils==0.5.3
 colorlog==6.6.0
 setuptools==60.2.0
+docutils==0.17
