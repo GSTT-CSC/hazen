@@ -102,7 +102,6 @@ import hazenlib.exceptions
 
 EXCLUDED_FILES = ['.DS_Store']
 
-
 def rescale_to_byte(array):
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
@@ -326,7 +325,6 @@ def parse_relaxometry_data(task, arguments, dicom_objects,
 
     return task.main(dicom_objects, report_path=report,
                      **relaxometry_args)
-
 
 def main():
     arguments = docopt(__doc__)
