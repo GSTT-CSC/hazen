@@ -30,16 +30,19 @@ class SNR(HazenTask):
         super().__init__(data_paths, report=report)
 
     def run(self, measured_slice_width=None) -> dict:
-        results = {}
+        results = {self.key(dcm): {}}
         if len(self.data) == 2:
+            print("SNR will be calculated by subtraction")
             snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
-            results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-            results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+            results[self.key(dcm)][f"snr_subtraction_measured"] = round(snr, 2)
+            results[self.key(dcm)][f"snr_subtraction_normalised"] = round(normalised_snr, 2)
+        else:
+            print("SNR will be calculated by smoothing")
 
         for idx, dcm in enumerate(self.data):
             snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
-            results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
-            results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
+            results[self.key(dcm)]["snr_smoothing_measured"] = round(snr, 2)
+            results[self.key(dcm)]["snr_smoothing_normalised"] = round(normalised_snr, 2)
 
         return results
 
