@@ -18,8 +18,9 @@ class Ghosting(HazenTask):
         results = {}
         for dcm in self.data:
             key = self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
+            results[key] = {}
             try:
-                fig, results[key] = self.get_ghosting(dcm)
+                fig, results[key]["ghosting"] = self.get_ghosting(dcm)
 
             except Exception as e:
                 print(f"Could not calculate the ghosting for {key} because of : {e}")
