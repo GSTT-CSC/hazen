@@ -36,17 +36,18 @@ class SlicePosition(HazenTask):
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
 
         try:
-            result = self.slice_position_error(truncated_data)
+            result_list = self.slice_position_error(truncated_data)
         except Exception as e:
             raise
 
         import decimal
         decimal.getcontext().prec = 3
-        result = [str(abs(decimal.Decimal(i) * 1)) for i in result]
+        result_dict = {[self.key(self.data[0])]: {}}
+        for i in range(len(result_list)):
+            result_dict[self.key(self.data[0])][f"position {i}"] = str(abs(decimal.Decimal(result_list[i]) * 1))
         del decimal
 
-        results = {self.key(self.data[0]): result}
-        return results
+        return result_dict
 
     def get_rod_rotation(self, x_pos: list, y_pos: list) -> float:
         """
