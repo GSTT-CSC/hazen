@@ -42,7 +42,7 @@ class SNR(HazenTask):
             snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
             snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
 
-        results = {'results': snr_results, 'reports': {'images': self.report_files}}
+        results = {self.key(self.data[0]): snr_results, 'reports': {'images': self.report_files}}
 
         return results
 
