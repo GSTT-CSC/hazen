@@ -11,6 +11,7 @@ Created by Neil Heraghty
 
 04/05/2018
 """
+import os
 import cv2 as cv
 import numpy as np
 import pydicom
@@ -26,20 +27,22 @@ from hazenlib.logger import logger
 
 class SNR(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self, measured_slice_width=None) -> dict:
-        results = {}
+        snr_results = {}
         if len(self.data) == 2:
             snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
-            results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-            results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+            snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
+            snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
 
         for idx, dcm in enumerate(self.data):
             snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
-            results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
-            results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
+            snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
+            snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
+
+        results = {self.key(self.data[0]): snr_results, 'reports': {'images': self.report_files}}
 
         return results
 
@@ -319,7 +322,9 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm, col, row)
             axes.legend()
 
-            fig.savefig(self.report_path + ".png")
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return snr, normalised_snr
 
@@ -372,6 +377,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm1, col, row)
             axes.legend()
 
-            fig.savefig(self.report_path + ".png")
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return snr, normalised_snr

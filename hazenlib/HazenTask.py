@@ -4,14 +4,18 @@ HazenTask.py
 
 from pydicom import dcmread
 from hazenlib.logger import logger
+import pathlib
+import os
 
 
 class HazenTask:
 
-    def __init__(self, data_paths: list, report: bool = False):
+    def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.getcwd()):
         self.data_paths = data_paths
         self.report: bool = report
-        self.report_path = self.key(self.data[0])
+        self.report_path = os.path.join(report_dir, type(self).__name__)
+        pathlib.Path(self.report_path).mkdir(parents=True, exist_ok=True)
+        self.report_files = []
 
     @property
     def data(self) -> list:
@@ -27,5 +31,4 @@ class HazenTask:
             metadata = [str(dcm.get(field)) for field in ['SeriesDescription', 'SeriesNumber']]
 
         key = f"{type(self).__name__}_" + '_'.join(metadata).replace(' ', '_')
-        self.report_path = key
         return key

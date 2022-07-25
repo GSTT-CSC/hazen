@@ -10,6 +10,7 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
     
 """
 import copy
+import os
 import sys
 import traceback
 from hazenlib.logger import logger
@@ -24,8 +25,8 @@ from hazenlib.HazenTask import HazenTask
 
 class SpatialResolution(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self) -> dict:
         results = {}
@@ -36,6 +37,8 @@ class SpatialResolution(HazenTask):
                 print(f"Could not calculate the spatial resolution for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
+
+        results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -441,7 +444,9 @@ class SpatialResolution(HazenTask):
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel('lp/mm')
             logger.info(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
-            fig.savefig(f'{self.key(dicom)}_{pe}_{edge}.png')
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dicom)}_{pe}_{edge}.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return res
 

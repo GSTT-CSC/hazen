@@ -35,9 +35,9 @@ class TestSnr(unittest.TestCase):
 
     def test_image_snr(self):
         val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[
+        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
     def test_SNR_factor(self):
@@ -72,8 +72,8 @@ class TestSnrPhilips(TestSnr):
 
     def test_image_snr(self):
         val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
+        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
 
@@ -106,9 +106,9 @@ class TestSnrGE(TestSnr):
         # val = self.snr.run(data=[self.test_file, self.test_file_2])
         val = self.snr.run()
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= val[f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
+            self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
         self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= val[f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
+            self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
 
 class TestSnrThreshold(TestSnr):
@@ -139,7 +139,7 @@ class TestSnrThreshold(TestSnr):
 
     def test_image_snr(self):
         val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[
+        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)

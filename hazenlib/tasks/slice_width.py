@@ -4,6 +4,7 @@ Square voxels, no multi-frame support
 """
 
 import sys
+import os
 import traceback
 from copy import copy
 from copy import deepcopy
@@ -22,20 +23,20 @@ from hazenlib.shapes import Rod
 
 class SliceWidth(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self):
         results = {}
         for dcm in self.data:
             try:
-                result = self.get_slice_width(dcm)
+                results[self.key(dcm)] = self.get_slice_width(dcm)
             except Exception as e:
                 print(f"Could not calculate the slice_width for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-            results[self.key(dcm)] = result
+        results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -180,7 +181,9 @@ class SliceWidth(HazenTask):
             for idx in range(len(rods)):
                 axes[2].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
                 axes[2].plot(rods[idx].x, rods[idx].y, 'r.')
-            fig.savefig(self.report_path + "_rod_centroids.png")
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_rod_centroids.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return rods, rods_initial
 
@@ -813,7 +816,9 @@ class SliceWidth(HazenTask):
                 loc="center"
             )
 
-            fig.savefig(self.report_path + '.png')
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         # print(f"Series Description: {dcm.SeriesDescription}\nWidth: {dcm.Rows}\nHeight: {dcm.Columns}\nSlice Thickness(
         # mm):" f"{dcm.SliceThickness}\nField of View (mm): {hazenlib.get_field_of_view(dcm)}\nbandwidth (Hz/Px) : {

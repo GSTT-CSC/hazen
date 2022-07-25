@@ -11,20 +11,23 @@ from hazenlib.HazenTask import HazenTask
 
 class Ghosting(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self) -> dict:
-        results = {}
+        ghosting_results = {}
         for dcm in self.data:
             key = self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
             try:
-                fig, results[key] = self.get_ghosting(dcm)
+                fig, ghosting_results[key] = self.get_ghosting(dcm)
 
             except Exception as e:
                 print(f"Could not calculate the ghosting for {key} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
+
+        results = {'ghosting_results': ghosting_results,
+                   'reports': self.report_files}
 
         return results
 
@@ -244,7 +247,12 @@ class Ghosting(HazenTask):
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
             ax.imshow(img)
-            fig.savefig(f'{self.report_path}.png')
+            # fig.savefig(f'{self.report_path}.png')
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                                                     f"{self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])}.png"))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
+
             return fig, ghosting
 
         return None, ghosting

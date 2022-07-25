@@ -23,8 +23,8 @@ import hazenlib.exceptions
 
 class SlicePosition(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self) -> dict:
         if len(self.data) != 60:
@@ -45,7 +45,9 @@ class SlicePosition(HazenTask):
         result = [str(abs(decimal.Decimal(i) * 1)) for i in result]
         del decimal
 
-        results = {self.key(self.data[0]): result}
+        results = {self.key(self.data[0]): {'slice_positions': result},
+                   'reports': {'images': self.report_files}}
+
         return results
 
     def get_rod_rotation(self, x_pos: list, y_pos: list) -> float:
@@ -225,6 +227,9 @@ class SlicePosition(HazenTask):
 
             ax[1].scatter(range(10, 50), results, marker='x')
             ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
-            fig.savefig(f'{self.report_path}_slice_position.png')
+
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_slice_position.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return results
