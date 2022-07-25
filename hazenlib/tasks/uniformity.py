@@ -20,7 +20,7 @@ neil.heraghty@nhs.net
 
 import sys
 import traceback
-
+import os
 import numpy as np
 
 import hazenlib.tools
@@ -30,8 +30,8 @@ from hazenlib.HazenTask import HazenTask
 
 class Uniformity(HazenTask):
 
-    def __init__(self, data_paths: list, report=False):
-        super().__init__(data_paths, report=report)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def run(self) -> dict:
         results = {}
@@ -45,6 +45,8 @@ class Uniformity(HazenTask):
                 continue
 
             results[self.key(dcm)] = result
+
+        results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -140,7 +142,9 @@ class Uniformity(HazenTask):
             ax.add_collection(pc)
             ax.scatter(x, y, 5)
 
-            fig.savefig(self.report_path + ".png")
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            fig.savefig(img_path)
+            self.report_files.append(img_path)
 
         return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
                 'vertical': {'IPEM': fractional_uniformity_vertical}}

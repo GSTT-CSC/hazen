@@ -74,7 +74,7 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
     hazen -v|--version
@@ -332,10 +332,6 @@ def main():
 
     files = get_dicom_files(arguments['<folder>'])
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
-    if arguments['--report']:
-        report = True
-    else:
-        report = False
 
     log_levels = {
         "critical": logging.CRITICAL,
@@ -357,7 +353,10 @@ def main():
 
     if len(class_list) > 1:
         raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')
-    task = getattr(task_module, class_list[0].__name__)(data_paths=files, report=report)
+    import os
+    task = getattr(task_module, class_list[0].__name__)(data_paths=files,
+                                                        report=arguments['--report'],
+                                                        report_dir=[arguments['--output'] if arguments['--output'] else os.getcwd()][0])
 
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
