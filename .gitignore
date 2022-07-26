@@ -29,3 +29,4 @@ pytest-coverage.txt
 pytest.xml
 Hazen_logger.log
 *.png
+newdocs/_build
