@@ -50,7 +50,7 @@ extensions = [
     "sphinxcontrib.needs",
     'sphinxcontrib.plantuml',
     'sphinxcontrib.napoleon',
-    'm2r',
+    'm2r2',
 ]
 # plantuml configuration
 import os
