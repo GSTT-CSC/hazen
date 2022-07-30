@@ -33,6 +33,7 @@ arrow==0.13.2
 amqp==5.0.9
 sphinxcontrib-needs==0.4.3
 sphinxcontrib-napoleon
+sphinxcontrib-plantuml
 sphinx_rtd_theme
 m2r==0.2.1
 mistune<2.0.0
