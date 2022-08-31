@@ -47,15 +47,10 @@ Some example outputs from hazen:
 
 ## Installation
 
-### Prerequisites
+### pip
 
- - Python v3.9
- - Git
- - Docker
+Hazen can be installed using pip on python 3.9 or higher, it is recommended to use a virtual environment
 
-### Installation
-
-Hazen can be installed using pip, it is recommended to use a virtual environment
 ```bash
 python3 -m venv hazen-venv
 source hazen-venv/bin/activate
