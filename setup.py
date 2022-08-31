@@ -1,7 +1,7 @@
 import setuptools
 import os
 
-__version__ = '1.0.0dev'
+__version__ = '1.0.0'
 
 lib_folder = os.path.dirname(os.path.realpath(__file__))
 requirement_path = lib_folder + '/requirements.txt'
