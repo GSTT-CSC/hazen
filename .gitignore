@@ -30,3 +30,4 @@ pytest.xml
 Hazen_logger.log
 *.png
 newdocs/_build
+/venv/

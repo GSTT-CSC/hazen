@@ -207,8 +207,6 @@ class TestCliParser(unittest.TestCase):
                  'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 184.41,
                  'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7610.83}
 
-        maxDiff = None
-        output_dict['SNR_SNR_SAG_MEAS2_24_1'] == dict1
         self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS2_24_1'], dict1)
 
     def test_relaxometry(self):
