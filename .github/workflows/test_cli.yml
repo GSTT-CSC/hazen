@@ -8,17 +8,6 @@ on:
   release:
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ '3.9', '3.10' ]
-    defaults:
-      run:
-        shell: bash -l {0}
-
  test_cli:
     runs-on: ${{ matrix.os }}
     strategy:
