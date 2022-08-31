@@ -360,7 +360,7 @@ def main():
     task = getattr(task_module, class_list[0].__name__)(data_paths=files,
                                                         report=arguments['--report'],
                                                         report_dir=[arguments['--output'] if arguments[
-                                                            '--output'] else os.getcwd()][0])
+                                                            '--output'] else os.path.join(os.getcwd(), 'report')][0])
 
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
