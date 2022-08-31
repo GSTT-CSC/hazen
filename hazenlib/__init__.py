@@ -90,6 +90,7 @@ import inspect
 import logging
 import sys
 import pprint
+import os
 
 import numpy as np
 import pydicom
@@ -102,6 +103,7 @@ import hazenlib.exceptions
 
 EXCLUDED_FILES = ['.DS_Store']
 
+
 def rescale_to_byte(array):
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
@@ -110,8 +112,6 @@ def rescale_to_byte(array):
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
     return image_equalized.reshape(array.shape).astype('uint8')
 
-
-#
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """
@@ -326,6 +326,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects,
     return task.main(dicom_objects, report_path=report,
                      **relaxometry_args)
 
+
 def main():
     arguments = docopt(__doc__)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
@@ -349,14 +350,17 @@ def main():
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-    class_list = [cls for _, cls in inspect.getmembers(sys.modules[task_module.__name__], lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__))]
+    class_list = [cls for _, cls in inspect.getmembers(sys.modules[task_module.__name__],
+                                                       lambda x: inspect.isclass(x) and (
+                                                                   x.__module__ == task_module.__name__))]
 
     if len(class_list) > 1:
         raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')
-    import os
+
     task = getattr(task_module, class_list[0].__name__)(data_paths=files,
                                                         report=arguments['--report'],
-                                                        report_dir=[arguments['--output'] if arguments['--output'] else os.getcwd()][0])
+                                                        report_dir=[arguments['--output'] if arguments[
+                                                            '--output'] else os.getcwd()][0])
 
     if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
         raise Exception("the (--measured_slice_width) option can only be used with snr")
@@ -364,10 +368,21 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         logger.info(f'Calculating SNR with measured slice width {measured_slice_width}')
         result = task.run(measured_slice_width)
+    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'relaxometry':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
+    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    elif arguments['<task>'] == 'snr_map':
+        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        result = task.main(dicom_objects, report_path=True)
+    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    elif arguments['<task>'] == 'acr_uniformity':
+        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        result = task.main(dicom_objects, report_path=True)
     else:
         result = task.run()
 
