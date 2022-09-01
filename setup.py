@@ -1,7 +1,6 @@
 import setuptools
 import os
-
-__version__ = '1.0.0'
+from hazenlib._version import __version__
 
 lib_folder = os.path.dirname(os.path.realpath(__file__))
 requirement_path = lib_folder + '/requirements.txt'

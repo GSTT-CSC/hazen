@@ -98,9 +98,7 @@ from docopt import docopt
 from hazenlib.logger import logger
 from hazenlib.HazenTask import HazenTask
 from hazenlib.tools import is_dicom_file, get_dicom_files
-import pkg_resources  # part of setuptools
-
-__version__ = pkg_resources.require("hazen")[0].version
+from hazenlib._version import __version__
 
 import hazenlib.exceptions
 
