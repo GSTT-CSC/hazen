@@ -98,11 +98,13 @@ from docopt import docopt
 from hazenlib.logger import logger
 from hazenlib.HazenTask import HazenTask
 from hazenlib.tools import is_dicom_file, get_dicom_files
+import pkg_resources  # part of setuptools
+
+__version__ = pkg_resources.require("hazen")[0].version
 
 import hazenlib.exceptions
 
 EXCLUDED_FILES = ['.DS_Store']
-
 
 def rescale_to_byte(array):
     image_histogram, bins = np.histogram(array.flatten(), 255)
@@ -328,7 +330,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects,
 
 
 def main():
-    arguments = docopt(__doc__)
+    arguments = docopt(__doc__, version=__version__)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
 
     files = get_dicom_files(arguments['<folder>'])
