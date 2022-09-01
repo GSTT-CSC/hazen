@@ -232,17 +232,17 @@ class SlicePosition(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-            fig, ax = plt.subplots(1, 1)
-            for i, pos in enumerate(nominal_positions):
-                ax.cla()
-                dcm = self.data[i+10]
-                ax.imshow(dcm.pixel_array, cmap='gray')
-                rods_x = [left_rod["x_pos"][i], right_rod['x_pos'][i]]
-                rods_y = [left_rod["y_pos"][i], right_rod['y_pos'][i]]
-                ax.scatter(rods_x, rods_y, 20, c='green', marker='+')
-
-                img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_{i}_slice_position.png'))
-                plt.savefig(img_path)
-                self.report_files.append(img_path)
+            # fig, ax = plt.subplots(1, 1)
+            # for i, pos in enumerate(nominal_positions):
+            #     ax.cla()
+            #     dcm = self.data[i+10]
+            #     ax.imshow(dcm.pixel_array, cmap='gray')
+            #     rods_x = [left_rod["x_pos"][i], right_rod['x_pos'][i]]
+            #     rods_y = [left_rod["y_pos"][i], right_rod['y_pos'][i]]
+            #     ax.scatter(rods_x, rods_y, 20, c='green', marker='+')
+            #
+            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_{i}_slice_position.png'))
+            #     plt.savefig(img_path)
+            #     self.report_files.append(img_path)
 
         return results
