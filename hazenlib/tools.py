@@ -1,6 +1,6 @@
 import os
 from collections import defaultdict
-
+from skimage import filters
 import cv2 as cv
 import imutils
 import matplotlib
@@ -64,8 +64,10 @@ class ShapeDetector:
 
     def find_contours(self):
         # convert the resized image to grayscale, blur it slightly, and threshold it
+        optimal_threshold = filters.threshold_li(self.arr, initial_guess=self.arr.max() // 5)
         self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)    # magic numbers
-        self.thresh = np.where(self.blurred > self.blurred.max()//5, 255, 0) .astype(np.uint8)
+        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0) .astype(np.uint8)
+
         # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
         self.contours = imutils.grab_contours(contours)
