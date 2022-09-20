@@ -17,7 +17,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="test_hazen",
+    name="hazen",
     version=__version__,
     url="https://bitbucket.org/gsttmri/hazen",
     author="Shuaib, Haris",
