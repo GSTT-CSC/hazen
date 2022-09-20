@@ -1,20 +1,23 @@
 import setuptools
 import os
 
-__version__ = '1.0.2'
+__version__ = '1.0.3'
 
-lib_folder = os.path.dirname(os.path.realpath(__file__))
-requirement_path = lib_folder + '/requirements.txt'
-install_requires = []
-if os.path.isfile(requirement_path):
-    with open(requirement_path) as f:
-        install_requires = f.read().splitlines()
+install_requires = ['pydicom==2.2.2',
+                    'numpy==1.21.4',
+                    'matplotlib==3.5.1',
+                    'docopt==0.6.2',
+                    'opencv-python-headless==4.6.0.66',
+                    'scikit-image==0.19.2',
+                    'scipy==1.8.0',
+                    'imutils==0.5.3',
+                    'colorlog==6.6.0',]
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="hazen",
+    name="test_hazen",
     version=__version__,
     url="https://bitbucket.org/gsttmri/hazen",
     author="Shuaib, Haris",
@@ -22,6 +25,7 @@ setuptools.setup(
     description="An automatic MRI QA tool",
     long_description=long_description,
     long_description_content_type='text/markdown',
+    install_requires=install_requires,
     setup_requires=install_requires,
     packages=setuptools.find_packages(),
     classifiers=[
