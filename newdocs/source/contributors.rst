@@ -14,6 +14,5 @@ Contributors
 * `Jane Ansell <https://github.com/ansellj>`_
 * `Jamie Small <https://github.com/JamieSmall>`_
 * `Elizabeth Stamou <https://github.com/elizaGSTT>`_
-* `Elizabeth Stamou <https://github.com/elizaGSTT>`_
 * `Francesco Padormo <https://github.com/francescopadormo>`_
 * `Sian Culley <https://github.com/superresolusian>`_
