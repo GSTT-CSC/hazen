@@ -76,7 +76,7 @@ def smooth(dcm, kernel=skimage.morphology.square(9)):
     original_image, smooth_image, noise_image
     """
     original_image = dcm.pixel_array.astype(float)
-    kernel = kernel / kernel.sum() # normalise kernel
+    kernel = kernel / kernel.sum()  # normalise kernel
     smooth_image = ndimage.filters.convolve(original_image, kernel)
 
     #  Alternative method 1: OpenCV.
@@ -179,7 +179,7 @@ def calc_snr(original_image, noise_image, roi_corners, roi_size):
     snr = roi_snr.mean()
 
     logger.debug('ROIs signal=%r, noise=%r, snr=%r',
-              roi_signal, roi_noise, roi_snr)
+                 roi_signal, roi_noise, roi_snr)
 
     return snr
 
@@ -303,9 +303,9 @@ def plot_detailed(dcm, original_image, smooth_image, noise_image, snr_map,
         Handle to plot
     """
     fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
-                                     figsize=(8, 2.8))
+                            figsize=(8, 2.8))
     fig.suptitle('SNR = %.2f (file: %s)'
-                          % (snr, os.path.basename(dcm.filename)))
+                 % (snr, os.path.basename(dcm.filename)))
     axs[0].imshow(original_image, cmap='gray')
     axs[0].set_title('Magnitude Image')
     axs[1].imshow(smooth_image, cmap='gray')
@@ -348,7 +348,7 @@ def plot_summary(original_image, snr_map, roi_corners, roi_size):
 
     """
     fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
-                                 figsize=(6, 2.8))
+                            figsize=(6, 2.8))
     axs[0].imshow(original_image, cmap='gray')
     axs[0].set_title('Magnitude Image')
 
@@ -404,11 +404,11 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
 
         try:
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_" \
-            f"{dcm.InstanceNumber}_{os.path.basename(dcm.filename)}"
+                  f"{dcm.InstanceNumber}_{os.path.basename(dcm.filename)}"
         except AttributeError as e:
             print(e)
             key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_" \
-            f"{os.path.basename(dcm.filename)}"
+                  f"{os.path.basename(dcm.filename)}"
 
         if report_path:
             report_path = key
@@ -417,7 +417,6 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
         #  ==========================================
         original_image, smooth_image, noise_image = \
             smooth(dcm, skimage.morphology.square(kernel_len))
-
 
         #  Note: access NumPy arrays by column then row. E.g.
         #
@@ -438,8 +437,8 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
         #  TODO scale distances for other image sizes
         if original_image.shape != (256, 256):
             logger.warning('Expected image size (256, 256). Image size is %r.'
-                        ' Algorithm untested with these dimensions.',
-                        original_image.shape)
+                           ' Algorithm untested with these dimensions.',
+                           original_image.shape)
 
         #  Calculate mask and ROIs
         #  =======================

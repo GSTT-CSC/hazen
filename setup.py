@@ -1,21 +1,41 @@
 import setuptools
-import hazenlib
+import os
+from hazenlib._version import __version__
+
+lib_folder = os.path.dirname(os.path.realpath(__file__))
+requirement_path = lib_folder + '/requirements.txt'
+install_requires = []
+if os.path.isfile(requirement_path):
+    with open(requirement_path) as f:
+        install_requires = f.read().splitlines()
+
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
 
 setuptools.setup(
     name="hazen",
-    version=hazenlib.__version__,
+    version=__version__,
     url="https://bitbucket.org/gsttmri/hazen",
     author="Shuaib, Haris",
     author_email="mohammad_haris.shuaib@kcl.ac.uk",
     description="An automatic MRI QA tool",
-    long_description=open('README.md').read(),
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     packages=setuptools.find_packages(),
-    install_requires=[],
+    install_requires=['pydicom==2.2.2',
+                      'numpy==1.21.4',
+                      'matplotlib==3.5.1',
+                      'docopt==0.6.2',
+                      'opencv-python-headless==4.6.0.66',
+                      'scikit-image==0.19.2',
+                      'scipy==1.8.0',
+                      'imutils==0.5.3',
+                      'colorlog==6.6.0'],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.9',
     ],
     entry_points={
         'console_scripts': [

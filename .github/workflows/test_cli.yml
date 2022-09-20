@@ -1,0 +1,77 @@
+# Runs on pull request or release - checks CLI tools are working without raising exception
+
+
+name: CLI tests
+
+on:
+  pull_request:
+  release:
+
+jobs:
+ test_cli:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.9', '3.10' ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v3.1.1
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install hazen
+        run: |
+          python setup.py install
+
+      - name: test snr
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen snr tests/data/snr/Siemens --report
+          hazen snr tests/data/snr/Siemens --measured_slice_width 5.0012 --report
+
+      - name: test acr_snr
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_uniformity tests/data/acr/Siemens/Test --report
+
+      - name: test slice_position
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen slice_position tests/data/slicepos/SLICEPOSITION --report
+
+      - name: test slice_width
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen slice_width tests/data/slicewidth/512_matrix --report
+          hazen slice_width tests/data/slicewidth/SLICEWIDTH --report
+
+      - name: test spatial_resolution
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen spatial_resolution tests/data/resolution/RESOLUTION/ --report
+
+      - name: test uniformity
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+           hazen uniformity tests/data/uniformity --report
+
+      - name: test ghosting
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen ghosting tests/data/ghosting/GHOSTING --report
+          hazen ghosting tests/data/ghosting/PE_COL_PHANTOM_BOTTOM_RIGHT --report
+
+      - name: test snr_map
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen snr_map tests/data/snr/Siemens --report
