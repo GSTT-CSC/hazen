@@ -1,7 +1,7 @@
 import setuptools
 import os
 
-__version__ = '1.0.3'
+__version__ = '1.0.4'
 
 install_requires = ['pydicom==2.2.2',
                     'numpy==1.21.4',
