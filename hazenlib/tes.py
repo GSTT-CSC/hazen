@@ -19,7 +19,7 @@ def blur_image(img,blur_value):
     img = cv.filter2D(img,-1,kernel)
     return img
 
-#pixels=blur_image(pixels,2)
+pixels=blur_image(pixels,1)
 #print(pixels)
 
 def polynomialfit(data, order):
@@ -32,14 +32,14 @@ def polynomialfit(data, order):
 
 
 # find edge indexes and values
-central_col=pixels[120:140,100:120] #indexes and values of edge
+central_col=pixels[120:140,100:120]
 plt.imshow(central_col)
 plt.show()
-columns = central_col.shape[0] #get number of columns in the image
+columns = central_col.shape[0]
 der2_index = []
 max_values=[]
 max_indexes=[]
-for i in range(columns): # get indeces of edge, this is the max value because it is the max value in the graph of the second derivtive
+for i in range(columns):
     derivative=np.gradient(central_col[i,1:])
     der2 = np.gradient(derivative)
     der2 = np.round(der2)
@@ -48,24 +48,12 @@ for i in range(columns): # get indeces of edge, this is the max value because it
     max_index = np.where(der2 == np.amax(der2))
     max_indexes.append(max_index)
 
-print('max index', max_indexes[0][0])
-print('min', max_indexes[-1][0])
-angle = 6.3
-
-
-
-
-
-
-#find angle through sin, y value - height of edge
-y_edge = len(max_indexes) #this is the height of the image, the number of columns and it's the height of the triangle formed by the edge
+#find angle through sin
+y_edge = len(max_indexes)#y value - height of edge
 max_indexes = np.asarray(max_indexes)
-x_adj =  max_indexes[-1] - max_indexes[0] #this is the width of the triangle
+x_adj =  max_indexes[-1] - max_indexes[0]
 hyp = np.sqrt(y_edge**2+x_adj**2)
-
-angle = np.arccos(x_adj/hyp)
-
-print('this is angle',angle)
+angle = np.cos(y_edge /hyp)
 
 #project
 esp = []
@@ -77,52 +65,13 @@ for i in central_col.flatten():
 out = np.concatenate(esp).ravel().tolist()
 esp = sorted(out)
 
+esp = polynomialfit(esp,5)
+plt.plot(esp[5:-15])
 
-import pandas as pd
-#project
-esp = []
-new_val=[]
-final_x_cords = []
-x_projections = []
-values = []
-rev_esp = []
-tot=[]
-esp = np.empty([0,2])
-for column in range(central_col.shape[1]):
-    x_projections = []
-    for index, value in np.ndenumerate(central_col[::-1,column]):
-        x_projection = (index[0]+1)*np.tan(0.2) + (column+1)*np.cos(0.2) #https://www.spiedigitallibrary.org/journals/optical-engineering/volume-57/issue-1/014103/Modified-slanted-edge-method-for-camera-modulation-transfer-function-measurement/10.1117/1.OE.57.1.014103.short?SSO=1
-        print(x_projection)
-        x_projection = np.round(x_projection,1)
-        tot1 = np.array([x_projection,value])
-        tot.append(tot1)
-    #rev_esp = [(x, y) for x,y in zip(x_projection, values)]
-    #final_x_cords.extend(rev_esp)
-
-df = pd.DataFrame(tot, columns = ['key', 'values'])
-b=(df.groupby('key').mean()).to_numpy()
-
-
-
-#df._to_dict() => {2: 250, 3:: }
-plt.plot(b)
 plt.show()
-#
-
-#out = np.concatenate(esp).ravel().tolist()
-#esp = sorted(out)
-#plt.plot(out)
-#plt.show()
-
-esp = polynomialfit(esp,110)
-#plt.plot(esp[5:-15])
-#plt.plot(esp)
-#plt.title("this")
-#plt.show()
 
 #get LSF
-#lsf = np.gradient(esp[5:-15])
-lsf = np.gradient(esp)
+lsf = np.gradient(esp[5:-15])
 import numpy as np
 plt.plot(lsf)
 plt.show()
