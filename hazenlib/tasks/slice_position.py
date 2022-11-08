@@ -217,7 +217,6 @@ class SlicePosition(HazenTask):
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(2, 1)
             fig.set_size_inches(10, 10)
-            fig.tight_layout()
             ax[0].imshow(data[19].pixel_array, cmap='gray')
 
             for idx in range(40):
@@ -227,6 +226,8 @@ class SlicePosition(HazenTask):
 
             ax[1].scatter(range(10, 50), results, marker='x')
             ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
+            plt.xlabel('slice position [slice number]')
+            plt.ylabel('Slice position error [mm]')
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_slice_position.png'))
             fig.savefig(img_path)
