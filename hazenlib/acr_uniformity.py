@@ -18,8 +18,6 @@ import sys
 import traceback
 import numpy as np
 import skimage.morphology
-import cv2
-
 
 def centroid_com(dcm):
     # Calculate centroid of object using a centre-of-mass calculation
