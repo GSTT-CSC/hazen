@@ -57,7 +57,7 @@ def ghosting(dcm, report_path):
     if left_fov_to_centre < 0 or centre_to_left_phantom > w_point:
         diffs = [left_fov_to_centre, centre_to_left_phantom - w_point]
         ind = diffs.index(max(diffs, key=abs))
-        e_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
+        w_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
     else:
         w_factor = 1
 
@@ -70,7 +70,7 @@ def ghosting(dcm, report_path):
     right_fov_to_centre = e_centre[1] + sad / 2 + 5  # edge of ellipse towards right FoV (+ tolerance)
     centre_to_right_phantom = e_centre[1] - sad / 2 - 5  # edge of ellipse towards right side of phantom (+ tolerance)
     if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
-        diffs = [img.shape[1] - 1 - right_fov_to_centre, centre_to_right_phantom - e_point]
+        diffs = [dims[1] - 1 - right_fov_to_centre, centre_to_right_phantom - e_point]
         ind = diffs.index(max(diffs, key=abs))
         e_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
     else:
