@@ -383,6 +383,10 @@ def main():
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = task.main(dicom_objects, report_path=True)
+    elif arguments['<task>'] == 'acr_ghosting':
+        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        result = task.main(dicom_objects, report_path=True)
     else:
         result = task.run()
 
