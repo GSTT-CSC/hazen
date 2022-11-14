@@ -18,6 +18,7 @@ import traceback
 import numpy as np
 import skimage.morphology
 
+
 def centroid_com(dcm):
     # Calculate centroid of object using a centre-of-mass calculation
     thresh_img = dcm > 0.25 * np.max(dcm)
@@ -30,24 +31,23 @@ def centroid_com(dcm):
     cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
 
     cxy = [cxy[0].astype(int), cxy[1].astype(int)]
-    return cxy
+    return bhull, cxy
+
 
 def ghosting(dcm, report_path):
-    img = dcm.pixel_array # extract image slice of interest
-    res = dcm.PixelSpacing # In-plane resolution from metadata
-    r_large = np.ceil(80/res[0]).astype(int) # Required pixel radius to produce ~200cm2 ROI
+    img = dcm.pixel_array  # extract image slice of interest
+    res = dcm.PixelSpacing  # In-plane resolution from metadata
+    r_large = np.ceil(80/res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
     dims = img.shape
-    cxy = centroid_com(img)
+    mask, cxy = centroid_com(img)
 
-    mask = img > 0.25*np.max(img)
+    nx = np.linspace(1, dims[0], dims[0])
+    ny = np.linspace(1, dims[1], dims[1])
 
-    nx = np.linspace(1,dims[0],dims[0])
-    ny = np.linspace(1,dims[1],dims[1])
+    x, y = np.meshgrid(nx, ny)
 
-    x,y = np.meshgrid(nx,ny)
-
-    lROI = np.square(x - cxy[0]) + np.square(y - cxy[1] - np.divide(5,res[1])) <= np.square(r_large)
-    sad = 2*np.ceil(np.sqrt(1000/(4*np.pi))/res[0]) # Short axis diameter for an ellipse of 10cm2 with a 1:4 axis ratio
+    lroi = np.square(x - cxy[0]) + np.square(y - cxy[1] - np.divide(5, res[1])) <= np.square(r_large)
+    sad = 2*np.ceil(np.sqrt(1000/(4*np.pi))/res[0])  # Short axis diameter for an ellipse of 10cm2 with a 1:4 axis ratio
 
     # WEST ELLIPSE
     w_point = np.argwhere(np.sum(mask, 0) > 0)[0]  # find first column in mask
@@ -57,12 +57,12 @@ def ghosting(dcm, report_path):
     if left_fov_to_centre < 0 or centre_to_left_phantom > w_point:
         diffs = [left_fov_to_centre, centre_to_left_phantom - w_point]
         ind = diffs.index(max(diffs, key=abs))
-        w_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
+        w_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind]))  # ellipse scaling factor
     else:
         w_factor = 1
 
     w_ellipse = np.square((y - w_centre[0]) / (4 * w_factor)) + np.square((x - w_centre[1]) * w_factor) <= np.square(
-        10 / res[0]) # generate ellipse mask
+        10 / res[0])  # generate ellipse mask
 
     # EAST ELLIPSE
     e_point = np.argwhere(np.sum(mask, 0) > 0)[-1]  # find last column in mask
@@ -72,44 +72,44 @@ def ghosting(dcm, report_path):
     if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
         diffs = [dims[1] - 1 - right_fov_to_centre, centre_to_right_phantom - e_point]
         ind = diffs.index(max(diffs, key=abs))
-        e_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
+        e_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind]))  # ellipse scaling factor
     else:
         e_factor = 1
 
     e_ellipse = np.square((y - e_centre[0]) / (4 * e_factor)) + np.square((x - e_centre[1]) * e_factor) <= np.square(
-        10 / res[0]) # generate ellipse mask
+        10 / res[0])  # generate ellipse mask
 
     # NORTH ELLIPSE
-    n_point = np.argwhere(np.sum(mask, 1) > 0)[0] # find first row in mask
-    n_centre = [np.round(n_point / 2), cxy[0]] # initialise centre of ellipse
-    top_fov_to_centre = n_centre[0] - sad / 2 - 5 # edge of ellipse towards top FoV (+ tolerance)
-    centre_to_top_phantom = n_centre[0] + sad / 2 + 5 # edge of ellipse towards top side of phantom (+ tolerance)
+    n_point = np.argwhere(np.sum(mask, 1) > 0)[0]  # find first row in mask
+    n_centre = [np.round(n_point / 2), cxy[0]]  # initialise centre of ellipse
+    top_fov_to_centre = n_centre[0] - sad / 2 - 5  # edge of ellipse towards top FoV (+ tolerance)
+    centre_to_top_phantom = n_centre[0] + sad / 2 + 5  # edge of ellipse towards top side of phantom (+ tolerance)
     if top_fov_to_centre < 0 or centre_to_top_phantom > n_point:
         diffs = [top_fov_to_centre, centre_to_top_phantom - n_point]
         ind = diffs.index(max(diffs, key=abs))
-        n_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
+        n_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind]))  # ellipse scaling factor
     else:
         n_factor = 1
 
     n_ellipse = np.square((y - n_centre[0]) * n_factor) + np.square((x - n_centre[1]) / (4 * n_factor)) <= np.square(
-        10 / res[0]) # generate ellipse mask
+        10 / res[0])  # generate ellipse mask
 
     # SOUTH ELLIPSE
-    s_point = np.argwhere(np.sum(mask,1) > 0)[-1] # find last row in mask
-    s_centre = [s_point + np.round((dims[1] - s_point) / 2), cxy[0]] # initialise centre of ellipse
-    bottom_fov_to_centre = s_centre[0] + sad / 2 + 5 # edge of ellipse towards bottom FoV (+ tolerance)
-    centre_to_bottom_phantom = s_centre[0] - sad / 2 - 5 # edge of ellipse towards
+    s_point = np.argwhere(np.sum(mask, 1) > 0)[-1]  # find last row in mask
+    s_centre = [s_point + np.round((dims[1] - s_point) / 2), cxy[0]]  # initialise centre of ellipse
+    bottom_fov_to_centre = s_centre[0] + sad / 2 + 5  # edge of ellipse towards bottom FoV (+ tolerance)
+    centre_to_bottom_phantom = s_centre[0] - sad / 2 - 5  # edge of ellipse towards
     if bottom_fov_to_centre > dims[0] - 1 or centre_to_bottom_phantom < s_point:
         diffs = [dims[0] - 1 - bottom_fov_to_centre, centre_to_bottom_phantom - s_point]
         ind = diffs.index(max(diffs, key=abs))
-        s_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind])) # ellipse scaling factor
+        s_factor = (sad / 2) / (sad / 2 - np.absolute(diffs[ind]))  # ellipse scaling factor
     else:
         s_factor = 1
 
     s_ellipse = np.square((y - s_centre[0]) * s_factor) + np.square((x - s_centre[1]) / (4 * s_factor)) <= np.square(
         10 / res[0])
 
-    large_roi_val = np.mean(img[np.nonzero(lROI)])
+    large_roi_val = np.mean(img[np.nonzero(lroi)])
     w_ellipse_val = np.mean(img[np.nonzero(w_ellipse)])
     e_ellipse_val = np.mean(img[np.nonzero(e_ellipse)])
     n_ellipse_val = np.mean(img[np.nonzero(n_ellipse)])
