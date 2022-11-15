@@ -174,7 +174,7 @@ class ACRGhosting(HazenTask):
                      c='white')
 
             plt.plot(10. / res[0] * np.cos(theta) * 4 * s_factor + s_centre[1],
-                     10. / res[0] * np.sin(theta) / n_factor + s_centre[0], c='red')
+                     10. / res[0] * np.sin(theta) / s_factor + s_centre[0], c='red')
             plt.text(s_centre[1], s_centre[0], "Mean = " + str(np.round(s_ellipse_val, 2)), c='white')
 
             plt.axis('off')
