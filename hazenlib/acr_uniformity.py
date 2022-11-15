@@ -26,8 +26,8 @@ def centroid_com(dcm):
     bhull = skimage.morphology.convex_hull_image(open_img)
     coords = np.nonzero(bhull)  # row major - first array is columns
 
-    sum_x = np.sum(coords[0])
-    sum_y = np.sum(coords[1])
+    sum_x = np.sum(coords[1])
+    sum_y = np.sum(coords[0])
     cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
 
     cxy = [cxy[0].astype(int), cxy[1].astype(int)]

@@ -26,15 +26,15 @@ def centroid_com(dcm):
     bhull = skimage.morphology.convex_hull_image(open_img)
     coords = np.nonzero(bhull)  # row major - first array is columns
 
-    sum_x = np.sum(coords[0])
-    sum_y = np.sum(coords[1])
+    sum_x = np.sum(coords[1])
+    sum_y = np.sum(coords[0])
     cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
 
     cxy = [cxy[0].astype(int), cxy[1].astype(int)]
     return bhull, cxy
 
 
-def ghosting(dcm, report_path):
+def signal_ghosting(dcm, report_path):
     img = dcm.pixel_array  # extract image slice of interest
     res = dcm.PixelSpacing  # In-plane resolution from metadata
     r_large = np.ceil(80/res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
@@ -179,7 +179,7 @@ def main(data: list, report_path=False) -> dict:
         report_path = key
 
     try:
-        psg = ghosting(dcm, report_path)
+        psg = signal_ghosting(dcm, report_path)
         result[f"percent_signal_ghosting_{key}"] = round(psg, 3)
     except Exception as e:
         print(f"Could not calculate the ghosting for {key} because of : {e}")
