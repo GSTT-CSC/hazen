@@ -93,8 +93,7 @@ class ACRGhosting(HazenTask):
         e_point = np.argwhere(np.sum(mask, 0) > 0)[-1]  # find last column in mask
         e_centre = [cxy[1], e_point + np.ceil((dims[1] - e_point) / 2)]  # initialise centre of ellipse
         right_fov_to_centre = e_centre[1] + sad / 2 + 5  # edge of ellipse towards right FoV (+ tolerance)
-        centre_to_right_phantom = e_centre[
-                                      1] - sad / 2 - 5  # edge of ellipse towards right side of phantom (+ tolerance)
+        centre_to_right_phantom = e_centre[1] - sad/2 - 5  # edge of ellipse towards right side of phantom (+ tolerance)
         if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
             diffs = [dims[1] - 1 - right_fov_to_centre, centre_to_right_phantom - e_point]
             ind = diffs.index(max(diffs, key=abs))
