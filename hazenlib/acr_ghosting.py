@@ -126,26 +126,26 @@ def signal_ghosting(dcm, report_path):
 
         plt.plot(r_large * np.cos(theta) + cxy[0], r_large * np.sin(theta) + cxy[1] + 5 / res[1], c='black')
         plt.text(cxy[0] - 3 * np.floor(10 / res[0]), cxy[1] + np.floor(10 / res[1]),
-                 "Mean = " + str(np.round(large_roi_val, 1)), c='white')
+                 "Mean = " + str(np.round(large_roi_val, 2)), c='white')
 
         plt.plot(10. / res[0] * np.cos(theta) / w_factor + w_centre[1],
                  10. / res[0] * np.sin(theta) * 4 * w_factor + w_centre[0], c='red')
-        plt.text(w_centre[1] - np.floor(10 / res[0]), w_centre[0], "Mean = " + str(np.round(w_ellipse_val, 1)),
+        plt.text(w_centre[1] - np.floor(10 / res[0]), w_centre[0], "Mean = " + str(np.round(w_ellipse_val, 2)),
                  c='white')
 
         plt.plot(10. / res[0] * np.cos(theta) / e_factor + e_centre[1],
                  10. / res[0] * np.sin(theta) * 4 * e_factor + e_centre[0], c='red')
-        plt.text(e_centre[1] - np.floor(30 / res[0]), e_centre[0], "Mean = " + str(np.round(e_ellipse_val, 1)),
+        plt.text(e_centre[1] - np.floor(30 / res[0]), e_centre[0], "Mean = " + str(np.round(e_ellipse_val, 2)),
                  c='white')
 
         plt.plot(10. / res[0] * np.cos(theta) * 4 * n_factor + n_centre[1],
                  10. / res[0] * np.sin(theta) / n_factor + n_centre[0], c='red')
-        plt.text(n_centre[1] - 5 * np.floor(10 / res[0]), n_centre[0], "Mean = " + str(np.round(n_ellipse_val, 1)),
+        plt.text(n_centre[1] - 5 * np.floor(10 / res[0]), n_centre[0], "Mean = " + str(np.round(n_ellipse_val, 2)),
                  c='white')
 
         plt.plot(10. / res[0] * np.cos(theta) * 4 * s_factor + s_centre[1],
                  10. / res[0] * np.sin(theta) / n_factor + s_centre[0], c='red')
-        plt.text(s_centre[1], s_centre[0], "Mean = " + str(np.round(s_ellipse_val, 1)), c='white')
+        plt.text(s_centre[1], s_centre[0], "Mean = " + str(np.round(s_ellipse_val, 2)), c='white')
 
         plt.axis('off')
         plt.title('Percent Signal Ghosting = ' + str(np.round(psg, 3)) + '%')
