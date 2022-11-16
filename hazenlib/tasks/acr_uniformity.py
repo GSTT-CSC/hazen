@@ -107,7 +107,7 @@ class ACRUniformity(HazenTask):
             plt.annotate('Max = ' + str(np.round(sig_max, 1)), [max_loc[1], max_loc[0] + 10 / res[0]], c='white')
             plt.plot(r_large * np.cos(theta) + cxy[1], r_large * np.sin(theta) + cxy[0] + 5 / res[1], c='black')
             plt.axis('off')
-            plt.title('Percent Integral Uniformity = ' + str(np.round(piu, 1)) + '%')
+            plt.title('Percent Integral Uniformity = ' + str(np.round(piu, 2)) + '%')
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
