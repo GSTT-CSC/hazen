@@ -14,16 +14,22 @@ class ACRUniformity(HazenTask):
 
     def run(self) -> dict:
         results = {}
+        z = []
+        for dcm in self.data:
+            z.append(dcm.ImagePositionPatient[2])
+
+        idx_sort = np.argsort(z)
 
         for dcm in self.data:
-            try:
-                result = self.get_integral_uniformity(dcm)
-            except Exception as e:
-                print(f"Could not calculate the percent integral uniformity for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
+            if dcm.ImagePositionPatient[2] == z[idx_sort[6]]:
+                try:
+                    result = self.get_integral_uniformity(dcm)
+                except Exception as e:
+                    print(f"Could not calculate the percent integral uniformity for {self.key(dcm)} because of : {e}")
+                    traceback.print_exc(file=sys.stdout)
+                    continue
 
-            results[self.key(dcm)] = result
+                results[self.key(dcm)] = result
 
         results['reports'] = {'images': self.report_files}
 
@@ -92,6 +98,7 @@ class ACRUniformity(HazenTask):
 
         piu = 100 * (1 - (sig_max - sig_min) / (sig_max + sig_min))
 
+        piu = np.round(piu,2)
         if self.report:
             import matplotlib.pyplot as plt
             theta = np.linspace(0, 2 * np.pi, 360)

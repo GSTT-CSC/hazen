@@ -29,16 +29,22 @@ class ACRGhosting(HazenTask):
 
     def run(self) -> dict:
         results = {}
+        z = []
+        for dcm in self.data:
+            z.append(dcm.ImagePositionPatient[2])
+
+        idx_sort = np.argsort(z)
 
         for dcm in self.data:
-            try:
-                result = self.get_signal_ghosting(dcm)
-            except Exception as e:
-                print(f"Could not calculate the percent-signal ghosting for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
+            if dcm.ImagePositionPatient[2] == z[idx_sort[6]]:
+                try:
+                    result = self.get_signal_ghosting(dcm)
+                except Exception as e:
+                    print(f"Could not calculate the percent-signal ghosting for {self.key(dcm)} because of : {e}")
+                    traceback.print_exc(file=sys.stdout)
+                    continue
 
-            results[self.key(dcm)] = result
+                results[self.key(dcm)] = result
 
         results['reports'] = {'images': self.report_files}
 
@@ -146,6 +152,8 @@ class ACRGhosting(HazenTask):
 
         psg = 100 * np.absolute(
             ((n_ellipse_val + s_ellipse_val) - (w_ellipse_val + e_ellipse_val)) / (2 * large_roi_val))
+
+        psg = np.round(psg,3)
 
         if self.report:
             import matplotlib.pyplot as plt
