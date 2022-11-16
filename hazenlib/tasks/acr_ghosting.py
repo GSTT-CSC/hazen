@@ -21,6 +21,7 @@ import skimage.morphology
 
 from hazenlib.HazenTask import HazenTask
 
+
 class ACRGhosting(HazenTask):
 
     def __init__(self, **kwargs):
