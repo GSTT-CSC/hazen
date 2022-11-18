@@ -65,7 +65,7 @@ class ACRGhosting(HazenTask):
         return bhull, cxy
 
     def get_signal_ghosting(self, dcm):
-        img = dcm.pixel_array  # extract image slice of interest
+        img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
         r_large = np.ceil(80 / res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
         dims = img.shape
