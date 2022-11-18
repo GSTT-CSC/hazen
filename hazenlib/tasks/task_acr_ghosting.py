@@ -1,6 +1,8 @@
 """
 ACR Ghosting
 
+https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
+
 Calculates uniformity for slice 7 of the ACR phantom.
 
 This script calculates the percentage signal ghosting in accordance with the ACR Guidance.
