@@ -79,7 +79,7 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | acr_snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
 
