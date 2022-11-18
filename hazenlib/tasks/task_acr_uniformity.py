@@ -1,6 +1,8 @@
 """
 ACR Uniformity
 
+https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
+
 Calculates uniformity for slice 7 of the ACR phantom.
 
 This script calculates the integral uniformity in accordance with the ACR Guidance.
