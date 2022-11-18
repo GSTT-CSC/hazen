@@ -1,3 +1,19 @@
+"""
+ACR Uniformity
+
+Calculates uniformity for slice 7 of the ACR phantom.
+
+This script calculates the integral uniformity in accordance with the ACR Guidance.
+This is done by first defining a large 200cm2 ROI before placing 1cm2 ROIs at every pixel within
+the large ROI. At each point, the mean of the 1cm2 ROI is calculated. The ROIs with the maximum and
+minimum mean value are used to calculate the integral uniformity. The results are also visualised.
+
+Created by Yassine Azma
+yassine.azma@rmh.nhs.uk
+
+13/01/2022
+"""
+
 import sys
 import traceback
 import os
