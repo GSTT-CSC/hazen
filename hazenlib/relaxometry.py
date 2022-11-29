@@ -1222,7 +1222,7 @@ def main(dcm_target_list, *, plate_number=None,
             output_files_path['rois'] = save_path
 
     relax_published = \
-        TEMPLATE_VALUES[f'plate{image_stack.plate_number}'] [relax_str] \
+        TEMPLATE_VALUES [f'plate{image_stack.plate_number}'][relax_str] \
             ['relax_times'][image_stack.b0_str]
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
