@@ -79,6 +79,10 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
+Report is an optional argument needed if you want to get a plot of your results.
+Calc_t1, calc_t, plate_number=<n>, show_template_fit, show_relax_fits, show_rois, verbose are optional argument for the function relaxometry.
+Measured_slice_width is an optional argument for the function snr.
+Log is an optional argument that allows to set the severity of the logs.
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
