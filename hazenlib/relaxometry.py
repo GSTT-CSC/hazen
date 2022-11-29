@@ -528,7 +528,8 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
-       
+    
+    
 def rms(arr):
     """
     Calculate RMS of an array.
@@ -1155,8 +1156,8 @@ def main(dcm_target_list, *, plate_number=None,
     # check plate number specified and either 4 or 5
     try:
         plate_number = int(plate_number)  # convert to int if required
-    except(ValueError, TypeError):
-        pass # will raise error at next statement
+    except (ValueError, TypeError):
+        pass  # will raise error at next statement
 
     if plate_number not in [4, 5]:
         raise hazenlib.exceptions.ArgumentCombinationError(
@@ -1219,7 +1220,6 @@ def main(dcm_target_list, *, plate_number=None,
             save_path = f'{report_path}_rois.png'
             fig.savefig(save_path, dpi=300)
             output_files_path['rois'] = save_path
-
 
     relax_published = \
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str] \
