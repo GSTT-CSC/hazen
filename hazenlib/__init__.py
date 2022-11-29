@@ -85,10 +85,10 @@ Options:
 
 
 
---report is an optional argument needed if you want to get a plot of your results
---calc_t1, --calc_t, --plate_number=<n>, --show_template_fit, --show_relax_fits, --show_rois, --verbose are optional argument for the function relaxometry
---measured_slice_width is an optional argument for the function snr
--- log is an optional argument that allows to set the severity of the logs. Options are NOTSET=0, DEBUG=10, INFO=20, WARN=30, ERROR=40, and CRITICAL=50.
+report is an optional argument needed if you want to get a plot of your results
+calc_t1, calc_t, plate_number=<n>, show_template_fit, show_relax_fits, show_rois, verbose are optional argument for the function relaxometry
+measured_slice_width is an optional argument for the function snr
+log is an optional argument that allows to set the severity of the logs. Options are NOTSET=0, DEBUG=10, INFO=20, WARN=30, ERROR=40, and CRITICAL=50.
 
 """
 import importlib
