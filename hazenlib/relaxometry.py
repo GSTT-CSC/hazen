@@ -184,7 +184,7 @@ TEMPLATE_VALUES = {
         'bolt_centres_row_col': ((52, 80), (92, 141), (138, 85)),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
-            'relax_times':{
+            'relax_times': {
                 '1.5T':
                     np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
                               184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859,
@@ -196,7 +196,7 @@ TEMPLATE_VALUES = {
 
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
-            'relax_times':{
+            'relax_times': {
                 '1.5T':
                     np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2,
                               227.7, 161.9, 117.1, 81.9, 57.7, 41.0, 28.7,
@@ -528,7 +528,7 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
-
+       
 def rms(arr):
     """
     Calculate RMS of an array.
