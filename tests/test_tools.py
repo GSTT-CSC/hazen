@@ -88,7 +88,7 @@ class TestShapeDetector(TestTools):
 class Test_is_Dicom_file(unittest.TestCase):
 
     def setUp(self) -> None:
-        data_folder = "./tests/data/tools"
+        data_folder = str(TEST_DATA_DIR / 'tools')
         self.true_dicom_path = os.path.join(data_folder, 'dicom_yes.dcm')
         self.false_dicom_path = os.path.join(data_folder, 'dicom_no.jfif')
 
