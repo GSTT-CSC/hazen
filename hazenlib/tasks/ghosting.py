@@ -127,11 +127,11 @@ class Ghosting(HazenTask):
         return background_rois
 
     def get_background_slices(self, background_rois, slice_radius=5):
-        slices = [
-            (np.array(range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
-                range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp)) for roi in background_rois]
-
+        import pdb; pdb.set_trace()
+        slices = (np.array(range([roi[0] - slice_radius for roi in background_rois], [roi[0] + slice_radius for roi in background_rois]), dtype=np.intp)[:, np.newaxis], np.array(
+                range([roi[1] - slice_radius for roi in background_rois], [roi[1] + slice_radius for roi in background_rois]), dtype=np.intp))
         return slices
+
 
     def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
 
