@@ -202,7 +202,7 @@ class TestCliParser(unittest.TestCase):
         print(output_dict)
         dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.93,
                  'snr_subtraction_normalised_SNR_SNR_SAG_MEAS1_23_1': 7593.04,
-                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 189.93,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 183.93,
                  'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7591.33,
                  'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 179.94,
                  'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7426.54}
