@@ -17,6 +17,11 @@ class TestGhosting(unittest.TestCase):
     PADDING_FROM_BOX = 30
     SLICE_RADIUS = 5
     PE = 'ROW'
+
+    SLICES = [
+        (np.array(range(roi[0] - 5, roi[0] + 5), dtype=np.intp)[:, np.newaxis], np.array(
+            range(roi[1] - 5, roi[1] + 5), dtype=np.intp)) for roi in BACKGROUND_ROIS]
+
     ELIGIBLE_GHOST_AREA = range(5, SIGNAL_BOUNDING_BOX[0] - PADDING_FROM_BOX), range(SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
 
     SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:, np.newaxis], np.array(
@@ -66,6 +71,11 @@ class TestGhosting(unittest.TestCase):
     def test_get_background_rois(self):
         assert self.ghosting.get_background_rois(self.dcm, self.SIGNAL_CENTRE) == self.BACKGROUND_ROIS
 
+    def test_get_background_slices(self):
+        test=self.ghosting.get_background_slices(self.BACKGROUND_ROIS, 5)
+        test1=self.SLICES
+        return len(test) == len(test1)
+
     def test_get_eligible_area(self):
         assert self.ghosting.get_eligible_area(self.SIGNAL_BOUNDING_BOX, self.dcm) == self.ELIGIBLE_GHOST_AREA
 
@@ -85,6 +95,10 @@ class TestCOLPEGhosting(TestGhosting):
     SLICE_RADIUS = 5
     ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
                           SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+
+    SLICES = [
+        (np.array(range(roi[0] - 5, roi[0] + 5), dtype=np.intp)[:, np.newaxis], np.array(
+            range(roi[1] - 5, roi[1] + 5), dtype=np.intp)) for roi in BACKGROUND_ROIS]
 
     SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis],\
                        np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
@@ -112,6 +126,10 @@ class TestAxialPhilipsBroomfields(TestGhosting):
             SIGNAL_BOUNDING_BOX[2], SIGNAL_BOUNDING_BOX[3])
     SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,np.newaxis],\
                        np.array(range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS),dtype=np.intp)
+    SLICES = [
+        (np.array(range(roi[0] - 5, roi[0] + 5), dtype=np.intp)[:, np.newaxis], np.array(
+            range(roi[1] - 5, roi[1] + 5), dtype=np.intp)) for roi in BACKGROUND_ROIS]
+
     GHOST_SLICE = np.array(
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))

@@ -130,7 +130,6 @@ class Ghosting(HazenTask):
         slices = [
             (np.array(range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp)[:, np.newaxis], np.array(
                 range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp)) for roi in background_rois]
-
         return slices
 
     def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
