@@ -200,12 +200,12 @@ class TestCliParser(unittest.TestCase):
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
         print(output_dict)
-        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.97,
+        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 179.94,
                  'snr_subtraction_normalised_SNR_SNR_SAG_MEAS1_23_1': 7593.04,
-                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 189.38,
-                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7816.0,
-                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 184.41,
-                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7610.83}
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 189.93,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7591.33,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 179.94,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7426.54}
 
         self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
