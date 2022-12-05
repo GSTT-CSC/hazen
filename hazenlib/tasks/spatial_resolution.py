@@ -117,8 +117,8 @@ class SpatialResolution(HazenTask):
 
         # Get intensities from img ndarray
         itbuffer[:, 2] = img[itbuffer[:, 1].astype(np.uint), itbuffer[:, 0].astype(np.uint)]
-
-        return itbuffer
+        import pdb; pdb.set_trace()
+        return itbuffer, print('this is' , itbuffer)
 
     def get_circles(self, image):
         v = np.median(image)
