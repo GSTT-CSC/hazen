@@ -199,17 +199,15 @@ class TestCliParser(unittest.TestCase):
 
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
-
-        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS2_24_1': 182.87,
-                 'snr_subtraction_normalised_SNR_SNR_SAG_MEAS2_24_1': 7547.37,
+        print(output_dict)
+        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.97,
+                 'snr_subtraction_normalised_SNR_SNR_SAG_MEAS1_23_1': 7593.04,
                  'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 189.38,
                  'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7816.0,
                  'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 184.41,
                  'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7610.83}
 
-        maxDiff = None
-        output_dict['SNR_SNR_SAG_MEAS2_24_1'] == dict1
-        self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS2_24_1'], dict1)
+        self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
     def test_relaxometry(self):
         sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\", "--plate_number",

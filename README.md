@@ -39,30 +39,27 @@ It provides automatic quantitative analysis for the following measurements of MR
 
 Some example outputs from hazen:
 
-| hazen snr          | hazen ghosting                  |
-| ------------------ | ------------------------------- |
-| ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting.png)      |
+| hazen snr                        | hazen ghosting                |
+|----------------------------------|-------------------------------|
+| ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting.png) |
 
 ---
 
 ## Installation
 
-### Prerequisites
+### pip
 
- - Python v3.9
- - Git
- - Docker
+Hazen can be installed using pip on python 3.9 or higher, it is recommended to use a virtual environment
 
-### Install
-
-First, clone this repo, then follow the instructions for your operating system. To clone:
 ```bash
-git clone git@github.com:GSTT-CSC/hazen.git
+python3 -m venv hazen-venv
+source hazen-venv/bin/activate
+pip install hazen
 ```
 
 #### Docker
 
-We recommend using the Docker version of hazen as it is easy to get up-and-running and is linked to the most stable release. Refer to the [Docker installation instructions](https://docs.docker.com/engine/install) to install Docker on your host computer.
+The Docker version of hazen as it is easy to get up-and-running and is linked to the most stable release. Refer to the [Docker installation instructions](https://docs.docker.com/engine/install) to install Docker on your host computer.
 
 For ease of use, it is recommended to copy the `hazen-app` script to a location accessible on the path such as `/usr/local/bin`. This will allow you to run hazen from any location on your computer. Then, to use Docker hazen, simply run the `hazen-app` script appended with the function you want to use (e.g.: `snr`). 
 
@@ -90,26 +87,10 @@ docker.io/gsttmriphysics/hazen:latest
 
 #### Linux & MacOS
 
-For developers, hazen can be installed using `pip`. We highly recommend using a virtual environment.
+For developers, hazen can be installed from source using `pip`. We highly recommend using a virtual environment.
 
 ```bash
 # Install OpenSSL
-brew update
-brew upgrade
-brew install openssl
-export LDFLAGS="-L`brew --prefix openssl`/lib"
-export CPPFLAGS="-I`brew --prefix openssl`/include"
-
-# For M1 Apple Macs, also install OpenBLAS and LAPACK
-brew install openblas
-export LDFLAGS="-L/usr/local/opt/openblas/lib"
-export CPPFLAGS="-I/usr/local/opt/openblas/include"
-export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig"
-brew install lapack
-export LDFLAGS="-L/usr/local/opt/lapack/lib"
-export CPPFLAGS="-I/usr/local/opt/lapack/include"
-export PKG_CONFIG_PATH="/usr/local/opt/lapack/lib/pkgconfig"
-
 # Go to local hazen repo directory
 cd hazen
 

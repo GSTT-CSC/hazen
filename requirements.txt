@@ -1,3 +1,4 @@
+# After making changes for core components please update install_requires in setp.py as well
 pydicom==2.2.2
 numpy==1.21.4
 matplotlib==3.5.1
