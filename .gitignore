@@ -20,7 +20,6 @@ build
 dist
 hazen.egg-info
 docs/_build
-docs/build
 hazen_getting_started.pdf
 .DS_Store
 /.cache/
