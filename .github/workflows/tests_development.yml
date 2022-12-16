@@ -19,26 +19,6 @@ jobs:
       run:
         shell: bash -l {0}
 
-#    # Service containers to run with `container-job`
-#    services:
-#      # Label used to access the service container
-#      postgres:
-#        # Docker Hub image
-#        image: postgres
-#        # Provide the password for postgres
-#        ports:
-#          - 5432:5432
-#        env:
-#          POSTGRES_DB: hazen_test
-#          POSTGRES_USER: test_user
-#          POSTGRES_PASSWORD: test_user_password
-#        # Set health checks to wait until postgres has started
-#        options: >-
-#          --health-cmd pg_isready
-#          --health-interval 10s
-#          --health-timeout 5s
-#          --health-retries 5
-
     steps:
     - uses: actions/checkout@v2
 

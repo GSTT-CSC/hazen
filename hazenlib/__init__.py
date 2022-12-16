@@ -79,7 +79,7 @@ Usage:
     hazen -h|--help
     hazen -v|--version
 Options:
-    <task>    snr | acr_snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
     --report
 
@@ -376,11 +376,6 @@ def main():
         result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
     # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'snr_map':
-        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
-        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = task.main(dicom_objects, report_path=True)
-    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
-    elif arguments['<task>'] == 'acr_uniformity':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = task.main(dicom_objects, report_path=True)
