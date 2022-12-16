@@ -65,8 +65,9 @@ class ShapeDetector:
     def find_contours(self):
         # convert the resized image to grayscale, blur it slightly, and threshold it
         self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)    # magic numbers
-        optimal_threshold = filters.threshold_li(self.blurred, initial_guess=self.blurred.max() // 5)
-        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0) .astype(np.uint8)
+
+        optimal_threshold = filters.threshold_li(self.blurred, initial_guess=np.quantile(self.blurred, 0.25))
+        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(np.uint8)
 
         # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
