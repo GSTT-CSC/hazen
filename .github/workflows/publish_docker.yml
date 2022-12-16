@@ -23,7 +23,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@e5622373a38e60fb6d795a4421e56882f2d7a681
+        uses: docker/metadata-action@57396166ad8aefe6098280995947635806a0e6ea
         with:
           images: gsttmriphysics/hazen
 
