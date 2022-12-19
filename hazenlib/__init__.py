@@ -107,6 +107,7 @@ import hazenlib.exceptions
 
 EXCLUDED_FILES = ['.DS_Store']
 
+
 def rescale_to_byte(array):
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
@@ -355,7 +356,7 @@ def main():
 
     class_list = [cls for _, cls in inspect.getmembers(sys.modules[task_module.__name__],
                                                        lambda x: inspect.isclass(x) and (
-                                                                   x.__module__ == task_module.__name__))]
+                                                               x.__module__ == task_module.__name__))]
 
     if len(class_list) > 1:
         raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')

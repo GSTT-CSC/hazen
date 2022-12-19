@@ -27,7 +27,5 @@ def configure_logger():
     logger.addHandler(file_handler)
 
 
-
-
 logger = logging.getLogger(__name__)
 configure_logger()
