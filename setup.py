@@ -11,7 +11,7 @@ install_requires = ['pydicom==2.2.2',
                     'scikit-image==0.19.2',
                     'scipy==1.8.0',
                     'imutils==0.5.3',
-                    'colorlog==6.6.0',]
+                    'colorlog==6.6.0']
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
