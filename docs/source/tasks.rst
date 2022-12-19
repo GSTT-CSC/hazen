@@ -4,7 +4,7 @@ The *hazen* application provides automatic quantitative analysis for the followi
 
 Signal-to-noise ratio (SNR)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: /_static/snr.png
+.. image:: /_static/snr.jpg
    :width: 300
    :align: center
 
@@ -14,7 +14,7 @@ Hazen calculates the SNR using a subtraction method\ :footcite:p:`2017:ipem112`.
 
 Spatial resolution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: /_static/spatialresolution.png
+.. image:: /_static/sp_res.jpg
    :width: 300
    :align: center
 
@@ -31,7 +31,8 @@ The MTF describes how the range of spatial frequencies of an object are modulate
 
 Slice position and width
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: /_static/sliceposition.png
+
+.. image:: /_static/slice_par.jpg
    :width: 300
    :align: center
 
@@ -43,7 +44,7 @@ script to function.
 
 Uniformity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: /_static/uniformity.png
+.. image:: /_static/uniformity.jpg
    :width: 300
    :align: center
 
@@ -59,7 +60,7 @@ This method:
 
 Ghosting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. image:: /_static/ghosting.png
+.. image:: /_static/ghost.jpg
    :width: 300
    :align: center
 
