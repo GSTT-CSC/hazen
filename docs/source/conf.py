@@ -12,6 +12,8 @@
 #
 import os
 import sys
+from hazenlib import __version__
+
 sys.path.insert(0, os.path.abspath("../.."))
 
 
@@ -22,7 +24,7 @@ copyright = '2022, Haris Shuaib'
 author = 'Haris Shuaib'
 
 # The full version, including alpha/beta/rc tags
-release = '0.6.0'
+release = __version__
 
 
 # -- General configuration ---------------------------------------------------
