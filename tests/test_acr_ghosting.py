@@ -3,7 +3,7 @@ import unittest
 import pathlib
 import pydicom
 
-from hazenlib.tasks.task_acr_ghosting import ACRGhosting
+from hazenlib.tasks.acr_ghosting import ACRGhosting
 from tests import TEST_DATA_DIR
 
 

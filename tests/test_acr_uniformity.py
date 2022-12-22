@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 import numpy as np
 
-from hazenlib.tasks.task_acr_uniformity import ACRUniformity
+from hazenlib.tasks.acr_uniformity import ACRUniformity
 from tests import TEST_DATA_DIR
 
 
