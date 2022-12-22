@@ -77,7 +77,7 @@ Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
-    hazen -v|--version
+    hazen --version
 Options:
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
     <folder>
