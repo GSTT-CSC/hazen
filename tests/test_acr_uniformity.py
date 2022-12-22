@@ -21,7 +21,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
     def setUp(self):
         self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', 'Test', '6.dcm'))
+        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '6.dcm'))
 
     def test_object_centre(self):
         assert self.acr_uniformity_task.centroid_com(self.dcm.pixel_array) == self.centre
@@ -44,7 +44,7 @@ class TestACRUniformityGE(unittest.TestCase):
 
     def setUp(self):
         self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', 'Test', '4.dcm'))
+        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '4.dcm'))
 
     def test_object_centre(self):
         assert self.acr_uniformity_task.centroid_com(self.dcm.pixel_array) == self.centre
