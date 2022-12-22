@@ -74,12 +74,14 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2]
+    [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
     hazen --version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
+    acr_ghosting | acr_uniformity
     <folder>
     --report
 
