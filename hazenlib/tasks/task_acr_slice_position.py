@@ -29,6 +29,14 @@ import skimage.measure
 from hazenlib.HazenTask import HazenTask
 
 
+    peaks = scipy.signal.find_peaks(data, height)
+    pk_heights = peaks[1]['peak_heights']
+    pk_ind = peaks[0]
+    highest_peaks = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
+
+    return np.sort(highest_peaks)
+
+
 class ACRSlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
@@ -72,14 +80,6 @@ class ACRSlicePosition(HazenTask):
         cxy = [cxy[0].astype(int), cxy[1].astype(int)]
         return bhull, cxy
 
-    def find_n_peaks(self, data, n, height=1):
-        peaks = scipy.signal.find_peaks(data, height)
-        pk_heights = peaks[1]['peak_heights']
-        pk_ind = peaks[0]
-        highest_peaks = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
-
-        return np.sort(highest_peaks)
-
     def find_wedges(self, img, mask, res):
         # X COORDINATES
         x_investigate_region = np.ceil(35 / res[0]).astype(int)  # define width of region to test (comparable to wedges)
@@ -88,9 +88,9 @@ class ACRSlicePosition(HazenTask):
             # we want an odd number to see -N to N points in the x direction
             x_investigate_region = x_investigate_region + 1
 
-        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].astype(int)  # westmost point of object
-        e_point = np.argwhere(np.sum(mask, 0) > 0)[-1].astype(int)  # eastmost point of object
-        n_point = np.argwhere(np.sum(mask, 1) > 0)[0].astype(int)  # northmost point of object
+        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()  # westmost point of object
+        e_point = np.argwhere(np.sum(mask, 0) > 0)[-1].item()  # eastmost point of object
+        n_point = np.argwhere(np.sum(mask, 1) > 0)[0].item()  # northmost point of object
 
         invest_x = []
         for k in range(x_investigate_region):
@@ -106,8 +106,8 @@ class ACRSlicePosition(HazenTask):
         mean_x_profile = np.mean(invest_x, 1)  # mean of horizontal projections of phantom
         abs_diff_x_profile = np.abs(np.diff(mean_x_profile))  # absolute first derivative of mean
 
-        x_peaks = self.find_n_peaks(abs_diff_x_profile, 2)  # find two highest peaks
-        x_locs = w_point + x_peaks - 1  # x coordinates of these peaks in image coordinate system(before diff operation)
+        x_peaks = find_n_peaks(abs_diff_x_profile, 2)  # find two highest peaks
+        x_locs = w_point + x_peaks  # x coordinates of these peaks in image coordinate system(before diff operation)
 
         width_pts = [x_locs[0], x_locs[1]]  # width of wedges
         width = np.max(width_pts) - np.min(width_pts)  # width
@@ -117,19 +117,19 @@ class ACRSlicePosition(HazenTask):
 
         # Y COORDINATES
         # define height of region to test (comparable to wedges)
-        y_investigate_region = np.ceil(20 / res[1]).astype(int)
+        y_investigate_region = int(np.ceil(20 / res[1]).item())
 
-        end_point = n_point + np.round(50 / res[1]).astype(
-            int)  # supposed distance from top of phantom to end of wedges
+        # supposed distance from top of phantom to end of wedges
+        end_point = n_point + np.round(50 / res[1]).astype(int)
 
         if np.mod(y_investigate_region, 2) == 0:
             # we want an odd number to see -N to N points in the y direction
-            y_investigate_region = (y_investigate_region + 1).astype(int)
+            y_investigate_region = (y_investigate_region + 1)
 
         invest_y = []
         for m in range(y_investigate_region):
             x_loc = (m - np.floor(y_investigate_region / 2) + np.floor(np.mean(x_pts))).astype(int)
-            c = mask[x_loc, np.arange(n_point, end_point + 1, 1)]  # mask for resultant line profile
+            c = mask[np.arange(n_point, end_point + 1, 1), x_loc]  # mask for resultant line profile
             line_prof_y = skimage.measure.profile_line(img, (n_point, x_loc), (end_point, x_loc),
                                                        mode='constant').flatten()
             invest_y.append(c * line_prof_y)
@@ -138,7 +138,7 @@ class ACRSlicePosition(HazenTask):
         mean_y_profile = np.mean(invest_y, 1)  # mean of vertical projections of phantom
         abs_diff_y_profile = np.abs(np.diff(mean_y_profile))  # absolute first derivative of mean
 
-        y_peaks = self.find_n_peaks(abs_diff_y_profile, 2)  # find two highest peaks
+        y_peaks = find_n_peaks(abs_diff_y_profile, 2)  # find two highest peaks
         y_locs = w_point + y_peaks - 1  # y coordinates of these peaks in image coordinate system(before diff operation)
 
         if y_locs[1] - y_locs[0] < 5 / res[1]:
@@ -147,8 +147,9 @@ class ACRSlicePosition(HazenTask):
             y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs)))  # define y coordinate
 
         dist_to_y = np.abs(n_point - y[0]) * res[1]  # distance to y from top of phantom
-        y_pts = np.append(y, np.round(y[0] + (47 - dist_to_y) / res[1]))  # place 2nd y point 47mm from top of phantom
+        y_pts = np.append(y, np.round(y[0] + (47 - dist_to_y) / res[1])).astype(int)  # place 2nd y point 47mm from top of phantom
 
+        print(x_pts, y_pts)
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
@@ -170,7 +171,7 @@ class ACRSlicePosition(HazenTask):
         interp_line_prof_R = scipy.interpolate.interp1d(x, line_prof_R)(new_x)  # interpolate right line profile
 
         delta = interp_line_prof_L - interp_line_prof_R  # difference of line profiles
-        peaks = self.find_n_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
+        peaks = find_n_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
 
         if len(peaks) == 1:
             peaks = [peaks[0] - 50, peaks[0] + 50]  # if only one peak, set dummy range
@@ -237,7 +238,7 @@ class ACRSlicePosition(HazenTask):
             elif shift < 0 and pos == 1:
                 shift_line[pos * shift:] = np.nan
             elif shift > 0 and pos == -1:
-                shift_line[-pos * shift:] = np.nan
+                shift_line[pos * shift:] = np.nan
             else:
                 shift_line[0:np.abs(pos) * shift] = np.nan
 
