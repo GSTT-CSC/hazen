@@ -1,5 +1,5 @@
 import pydicom
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 import hazenlib
 import unittest
 import numpy as np

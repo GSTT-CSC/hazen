@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_ghosting import ACRGhosting
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGhostingSiemens(unittest.TestCase):
@@ -13,7 +13,8 @@ class TestACRGhostingSiemens(unittest.TestCase):
     psg = 0.056
 
     def setUp(self):
-        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+                                             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '6.dcm'))
 
     def test_object_centre(self):
@@ -29,7 +30,8 @@ class TestACRGhostingGE(unittest.TestCase):
     psg = 0.487
 
     def setUp(self):
-        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+                                             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '4.dcm'))
 
     def test_object_centre(self):
