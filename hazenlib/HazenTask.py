@@ -10,7 +10,7 @@ import os
 
 class HazenTask:
 
-    def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'hazen_reports')):
+    def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'report')):
         self.data_paths = sorted(data_paths)
         self.report: bool = report
         self.report_path = os.path.join(report_dir, type(self).__name__)
