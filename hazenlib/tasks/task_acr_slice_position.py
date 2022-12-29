@@ -29,6 +29,7 @@ import skimage.measure
 from hazenlib.HazenTask import HazenTask
 
 
+def find_n_peaks(data, n, height=1):
     peaks = scipy.signal.find_peaks(data, height)
     pk_heights = peaks[1]['peak_heights']
     pk_ind = peaks[0]
