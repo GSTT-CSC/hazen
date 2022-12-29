@@ -362,6 +362,7 @@ def main():
 
     task = getattr(task_module, class_list[0].__name__)(data_paths=files,
                                                         report=arguments['--report'],
+                                                        # TODO: Is this necessary? See HazenTask __init__()
                                                         report_dir=[arguments['--output'] if arguments[
                                                             '--output'] else os.path.join(os.getcwd(), 'report')][0])
 
