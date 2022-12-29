@@ -43,5 +43,5 @@ date-released: 2022-02-24
 message: "If you use hazen in your work, please cite it using these metadata."
 repository-code: "https://github.com/GSTT-CSC/hazen"
 title: hazen
-version: "0.6.0"
+version: "1.0.5"
 ...
