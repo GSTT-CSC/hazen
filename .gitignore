@@ -1,34 +1,45 @@
+# virtual environments
 hazen-venv
-.scannerwork
+/venv/
+
+# tests
 .coverage
 coverage.xml
+pytest-coverage.txt
+pytest.xml
+
+# cache
 **/__pycache__
 .idea
-logs
-*.log
-uploads
-tests/data/slicepos/results
-tests/data/uniformity/results
-rods.png
-tra_slicewidth5_Bottom_Profile.png
-tra_slicewidth5_Slice_Width_and_Distortion_Results.txt
-tra_slicewidth5_Slice_Width_and_Distortion_ROIs.png
-tra_slicewidth5_Top_Profile.png
-nodeids
-htmlcov
-build
-dist
-hazen.egg-info
-docs/_build
-docs/build
-hazen_getting_started.pdf
 .DS_Store
 /.cache/
 /.bash_history
-/junit.xml
-pytest-coverage.txt
-pytest.xml
+.pytest_cache
+
+# logs
+logs
+*.log
 Hazen_logger.log
+hazen.egg-info
+dist
+
+# data
+uploads
 *.png
-newdocs/_build
-/venv/
+# TODO: Remove the following if no longer needed
+tests/data/slicepos/results
+tests/data/uniformity/results
+hazenlib/data
+
+# docs
+docs/_build
+docs/build
+build
+
+# mischellaneous
+# TODO: Remove the following if no longer needed
+hazen_getting_started.pdf
+/junit.xml
+.scannerwork
+nodeids
+htmlcov
