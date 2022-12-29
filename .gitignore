@@ -26,6 +26,7 @@ dist
 # data
 uploads
 *.png
+report
 # TODO: Remove the following if no longer needed
 tests/data/slicepos/results
 tests/data/uniformity/results
