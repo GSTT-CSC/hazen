@@ -42,12 +42,12 @@ jobs:
       - name: test acr_uniformity
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
-          hazen task_acr_uniformity tests/data/acr/Siemens/Test --report
+          hazen acr_uniformity tests/data/acr/Siemens/Test --report
       
       - name: test acr_ghosting
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
-          hazen task_acr_ghosting tests/data/acr/Siemens/Test --report
+          hazen acr_ghosting tests/data/acr/Siemens/Test --report
 
       - name: test slice_position
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
