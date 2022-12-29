@@ -371,12 +371,14 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         logger.info(f'Calculating SNR with measured slice width {measured_slice_width}')
         result = task.run(measured_slice_width)
-    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    # TODO: Refactor Relaxometry task into HazenTask object Relaxometry not currently converted to HazenTask object -
+    #  this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'relaxometry':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
-    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    # TODO: Refactor SNR Map into HazenTask object (if not already) Relaxometry not currently converted to HazenTask
+    #  object - this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'snr_map':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
