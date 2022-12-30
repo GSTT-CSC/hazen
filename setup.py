@@ -1,7 +1,5 @@
 import setuptools
-import os
-
-__version__ = '1.0.4'
+from hazenlib import __version__
 
 install_requires = ['pydicom==2.2.2',
                     'numpy==1.21.4',
