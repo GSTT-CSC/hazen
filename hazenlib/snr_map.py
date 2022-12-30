@@ -28,6 +28,7 @@ Algorithm overview
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
+import pathlib
 
 import pydicom
 import numpy as np
@@ -361,7 +362,7 @@ def plot_summary(original_image, snr_map, roi_corners, roi_size):
 
 
 def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
-         report_path=False):
+         report_path=False, report_dir=pathlib.Path.joinpath(pathlib.Path.cwd(), 'report', 'SNRMap')):
     """
     Returns SNR parametric map on flood phantom DICOM file.
 
@@ -384,17 +385,21 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
     roi_distance : int, optional
         Distance from centre of image to centre of each ROI along both
         dimensions. The default is 40.
+    report_path:
+    report_dir:
 
     Returns
     -------
     results : dict
     """
-    # TODO
     # ----
     # * Scale ROI distance to account for different image sizes.
     # * Pass kernel_len and roi_size parameters from command line.
 
     results = {}
+    if report_path:
+        # Create nested report folder and ignore if already exists
+        pathlib.Path.mkdir(report_dir, parents=True, exist_ok=True)
 
     for dcm in dcm_list:
 
@@ -463,8 +468,8 @@ def main(dcm_list, kernel_len=9, roi_size=20, roi_distance=40,
         #  Save images
         #  ===========
         if report_path:
-            detailed_image_path = f'{report_path}_snr_map_detailed.png'
-            summary_image_path = f'{report_path}_snr_map.png'
+            detailed_image_path = pathlib.Path.joinpath(report_dir, f'{report_path}_snr_map_detailed.png')
+            summary_image_path = pathlib.Path.joinpath(report_dir, f'{report_path}_snr_map.png')
 
             fig_detailed.savefig(detailed_image_path, dpi=300)
             fig_summary.savefig(summary_image_path, dpi=300)

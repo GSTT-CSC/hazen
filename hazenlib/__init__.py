@@ -74,12 +74,14 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--output=<path>] [--calc_t1 | --calc_t2]
+    [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
-    hazen -v|--version
+    hazen --version
 Options:
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map
+    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
+    acr_ghosting | acr_uniformity
     <folder>
     --report
 
@@ -360,6 +362,7 @@ def main():
 
     task = getattr(task_module, class_list[0].__name__)(data_paths=files,
                                                         report=arguments['--report'],
+                                                        # TODO: Is this necessary? See HazenTask __init__()
                                                         report_dir=[arguments['--output'] if arguments[
                                                             '--output'] else os.path.join(os.getcwd(), 'report')][0])
 
@@ -369,12 +372,14 @@ def main():
         measured_slice_width = float(arguments['--measured_slice_width'])
         logger.info(f'Calculating SNR with measured slice width {measured_slice_width}')
         result = task.run(measured_slice_width)
-    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    # TODO: Refactor Relaxometry task into HazenTask object Relaxometry not currently converted to HazenTask object -
+    #  this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'relaxometry':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
-    # Relaxometry not currently converted to HazenTask object - this task accessible in the CLI using the old syntax until it can be refactored
+    # TODO: Refactor SNR Map into HazenTask object (if not already) Relaxometry not currently converted to HazenTask
+    #  object - this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'snr_map':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
