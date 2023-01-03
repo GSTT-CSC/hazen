@@ -1,5 +1,6 @@
 import unittest
 import pathlib
+import pytest
 
 import numpy as np
 import pydicom
@@ -7,12 +8,11 @@ import os
 
 import hazenlib
 from hazenlib.tasks.spatial_resolution import SpatialResolution
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tools import get_dicom_files
 
 
 class TestSpatialResolution(unittest.TestCase):
-
     files = get_dicom_files(os.path.join(TEST_DATA_DIR, 'resolution', 'RESOLUTION'))
     TEST_SQUARE = [[300, 220], [219, 206], [205, 287], [286, 301]]
     CIRCLE = [[[254, 256, 197]]]
@@ -312,7 +312,8 @@ class TestSpatialResolution(unittest.TestCase):
     bisecting_normal = (273, 257, 313, 263)
 
     def setUp(self) -> None:
-        self.hazen_spatial_resolution = SpatialResolution(data_paths=self.files)
+        self.hazen_spatial_resolution = SpatialResolution(data_paths=self.files,
+                                                          report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_roi(self):
         pixels = np.zeros((256, 256))
@@ -397,7 +398,8 @@ class TestSpatialResolution(unittest.TestCase):
             self.x_edge, self.y_edge)
 
     def test_get_edge_profile_coords(self):
-        a, b = self.hazen_spatial_resolution.get_edge_profile_coords(self.angle, self.intercept, self.hazen_spatial_resolution.data[0].PixelSpacing)
+        a, b = self.hazen_spatial_resolution.get_edge_profile_coords(self.angle, self.intercept,
+                                                                     self.hazen_spatial_resolution.data[0].PixelSpacing)
         assert self.x, self.y == (a.flatten(), b.flatten())
 
     def test_get_esf(self):
@@ -413,8 +415,8 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_calculate_mtf(self):
         res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.data[0])
-        assert res['frequency_encoding_direction'] == self.MTF_FE
-        assert res['phase_encoding_direction'] == self.MTF_PE
+        assert res['frequency_encoding_direction'] == pytest.approx(self.MTF_FE)
+        assert res['phase_encoding_direction'] == pytest.approx(self.MTF_PE)
 
 
 class TestPhilipsResolution(TestSpatialResolution):

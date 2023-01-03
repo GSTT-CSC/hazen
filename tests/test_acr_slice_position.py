@@ -3,7 +3,7 @@ import unittest
 import pathlib
 import pydicom
 
-from hazenlib.tasks.task_acr_slice_position import ACRSlicePosition
+from hazenlib.tasks.acr_slice_position import ACRSlicePosition
 from tests import TEST_DATA_DIR
 
 
@@ -16,8 +16,8 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', 'Test', '0.dcm'))
-        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', 'Test', '10.dcm'))
+        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '0.dcm'))
+        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '10.dcm'))
 
     def test_object_centre(self):
         assert self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)[1] == self.centre
@@ -55,8 +55,8 @@ class TestACRSlicePositionGE(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', 'Test', '0.dcm'))
-        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', 'Test', '10.dcm'))
+        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '0.dcm'))
+        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '10.dcm'))
 
     def test_object_centre(self):
         assert self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)[1] == self.centre

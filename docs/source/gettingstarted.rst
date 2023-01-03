@@ -85,7 +85,7 @@ For developers, hazen can be installed using ``pip``. We highly recommend using 
    pip install -r requirements.txt
 
    # Install hazen
-   python setup.py install
+   pip install .
 
    # Run tests to ensure everything is working
    pytest tests/
