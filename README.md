@@ -103,7 +103,7 @@ pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 
 # Install hazen
-python setup.py install
+pip install .
 
 # Run tests to ensure everything is working
 pytest tests/
@@ -163,7 +163,7 @@ The Release Manager should ensure:
 - All outstanding issues for the current release have been closed, or, transferred to future release.
 - All tests are passing on GitHub Actions.
 - All documentation has been updated with correct version numbers:
-   - Update version number `hazenlib/_version.py`, i.e. imported into `docs/conf.py`, `hazenlib/__init__.py` and `setup.py`
+   - Update version number `hazenlib/_version.py`, i.e. imported into `docs/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
    - Update version number in `CITATION.cff`
 - The `release` branch has been merged into `main` branch
 - A new release has been created with a new version tag (tag = version number)
