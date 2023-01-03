@@ -2,7 +2,7 @@ import setuptools
 from hazenlib import __version__
 
 install_requires = ['pydicom==2.2.2',
-                    'numpy==1.21.4',
+                    'numpy==1.24.1',
                     'matplotlib==3.5.1',
                     'docopt==0.6.2',
                     'opencv-python-headless==4.6.0.66',
