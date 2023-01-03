@@ -1,5 +1,6 @@
 import unittest
 import pathlib
+import pytest
 
 import numpy as np
 import pydicom
@@ -414,8 +415,8 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_calculate_mtf(self):
         res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.data[0])
-        assert res['frequency_encoding_direction'] == self.MTF_FE
-        assert res['phase_encoding_direction'] == self.MTF_PE
+        assert res['frequency_encoding_direction'] == pytest.approx(self.MTF_FE)
+        assert res['phase_encoding_direction'] == pytest.approx(self.MTF_PE)
 
 
 class TestPhilipsResolution(TestSpatialResolution):
