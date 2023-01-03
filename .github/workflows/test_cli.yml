@@ -31,7 +31,7 @@ jobs:
 
       - name: Install hazen
         run: |
-          python install .
+          pip install .
 
       - name: test snr
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
