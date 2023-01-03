@@ -3,14 +3,14 @@ ACR Slice Position
 
 https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
 
-Calculates the slice position displacement for slices 1 and 11 of the ACR phantom.
+Calculates the bar length difference for slices 1 and 11 of the ACR phantom.
 
-This script calculates the slice position displacement in accordance with the ACR Guidance.
+This script calculates the bar length difference in accordance with the ACR Guidance.
 This is done by first locating the transition points between the inner part of the phantom and the wedges located at the
 top of the phantom. Line profiles are then drawn orthogonal to this transition point for the left and right wedges.
 Circular shifts are applied to the right wedge's line profile and subtracted from the static left wedge line profile.
 The shift used to produce the minimum difference between the circularly shifted line profile and the static one are used
-to determine the slice position displacement. The results are also visualised.
+to determine the bar length difference, which is twice the slice position displacement. The results are also visualised.
 
 Created by Yassine Azma
 yassine.azma@rmh.nhs.uk
@@ -57,7 +57,7 @@ class ACRSlicePosition(HazenTask):
                 try:
                     result = self.get_slice_position(dcm)
                 except Exception as e:
-                    print(f"Could not calculate the slice position displacement for {self.key(dcm)} because of : {e}")
+                    print(f"Could not calculate the bar length difference for {self.key(dcm)} because of : {e}")
                     traceback.print_exc(file=sys.stdout)
                     continue
 
@@ -150,7 +150,6 @@ class ACRSlicePosition(HazenTask):
         dist_to_y = np.abs(n_point - y[0]) * res[1]  # distance to y from top of phantom
         y_pts = np.append(y, np.round(y[0] + (47 - dist_to_y) / res[1])).astype(int)  # place 2nd y point 47mm from top of phantom
 
-        print(x_pts, y_pts)
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
@@ -204,12 +203,12 @@ class ACRSlicePosition(HazenTask):
         temp = np.argwhere(err == np.min(err[err > 0]))[0]  # find minimum non-zero error
         shift = -lag[temp][0] if pos == 1 else lag[temp][0]  # find shift corresponding to above error
 
-        dL = np.round(pos * np.abs(shift) * (1 / interp_factor) * res[1], 2)  # calculate slice position displacement
+        dL = np.round(pos * np.abs(shift) * (1 / interp_factor) * res[1], 2)  # calculate bar length difference
 
         if self.report:
             import matplotlib.pyplot as plt
             fig = plt.figure()
-            plt.suptitle('Slice Position Displacement = ' + str(np.round(dL, 2)) + 'mm', x=0.5, ha='center')
+            plt.suptitle('Bar Length Difference = ' + str(np.round(dL, 2)) + 'mm', x=0.5, ha='center')
             fig.set_size_inches(8, 8)
 
             plt.subplot(2, 2, (1, 3))
