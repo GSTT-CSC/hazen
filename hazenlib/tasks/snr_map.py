@@ -87,86 +87,6 @@ def draw_roi_rectangles(ax, roi_corners, roi_size):
                                      facecolor='none')
             ax.add_patch(rect)
 
-def smooth(dcm, kernel=skimage.morphology.square(9)):
-    """
-    Create noise and smoothed images from original.
-
-    Parameters
-    ----------
-    dcm : `pydicom.dataset.Dataset` object containing one SNR image of flood
-        phantom.
-
-    kernel : array
-        Kernel used for smoothing. Default is 9x9 boxcar.
-
-    Returns
-    -------
-    original_image, smooth_image, noise_image
-    """
-    original_image = dcm.pixel_array.astype(float)
-    kernel = kernel / kernel.sum()  # normalise kernel
-    smooth_image = ndimage.filters.convolve(original_image, kernel)
-
-    #  Alternative method 1: OpenCV.
-    # smooth_image = cv2.blur(original_image, (kernel_len, kernel_len))
-
-    #  Alternative method 2: scipy.ndimage.
-    # kernel = np.ones([kernel_len, kernel_len], float)
-    # kernel = kernel / kernel.sum() # normalise kernel
-    # smooth_image = ndimage.filters.convolve(original_image, kernel)
-    #  Note: filters.convolve and filters.correlate produce identical output
-    #  for symetric kernels. Be careful with other kernels.
-
-    noise_image = original_image - smooth_image
-    return original_image, smooth_image, noise_image
-
-def get_rois(smooth_image, roi_distance, roi_size):
-    """
-    Identify phantom and generate ROI locations.
-
-    Parameters
-    ----------
-    smooth_image : array
-        Smooted image.
-
-    roi_distance : int
-        Distance from centre of image to centre of each ROI along both
-        dimensions.
-
-    roi_size : int
-        length of rectangular ROI in pixels.
-
-    Returns
-    -------
-        mask : logical array
-            Overlay to identify phantom location on map.
-
-        roi_corners : list of coordinates of corners of ROIs used for sampling
-            regions for SNR calculation.
-
-        image_centre : array
-            Coordinates of centre of mass of phantom.
-    """
-
-    # Threshold from smooth_image to reduce noise effects
-    threshold = filters.threshold_minimum(smooth_image)
-    mask = smooth_image > threshold
-
-    #  Get centroid (=centre of mass for binary image) and convert to array
-    image_centre = np.array(ndimage.measurements.center_of_mass(mask))
-    logger.debug('image_centre = %r.', image_centre)
-
-    #  Store corner of centre ROI, cast as int for indexing
-    roi_corners = [np.rint(image_centre - roi_size / 2).astype(int)]
-
-    #  Add corners of remaining ROIs
-    roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
-    roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
-    roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
-    roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
-
-    return mask, roi_corners, image_centre
-
 def calc_snr_map(original_image, noise_image, roi_size):
     """
     Calculate SNR map.
@@ -359,6 +279,90 @@ class SNRMap(HazenTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+    def smooth(self, dcm, kernel=skimage.morphology.square(9)):
+        """
+        Create noise and smoothed images from original.
+
+        Parameters
+        ----------
+        dcm : `pydicom.dataset.Dataset` object containing one SNR image of flood
+            phantom.
+
+        kernel : array
+            Kernel used for smoothing. Default is 9x9 boxcar.
+
+        Returns
+        -------
+        original_image, smooth_image, noise_image
+        """
+        self.original_image = dcm.pixel_array.astype(float)
+        kernel = kernel / kernel.sum()  # normalise kernel
+        self.smooth_image = ndimage.filters.convolve(self.original_image, kernel)
+
+        #  Alternative method 1: OpenCV.
+        # smooth_image = cv2.blur(original_image, (kernel_len, kernel_len))
+
+        #  Alternative method 2: scipy.ndimage.
+        # kernel = np.ones([kernel_len, kernel_len], float)
+        # kernel = kernel / kernel.sum() # normalise kernel
+        # smooth_image = ndimage.filters.convolve(original_image, kernel)
+        #  Note: filters.convolve and filters.correlate produce identical output
+        #  for symetric kernels. Be careful with other kernels.
+
+        self.noise_image = self.original_image - self.smooth_image
+        return
+
+    def get_rois(self, roi_distance, roi_size):
+        """
+        Identify phantom and generate ROI locations.
+
+        Parameters
+        ----------
+        smooth_image : array
+            Smooted image.
+
+        roi_distance : int
+            Distance from centre of image to centre of each ROI along both
+            dimensions.
+
+        roi_size : int
+            length of rectangular ROI in pixels.
+
+        Returns
+        -------
+            mask : logical array
+                Overlay to identify phantom location on map.
+
+            roi_corners : list of coordinates of corners of ROIs used for sampling
+                regions for SNR calculation.
+
+            image_centre : array
+                Coordinates of centre of mass of phantom.
+        """
+
+        # Threshold from smooth_image to reduce noise effects
+        threshold = filters.threshold_minimum(self.smooth_image)
+        self.mask = self.smooth_image > threshold
+
+        #  Get centroid (=centre of mass for binary image) and convert to array
+        self.image_centre = \
+            np.array(ndimage.measurements.center_of_mass(self.mask))
+        logger.debug('image_centre = %r.', self.image_centre)
+
+        #  Store corner of centre ROI, cast as int for indexing
+        roi_corners = [np.rint(self.image_centre - roi_size / 2).astype(int)]
+
+        #  Add corners of remaining ROIs
+        roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
+        roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
+        roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
+        roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
+
+        self.roi_corners = roi_corners
+
+        return
+
+
     def run(self, kernel_len=9, roi_size=20, roi_distance=40,
              report_path=False, report_dir=pathlib.Path.joinpath(pathlib.Path.cwd(), 'report', 'SNRMap')):
         """
@@ -390,6 +394,11 @@ class SNRMap(HazenTask):
         -------
         results : dict
         """
+        # Initilaise variables
+        self.kernel_len = kernel_len
+        self.roi_size = roi_size
+        self.roi_distance = roi_distance
+
         # ----
         # * Scale ROI distance to account for different image sizes.
         # * Pass kernel_len and roi_size parameters from command line.
@@ -399,7 +408,7 @@ class SNRMap(HazenTask):
             # Create nested report folder and ignore if already exists
             pathlib.Path.mkdir(report_dir, parents=True, exist_ok=True)
 
-        for dcm in self.data:
+        for self.current_dcm in self.data:
 
             # #  Check input is pydicom object
             # if not isinstance(dcm, pydicom.dataset.Dataset):
@@ -407,20 +416,19 @@ class SNRMap(HazenTask):
 
         # TODO investigate using self.key() to generate
             try:
-                key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_" \
-                      f"{dcm.InstanceNumber}_{os.path.basename(dcm.filename)}"
+                key = f"{self.current_dcm.SeriesDescription}_{self.current_dcm.SeriesNumber}_" \
+                      f"{self.current_dcm.InstanceNumber}_{os.path.basename(self.current_dcm.filename)}"
             except AttributeError as e:
                 print(e)
-                key = f"{dcm.SeriesDescription}_{dcm.SeriesNumber}_" \
-                      f"{os.path.basename(dcm.filename)}"
+                key = f"{self.current_dcm.SeriesDescription}_{self.current_dcm.SeriesNumber}_" \
+                      f"{os.path.basename(self.current_dcm.filename)}"
 
             if report_path:
                 report_path = key
 
             #  Create original, smoothed and noise images
             #  ==========================================
-            original_image, smooth_image, noise_image = \
-                smooth(dcm, skimage.morphology.square(kernel_len))
+            self.smooth(self.current_dcm, skimage.morphology.square(kernel_len))
 
             #  Note: access NumPy arrays by column then row. E.g.
             #
@@ -439,30 +447,31 @@ class SNRMap(HazenTask):
 
             #  Warn if not 256 x 256 image
             #  TODO scale distances for other image sizes
-            if original_image.shape != (256, 256):
+            if self.original_image.shape != (256, 256):
                 logger.warning('Expected image size (256, 256). Image size is %r.'
                                ' Algorithm untested with these dimensions.',
-                               original_image.shape)
+                               self.original_image.shape)
 
             #  Calculate mask and ROIs
             #  =======================
-            phantom_mask, roi_corners, image_centre = \
-                get_rois(smooth_image, roi_distance, roi_size)
+            ## mask, roi_corners, image_centre = \
+            self.get_rois(roi_distance, roi_size)
 
             #  Calculate SNR
             #  =============
-            snr = calc_snr(original_image, noise_image, roi_corners, roi_size)
+            self.snr = calc_snr(self.original_image, self.noise_image, self.roi_corners, roi_size)
 
             #  Generate local SNR parametric map
             #  =================================
-            snr_map = calc_snr_map(original_image, noise_image, roi_size)
+            self.snr_map = calc_snr_map(self.original_image, self.noise_image, roi_size)
 
             #  Plot images
             #  ===========
-            fig_detailed = plot_detailed(dcm, original_image, smooth_image,
-                                         noise_image, snr_map, phantom_mask,
-                                         image_centre, roi_corners, roi_size, snr)
-            fig_summary = plot_summary(original_image, snr_map, roi_corners, roi_size)
+            fig_detailed = plot_detailed(self.current_dcm, self.original_image,
+                                         self.smooth_image, self.noise_image,
+                                         self.snr_map, self.mask, self.image_centre,
+                                         self.roi_corners, self.roi_size, self.snr)
+            fig_summary = plot_summary(self.original_image, self.snr_map, self.roi_corners, self.roi_size)
 
             #  Save images
             #  ===========
@@ -476,12 +485,10 @@ class SNRMap(HazenTask):
                 results[f'snr_map_detailed_{key}'] = detailed_image_path
                 results[f'snr_map_{key}'] = summary_image_path
 
-            results[f'snr_map_snr_{key}'] = snr
+            results[f'snr_map_snr_{key}'] = self.snr
 
         return results
 
-    # def run(self):
-    #     results = {'Not implemented yet': {'Error': self}}
-    #     return results
+
 
 
