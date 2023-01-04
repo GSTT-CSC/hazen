@@ -5,7 +5,7 @@ import numpy as np
 import os.path
 import matplotlib
 
-import hazenlib.snr_map as hazen_snr_map
+import hazenlib.tasks.snr_map as hazen_snr_map
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
