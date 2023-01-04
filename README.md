@@ -7,7 +7,7 @@
 <p align="center">
 Quality assurance framework for Magnetic Resonance Imaging
 <br />
-<a href="https://github.com/github_username/repo_name"><strong>Explore the docs »</strong></a>
+<a href="https://hazen.readthedocs.io/en/latest/"><strong>Explore the docs »</strong></a>
 <br />
 <br />
 <a href="https://github.com/GSTT-CSC/hazen">View repo</a>
