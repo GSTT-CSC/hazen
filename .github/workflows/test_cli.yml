@@ -48,6 +48,11 @@ jobs:
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
           hazen acr_ghosting tests/data/acr/Siemens --report
+          
+      - name: test acr_slice_position
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_slice_position tests/data/acr/Siemens --report
 
       - name: test slice_position
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
