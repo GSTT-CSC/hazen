@@ -59,243 +59,28 @@ def sample_std(vals):
     """
     return np.std(vals, ddof=1)
 
-def draw_roi_rectangles(ax, roi_corners, roi_size):
-        """
-        Add ROI rectangle overlays to plot.
-
-        Parameters
-        ----------
-        ax : matplotlib.axes
-            Add the ROIs to the axes.
-
-        roi_corners : list of 2-element arrays
-            Coordinates of corners of ROIs.
-            E.g. [array([114, 121]), array([74, 81]), array([154,  81]),
-            array([ 74, 161]), array([154, 161])]
-
-        roi_size : int
-            Length of ROI rectangle.
-
-        Returns
-        -------
-        None
-
-        """
-        for corner in roi_corners:
-            rect = patches.Rectangle(np.flip(corner), roi_size, roi_size,
-                                     linewidth=1, edgecolor='r',
-                                     facecolor='none')
-            ax.add_patch(rect)
-
-def calc_snr_map(original_image, noise_image, roi_size):
-    """
-    Calculate SNR map.
-
-    Parameters
-    ----------
-    original_image : array
-
-    noise_image : array
-
-    roi_size : int
-        Length of ROI square in pixels.
-
-    Returns
-    -------
-    snr_map : array
-        Map of local SNR values
-    """
-    #  If you need a faster (less transparent) implementation, see:
-    #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
-
-    noise_map = ndimage.filters.generic_filter(noise_image, sample_std,
-                                               size=roi_size)
-    signal_map = ndimage.filters.uniform_filter(original_image, size=roi_size)
-    snr_map = signal_map / noise_map
-
-    return snr_map
-
-def calc_snr(original_image, noise_image, roi_corners, roi_size):
-    """
-    Calculate SNR
-
-    Parameters
-    ----------
-    original_image : array
-
-    noise_image : array
-
-    roi_corners : list of 2-element arrays
-        Coordinates of corners of ROIs.
-        E.g. [array([114, 121]), array([74, 81]), array([154,  81]),
-        array([ 74, 161]), array([154, 161])]
-
-    roi_size : int
-        Length of ROI square in pixels
-
-    Returns
-    -------
-    snr : float
-        Average SNR measured over ROIs
-
-    """
-    roi_signal = []
-    roi_noise = []
-
-    for [x, y] in roi_corners:
-        roi_signal.append(original_image[x:x + roi_size, y:y + roi_size].mean())
-        roi_noise.append(noise_image[x:x + roi_size, y:y + roi_size].std(ddof=1))
-        # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
-        # uses population std dev. Not sure which is statistically correct,
-        # but using ddof=1 for consistency with IDL code.
-
-    roi_snr = np.array(roi_signal) / np.array(roi_noise)
-    snr = roi_snr.mean()
-
-    logger.debug('ROIs signal=%r, noise=%r, snr=%r',
-                 roi_signal, roi_noise, roi_snr)
-
-    return snr
-
-def plot_snr_map(snr_map, fig, ax):
-    """
-    Add SNR map to a figure axis.
-
-    Parameters
-    ----------
-    snr_map : array
-
-    fig : figure handle
-
-    ax : axes handle within figure
-
-    Returns
-    -------
-    None
-    """
-    para_im = ax.imshow(snr_map, cmap='viridis', vmin=0)
-    cax = fig.add_axes([ax.get_position().x1 + 0.01,
-                        ax.get_position().y0, 0.02,
-                        ax.get_position().height])
-    plt.colorbar(para_im, cax=cax)
-    ax.set_title('SNR map')
-
-def plot_detailed(dcm, original_image, smooth_image, noise_image, snr_map,
-                  phantom_mask, image_centre, roi_corners, roi_size, snr):
-    """
-
-    Parameters
-    ----------
-    dcm : pydicom object
-        Used to get original file name
-
-    original_image : array
-
-    smooth_image : array
-
-    noise_image : array
-
-    snr_map : array
-
-    phantom_mask : bool array
-
-    image_centre : array
-            Coordinates of centre of mass of phantom
-
-    roi_corners : list of coordinates of corners of ROIs used for sampling
-            regions for SNR calculation
-
-    roi_size : int
-        Length of ROI square in pixels
-
-    snr : float
-        Average SNR measured over ROIs (for plot title)
-
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
-        Handle to plot
-    """
-    fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
-                            figsize=(8, 2.8))
-    fig.suptitle('SNR = %.2f (file: %s)'
-                 % (snr, os.path.basename(dcm.filename)))
-    axs[0].imshow(original_image, cmap='gray')
-    axs[0].set_title('Magnitude Image')
-    axs[1].imshow(smooth_image, cmap='gray')
-    axs[1].contour(phantom_mask, colors='y')
-    phantom_centre_marker = patches.Circle(
-        np.flip(np.rint(image_centre).astype('int')), color='y')
-    axs[1].add_patch(phantom_centre_marker)
-    axs[1].set_title('Smoothed')
-    axs[2].imshow(noise_image, cmap='gray')
-    axs[2].set_title('Noise')
-    draw_roi_rectangles(axs[0], roi_corners, roi_size)
-    draw_roi_rectangles(axs[2], roi_corners, roi_size)
-    plot_snr_map(snr_map, fig, axs[3])
-    for ax in axs:
-        ax.axis('off')
-
-    return fig
-
-def plot_summary(original_image, snr_map, roi_corners, roi_size):
-    """
-
-    Parameters
-    ----------
-    original_image : array
-
-    snr_map : array
-
-    roi_corners : list of coordinates of corners of ROIs used for sampling
-            regions for SNR calculation
-
-    roi_size : int
-        Length of ROI square in pixels
-
-
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
-        Handle to plot
-
-    """
-    fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
-                            figsize=(6, 2.8))
-    axs[0].imshow(original_image, cmap='gray')
-    axs[0].set_title('Magnitude Image')
-
-    draw_roi_rectangles(axs[0], roi_corners, roi_size)
-    plot_snr_map(snr_map, fig, axs[1])
-    for ax in axs:
-        ax.axis('off')
-
-    return fig
-
-
 
 class SNRMap(HazenTask):
+
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def smooth(self, dcm, kernel=skimage.morphology.square(9)):
+
+    def smooth(self, kernel=skimage.morphology.square(9)):
         """
-        Create noise and smoothed images from original.
+        Create noise and smoothed images from original_image.
 
         Parameters
         ----------
-        dcm : `pydicom.dataset.Dataset` object containing one SNR image of flood
-            phantom.
-
         kernel : array
             Kernel used for smoothing. Default is 9x9 boxcar.
 
         Returns
         -------
-        original_image, smooth_image, noise_image
+        None
         """
-        self.original_image = dcm.pixel_array.astype(float)
+        self.original_image = self.current_dcm.pixel_array.astype(float)
         kernel = kernel / kernel.sum()  # normalise kernel
         self.smooth_image = ndimage.filters.convolve(self.original_image, kernel)
 
@@ -310,34 +95,143 @@ class SNRMap(HazenTask):
         #  for symetric kernels. Be careful with other kernels.
 
         self.noise_image = self.original_image - self.smooth_image
-        return
 
-    def get_rois(self, roi_distance, roi_size):
+    def draw_roi_rectangles(self, ax):
         """
-        Identify phantom and generate ROI locations.
+        Add ROI rectangle overlays to plot.
 
         Parameters
         ----------
-        smooth_image : array
-            Smooted image.
+        ax : matplotlib.axes
+            Add the ROIs to the axes.
 
-        roi_distance : int
-            Distance from centre of image to centre of each ROI along both
-            dimensions.
-
-        roi_size : int
-            length of rectangular ROI in pixels.
 
         Returns
         -------
-            mask : logical array
-                Overlay to identify phantom location on map.
+        None
 
-            roi_corners : list of coordinates of corners of ROIs used for sampling
-                regions for SNR calculation.
+        """
+        for corner in self.roi_corners:
+            rect = patches.Rectangle(np.flip(corner), self.roi_size,
+                                     self.roi_size, linewidth=1, edgecolor='r',
+                                     facecolor='none')
+            ax.add_patch(rect)
 
-            image_centre : array
-                Coordinates of centre of mass of phantom.
+    def calc_snr_map(self):
+        """
+        Calculate SNR map from original_image and noise_image.
+        """
+        #  If you need a faster (less transparent) implementation, see:
+        #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
+
+        noise_map = ndimage.filters.generic_filter(self.noise_image, sample_std,
+                                                   size=self.roi_size)
+        signal_map = ndimage.filters.uniform_filter(self.original_image,
+                                                    size=self.roi_size)
+        self.snr_map = signal_map / noise_map
+
+    def calc_snr(self):
+        """
+        Calculate SNR from original_image and noise_image.
+        """
+        roi_signal = []
+        roi_noise = []
+
+        for [x, y] in self.roi_corners:
+            roi_signal.append(self.original_image[x:x + self.roi_size, y:y + self.roi_size].mean())
+            roi_noise.append(self.noise_image[x:x + self.roi_size, y:y + self.roi_size].std(ddof=1))
+            # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
+            # uses population std dev. Not sure which is statistically correct,
+            # but using ddof=1 for consistency with IDL code.
+
+        roi_snr = np.array(roi_signal) / np.array(roi_noise)
+        self.snr = roi_snr.mean()
+
+        logger.debug('ROIs signal=%r, noise=%r, snr=%r',
+                     roi_signal, roi_noise, roi_snr)
+
+    def plot_snr_map(self, fig, ax):
+        """
+        Add SNR map to a figure axis.
+
+        Parameters
+        ----------
+        fig : figure handle
+
+        ax : axes handle within figure
+
+        Returns
+        -------
+        None
+        """
+        para_im = ax.imshow(self.snr_map, cmap='viridis', vmin=0)
+        cax = fig.add_axes([ax.get_position().x1 + 0.01,
+                            ax.get_position().y0, 0.02,
+                            ax.get_position().height])
+        plt.colorbar(para_im, cax=cax)
+        ax.set_title('SNR map')
+
+    def plot_detailed(self):
+        """
+        Create 4-image detailed SNR map plots
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Handle to plot
+        """
+        fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
+                                figsize=(8, 2.8))
+        fig.suptitle('SNR = %.2f (file: %s)'
+                     % (self.snr, os.path.basename(self.current_dcm.filename)))
+        axs[0].imshow(self.original_image, cmap='gray')
+        axs[0].set_title('Magnitude Image')
+        axs[1].imshow(self.smooth_image, cmap='gray')
+        axs[1].contour(self.mask, colors='y')
+        phantom_centre_marker = patches.Circle(
+            np.flip(np.rint(self.image_centre).astype('int')), color='y')
+        axs[1].add_patch(phantom_centre_marker)
+        axs[1].set_title('Smoothed')
+        axs[2].imshow(self.noise_image, cmap='gray')
+        axs[2].set_title('Noise')
+        self.draw_roi_rectangles(axs[0])
+        self.draw_roi_rectangles(axs[2])
+        self.plot_snr_map(fig, axs[3])
+        for ax in axs:
+            ax.axis('off')
+
+        return fig
+
+    def plot_summary(self):
+        """
+        Create 2-image summary SNR map plot.
+
+        Parameters
+        ----------
+
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            Handle to plot
+
+        """
+        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
+                                figsize=(6, 2.8))
+        axs[0].imshow(self.original_image, cmap='gray')
+        axs[0].set_title('Magnitude Image')
+
+        self.draw_roi_rectangles(axs[0])
+        self.plot_snr_map(fig, axs[1])
+        for ax in axs:
+            ax.axis('off')
+
+        return fig
+
+
+    def get_rois(self):
+        """
+        Identify phantom and generate ROI locations.
         """
 
         # Threshold from smooth_image to reduce noise effects
@@ -350,17 +244,16 @@ class SNRMap(HazenTask):
         logger.debug('image_centre = %r.', self.image_centre)
 
         #  Store corner of centre ROI, cast as int for indexing
-        roi_corners = [np.rint(self.image_centre - roi_size / 2).astype(int)]
+        roi_corners = [np.rint(self.image_centre - self.roi_size / 2).astype(int)]
 
         #  Add corners of remaining ROIs
+        roi_distance = self.roi_distance
         roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
         roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
         roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
         roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
 
         self.roi_corners = roi_corners
-
-        return
 
 
     def run(self, kernel_len=9, roi_size=20, roi_distance=40,
@@ -374,9 +267,6 @@ class SNRMap(HazenTask):
 
         Parameters
         ----------
-        dcm_list : list of `pydicom.dataset.Dataset` objects
-            Images from which to calculate single image SNR map.
-
         kernel_len : int, optional
             Linear extent of the boxcar kernel, should be an odd integer. The
             default is 9.
@@ -387,14 +277,16 @@ class SNRMap(HazenTask):
         roi_distance : int, optional
             Distance from centre of image to centre of each ROI along both
             dimensions. The default is 40.
+
         report_path:
+
         report_dir:
 
         Returns
         -------
         results : dict
         """
-        # Initilaise variables
+        # Initialise variables
         self.kernel_len = kernel_len
         self.roi_size = roi_size
         self.roi_distance = roi_distance
@@ -428,7 +320,7 @@ class SNRMap(HazenTask):
 
             #  Create original, smoothed and noise images
             #  ==========================================
-            self.smooth(self.current_dcm, skimage.morphology.square(kernel_len))
+            self.smooth(skimage.morphology.square(kernel_len))
 
             #  Note: access NumPy arrays by column then row. E.g.
             #
@@ -455,23 +347,20 @@ class SNRMap(HazenTask):
             #  Calculate mask and ROIs
             #  =======================
             ## mask, roi_corners, image_centre = \
-            self.get_rois(roi_distance, roi_size)
+            self.get_rois()
 
             #  Calculate SNR
             #  =============
-            self.snr = calc_snr(self.original_image, self.noise_image, self.roi_corners, roi_size)
+            self.calc_snr()
 
             #  Generate local SNR parametric map
             #  =================================
-            self.snr_map = calc_snr_map(self.original_image, self.noise_image, roi_size)
+            self.calc_snr_map()
 
             #  Plot images
             #  ===========
-            fig_detailed = plot_detailed(self.current_dcm, self.original_image,
-                                         self.smooth_image, self.noise_image,
-                                         self.snr_map, self.mask, self.image_centre,
-                                         self.roi_corners, self.roi_size, self.snr)
-            fig_summary = plot_summary(self.original_image, self.snr_map, self.roi_corners, self.roi_size)
+            fig_detailed = self.plot_detailed()
+            fig_summary = self.plot_summary()
 
             #  Save images
             #  ===========
