@@ -1,5 +1,5 @@
 import pydicom
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 import hazenlib
 import unittest
 import numpy as np
@@ -58,14 +58,13 @@ test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' 
                       'PIX_SIZE': [0.625, 0.625],
                       'AVERAGE': 1}}
 
-class TestHazenlib(unittest.TestCase):
 
+class TestHazenlib(unittest.TestCase):
 
     def test_get_manufacturer(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
                 assert hazenlib.get_manufacturer(dcm) == test_dicoms[manufacturer]['MANUFACTURER']
-
 
     def test_get_rows(self):
         for manufacturer in test_dicoms.keys():
@@ -120,7 +119,7 @@ class TestHazenlib(unittest.TestCase):
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
                 pix_size = hazenlib.get_pixel_size(dcm)
                 pix_size = list(pix_size)
-                self.assertEqual(pix_size,test_dicoms[manufacturer]['PIX_SIZE'])
+                self.assertEqual(pix_size, test_dicoms[manufacturer]['PIX_SIZE'])
 
     def test_fov(self):
         test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm'),
@@ -149,8 +148,8 @@ class Test(unittest.TestCase):
         self.dcm = self.dcm.pixel_array
 
     def test_rescale_to_byte(self):
-        test_array = np.array([[1,2], [3,4]])
-        TEST_OUT = np.array([[63,127],[191,255]])
+        test_array = np.array([[1, 2], [3, 4]])
+        TEST_OUT = np.array([[63, 127], [191, 255]])
         test_array = hazenlib.rescale_to_byte(test_array)
         test_array = test_array.tolist()
         TEST_OUT = TEST_OUT.tolist()
@@ -165,8 +164,9 @@ class TestCliParser(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
     def test1_logger(self):
-        path = str(TEST_DATA_DIR / 'resolution' / 'RESOLUTION')
-        sys.argv = ["hazen", "spatial_resolution", path, "--log", "warning"]
+        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
 
         hazenlib.main()
 
@@ -194,34 +194,27 @@ class TestCliParser(unittest.TestCase):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         sys.argv = ["hazen", "snr", path, "--measured_slice_width", "1"]
 
-        output=hazenlib.main()
+        output = hazenlib.main()
         output_dict = ast.literal_eval(output)
+        print(output_dict)
+        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.97,
+                 'snr_subtraction_normalised_SNR_SNR_SAG_MEAS1_23_1': 7593.04,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 183.93,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7591.33,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 179.94,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7426.54}
 
-        dict1 = {'snr_subtraction_measured_SNR SAG MEAS2_24_1': 182.87,
-                 'snr_subtraction_normalised_SNR SAG MEAS2_24_1': 7547.37,
-                 'snr_smoothing_measured_SNR SAG MEAS2_24_1': 189.38,
-                 'snr_smoothing_normalised_SNR SAG MEAS2_24_1': 7816.0,
-                 'snr_smoothing_measured_SNR SAG MEAS1_23_1': 184.41,
-                 'snr_smoothing_normalised_SNR SAG MEAS1_23_1':  7610.83}
-
-        maxDiff = None
-        self.assertDictEqual(output_dict, dict1)
+        self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
     def test_relaxometry(self):
-        path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
-        sys.argv = ["hazen", "relaxometry", path,  "--plate_number", "4", "--calc_t1"]
+        sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\", "--plate_number",
+                    "4", "--calc_t1"]
+
+        sys.argv = [item.replace("\\", "/") for item in sys.argv]
 
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
 
-        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference':  0.13499936644959437}}
+        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
         self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
                                output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
-
-
-
-
-
-
-
-

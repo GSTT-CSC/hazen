@@ -6,7 +6,7 @@ COPY . /home/hazen_user/hazen
 WORKDIR /home/hazen_user/hazen
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python setup.py install
+RUN pip install .
 USER hazen_user
 WORKDIR ../data
 ENTRYPOINT ["hazen"]
