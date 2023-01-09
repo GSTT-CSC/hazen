@@ -3,7 +3,7 @@ import pathlib
 import unittest
 
 from hazenlib.tasks.uniformity import Uniformity
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestUniformity(unittest.TestCase):
@@ -12,7 +12,8 @@ class TestUniformity(unittest.TestCase):
     IPEM_VERTICAL = 0.98125
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'axial_oil.IMA')])
+        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'axial_oil.IMA')],
+                                          report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_uniformity(self):
         results = self.uniformity_task.run()
@@ -26,7 +27,8 @@ class TestSagUniformity(TestUniformity):
     IPEM_VERTICAL = 0.5125
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'sag.dcm')])
+        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'sag.dcm')],
+                                          report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
 
 class TestCorUniformity(TestUniformity):
@@ -34,4 +36,5 @@ class TestCorUniformity(TestUniformity):
     IPEM_VERTICAL = 0.45
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'cor.dcm')])
+        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'cor.dcm')],
+                                          report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))

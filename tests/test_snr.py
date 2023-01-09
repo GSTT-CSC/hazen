@@ -2,7 +2,7 @@ import unittest
 import pathlib
 import pydicom
 import os
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tools import get_dicom_files
 from hazenlib.tasks.snr import SNR
 
@@ -28,7 +28,8 @@ class TestSnr(unittest.TestCase):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Siemens'), sort=True))
+        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Siemens'), sort=True),
+                       report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_object_centre(self):
         assert self.snr.get_object_centre(self.snr.data[0]) == self.OBJECT_CENTRE
@@ -68,11 +69,13 @@ class TestSnrPhilips(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Philips'), sort=True))
+        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Philips'), sort=True),
+                       report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_image_snr(self):
         val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
+        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
+            f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
         self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
@@ -100,15 +103,18 @@ class TestSnrGE(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'GE'), sort=True))
+        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'GE'), sort=True),
+                       report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_image_snr(self):
         # val = self.snr.run(data=[self.test_file, self.test_file_2])
         val = self.snr.run()
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
+            self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
+                f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
         self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
+            self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
+                f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
 
 class TestSnrThreshold(TestSnr):
@@ -132,7 +138,8 @@ class TestSnrThreshold(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr_threshold', 'VIDA'), sort=True))
+        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr_threshold', 'VIDA'), sort=True),
+                       report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_object_centre(self):
         assert self.snr.get_object_centre(self.snr.data[0]) == self.OBJECT_CENTRE
