@@ -312,24 +312,6 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects,
-                           report):  # def parse_relaxometry_data(arguments, dicom_objects, report):   #
-
-    # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
-
-    # Pass arguments with dictionary, stripping initial double dash ('--')
-    relaxometry_args = {}
-
-    for key in relaxometry_cli_args:
-        relaxometry_args[key[2:]] = arguments[key]
-
-    return task.main(dicom_objects, report_path=report,
-                     **relaxometry_args)
-
-
 def main():
     arguments = docopt(__doc__, version=__version__)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
@@ -375,9 +357,19 @@ def main():
     # TODO: Refactor Relaxometry task into HazenTask object Relaxometry not currently converted to HazenTask object -
     #  this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'relaxometry':
-        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
-        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
+        # Relaxometry arguments
+        relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
+                                '--show_template_fit', '--show_relax_fits',
+                                '--show_rois', '--verbose'}
+
+        # Pass arguments with dictionary, stripping initial double dash ('--')
+        relaxometry_args = {}
+        for key in relaxometry_cli_args:
+            relaxometry_args[key[2:]] = arguments[key]
+
+        result = task.run(**relaxometry_args)
+
+
     # TODO: Refactor SNR Map into HazenTask object (if not already) Relaxometry not currently converted to HazenTask
     #  object - this task accessible in the CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'snr_map':

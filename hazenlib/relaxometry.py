@@ -130,6 +130,18 @@ from scipy.interpolate import UnivariateSpline
 
 import hazenlib.exceptions
 
+from hazenlib.HazenTask import HazenTask
+
+
+class Relaxometry(HazenTask):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def run(self):
+        results = {'Not implemented yet': {'Error': self}}
+        return results
+
 # Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches 
 # format (col,row)
@@ -140,7 +152,7 @@ import hazenlib.exceptions
 #    TEMPLATE_VALUES[f'plate{plate_num}']['t1'|'t2']['1.5T'|'3.0T']['relax_times']
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                            'data', 'relaxometry')
+                            'tasks/data', 'relaxometry')
 TEMPLATE_VALUES = {
     'plate3': {
         'sphere_centres_row_col': (),
@@ -332,7 +344,7 @@ def pixel_rescale(dcmfile):
     Returns
     -------
     numpy.array
-        Values in ``dcmfile.pixel_array`` transformed using DICOM scaling.
+        Values in ``dcm.pixel_array`` transformed using DICOM scaling.
 
     References
     ----------

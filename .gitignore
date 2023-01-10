@@ -30,7 +30,7 @@ report
 # TODO: Remove the following if no longer needed
 tests/data/slicepos/results
 tests/data/uniformity/results
-hazenlib/data
+hazenlib/tasks/data
 
 # docs
 docs/_build
