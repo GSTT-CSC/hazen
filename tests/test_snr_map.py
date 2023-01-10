@@ -26,14 +26,12 @@ class TestSnrMap(unittest.TestCase):
 
     def setUp(self):
         dcms = [self.siemens_1]  # Test on single SNR image
-        self.snr_map = SNRMap(data_paths=dcms, report=True,
-                         report_dir=pathlib.Path.joinpath(TEST_REPORT_DIR, 'SNRMap'))
+        self.snr_map = SNRMap(data_paths=dcms, report=True)
         self.results = self.snr_map.run()
-
 
     def test_snr_value(self):
         np.testing.assert_almost_equal(192.88188017908504,
-                                       self.results['snr_map_snr_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1_tra_250_2meas_1.IMA'])
+                                       self.results['SNRMap_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1'])
 
     def test_sample_std(self):
         np.testing.assert_almost_equal(49.01842637544699,
@@ -65,7 +63,6 @@ class TestSnrMap(unittest.TestCase):
     def test_plot_detailed(self):
         # Just check a valid figure handle is returned
         fig = self.snr_map.plot_detailed()
-
         assert isinstance(fig, matplotlib.figure.Figure)
 
     def test_plot_summary(self):

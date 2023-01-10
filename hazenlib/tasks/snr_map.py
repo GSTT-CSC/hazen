@@ -256,8 +256,7 @@ class SNRMap(HazenTask):
         self.roi_corners = roi_corners
 
 
-    def run(self, kernel_len=9, roi_size=20, roi_distance=40,
-             report_path=False, report_dir=pathlib.Path.joinpath(pathlib.Path.cwd(), 'report', 'SNRMap')):
+    def run(self):
         """
         Returns SNR parametric map on flood phantom DICOM file.
 
@@ -265,62 +264,31 @@ class SNRMap(HazenTask):
         ROIs with their centres displaced at 45, 135, 225 and 315 degrees from the
         centre. Displays and saves a parametric map.
 
-        Parameters
-        ----------
-        kernel_len : int, optional
-            Linear extent of the boxcar kernel, should be an odd integer. The
-            default is 9.
-
-        roi_size : int, optional
-            Length of side (in pixels) of each ROI. The default is 20.
-
-        roi_distance : int, optional
-            Distance from centre of image to centre of each ROI along both
-            dimensions. The default is 40.
-
-        report_path:
-
-        report_dir:
-
         Returns
         -------
         results : dict
         """
         # Initialise variables
-        self.kernel_len = kernel_len
-        self.roi_size = roi_size
-        self.roi_distance = roi_distance
+        self.kernel_len = 9
+        self.roi_size = 20
+        self.roi_distance = 40
 
         # ----
         # * Scale ROI distance to account for different image sizes.
         # * Pass kernel_len and roi_size parameters from command line.
 
         results = {}
-        if report_path:
+        if self.report:
             # Create nested report folder and ignore if already exists
-            pathlib.Path.mkdir(report_dir, parents=True, exist_ok=True)
+            pathlib.Path.mkdir(pathlib.Path(self.report_path), parents=True, exist_ok=True)
 
         for self.current_dcm in self.data:
 
-            # #  Check input is pydicom object
-            # if not isinstance(dcm, pydicom.dataset.Dataset):
-            #     raise Exception('Input must be pydicom dataset (or None)')
-
-        # TODO investigate using self.key() to generate
-            try:
-                key = f"{self.current_dcm.SeriesDescription}_{self.current_dcm.SeriesNumber}_" \
-                      f"{self.current_dcm.InstanceNumber}_{os.path.basename(self.current_dcm.filename)}"
-            except AttributeError as e:
-                print(e)
-                key = f"{self.current_dcm.SeriesDescription}_{self.current_dcm.SeriesNumber}_" \
-                      f"{os.path.basename(self.current_dcm.filename)}"
-
-            if report_path:
-                report_path = key
+            key = self.key(self.current_dcm)
 
             #  Create original, smoothed and noise images
             #  ==========================================
-            self.smooth(skimage.morphology.square(kernel_len))
+            self.smooth(skimage.morphology.square(self.kernel_len))
 
             #  Note: access NumPy arrays by column then row. E.g.
             #
@@ -346,7 +314,6 @@ class SNRMap(HazenTask):
 
             #  Calculate mask and ROIs
             #  =======================
-            ## mask, roi_corners, image_centre = \
             self.get_rois()
 
             #  Calculate SNR
@@ -364,17 +331,19 @@ class SNRMap(HazenTask):
 
             #  Save images
             #  ===========
-            if report_path:
-                detailed_image_path = pathlib.Path.joinpath(report_dir, f'{report_path}_snr_map_detailed.png')
-                summary_image_path = pathlib.Path.joinpath(report_dir, f'{report_path}_snr_map.png')
+            if self.report:
+                detailed_image_path = os.path.join(self.report_path, f'{key}_snr_map_detailed.png')
+                summary_image_path = os.path.join(self.report_path, f'{key}_snr_map.png')
 
                 fig_detailed.savefig(detailed_image_path, dpi=300)
                 fig_summary.savefig(summary_image_path, dpi=300)
 
-                results[f'snr_map_detailed_{key}'] = detailed_image_path
-                results[f'snr_map_{key}'] = summary_image_path
+                self.report_files.append(summary_image_path)
+                self.report_files.append(detailed_image_path)
 
-            results[f'snr_map_snr_{key}'] = self.snr
+                results['reports'] = {'images': self.report_files}
+
+            results[key] = self.snr
 
         return results
 
