@@ -424,7 +424,7 @@ class Relaxometry(HazenTask):
                 """
                 return [np.mean(pvs) for pvs in self.pixel_values]
 
-        def __init__(self, image_slices, template_dcm, plate_number=None,
+        def __init__(self, image_slices, template_dcm=None, plate_number=None,
                      dicom_order_key=None):
             """
             Create ImageStack object.
@@ -1188,7 +1188,6 @@ class Relaxometry(HazenTask):
                       f' Please pass plate number as arg.')
                 exit()
 
-        #  TODO change to use self.report_files list
         output_files_path = {}  # save path to output files
         image_stack = ImStack(self.data, template_dcm,
                               plate_number=plate_number)
@@ -1197,7 +1196,8 @@ class Relaxometry(HazenTask):
             Relaxometry.TEMPLATE_VALUES[f'plate{image_stack.plate_number}']
             ['sphere_centres_row_col'])
         image_stack.generate_fit_function()
-        key = self.key(image_stack.images[0])
+        index_im = image_stack.images[0]
+        key = self.key(index_im)
 
         if show_template_fit:
             fig = image_stack.plot_fit()
@@ -1265,12 +1265,15 @@ class Relaxometry(HazenTask):
                 fig.set_size_inches(old_dims)
 
         # Generate output dict
-        index_im = image_stack.images[0]
+
         # last value is for background water. Strip before calculating RMS frac error
-        output = {'rms_frac_time_difference' : rms(frac_time_diff[:-1])}
+        output = {
+            'rms_frac_time_difference' : rms(frac_time_diff[:-1]),
+            'plate' : image_stack.plate_number,
+            'relaxation_type' : relax_str
+        }
         if verbose:
-            output.update(dict(plate=image_stack.plate_number,
-                          relaxation_type=relax_str,
+            output.update(dict(
                           calc_times=image_stack.relax_times,
                           manufacturers_times=relax_published,
                           frac_time_difference=frac_time_diff,
@@ -1293,8 +1296,6 @@ class Relaxometry(HazenTask):
 
             output['detailed'] = detailed_output
 
-        output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
-                     f"P{image_stack.plate_number}_{relax_str}"
+        self.report_files.extend(output_files_path.values())
 
-        plt.show()
-        return {output_key: output}
+        return {key: output, 'reports': {'images': self.report_files}}
