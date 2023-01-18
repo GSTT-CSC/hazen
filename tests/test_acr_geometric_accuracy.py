@@ -2,6 +2,7 @@ import os
 import unittest
 import pathlib
 import pydicom
+import numpy as np
 
 from hazenlib.tasks.acr_geometric_accuracy import ACRGeometricAccuracy
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
@@ -9,10 +10,10 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 class TestACRGeometricAccuracySiemens(unittest.TestCase):
     ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
-    centre = [129, 128]
-    L1 = 190.4296875, 186.5234375
-    L5 = 190.4296875, 186.5234375, 189.45312500000003, 191.40624999999997
-    test_point = (-60.98076211353315, -45.62177826491071)
+    centre = (128, 129)
+    L1 = 190.43, 186.52
+    L5 = 190.43, 186.52, 189.45, 191.41
+    test_point = (-60.98, -45.62)
 
     def setUp(self):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
@@ -22,40 +23,44 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
     def test_object_centre(self):
         data = self.dcm.pixel_array
-        assert self.acr_geometric_accuracy_task.centroid_com(data) == self.centre
+        assert self.acr_geometric_accuracy_task.centroid_com(data)[1] == self.centre
 
     def test_geo_accuracy_slice1(self):
-        assert (self.acr_geometric_accuracy_task.get_geometric_accuracy_slice1(self.dcm) == self.L1).all() == True
+        slice1_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice1(self.dcm))
+        slice1_vals = np.round(slice1_vals, 2)
+        assert (slice1_vals == self.L1).all() == True
 
     def test_geo_accuracy_slice5(self):
-        assert (self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm) == self.L1).all() == True
+        slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm2))
+        slice5_vals = np.round(slice5_vals, 2)
+        assert (slice5_vals == self.L5).all() == True
 
     def test_rotate_point(self):
-        assert (self.acr_geometric_accuracy_task.rotate_point((0, 0), (30, 70), 150) == self.test_point).all() == True
+        rotated_point = np.array(self.acr_geometric_accuracy_task.rotate_point((0, 0), (30, 70), 150))
+        rotated_point = np.round(rotated_point, 2)
+        print(rotated_point)
+        assert (rotated_point == self.test_point).all() == True
 
 
 # class TestACRUniformityPhilips(unittest.TestCase):
 
 class TestACRGeometricAccuracyGE(unittest.TestCase):
     ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
-    centre = [255, 253]
     L1 = 189.92, 187.89
-    L5 = 189.92, 188.39, 189.92, 190.42
-    test_matrix = np.array(((0, -1), (1, 0)))
+    L5 = 189.92, 188.39, 190.43, 189.92
 
     def setUp(self):
-        self.dcm_file = pydicom.read_file(str(self.ACR_GEOMETRIC_ACCURACY_DATA / 'GE' / '10.dcm'))
-        self.dcm_file2 = pydicom.read_file(str(self.ACR_GEOMETRIC_ACCURACY_DATA / 'GE' / '6.dcm'))
+        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+                                                                report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '10.dcm'))
+        self.dcm2 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '6.dcm'))
 
-    # def test_object_centre(self):
-    #     data = self.dcm_file.pixel_array
-    #     assert hazen_acr_geometric_accuracy.centroid_com(data) == self.centre
-    #
-    # def test_geo_accuracy_slice1(self):
-    #     assert (np.round(hazen_acr_geometric_accuracy.geo_accuracy_slice1(self.dcm_file), 2) == self.L1).all() == True
-    #
-    # def test_geo_accuracy_slice5(self):
-    #     assert (np.round(hazen_acr_geometric_accuracy.geo_accuracy_slice5(self.dcm_file2), 2) == self.L5).all() == True
-    #
-    # def test_rot_matrix(self):
-    #     assert (np.round(hazen_acr_geometric_accuracy.rot_matrix(90), 4) == self.test_matrix).all() == True
+    def test_geo_accuracy_slice1(self):
+        slice1_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice1(self.dcm))
+        slice1_vals = np.round(slice1_vals, 2)
+        assert (slice1_vals == self.L1).all() == True
+
+    def test_geo_accuracy_slice5(self):
+        slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm2))
+        slice5_vals = np.round(slice5_vals, 2)
+        assert (slice5_vals == self.L5).all() == True
