@@ -24,6 +24,7 @@ import os
 import numpy as np
 import skimage.morphology
 import skimage.measure
+import skimage.transform
 
 from hazenlib.HazenTask import HazenTask
 
@@ -55,7 +56,7 @@ class ACRGeometricAccuracy(HazenTask):
                 try:
                     result5 = self.get_geometric_accuracy_slice5(dcm)
                 except Exception as e:
-                    print(f"Could not calculate the percent-signal ghosting for {self.key(dcm)} because of : {e}")
+                    print(f"Could not calculate the geometric accuracy for {self.key(dcm)} because of : {e}")
                     traceback.print_exc(file=sys.stdout)
                     continue
 
@@ -65,9 +66,9 @@ class ACRGeometricAccuracy(HazenTask):
 
         L = result1 + result5
         mean_err, max_err, cov_l = self.distortion_metric(L)
-        print(f"Mean relative measurement error is equal to {np.round(mean_err,2)}mm")
-        print(f"Maximum absolute measurement error is equal to {np.round(max_err,2)}mm")
-        print(f"Coefficient of variation of measurements is equal to {np.round(cov_l,2)}%")
+        print(f"Mean relative measurement error is equal to {np.round(mean_err, 2)}mm")
+        print(f"Maximum absolute measurement error is equal to {np.round(max_err, 2)}mm")
+        print(f"Coefficient of variation of measurements is equal to {np.round(cov_l, 2)}%")
         return results
 
     def centroid_com(self, dcm):
@@ -79,9 +80,9 @@ class ACRGeometricAccuracy(HazenTask):
 
         sum_x = np.sum(coords[1])
         sum_y = np.sum(coords[0])
-        cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
+        cx, cy = sum_x / coords[0].shape[0], sum_y / coords[1].shape[0]
+        cxy = (round(cx), round(cy))
 
-        cxy = [cxy[0].astype(int), cxy[1].astype(int)]
         return bhull, cxy
 
     def horizontal_length(self, res, mask, cxy):
@@ -116,69 +117,52 @@ class ACRGeometricAccuracy(HazenTask):
         }
         return v_dict
 
-    def rot_matrix(self, theta):
-        theta = np.radians(theta)
+    def rotate_point(self, origin, point, angle):
+        theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
-        R = np.array(((c, -s), (s, c)), dtype=object)
-        return R
 
-    def ne_sw_length(self, res, mask, cxy):
-        dims = mask.shape
+        x_prime = origin[0] + c * (point[0] - origin[0]) - s * (point[1] - origin[1])
+        y_prime = origin[1] + c * (point[0] - origin[0]) + s * (point[1] - origin[1])
+        return x_prime, y_prime
 
-        rot_mat_sw = self.rot_matrix(45)
-        coords = np.arange(1, dims[1], 1) - cxy[0], [cxy[1]] * dims[0] - cxy[1]
-        coords = np.array(coords, dtype=object)
-
-        rot_coords_sw = np.matmul(coords, rot_mat_sw, dtype=object)
-
-        x_sw = rot_coords_sw[0][0]
-        y_sw = rot_coords_sw[1][0]
-
-        start_sw = (cxy[0] + x_sw[0], cxy[1] + y_sw[0])
-        end_sw = (cxy[0] + x_sw[-1], cxy[1] + y_sw[-1])
-        line_profile_sw = skimage.measure.profile_line(mask, start_sw, end_sw, mode='reflect')
-
-        extent_sw = np.nonzero(line_profile_sw)[0]
-
+    def diagonal_lengths(self, res, mask, cxy):
         eff_res = np.sqrt(np.mean(np.square(res)))
-        dist_sw = (extent_sw[-1] - extent_sw[0]) * eff_res
+        mask_rotate = skimage.transform.rotate(mask, 45, center=(cxy[0], cxy[1]))
 
-        sw_dict = {
-            'Start': start_sw,
-            'End': end_sw,
-            'Extent': extent_sw,
-            'Distance': dist_sw
-        }
-        return sw_dict
+        h_dict = self.horizontal_length(res, mask_rotate, cxy)
+        extent_h = h_dict['Extent']
 
-    def nw_se_length(self, res, mask, cxy):
-        dims = mask.shape
+        origin = (cxy[0], cxy[1])
+        start = (extent_h[0], cxy[1])
+        end = (extent_h[-1], cxy[1])
+        se_x_start, se_y_start = self.rotate_point(origin, start, 45)
+        se_x_end, se_y_end = self.rotate_point(origin, end, 45)
 
-        rot_mat_se = self.rot_matrix(135)
-        coords = np.arange(1, dims[1], 1) - cxy[0], [cxy[1]] * dims[0] - cxy[1]
-        coords = np.array(coords, dtype=object)
-
-        rot_coords_se = np.matmul(coords, rot_mat_se, dtype=object)
-
-        x_se = rot_coords_se[0][0]
-        y_se = rot_coords_se[1][0]
-
-        start_se = (cxy[0] + x_se[0], cxy[0] + y_se[0])
-        end_se = (cxy[1] + x_se[-1], cxy[1] + y_se[-1])
-        line_profile_se = skimage.measure.profile_line(mask, start_se, end_se, mode='reflect')
-
-        extent_se = np.nonzero(line_profile_se)[0]
-
-        eff_res = np.sqrt(np.mean(np.square(res)))
-        dist_se = (extent_se[-1] - extent_se[0]) * eff_res
-
+        dist_se = np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start]))) * eff_res
         se_dict = {
-            'Start': start_se,
-            'End': end_se,
-            'Extent': extent_se,
+            'Start': (se_x_start, se_y_start),
+            'End': (se_x_end, se_y_end),
+            'Extent': (se_x_end - se_x_start, se_y_end - se_y_start),
             'Distance': dist_se
         }
-        return se_dict
+
+        v_dict = self.vertical_length(res, mask_rotate, cxy)
+        extent_v = v_dict['Extent']
+
+        start = (cxy[0], extent_v[0])
+        end = (cxy[0], extent_v[-1])
+        sw_x_start, sw_y_start = self.rotate_point(origin, start, 45)
+        sw_x_end, sw_y_end = self.rotate_point(origin, end, 45)
+
+        dist_sw = np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start]))) * eff_res
+        sw_dict = {
+            'Start': (sw_x_start, sw_y_start),
+            'End': (sw_x_end, sw_y_end),
+            'Extent': (sw_x_end - sw_x_start, sw_y_end - sw_y_start),
+            'Distance': dist_sw
+        }
+
+        return sw_dict, se_dict
 
     def get_geometric_accuracy_slice1(self, dcm):
         img = dcm.pixel_array
@@ -194,9 +178,9 @@ class ACRGeometricAccuracy(HazenTask):
             fig.set_size_inches(8, 8)
             plt.imshow(img)
 
-            plt.arrow(h_dict['Extent'][0], float(cxy[1]), h_dict['Extent'][-1] - h_dict['Extent'][0], 1, color='blue',
+            plt.arrow(h_dict['Extent'][0], cxy[1], h_dict['Extent'][-1] - h_dict['Extent'][0], 1, color='blue',
                       length_includes_head=True, head_width=5)
-            plt.arrow(float(cxy[0]), v_dict['Extent'][0], 1, v_dict['Extent'][-1] - v_dict['Extent'][0], color='orange',
+            plt.arrow(cxy[0], v_dict['Extent'][0], 1, v_dict['Extent'][-1] - v_dict['Extent'][0], color='orange',
                       length_includes_head=True, head_width=5)
             plt.legend([str(np.round(h_dict['Distance'], 2)) + 'mm',
                         str(np.round(v_dict['Distance'], 2)) + 'mm'])
@@ -216,8 +200,7 @@ class ACRGeometricAccuracy(HazenTask):
 
         h_dict = self.horizontal_length(res, mask, cxy)
         v_dict = self.vertical_length(res, mask, cxy)
-        sw_dict = self.ne_sw_length(res, mask, cxy)
-        se_dict = self.nw_se_length(res, mask, cxy)
+        sw_dict, se_dict = self.diagonal_lengths(res, mask, cxy)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -225,23 +208,15 @@ class ACRGeometricAccuracy(HazenTask):
             fig.set_size_inches(8, 8)
             plt.imshow(img)
 
-            plt.arrow(h_dict['Extent'][0], float(cxy[1]), h_dict['Extent'][-1] - h_dict['Extent'][0], 1, color='blue',
+            plt.arrow(h_dict['Extent'][0], cxy[1], h_dict['Extent'][-1] - h_dict['Extent'][0], 1, color='blue',
                       length_includes_head=True, head_width=5)
-            plt.arrow(float(cxy[0]), v_dict['Extent'][0], 1, v_dict['Extent'][-1] - v_dict['Extent'][0], color='orange',
+            plt.arrow(cxy[0], v_dict['Extent'][0], 1, v_dict['Extent'][-1] - v_dict['Extent'][0], color='orange',
                       length_includes_head=True, head_width=5)
 
-            se_arrow = [(se_dict['End'][0][0] - 1) + se_dict['Extent'][0] / np.sqrt(2),
-                        (se_dict['End'][1][0] - 1) + se_dict['Extent'][0] / np.sqrt(2),
-                        (se_dict['Extent'][-1] - se_dict['Extent'][0]) / np.sqrt(2)]
-
-            sw_arrow = [(sw_dict['End'][0][0] + 1) - sw_dict['Extent'][0] / np.sqrt(2),
-                        (sw_dict['End'][1][0] - 1) + sw_dict['Extent'][0] / np.sqrt(2),
-                        (sw_dict['Extent'][-1] - sw_dict['Extent'][0]) / np.sqrt(2)]
-
-            plt.arrow(se_arrow[0], se_arrow[1], se_arrow[2], se_arrow[2], color='purple', length_includes_head=True,
-                      head_width=5)
-            plt.arrow(sw_arrow[0], sw_arrow[1], -sw_arrow[2], sw_arrow[2], color='yellow', length_includes_head=True,
-                      head_width=5)
+            plt.arrow(se_dict['Start'][0], se_dict['Start'][1], se_dict['Extent'][0], se_dict['Extent'][1],
+                      color='purple', length_includes_head=True, head_width=5)
+            plt.arrow(sw_dict['Start'][0], sw_dict['Start'][1], sw_dict['Extent'][0], sw_dict['Extent'][1],
+                      color='yellow', length_includes_head=True, head_width=5)
 
             plt.legend([str(np.round(h_dict['Distance'], 2)) + 'mm',
                         str(np.round(v_dict['Distance'], 2)) + 'mm',
@@ -261,7 +236,6 @@ class ACRGeometricAccuracy(HazenTask):
         mean_err = np.mean(err)
 
         max_err = np.max(np.absolute(err))
-        cov_l = 100*np.std(L)/np.mean(L)
+        cov_l = 100 * np.std(L) / np.mean(L)
 
         return mean_err, max_err, cov_l
-
