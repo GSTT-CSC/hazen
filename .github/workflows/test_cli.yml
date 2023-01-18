@@ -80,3 +80,9 @@ jobs:
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
           hazen snr_map tests/data/snr/Siemens --report
+
+      - name: test relaxometry
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc_t1 --plate_number=5 --report
+
