@@ -48,6 +48,7 @@ class TestACRGeometricAccuracyGE(unittest.TestCase):
     ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     L1 = 189.92, 187.89
     L5 = 189.92, 188.39, 190.43, 189.92
+    distortion_metrics = [-0.59, 2.11, 0.49]
 
     def setUp(self):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
@@ -64,3 +65,8 @@ class TestACRGeometricAccuracyGE(unittest.TestCase):
         slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm2))
         slice5_vals = np.round(slice5_vals, 2)
         assert (slice5_vals == self.L5).all() == True
+
+    def test_distortion_metrics(self):
+        metrics = np.array(self.acr_geometric_accuracy_task.distortion_metric(self.L1+self.L5))
+        metrics = np.round(metrics, 2)
+        assert (metrics == self.distortion_metrics).all() == True
