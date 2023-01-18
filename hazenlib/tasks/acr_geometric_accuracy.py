@@ -122,7 +122,7 @@ class ACRGeometricAccuracy(HazenTask):
         c, s = np.cos(theta), np.sin(theta)
 
         x_prime = origin[0] + c * (point[0] - origin[0]) - s * (point[1] - origin[1])
-        y_prime = origin[1] + c * (point[0] - origin[0]) + s * (point[1] - origin[1])
+        y_prime = origin[1] + s * (point[0] - origin[0]) + c * (point[1] - origin[1])
         return x_prime, y_prime
 
     def diagonal_lengths(self, res, mask, cxy):
