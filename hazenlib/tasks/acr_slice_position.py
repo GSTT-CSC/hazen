@@ -225,6 +225,7 @@ class ACRSlicePosition(HazenTask):
             plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R)) * res[1],
                      interp_line_prof_R, 'r')
             plt.title('Original Line Profiles')
+            plt.xlabel('Relative Pixel Position (mm)')
             plt.tight_layout()
 
             plt.subplot(2, 2, 4)
@@ -245,6 +246,7 @@ class ACRSlicePosition(HazenTask):
             plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
                      shift_line, 'r')
             plt.title('Shifted Line Profiles')
+            plt.xlabel('Relative Pixel Position (mm)')
             plt.tight_layout()
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
