@@ -39,6 +39,12 @@ jobs:
           hazen snr tests/data/snr/Siemens --report
           hazen snr tests/data/snr/Siemens --measured_slice_width 5.0012 --report
 
+      - name: test_acr_snr
+        if: always() # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_snr tests/data/acr/Siemens --report
+          hazen acr_snr tests/data/acr/Siemens --subtract tests/data/acr/Siemens2 --report
+
       - name: test acr_uniformity
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
@@ -53,6 +59,11 @@ jobs:
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
           hazen acr_slice_position tests/data/acr/Siemens --report
+
+      - name: test acr_geometric_accuracy
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_geometric_accuracy tests/data/acr/Siemens --report
 
       - name: test slice_position
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
