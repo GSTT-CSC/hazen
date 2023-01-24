@@ -5,12 +5,11 @@ https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largepha
 
 Calculates the bar length difference for slices 1 and 11 of the ACR phantom.
 
-This script calculates the bar length difference in accordance with the ACR Guidance.
-This is done by first locating the transition points between the inner part of the phantom and the wedges located at the
-top of the phantom. Line profiles are then drawn orthogonal to this transition point for the left and right wedges.
-Circular shifts are applied to the right wedge's line profile and subtracted from the static left wedge line profile.
-The shift used to produce the minimum difference between the circularly shifted line profile and the static one are used
-to determine the bar length difference, which is twice the slice position displacement. The results are also visualised.
+This script calculates the bar length difference in accordance with the ACR Guidance. Line profiles are drawn
+vertically through the left and right wedges. Circular shifts are applied to the right wedge's line profile and
+subtracted from the static left wedge line profile. The shift used to produce the minimum difference between the
+circularly shifted right line profile and the static left one are used to determine the bar length difference,
+which is twice the slice position displacement. The results are also visualised.
 
 Created by Yassine Azma
 yassine.azma@rmh.nhs.uk
