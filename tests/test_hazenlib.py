@@ -218,6 +218,7 @@ class TestCliParser(unittest.TestCase):
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
 
-        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
-        self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
-                               output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
+        dict1 = {'Relaxometry_Spin_Echo_32_2': {'rms_frac_time_difference': 0.13499936644959437}}
+
+        self.assertAlmostEqual(dict1['Relaxometry_Spin_Echo_32_2']['rms_frac_time_difference'],
+                               output_dict['Relaxometry_Spin_Echo_32_2']['rms_frac_time_difference'], 4)
