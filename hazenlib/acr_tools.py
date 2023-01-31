@@ -11,7 +11,6 @@ import time
 class ACRTools:
     def __init__(self, dcm):
         self.dcm = dcm
-
         self.imgs = self.sort_images()
         self.rot_angle = self.determine_rotation()
 
@@ -66,7 +65,8 @@ class ACRTools:
 
         return skimage.transform.rotate(self.imgs, self.rot_angle, resize=False, preserve_range=True)
 
-    def find_phantom_center(self, img):
+    @staticmethod
+    def find_phantom_center(img):
         """
         Find the center of a given image.
 
@@ -92,6 +92,33 @@ class ACRTools:
 
         return centre
 
+    @staticmethod
+    def circular_mask(centre, radius, dims):
+        """
+        Sort a stack of images based on slice position.
+
+        Parameters
+        ----------
+        centre : tuple
+            The centre coordinates of the circular mask.
+        radius : int
+            The radius of the circular mask.
+        dims   : tuple
+            The dimensions of the circular mask.
+
+        Returns
+        -------
+        img_stack : np.array
+            A sorted stack of images, where each image is represented as a 2D numpy array.
+        """
+        # Define a circular logical mask
+        x = np.linspace(1, dims[0], dims[0])
+        y = np.linspace(1, dims[1], dims[1])
+
+        X, Y = np.meshgrid(x, y)
+        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius ** 2
+        return mask
+
 
 paths = glob.glob("C:/Users/yazma/Documents/GitHub/hazen/tests/data/acr/Siemens/*")
 
@@ -101,5 +128,5 @@ for path in paths:
 
 test = ACRTools(dcm_files)
 
-c = test.find_phantom_center(test.imgs[6])
+c = test.determine_rotation()
 print(c)
