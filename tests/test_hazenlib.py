@@ -164,9 +164,8 @@ class TestCliParser(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
     def test1_logger(self):
-        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'resolution' / 'RESOLUTION')
+        sys.argv = ["hazen", "spatial_resolution", path, "--log", "warning"]
 
         hazenlib.main()
 
@@ -175,9 +174,8 @@ class TestCliParser(unittest.TestCase):
         self.assertEqual(logging.root.level, logging.WARNING)
 
     def test2_logger(self):
-        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'resolution' / 'RESOLUTION')
+        sys.argv = ["hazen", "spatial_resolution", path]
 
         hazenlib.main()
 
@@ -186,16 +184,14 @@ class TestCliParser(unittest.TestCase):
         self.assertEqual(logging.root.level, logging.INFO)
 
     def test_main_snr_exception(self):
-        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\snr\\Siemens\\", "--measured_slice_width=10"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'snr' / 'Siemens')
+        sys.argv = ["hazen", "spatial_resolution", path, "--measured_slice_width=10"]
 
         self.assertRaises(Exception, hazenlib.main)
 
     def test_snr_measured_slice_width(self):
-        sys.argv = ["hazen", "snr", ".\\tests\\data\\snr\\GE", "--measured_slice_width", "1"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'snr' / 'GE')
+        sys.argv = ["hazen", "snr", path, "--measured_slice_width", "1"]
 
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
@@ -210,10 +206,8 @@ class TestCliParser(unittest.TestCase):
         self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
     def test_relaxometry(self):
-        sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\", "--plate_number",
-                    "4", "--calc_t1"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
+        sys.argv = ["hazen", "relaxometry", path, "--plate_number", "4", "--calc_t1"]
 
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
