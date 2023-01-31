@@ -32,7 +32,6 @@ from hazenlib.HazenTask import HazenTask
 
 import pathlib
 
-import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -43,29 +42,12 @@ from scipy import ndimage
 from skimage import filters
 
 from hazenlib.logger import logger
-# helper functions
-def sample_std(vals):
-    """
-    Return sample stdev using numpy.stdev(..., ddof=1).
-
-    Parameters
-    ----------
-    vals : array-like
-        Array-like object to calculate sample stdev.
-
-    Returns
-    -------
-    standard deviation : ndarray, same dtype as vals.
-    """
-    return np.std(vals, ddof=1)
 
 
 class SNRMap(HazenTask):
 
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
 
     def smooth(self, kernel=skimage.morphology.square(9)):
         """
@@ -124,7 +106,8 @@ class SNRMap(HazenTask):
         #  If you need a faster (less transparent) implementation, see:
         #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
 
-        noise_map = ndimage.filters.generic_filter(self.noise_image, sample_std,
+        noise_map = ndimage.filters.generic_filter(self.noise_image,
+                                                   lambda x: np.std(x, ddof=1),
                                                    size=self.roi_size)
         signal_map = ndimage.filters.uniform_filter(self.original_image,
                                                     size=self.roi_size)

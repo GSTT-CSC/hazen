@@ -5,16 +5,12 @@ import numpy as np
 import os.path
 import matplotlib
 
-from hazenlib.tasks.snr_map import SNRMap, sample_std
+from hazenlib.tasks.snr_map import SNRMap
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestSnrMap(unittest.TestCase):
     siemens_1 = os.path.join(TEST_DATA_DIR, 'snr', 'Siemens', 'tra_250_2meas_1.IMA')
-    RANDOM_DATA = np.array([-39.5905228, 9.56115628, 21.34564697,
-                            65.52582681, 49.27813827, 14.395829,
-                            77.88067287, 78.14606583, -55.1427819,
-                            16.77284764, -45.36429801, -41.69026038])
 
     ROI_CORNERS_TEST = [np.array([114, 121]), np.array([74, 81]), np.array([154, 81]),
                         np.array([74, 161]), np.array([154, 161])]
@@ -32,10 +28,6 @@ class TestSnrMap(unittest.TestCase):
     def test_snr_value(self):
         np.testing.assert_almost_equal(192.88188017908504,
                                        self.results['SNRMap_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1'])
-
-    def test_sample_std(self):
-        np.testing.assert_almost_equal(49.01842637544699,
-                                       sample_std(self.RANDOM_DATA))
 
     def test_smooth(self):
         np.testing.assert_almost_equal(
