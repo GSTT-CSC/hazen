@@ -1,5 +1,6 @@
 import unittest
 import pathlib
+
 import pydicom
 import os
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
@@ -7,8 +8,10 @@ from hazenlib.tools import get_dicom_files
 from hazenlib.tasks.snr import SNR
 
 
+
 # Note all SNR tests assume 5mm slice thickness
 class TestSnr(unittest.TestCase):
+
     # SIEMENS MR_VE11C
     # 1.5T
 
@@ -122,6 +125,7 @@ class TestSnrThreshold(TestSnr):
     # Example of shape detection failure
 
     SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'snr_threshold')
+    SNR_DATA_2 = pathlib.Path(TEST_DATA_DIR / 'snr')
 
     OBJECT_CENTRE = (129, 126)
     SNR_NORM_FACTOR = 13.537071812733949  # value taken from Hazen
