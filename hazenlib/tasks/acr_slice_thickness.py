@@ -16,13 +16,11 @@ yassine.azma@rmh.nhs.uk
 import sys
 import traceback
 import os
-import hazenlib
 from hazenlib.HazenTask import HazenTask
 import numpy as np
 import skimage.morphology
 import skimage.measure
 import scipy
-import pydicom
 
 
 def find_n_peaks(data, n, height=1):
