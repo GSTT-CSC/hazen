@@ -203,16 +203,16 @@ class ACRSliceThickness(HazenTask):
             max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
 
             plt.subplot(2, 2, 2)
-            plt.plot(x_ramp, y_ramp, 'r')
+            plt.plot(x_ramp, y_ramp, 'r', label=f'FWHM={np.round(ramp_length[1][z_ind], 2)}mm')
             plt.axhline(0.5 * y_extent, xmin=width[0] / x_extent, xmax=width[1] / x_extent, linestyle='dashdot', color='k')
             plt.axvline(max_loc, ymin=0, ymax=10 / 11, linestyle='dashdot', color='k')
-            plt.text(max_loc * 1.5, y_extent * 0.1, f'FWHM={np.round(ramp_length[1][z_ind], 2)}mm', ha='center')
 
             plt.xlabel('Relative Position (mm)')
             plt.xlim([0, x_extent])
             plt.ylim([0, y_extent * 1.1])
             plt.title('Upper Ramp')
             plt.grid()
+            plt.legend(loc='best')
             plt.tight_layout()
 
             width = fwhm_store[z_ind][0][0] * (1 / interp_factor) * res[0], fwhm_store[z_ind][0][1] * (1 / interp_factor) * \
@@ -224,16 +224,16 @@ class ACRSliceThickness(HazenTask):
             max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
 
             plt.subplot(2, 2, 4)
-            plt.plot(x_ramp, y_ramp, 'b')
+            plt.plot(x_ramp, y_ramp, 'b', label=f'FWHM={np.round(ramp_length[0][z_ind], 2)}mm')
             plt.axhline(0.5 * y_extent, xmin=width[0] / x_extent, xmax=width[1] / x_extent, linestyle='dashdot', color='k')
             plt.axvline(max_loc, ymin=0, ymax=10 / 11, linestyle='dashdot', color='k')
-            plt.text(max_loc * 1.5, y_extent * 0.1, f'FWHM={np.round(ramp_length[0][z_ind], 2)}mm', ha='center')
 
             plt.xlabel('Relative Position (mm)')
             plt.xlim([0, x_extent])
             plt.ylim([0, y_extent * 1.1])
             plt.title('Lower Ramp')
             plt.grid()
+            plt.legend(loc='best')
             plt.tight_layout()
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_slice_thickness.png'))
