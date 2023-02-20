@@ -80,6 +80,7 @@ class ACRSliceThickness(HazenTask):
         if np.mod(investigate_region, 2) == 0:
             investigate_region = (investigate_region + 1)
 
+        # Line profiles around the central row
         invest_x = \
             [skimage.measure.profile_line(img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode='constant')
              for k in range(investigate_region)]
@@ -88,12 +89,19 @@ class ACRSliceThickness(HazenTask):
         mean_x_profile = np.mean(invest_x, 1)
         abs_diff_x_profile = np.absolute(np.diff(mean_x_profile))
 
-        x_peaks = find_n_peaks(abs_diff_x_profile, 4)  # find two highest peaks
+        # find the points corresponding to the transition between:
+        # [0] - background and the hyperintense phantom
+        # [1] - hyperintense phantom and hypointense region with ramps
+        # [2] - hypointense region with ramps and hyperintense phantom
+        # [3] - hyperintense phantom and background
+
+        x_peaks = find_n_peaks(abs_diff_x_profile, 4)
         x_locs = np.sort(x_peaks) - 1
 
         width_pts = [x_locs[1], x_locs[2]]
         width = np.max(width_pts) - np.min(width_pts)
 
+        # take rough estimate of x points for later line profiles
         x = np.round([np.min(width_pts) + 0.2 * width, np.max(width_pts) - 0.2 * width])
 
         # Y
@@ -166,7 +174,10 @@ class ACRSliceThickness(HazenTask):
             line_store.append(interp_lines)
             fwhm_store.append(fwhm)
 
-        dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
+
+        dz = dz[~np.isnan(dz)]
         z_ind = np.argmin(np.abs(dcm.SliceThickness - dz))
 
         slice_thickness = dz[z_ind]
