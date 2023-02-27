@@ -125,7 +125,7 @@ class ACRSpatialResolution(HazenTask):
 
         return rot_angle
 
-    def y_ramp(self, res, img, cxy):
+    def y_position_for_ramp(self, res, img, cxy):
         investigate_region = int(np.ceil(5.5 / res[1]).item())
 
         if np.mod(investigate_region, 2) == 0:
@@ -144,7 +144,7 @@ class ACRSpatialResolution(HazenTask):
 
         height_pts = cxy[1] - 2 * investigate_region - 1 + y_locs
 
-        y = np.min(height_pts) + 1
+        y = np.min(height_pts) + 2
 
         return y
 
@@ -306,7 +306,7 @@ class ACRSpatialResolution(HazenTask):
         else:
             print(f'Rotation angle of the ACR phantom is {round(rot_ang, 2)}')
 
-        ramp_x, ramp_y = int(cxy[0]), self.y_ramp(res, img, cxy)
+        ramp_x, ramp_y = int(cxy[0]), self.y_position_for_ramp(res, img, cxy)
         width = int(13 * img.shape[0] / 256)
         crop_img = self.crop_image(img, ramp_x, ramp_y, width)
         edge_type, direction = self.get_edge_type(crop_img)
