@@ -72,7 +72,7 @@ class ACRSpatialResolution(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        results = {}
+        mtf_results = {}
         z = []
         for dcm in self.data:
             z.append(dcm.ImagePositionPatient[2])
@@ -82,15 +82,15 @@ class ACRSpatialResolution(HazenTask):
         for dcm in self.data:
             if dcm.ImagePositionPatient[2] == z[idx_sort[0]]:
                 try:
-                    result = self.get_mtf50(dcm)
+                    raw_res, fitted_res = self.get_mtf50(dcm)
+                    mtf_results[f"raw_mtf50_{self.key(self.data[0])}"] = raw_res
+                    mtf_results[f"fitted_mtf50_{self.key(self.data[0])}"] = fitted_res
                 except Exception as e:
                     print(f"Could not calculate the spatial resolution for {self.key(dcm)} because of : {e}")
                     traceback.print_exc(file=sys.stdout)
                     continue
 
-                results[self.key(dcm)] = result
-
-        results['reports'] = {'images': self.report_files}
+        results = {self.key(self.data[0]): mtf_results, 'reports': {'images': self.report_files}}
 
         return results
 
@@ -346,7 +346,7 @@ class ACRSpatialResolution(HazenTask):
             else:
                 ax2.plot(np.mean(edge_loc) + slope * np.arange(0, width - 1), np.arange(0, width - 1), color='r')
             ax2.axis('off')
-            ax2.set_title('Cropped Image', fontsize=14)
+            ax2.set_title('Cropped Edge', fontsize=14)
 
             ax3.plot(erf, 'rx', ms=5)
             ax3.plot(erf_fit, 'k', lw=3)
@@ -364,7 +364,7 @@ class ACRSpatialResolution(HazenTask):
 
             ax5.plot(freq, MTF_raw, 'rx', ms=8, label=f'Raw Data - {round(eff_raw_res, 2)}mm @ 50%')
             ax5.plot(freq, MTF_fit, 'k', lw=3, label=f'Weighted Sigmoid Fit of ERF - {round(eff_fit_res, 2)}mm @ 50%')
-            ax5.set_xlabel('Spatial Frequency (lp/mm')
+            ax5.set_xlabel('Spatial Frequency (lp/mm)')
             ax5.set_ylabel('Modulation Transfer Ratio')
             ax5.set_xlim([-0.05, 1])
             ax5.set_ylim([0, 1.05])
