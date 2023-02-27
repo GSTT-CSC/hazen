@@ -65,7 +65,7 @@ jobs:
         run: |
           hazen acr_geometric_accuracy tests/data/acr/Siemens --report
 
-      - name: test acr_geometric_accuracy
+      - name: test acr_spatial_resolution
         if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
         run: |
           hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
