@@ -122,10 +122,9 @@ class ACRSpatialResolution(HazenTask):
 
         try:
             angle = np.rad2deg(scipy.stats.mode(angles)[0][0])
+            rot_angle = angle + 90 if angle < 0 else angle - 90
         except IndexError:
-            angle = 0
-
-        rot_angle = angle + 90 if angle < 0 else angle - 90
+            rot_angle = 0
 
         return rot_angle
 
@@ -304,11 +303,11 @@ class ACRSpatialResolution(HazenTask):
         _, cxy = self.centroid_com(img)
         rot_ang = self.find_rotation(img)
 
-        if rot_ang < 1:
-            print(f'Rotation angle of the ACR phantom is {round(rot_ang, 2)}, which is less than 1 degree. Results '
+        if np.round(np.abs(rot_ang), 2) < 1:
+            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which is less than 1 degree. Results '
                   f'will be unreliable!')
         else:
-            print(f'Rotation angle of the ACR phantom is {round(rot_ang, 2)}')
+            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}')
 
         ramp_x, ramp_y = int(cxy[0]), self.y_position_for_ramp(res, img, cxy)
         width = int(13 * img.shape[0] / 256)
