@@ -24,9 +24,10 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
+ - OS: [e.g. macOS 12.1]
+ - Python version [e.g. 3.6, 3.8]
+ - Hazen version [e.g. 0.6.0]
+ - Deployment [e.g. Docker, venv, web]
 
 **Additional context**
 Add any other context about the problem here.
