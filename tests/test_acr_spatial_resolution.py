@@ -8,8 +8,8 @@ from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
-class TestACRGeometricAccuracySiemens(unittest.TestCase):
-    ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
+class TestACRSpatialResolutionSiemens(unittest.TestCase):
+    ACR_SPATIAL_RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = (128, 124)
     rotation_angle = 9
     y_ramp_pos = 118
@@ -54,8 +54,8 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         assert self.acr_spatial_resolution_task.get_mtf50(self.dcm) == self.MTF50
 
 
-class TestACRGeometricAccuracyGE(unittest.TestCase):
-    ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
+class TestACRSpatialResolutionGE(unittest.TestCase):
+    ACR_SPATIAL_RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = (254, 255)
     rotation_angle = 0
     y_ramp_pos = 244

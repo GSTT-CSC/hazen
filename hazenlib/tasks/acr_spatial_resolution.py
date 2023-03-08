@@ -50,9 +50,11 @@ def find_n_peaks(data, n, height=1):
     peaks = scipy.signal.find_peaks(data, height)
     pk_heights = peaks[1]['peak_heights']
     pk_ind = peaks[0]
-    highest_peaks = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
 
-    return np.sort(highest_peaks)
+    peak_heights = pk_heights[(-pk_heights).argsort()[:n]]
+    peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
+
+    return np.sort(peak_locs), np.sort(peak_heights)
 
 
 class ACRSpatialResolution(HazenTask):
@@ -150,8 +152,9 @@ class ACRSpatialResolution(HazenTask):
         edge_sum_rows = np.sum(crop_img, axis=1).astype(np.int_)
         edge_sum_cols = np.sum(crop_img, axis=0).astype(np.int_)
 
-        pk_rows_height = find_n_peaks(np.abs(np.diff(edge_sum_rows)), 1)[0]
-        pk_cols_height = find_n_peaks(np.abs(np.diff(edge_sum_cols)), 1)[0]
+        _, pk_rows_height = find_n_peaks(np.abs(np.diff(edge_sum_rows)), 1)
+        _, pk_cols_height = find_n_peaks(np.abs(np.diff(edge_sum_cols)), 1)
+
         edge_type = 'vertical' if pk_rows_height > pk_cols_height else 'horizontal'
 
         thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
@@ -293,8 +296,8 @@ class ACRSpatialResolution(HazenTask):
         rot_ang = self.find_rotation(img)
 
         if np.round(np.abs(rot_ang), 2) < 3:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which is less than 1 degree. Results '
-                  f'will be unreliable!')
+            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which has an absolute is less than 3 '
+                  f'degree. Results will be unreliable!')
         else:
             print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}')
 
