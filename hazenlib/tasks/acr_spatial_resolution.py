@@ -12,7 +12,7 @@ WARNING: The phantom must be slanted for valid results to be produced. This test
 guidance.
 
 This script first identifies the rotation angle of the ACR phantom using slice 1. It provides a warning if the
-slanted angle is less than 1 degree.
+slanted angle is less than 3 degrees.
 
 The location of the ramps within the slice thickness are identified and a square ROI is selected around the anterior
 edge of the slice thickness insert.
@@ -53,17 +53,6 @@ def find_n_peaks(data, n, height=1):
     highest_peaks = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
 
     return np.sort(highest_peaks)
-
-
-def find_n_peaks(data, n, height=1):
-    peaks = scipy.signal.find_peaks(data, height)
-    pk_heights = peaks[1]['peak_heights']
-    pk_ind = peaks[0]
-
-    peak_heights = pk_heights[(-pk_heights).argsort()[:n]]
-    peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
-
-    return peak_heights, peak_locs
 
 
 class ACRSpatialResolution(HazenTask):
@@ -303,7 +292,7 @@ class ACRSpatialResolution(HazenTask):
         _, cxy = self.centroid_com(img)
         rot_ang = self.find_rotation(img)
 
-        if np.round(np.abs(rot_ang), 2) < 1:
+        if np.round(np.abs(rot_ang), 2) < 3:
             print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which is less than 1 degree. Results '
                   f'will be unreliable!')
         else:
