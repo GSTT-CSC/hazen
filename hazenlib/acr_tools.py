@@ -4,14 +4,12 @@ import pydicom
 import cv2
 import scipy
 import skimage
-import matplotlib.pyplot as plt
-import time
 
 
 class ACRTools:
     def __init__(self, dcm):
         self.dcm = dcm
-        self.imgs = self.sort_images()
+        self.images, self.dcm = self.sort_images()
         self.rot_angle = self.determine_rotation()
 
     def sort_images(self):
@@ -28,6 +26,7 @@ class ACRTools:
         img_stack = np.array([dcm_file.pixel_array for dcm_file in self.dcm])
 
         return img_stack[np.argsort(z)]
+        return img_stack, dicom_stack
 
     def determine_rotation(self):
         """
@@ -39,7 +38,7 @@ class ACRTools:
             The rotation angle in degrees.
         """
 
-        thresh = cv2.threshold(self.imgs[0], 127, 255, cv2.THRESH_BINARY)[1]
+        thresh = cv2.threshold(self.images[0], 127, 255, cv2.THRESH_BINARY)[1]
 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
         dilate = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
@@ -63,7 +62,7 @@ class ACRTools:
             The rotated images.
         """
 
-        return skimage.transform.rotate(self.imgs, self.rot_angle, resize=False, preserve_range=True)
+        return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
 
     @staticmethod
     def find_phantom_center(img):
@@ -87,7 +86,7 @@ class ACRTools:
 
         coords = np.nonzero(mask)  # row major - first array is columns
 
-        centre = np.sum(coords[1])/coords[1].shape, np.sum(coords[0])/coords[0].shape
+        centre = np.sum(coords[1]) / coords[1].shape, np.sum(coords[0]) / coords[0].shape
         centre = tuple(int(i) for i in centre)
 
         return centre
@@ -119,14 +118,13 @@ class ACRTools:
         mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius ** 2
         return mask
 
-
-paths = glob.glob("C:/Users/yazma/Documents/GitHub/hazen/tests/data/acr/Siemens/*")
-
-dcm_files = []
-for path in paths:
-    dcm_files.append(pydicom.dcmread(path))
-
-test = ACRTools(dcm_files)
-
-c = test.determine_rotation()
-print(c)
+# paths = glob.glob("C:/Users/yazma/Documents/GitHub/hazen/tests/data/acr/Siemens/*")
+#
+# dcm_files = []
+# for path in paths:
+#     dcm_files.append(pydicom.dcmread(path))
+#
+# test = ACRTools(dcm_files)
+#
+# c = test.determine_rotation()
+# print(c)
