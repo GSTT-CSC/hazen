@@ -139,3 +139,5 @@ class TestAxialPhilipsBroomfields(TestGhosting):
     def setUp(self):
         self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING' , 'axial_philips_broomfields.dcm'))
         self.ghosting = Ghosting(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')))
+        
+#
