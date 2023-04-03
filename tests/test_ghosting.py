@@ -88,7 +88,7 @@ class TestGhosting(unittest.TestCase):
 
 
 class TestCOLPEGhosting(TestGhosting):
-    SIGNAL_BOUNDING_BOX = (164, 208, 166, 209)
+    SIGNAL_BOUNDING_BOX = (1645, 208, 166, 209)
     SIGNAL_CENTRE = [186, 187]
     BACKGROUND_ROIS = [(64, 187), (64, 140), (64, 93), (64, 46)]
     PADDING_FROM_BOX = 30
