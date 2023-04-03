@@ -93,8 +93,36 @@ class TestCOLPEGhosting(TestGhosting):
     BACKGROUND_ROIS = [(64, 187), (64, 140), (64, 93), (64, 46)]
     PADDING_FROM_BOX = 30
     SLICE_RADIUS = 5
-    ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0], SIGNAL_BOUNDING_BOX[1]), range(
-        SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+    
+    if SIGNAL_BOUNDING_BOX[0] > PADDING_FROM_BOX:
+        ELIGIBLE_GHOST_AREA = range(SIGNAL_BOUNDING_BOX[0] - PADDING_FROM_BOX, SIGNAL_BOUNDING_BOX[1]), range(
+            SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+    else:
+        ELIGIBLE_GHOST_AREA = range(0, SIGNAL_BOUNDING_BOX[1]), range(
+            SLICE_RADIUS, SIGNAL_BOUNDING_BOX[2] - PADDING_FROM_BOX)
+
+    SLICES = [
+        (np.array(range(roi[0] - 5, roi[0] + 5), dtype=np.intp)[:, np.newaxis], np.array(
+            range(roi[1] - 5, roi[1] + 5), dtype=np.intp)) for roi in BACKGROUND_ROIS]
+
+    SIGNAL_SLICE = np.array(range(SIGNAL_CENTRE[0] - SLICE_RADIUS, SIGNAL_CENTRE[0] + SLICE_RADIUS), dtype=np.intp)[:,
+                   np.newaxis], np.array(
+        range(SIGNAL_CENTRE[1] - SLICE_RADIUS, SIGNAL_CENTRE[1] + SLICE_RADIUS), dtype=np.intp)
+
+    GHOST_SLICE = np.array(
+        range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
+        range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
+
+    PE = "COL"
+    GHOSTING = (None, 0.015138960417776908)
+
+    def setUp(self):
+        self.dcm = pydicom.read_file(
+            os.path.join(TEST_DATA_DIR, 'ghosting', 'PE_COL_PHANTOM_BOTTOM_RIGHT', 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA'))
+        self.ghosting = Ghosting(
+            data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'PE_COL_PHANTOM_BOTTOM_RIGHT')),
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+
 
 
     SLICES = [
