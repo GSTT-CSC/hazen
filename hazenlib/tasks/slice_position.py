@@ -217,7 +217,6 @@ class SlicePosition(HazenTask):
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(2, 1)
             fig.set_size_inches(10, 10)
-            fig.tight_layout()
             ax[0].imshow(data[19].pixel_array, cmap='gray')
 
             for idx in range(40):
@@ -227,9 +226,24 @@ class SlicePosition(HazenTask):
 
             ax[1].scatter(range(10, 50), results, marker='x')
             ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
+            plt.xlabel('slice position [slice number]')
+            plt.ylabel('Slice position error [mm]')
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_slice_position.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
+
+            # fig, ax = plt.subplots(1, 1)
+            # for i, pos in enumerate(nominal_positions):
+            #     ax.cla()
+            #     dcm = self.data[i+10]
+            #     ax.imshow(dcm.pixel_array, cmap='gray')
+            #     rods_x = [left_rod["x_pos"][i], right_rod['x_pos'][i]]
+            #     rods_y = [left_rod["y_pos"][i], right_rod['y_pos'][i]]
+            #     ax.scatter(rods_x, rods_y, 20, c='green', marker='+')
+            #
+            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_{i}_slice_position.png'))
+            #     plt.savefig(img_path)
+            #     self.report_files.append(img_path)
 
         return results

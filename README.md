@@ -1,27 +1,26 @@
 <!-- PROJECT HEADING -->
 <br />
 <p align="center">
-   <img src="https://raw.githubusercontent.com/GSTT-CSC/hazen/readme-dev/docs/assets/ibn-al-haytham.jpeg" alt="Ibn Al-Haytham">
+<img src="https://raw.githubusercontent.com/GSTT-CSC/hazen/readme-dev/docs/assets/ibn-al-haytham.jpeg" alt="Ibn Al-Haytham">
 </p>   
 <h1 align="center">hazen</h1>
 <p align="center">
-   Quality assurance framework for Magnetic Resonance Imaging
-   <br />
-   <a href="https://github.com/github_username/repo_name"><strong>Explore the docs »</strong></a>
-   <br />
-   <br />
-   <a href="https://github.com/GSTT-CSC/hazen">View repo</a>
-   ·
-   <a href="https://github.com/GSTT-CSC/hazen/issues">Report Bug</a>
-   ·
-   <a href="https://github.com/GSTT-CSC/hazen/issues">Request Feature</a>
+Quality assurance framework for Magnetic Resonance Imaging
+<br />
+<a href="https://hazen.readthedocs.io/en/latest/"><strong>Explore the docs »</strong></a>
+<br />
+<br />
+<a href="https://github.com/GSTT-CSC/hazen">View repo</a>
+·
+<a href="https://github.com/GSTT-CSC/hazen/issues">Report Bug</a>
+·
+<a href="https://github.com/GSTT-CSC/hazen/issues">Request Feature</a>
 </p>
 <p align="center">
-  <img src="https://github.com/GSTT-CSC/hazen/actions/workflows/tests_release.yml/badge.svg?branch=main">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/laurencejackson/ba102d5f3e592fcd50451c2eff8a803d/raw/hazen_pytest-coverage-comment.json">
+<img src="https://github.com/GSTT-CSC/hazen/actions/workflows/tests_release.yml/badge.svg?branch=main">
+<img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/laurencejackson/ba102d5f3e592fcd50451c2eff8a803d/raw/hazen_pytest-coverage-comment.json">
 </p>
 <p align="center">Please <b>STAR</b> this repo to receive updates about new versions of hazen!</p>
-
 
 ---
 
@@ -41,7 +40,7 @@ Some example outputs from hazen:
 
 | hazen snr                        | hazen ghosting                |
 |----------------------------------|-------------------------------|
-| ![](docs/assets/snr-example.png) | ![](docs/assets/ghosting.png) |
+| ![](docs/assets/SNR.png) | ![](docs/assets/ghosting.png) |
 
 ---
 
@@ -103,7 +102,7 @@ pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 
 # Install hazen
-python setup.py install
+pip install .
 
 # Run tests to ensure everything is working
 pytest tests/
@@ -161,11 +160,10 @@ We have used hazen with MRI data from a handful of different MRI scanners, inclu
 
 The Release Manager should ensure:
 - All outstanding issues for the current release have been closed, or, transferred to future release.
-- All tests are passing on Github Actions.
+- All tests are passing on GitHub Actions.
 - All documentation has been updated with correct version numbers:
-   - Version number in `docs/conf.py`
-   - Version number in `hazenlib/__init__.py`
-   - Version number in `CITATION.cff`
+   - Update version number `hazenlib/_version.py`, i.e. imported into `docs/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
+   - Update version number in `CITATION.cff`
 - The `release` branch has been merged into `main` branch
 - A new release has been created with a new version tag (tag = version number)
 

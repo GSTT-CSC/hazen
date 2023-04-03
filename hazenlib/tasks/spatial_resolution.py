@@ -42,6 +42,7 @@ class SpatialResolution(HazenTask):
 
         return results
 
+
     import pydicom
     import cv2 as cv
     import numpy as np
@@ -70,6 +71,7 @@ class SpatialResolution(HazenTask):
 
     # find edge indexes and values
     def find_edge_indexes(self, dicom):
+
         pixels = dicom.pixel_array
         pitch = dicom.PixelSpacing
         central_col = pixels[120:140, 100:120]  # indexes and values of edge
