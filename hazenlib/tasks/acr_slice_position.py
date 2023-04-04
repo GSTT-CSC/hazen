@@ -149,7 +149,7 @@ class ACRSlicePosition(HazenTask):
         y_locs = w_point + y_peaks - 1  # y coordinates of these peaks in image coordinate system(before diff operation)
 
         if y_locs[1] - y_locs[0] < 5 / res[1]:
-            y = n_point + round(10 / res[1])  # if peaks too close together, use phantom geometry
+            y = [n_point + round(10 / res[1])]  # if peaks too close together, use phantom geometry
         else:
             y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs)))  # define y coordinate
 
@@ -192,19 +192,17 @@ class ACRSlicePosition(HazenTask):
         lag = np.linspace(-50, 50, 101, dtype=int)  # create array of lag values
         err = np.zeros(len(lag))  # initialise array of errors
 
-        for k in range(len(lag)):
-            temp_lag = lag[k]  # set a shift value
-            difference = static_line_R - np.roll(static_line_L, temp_lag)  # difference of L and circularly shifted R
+        for k, lag_val in enumerate(lag):
+            difference = static_line_R - np.roll(static_line_L, lag_val)  # difference of L and circularly shifted R
             # set wrapped values to nan
-            if temp_lag > 0:
-                difference[:temp_lag] = np.nan
+            if lag_val > 0:
+                difference[:lag_val] = np.nan
             else:
-                difference[temp_lag:] = np.nan
+                difference[lag_val:] = np.nan
 
-            if np.isnan(difference).all():
-                err[k] = 1e10  # filler value to suppress warning when trying to calculate mean of array filled with NaN
-            else:
-                err[k] = np.nanmean(difference)  # calculate mean difference ignoring nan values
+            # filler value to suppress warning when trying to calculate mean of array filled with NaN otherwise
+            # calculate difference
+            err[k] = 1e10 if np.isnan(difference).all() else np.nanmean(difference)
 
         temp = np.argwhere(err == np.min(err[err > 0]))[0]  # find minimum non-zero error
         shift = -lag[temp][0] if pos == 1 else lag[temp][0]  # find shift corresponding to above error
