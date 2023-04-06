@@ -164,9 +164,8 @@ class TestCliParser(unittest.TestCase):
         self.dcm = pydicom.read_file(self.file)
 
     def test1_logger(self):
-        sys.argv = ["hazen", "spatial_resolution", ".\\tests\\data\\resolution\\RESOLUTION\\", "--log", "warning"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'resolution' / 'RESOLUTION')
+        sys.argv = ["hazen", "spatial_resolution", path, "--log", "warning"]
 
         hazenlib.main()
 
@@ -207,10 +206,8 @@ class TestCliParser(unittest.TestCase):
         self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
     def test_relaxometry(self):
-        sys.argv = ["hazen", "relaxometry", ".\\tests\\data\\relaxometry\\T1\\site3_ge\\plate4\\", "--plate_number",
-                    "4", "--calc_t1"]
-
-        sys.argv = [item.replace("\\", "/") for item in sys.argv]
+        path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
+        sys.argv = ["hazen", "relaxometry", path, "--plate_number", "4", "--calc_t1"]
 
         output = hazenlib.main()
         output_dict = ast.literal_eval(output)
