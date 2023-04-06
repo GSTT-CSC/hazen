@@ -38,7 +38,7 @@ It provides automatic quantitative analysis for the following measurements of MR
 
 Some example outputs from hazen:
 
-| hazen snr                        | hazen ghosting                |
+| hazen acr_ghosting                        | hazen ghosting                |
 |----------------------------------|-------------------------------|
 | ![](docs/assets/SNR.png) | ![](docs/assets/ghosting.png) |
 
