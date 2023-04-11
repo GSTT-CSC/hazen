@@ -110,5 +110,3 @@ class Test_is_Dicom_file(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
