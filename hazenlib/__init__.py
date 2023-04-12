@@ -85,7 +85,7 @@ Report is an optional argument needed if you want to get a plot of your results.
 'Measured_slice_width' is an optional argument for the SNR function.
 'Log' is an optional argument that allows users to set the severity of the logs.
     <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
-    acr_ghosting | acr_uniformity | acr_spatial_resolution | acr_slice_thickness
+    acr_ghosting | acr_uniformity | acr_spatial_resolution | acr_slice_thickness | acr_snr | acr_slice_position | acr_geometric_accuracy
     <folder>
     --report
 
