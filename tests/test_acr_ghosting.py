@@ -21,7 +21,13 @@ class TestACRGhostingSiemens(unittest.TestCase):
         assert self.acr_ghosting_task.centroid_com(self.dcm.pixel_array)[1] == self.centre
 
     def test_ghosting(self):
-        assert round(self.acr_ghosting_task.get_signal_ghosting(self.dcm), 3) == self.psg
+        ghosting_val = round(self.acr_ghosting_task.get_signal_ghosting(self.dcm), 3)
+
+        print("\ntest_ghosting.py::TestGhosting::test_ghosting")
+        print("new_release_value:", ghosting_val)
+        print("fixed_value:", self.psg)
+
+        assert ghosting_val == self.psg
 
 
 class TestACRGhostingGE(unittest.TestCase):

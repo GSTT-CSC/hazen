@@ -51,8 +51,13 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
                                                                              self.edge_type[1])[0], 3) == self.slope
 
     def test_get_MTF50(self):
-        assert self.acr_spatial_resolution_task.get_mtf50(self.dcm) == self.MTF50
+        mtf50_val = self.acr_spatial_resolution_task.get_mtf50(self.dcm)
 
+        print("\ntest_get_MTF50.py::TestGetMTF50::test_get_MTF50")
+        print("new_release_value:", mtf50_val)
+        print("fixed_value:", self.MTF50)
+
+        assert mtf50_val == self.MTF50
 
 class TestACRSpatialResolutionGE(unittest.TestCase):
     ACR_SPATIAL_RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')

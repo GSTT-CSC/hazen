@@ -236,12 +236,14 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_slice_width(self):
         results = self.slice_width.run()
-        self.slice_width.key(self.slice_width.data[0])
-        # key = f"{self.slice_width.data[0].SeriesDescription}_{self.slice_width.data[0].SeriesNumber}_{self.slice_width.data[0].InstanceNumber}"
-        # print("slice width")
-        # print(results[key]['slice_width_mm'])
-        # assert abs(results[key]['slice_width_mm'] - self.SW_MATLAB) < 0.1
-        assert abs(results[self.slice_width.key(self.slice_width.data[0])]['slice_width_mm'] - self.SW_MATLAB) < 0.1
+        key = self.slice_width.key(self.slice_width.data[0])
+        slice_width_mm = results[key]['slice_width_mm']
+
+        print("\ntest_slice_width.py::TestSliceWidth::test_slice_width")
+        print("new_release_value:", slice_width_mm)
+        print("fixed_value:", self.SW_MATLAB)
+
+        assert abs(slice_width_mm - self.SW_MATLAB) < 0.1
 
 
 class Test512Matrix(TestSliceWidth):
