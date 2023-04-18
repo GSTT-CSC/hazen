@@ -42,8 +42,15 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
                 self.y_pts[1]).all() == True
 
     def test_slice_position(self):
-        assert round(self.acr_slice_position_task.get_slice_position(self.dcm_1), 2) == self.dL[0]
-        assert round(self.acr_slice_position_task.get_slice_position(self.dcm_11), 2) == self.dL[1]
+        slice_position_val_1 = round(self.acr_slice_position_task.get_slice_position(self.dcm_1), 2)
+        slice_position_val_11 = round(self.acr_slice_position_task.get_slice_position(self.dcm_11), 2)
+
+        print("\ntest_slice_position.py::TestSlicePosition::test_slice_position")
+        print("new_release_value:", slice_position_val_1)
+        print("fixed_value:", self.dL[0])
+
+        assert slice_position_val_1 == self.dL[0]
+        assert slice_position_val_11 == self.dL[1]
 
 
 class TestACRSlicePositionGE(unittest.TestCase):

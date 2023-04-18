@@ -31,7 +31,13 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
                 self.y_pts).all() == True
 
     def test_slice_thickness(self):
-        assert round(self.acr_slice_thickness_task.get_slice_thickness(self.dcm), 2) == self.dz
+        slice_thickness_val = round(self.acr_slice_thickness_task.get_slice_thickness(self.dcm), 2)
+
+        print("\ntest_slice_thickness.py::TestSliceThickness::test_slice_thickness")
+        print("new_release_value:", slice_thickness_val)
+        print("fixed_value:", self.dz)
+
+        assert slice_thickness_val == self.dz
 
 
 class TestACRSliceThicknessGE(unittest.TestCase):

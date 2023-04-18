@@ -28,11 +28,20 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     def test_geo_accuracy_slice1(self):
         slice1_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice1(self.dcm))
         slice1_vals = np.round(slice1_vals, 2)
+
+        print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice1")
+        print("new_release:", slice1_vals)
+        print("fixed value:", self.L1)
+
         assert (slice1_vals == self.L1).all() == True
 
     def test_geo_accuracy_slice5(self):
         slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm2))
         slice5_vals = np.round(slice5_vals, 2)
+
+        print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice1")
+        print("new_release:", slice5_vals)
+        print("fixed value:", self.L5)
         assert (slice5_vals == self.L5).all() == True
 
     def test_rotate_point(self):
