@@ -73,7 +73,13 @@ class TestGhosting(unittest.TestCase):
         assert list(self.ghosting.get_ghost_slice(self.SIGNAL_BOUNDING_BOX, self.dcm)[1]) == list(self.GHOST_SLICE[1])
 
     def test_get_ghosting(self):
-        assert self.ghosting.get_ghosting(self.dcm) == self.GHOSTING
+        ghosting_val = self.ghosting.get_ghosting(self.dcm)
+
+        print("\ntest_get_ghosting.py::TestGetGhosting::test_get_ghosting")
+        print("new_release_value:", ghosting_val)
+        print("fixed_value:", self.GHOSTING)
+
+        assert ghosting_val == self.GHOSTING
 
 
 class TestCOLPEGhosting(TestGhosting):
