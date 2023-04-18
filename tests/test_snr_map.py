@@ -49,8 +49,13 @@ class TestSnrMap(unittest.TestCase):
             self.snr_map.snr, 192.8818801790859)
 
     def test_calc_snr_map(self):
-        np.testing.assert_almost_equal(
-            self.snr_map.snr_map.cumsum().sum(), 128077116718.40483)
+        snr_map_cumsum = self.snr_map.snr_map.cumsum().sum()
+
+        print("\ntest_calc_snr_map.py::TestCalcSnrMap::test_calc_snr_map")
+        print("new_release_value:", snr_map_cumsum)
+        print("fixed_value:", 128077116718.40483)
+
+        np.testing.assert_almost_equal(snr_map_cumsum, 128077116718.40483)
 
     def test_plot_detailed(self):
         # Just check a valid figure handle is returned

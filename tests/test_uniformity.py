@@ -17,10 +17,18 @@ class TestUniformity(unittest.TestCase):
 
     def test_uniformity(self):
         results = self.uniformity_task.run()
-        assert results[self.uniformity_task.key(self.uniformity_task.data[0])]['horizontal'][
-                   'IPEM'] == self.IPEM_HORIZONTAL
-        assert results[self.uniformity_task.key(self.uniformity_task.data[0])]['vertical']['IPEM'] == self.IPEM_VERTICAL
+        key = self.uniformity_task.key(self.uniformity_task.data[0])
+        horizontal_ipem = results[key]['horizontal']['IPEM']
+        vertical_ipem = results[key]['vertical']['IPEM']
 
+        print("\ntest_uniformity.py::TestUniformity::test_uniformity")
+
+        print("new_release_value:", vertical_ipem)
+
+        print("fixed_value:", self.IPEM_VERTICAL)
+
+        assert horizontal_ipem == self.IPEM_HORIZONTAL
+        assert vertical_ipem == self.IPEM_VERTICAL
 
 class TestSagUniformity(TestUniformity):
     IPEM_HORIZONTAL = 0.46875
