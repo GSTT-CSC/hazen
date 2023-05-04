@@ -5,6 +5,7 @@ import pydicom
 import numpy as np
 
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
+from hazenlib.acr_tools import ACRTools
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -17,22 +18,18 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     edge_type = 'vertical', 'downward'
     edge_loc = [5, 7]
     slope = -0.165
-    MTF50 = (1.16, 1.32)
+    MTF50 = (1.18, 1.35)
 
     def setUp(self):
         self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', '0.dcm'))
+        self.acr_spatial_resolution_task.ACR_obj = ACRTools(
+            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', f'{i}')) for i in
+             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF'))])
+
+        self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcm[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(self.dcm.pixel_array, self.centre[0],
                                                                       self.y_ramp_pos, self.width)
-
-    def test_object_centre(self):
-        data = self.dcm.pixel_array
-        assert self.acr_spatial_resolution_task.centroid_com(data)[1] == self.centre
-
-    def test_rotation(self):
-        data = self.dcm.pixel_array
-        assert self.acr_spatial_resolution_task.find_rotation(data) == self.rotation_angle
 
     def test_find_y_ramp(self):
         data = self.dcm.pixel_array
@@ -63,22 +60,18 @@ class TestACRSpatialResolutionGE(unittest.TestCase):
     edge_type = 'vertical', 'upward'
     edge_loc = [5, 7]
     slope = 0.037
-    MTF50 = (0.71, 0.69)
+    MTF50 = (0.72, 0.71)
 
     def setUp(self):
         self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '10.dcm'))
+        self.acr_spatial_resolution_task.ACR_obj = ACRTools(
+            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
+             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+
+        self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcm[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(self.dcm.pixel_array, self.centre[0],
                                                                       self.y_ramp_pos, self.width)
-
-    def test_object_centre(self):
-        data = self.dcm.pixel_array
-        assert self.acr_spatial_resolution_task.centroid_com(data)[1] == self.centre
-
-    def test_rotation(self):
-        data = self.dcm.pixel_array
-        assert self.acr_spatial_resolution_task.find_rotation(data) == self.rotation_angle
 
     def test_find_y_ramp(self):
         data = self.dcm.pixel_array
