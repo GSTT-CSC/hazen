@@ -218,7 +218,7 @@ class ACRTools:
         return x_prime, y_prime
 
     @staticmethod
-    def n_highest_peaks(data, n, height=1):
+    def find_n_highest_peaks(data, n, height=1):
         """
         Find the indices and amplitudes of the N highest peaks within a 1D array.
 
