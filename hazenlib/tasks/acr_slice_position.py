@@ -184,7 +184,6 @@ class ACRSlicePosition(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
-            plt.suptitle('Bar Length Difference = ' + str(np.round(dL, 2)) + 'mm', x=0.5, ha='center')
             fig, axes = plt.subplots(4, 1)
             fig.set_size_inches(8, 32)
             fig.tight_layout(pad=4)
