@@ -40,7 +40,7 @@ class Uniformity(HazenTask):
             try:
                 result = self.get_fractional_uniformity(dcm)
             except Exception as e:
-                print(f"Could not calculate the uniformity for {self.key(dcm)} because of : {e}")
+                print(f"Could test not calculate the uniformity for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
 

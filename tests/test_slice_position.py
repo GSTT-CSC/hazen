@@ -45,9 +45,14 @@ class TestSlicePosition(unittest.TestCase):
 
     def test_slice_position(self):
         results = self.hazen_slice_position.run()
+        key = self.hazen_slice_position.key(self.hazen_slice_position.data[0])
+        slice_positions = results[key]['slice_positions']
 
-        assert results[self.hazen_slice_position.key(self.hazen_slice_position.data[0])][
-                   'slice_positions'] == self.SLICE_POSITION_OUTPUT
+        print("\ntest_slice_position.py::TestSlicePosition::test_slice_position")
+        print("new_release_value:", slice_positions)
+        print("fixed_value", self.SLICE_POSITION_OUTPUT)
+
+        assert slice_positions == self.SLICE_POSITION_OUTPUT
 
 
 # now test on canon data

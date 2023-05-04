@@ -24,7 +24,13 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
     def test_uniformity(self):
         results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
-        assert round(results, 2) == self.piu
+        rounded_results = round(results, 2)
+
+        print("\ntest_uniformity.py::TestUniformity::test_uniformity")
+        print("new_release_values:", rounded_results)
+        print("fixed_values:", self.piu)
+
+        assert rounded_results == self.piu
 
 
 # class TestACRUniformityPhilips(unittest.TestCase):

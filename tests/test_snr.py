@@ -150,6 +150,9 @@ class TestSnrThreshold(TestSnr):
 
     def test_image_snr(self):
         val = self.snr.run()
+        print("\ntest_snr.py::TestSnrThreshold::test_image_snr")
+        print("set values:", val)
+        print("new_release_values", self.snr.run())
         self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
             f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
         self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][

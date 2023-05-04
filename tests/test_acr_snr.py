@@ -36,7 +36,13 @@ class TestACRSNRSiemens(unittest.TestCase):
 
     def test_snr_by_subtraction(self):
         snr, _ = self.acr_snr_task.snr_by_subtraction(self.dcm[0], self.dcm[1])
-        assert round(snr, 2) == self.sub_snr
+        rounded_snr = round(snr, 2)
+
+        print("\ntest_snr_by_subtraction.py::TestSnrBySubtraction::test_snr_by_subtraction")
+        print("new_release_value:", rounded_snr)
+        print("fixed_value:", self.sub_snr)
+
+        assert rounded_snr == self.sub_snr
 
 
 class TestACRSNRGE(unittest.TestCase):

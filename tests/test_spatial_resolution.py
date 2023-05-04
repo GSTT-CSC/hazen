@@ -415,9 +415,16 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_calculate_mtf(self):
         res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.data[0])
-        assert res['frequency_encoding_direction'] == pytest.approx(self.MTF_FE)
-        assert res['phase_encoding_direction'] == pytest.approx(self.MTF_PE)
+        fe_res = res['frequency_encoding_direction']
+        pe_res = res['phase_encoding_direction']
 
+        print("\ntest_calculate_mtf.py::TestCalculateMtf::test_calculate_mtf")
+        print("new_release_value:", fe_res)
+        print("fixed_value:", self.MTF_FE)
+
+
+        assert fe_res == pytest.approx(self.MTF_FE)
+        assert pe_res == pytest.approx(self.MTF_PE)
 
 class TestPhilipsResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')
