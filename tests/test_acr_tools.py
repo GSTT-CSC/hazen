@@ -12,6 +12,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 class TestACRTools(unittest.TestCase):
     rotation = [-1.0, 0.0]
     centre = [(129, 130), (253, 255)]
+    test_point = (-60.98, -45.62)
 
     def setUp(self):
         self.Siemens_data = [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
@@ -30,4 +31,7 @@ class TestACRTools(unittest.TestCase):
         assert (self.centre[0] == np.round(self.Siemens_ACR_obj.centre, 1)).all() == True
         assert (self.centre[1] == np.round(self.GE_ACR_obj.centre, 1)).all() == True
 
-    # def
+    def test_rotate_point(self):
+        rotated_point = np.array(self.Siemens_ACR_obj.rotate_point((0, 0), (30, 70), 150))
+        rotated_point = np.round(rotated_point, 2)
+        assert (rotated_point == self.test_point).all() == True

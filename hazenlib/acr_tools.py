@@ -1,6 +1,4 @@
 import numpy as np
-# import glob
-# import pydicom
 import cv2
 import scipy
 import skimage
@@ -67,8 +65,7 @@ class ACRTools:
 
         return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
 
-    @staticmethod
-    def mask_image(image, mag_threshold=0.25, open_threshold=500):
+    def mask_image(self, image, mag_threshold=0.05, open_threshold=500):
         """
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
@@ -78,8 +75,15 @@ class ACRTools:
         np.array:
             The masked image.
         """
+        test_mask = self.circular_mask(self.centre, (80 // self.dcm[0].PixelSpacing[0]), image.shape)
+        test_image = image * test_mask
+        test_vals = test_image[np.nonzero(test_image)]
+        if np.max(test_vals) - np.min(test_vals) > 0.8 * np.max(image):
+            print('Large intensity variations detected in image using local thresholding!')
+            initial_mask = skimage.filters.threshold_sauvola(image, window_size=3, k=0.95)
+        else:
+            initial_mask = image > mag_threshold * np.max(image)
 
-        initial_mask = image > mag_threshold * np.max(image)
         opened_mask = skimage.morphology.area_opening(initial_mask, area_threshold=open_threshold)
         final_mask = skimage.morphology.convex_hull_image(opened_mask)
 
@@ -158,21 +162,17 @@ class ACRTools:
                 The horizontal/vertical length of the object.
         """
         dims = img.shape
-        mask = self.circular_mask(self.centre, self.radius, (dims[0], dims[1]))
-        noise_mask = ~mask
-        min_signal = img[noise_mask]
-
         res = self.dcm[0].PixelSpacing
 
         horizontal_start = (self.centre[1], 0)
         horizontal_end = (self.centre[1], dims[0] - 1)
-        horizontal_line_profile = skimage.measure.profile_line(mask, horizontal_start, horizontal_end) > min_signal
+        horizontal_line_profile = skimage.measure.profile_line(img, horizontal_start, horizontal_end)
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
         horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * res[0]
 
         vertical_start = (0, self.centre[0])
         vertical_end = (dims[1] - 1, self.centre[0])
-        vertical_line_profile = skimage.measure.profile_line(mask, vertical_start, vertical_end) > min_signal
+        vertical_line_profile = skimage.measure.profile_line(img, vertical_start, vertical_end)
         vertical_extent = np.nonzero(vertical_line_profile)[0]
         vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * res[1]
 
