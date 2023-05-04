@@ -246,11 +246,13 @@ class ACRSNR(HazenTask):
 
             axes[0].imshow(dcm1.pixel_array)
             axes[0].scatter(centre[0], centre[1], c='red')
+            axes[0].axis('off')
             axes[0].set_title('Centroid Location')
 
             axes[1].set_title('Difference Image')
             axes[1].imshow(difference, cmap='gray',)
             self.get_roi_samples(axes[1], dcm1, int(col), int(row))
+            axes[1].axis('off')
             axes[1].legend()
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))

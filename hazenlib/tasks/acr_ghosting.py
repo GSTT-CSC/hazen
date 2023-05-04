@@ -149,6 +149,7 @@ class ACRGhosting(HazenTask):
 
             axes[0].imshow(img)
             axes[0].scatter(cxy[0], cxy[1], c='red')
+            axes[0].axis('off')
             axes[0].set_title('Centroid Location')
 
             axes[1].imshow(img)
