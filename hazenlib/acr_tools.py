@@ -95,7 +95,6 @@ class ACRTools:
         centre  : tuple
             Tuple of ints representing the (x, y) center of the image.
         """
-
         img = self.images[6]
         dx, dy = self.dcm[6].PixelSpacing
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
@@ -105,9 +104,7 @@ class ACRTools:
                                             minDist=int(180 / dy), param1=50, param2=30,
                                             minRadius=int(180 / (2 * dy)), maxRadius=int(200 / (2 * dx))).flatten()
 
-        print(detected_circles)
         centre, radius = [int(i) for i in detected_circles[:2]], int(detected_circles[2])
-        print(centre, radius)
         return centre, radius
 
     @staticmethod

@@ -2,7 +2,6 @@ import os
 import unittest
 import pathlib
 import pydicom
-import numpy as np
 
 from hazenlib.tasks.acr_uniformity import ACRUniformity
 from hazenlib.acr_tools import ACRTools

@@ -3,9 +3,9 @@ ACR Uniformity
 
 https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
 
-Calculates uniformity for slice 7 of the ACR phantom.
+Calculates the percentage integral uniformity for slice 7 of the ACR phantom.
 
-This script calculates the integral uniformity in accordance with the ACR Guidance.
+This script calculates the percentage integral uniformity in accordance with the ACR Guidance.
 This is done by first defining a large 200cm2 ROI before placing 1cm2 ROIs at every pixel within
 the large ROI. At each point, the mean of the 1cm2 ROI is calculated. The ROIs with the maximum and
 minimum mean value are used to calculate the integral uniformity. The results are also visualised.
