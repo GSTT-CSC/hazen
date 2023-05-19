@@ -11,7 +11,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 class TestACRGhostingSiemens(unittest.TestCase):
     ACR_GHOSTING_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = [129, 128]
-    psg = 0.054
+    psg = 0.035
 
     def setUp(self):
         self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
@@ -36,7 +36,7 @@ class TestACRGhostingSiemens(unittest.TestCase):
 class TestACRGhostingGE(unittest.TestCase):
     ACR_GHOSTING_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = [253, 256]
-    psg = 0.484
+    psg = 0.471
 
     def setUp(self):
         self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
