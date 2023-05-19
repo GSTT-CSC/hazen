@@ -52,7 +52,7 @@ class ACRGhosting(HazenTask):
         r_large = np.ceil(80 / res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
         dims = img.shape
 
-        mask = ACRTools.mask_image(img)
+        mask = self.ACR_obj.mask_image(img)
         cxy = self.ACR_obj.centre
 
         nx = np.linspace(1, dims[0], dims[0])

@@ -139,14 +139,14 @@ class ACRTools:
 
         return mask
 
-    def measure_orthogonal_lengths(self, img):
+    def measure_orthogonal_lengths(self, mask):
         """
         Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
         Parameters:
         ----------
-        img    : ndarray of float
-            Float array of the image.
+        mask    : ndarray of bool
+            Boolean array of the image.
 
         Returns:
         ----------
@@ -161,18 +161,18 @@ class ACRTools:
             'Horizontal Distance'   | 'Vertical Distance' : float
                 The horizontal/vertical length of the object.
         """
-        dims = img.shape
+        dims = mask.shape
         res = self.dcm[0].PixelSpacing
 
         horizontal_start = (self.centre[1], 0)
         horizontal_end = (self.centre[1], dims[0] - 1)
-        horizontal_line_profile = skimage.measure.profile_line(img, horizontal_start, horizontal_end)
+        horizontal_line_profile = skimage.measure.profile_line(mask, horizontal_start, horizontal_end)
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
         horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * res[0]
 
         vertical_start = (0, self.centre[0])
         vertical_end = (dims[1] - 1, self.centre[0])
-        vertical_line_profile = skimage.measure.profile_line(img, vertical_start, vertical_end)
+        vertical_line_profile = skimage.measure.profile_line(mask, vertical_start, vertical_end)
         vertical_extent = np.nonzero(vertical_line_profile)[0]
         vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * res[1]
 
