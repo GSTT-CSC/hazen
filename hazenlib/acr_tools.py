@@ -78,7 +78,7 @@ class ACRTools:
         test_mask = self.circular_mask(self.centre, (80 // self.dcm[0].PixelSpacing[0]), image.shape)
         test_image = image * test_mask
         test_vals = test_image[np.nonzero(test_image)]
-        if np.max(test_vals) - np.min(test_vals) > 0.8 * np.max(image):
+        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(image):
             print('Large intensity variations detected in image. Using local thresholding!')
             initial_mask = skimage.filters.threshold_sauvola(image, window_size=3, k=0.95)
         else:
