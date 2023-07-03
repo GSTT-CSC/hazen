@@ -26,8 +26,8 @@ pytest tests/
 pip install .
 # and then running the relevant task, eg
 hazen snr tests/data/snr/GE
-# or a specific tasks/scripts can be run without installing the module
-python hazenlib/__init__.py snr tests/data/snr/GE
+# or specific tasks/scripts can be run without installing the module
+python hazenlib/hazen.py snr tests/data/snr/GE
 ```
 
 ---
