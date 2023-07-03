@@ -1,7 +1,9 @@
 
 import numpy as np
+import logging
 import pydicom
 from hazenlib._version import __version__
+from hazenlib.hazen import main
 
 
 EXCLUDED_FILES = ['.DS_Store']
@@ -210,23 +212,5 @@ def get_field_of_view(dcm: pydicom.Dataset):
         raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
-
-
-def parse_relaxometry_data(task, arguments, dicom_objects,
-                           report):  # def parse_relaxometry_data(arguments, dicom_objects, report):   #
-
-    # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
-
-    # Pass arguments with dictionary, stripping initial double dash ('--')
-    relaxometry_args = {}
-
-    for key in relaxometry_cli_args:
-        relaxometry_args[key[2:]] = arguments[key]
-
-    return task.main(dicom_objects, report_path=report,
-                     **relaxometry_args)
 
 
