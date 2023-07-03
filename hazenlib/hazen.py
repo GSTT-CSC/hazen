@@ -96,6 +96,7 @@ import pprint
 import os
 
 from docopt import docopt
+import pydicom
 from hazenlib.logger import logger
 from hazenlib.tools import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
@@ -186,3 +187,4 @@ def main():
 
 if __name__ == "__main__":
     result = main()
+    print(result)

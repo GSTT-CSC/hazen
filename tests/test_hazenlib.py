@@ -205,13 +205,13 @@ class TestCliParser(unittest.TestCase):
 
         self.assertDictEqual(output_dict['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
-    # def test_relaxometry(self):
-    #     path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
-    #     sys.argv = ["hazen", "relaxometry", path, "--plate_number", "4", "--calc_t1"]
+    def test_relaxometry(self):
+        path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
+        sys.argv = ["hazen", "relaxometry", path, "--plate_number", "4", "--calc_t1"]
 
-    #     output = hazenlib.main()
-    #     output_dict = ast.literal_eval(output)
+        output = hazenlib.main()
+        output_dict = ast.literal_eval(output)
 
-    #     dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
-    #     self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
-    #                            output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
+        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
+        self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
+                               output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
