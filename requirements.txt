@@ -1,6 +1,6 @@
 # After making changes for core components please update install_requires in setp.py as well
 pydicom==2.2.2
-numpy==1.21.4
+numpy==1.24.1
 matplotlib==3.5.1
 pytest==7.1.2
 docopt==0.6.2
@@ -12,3 +12,4 @@ colorlog==6.6.0
 sphinx==5.0.2
 sphinxcontrib-bibtex==2.4.2
 sphinx-rtd-theme==1.0.0
+opencv-python==4.5.5.64

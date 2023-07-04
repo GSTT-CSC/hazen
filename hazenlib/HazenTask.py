@@ -10,11 +10,14 @@ import os
 
 class HazenTask:
 
-    def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'hazen_reports')):
+    def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'report')):
         self.data_paths = sorted(data_paths)
         self.report: bool = report
         self.report_path = os.path.join(report_dir, type(self).__name__)
-        pathlib.Path(self.report_path).mkdir(parents=True, exist_ok=True)
+        if report:
+            pathlib.Path(self.report_path).mkdir(parents=True, exist_ok=True)
+        else:
+            pass
         self.report_files = []
 
     @property
