@@ -1,10 +1,10 @@
 import pydicom
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-import hazenlib
 import unittest
 import numpy as np
 from docopt import docopt
 from hazenlib.logger import logger
+import hazenlib.utils
 from pprint import pprint
 import sys
 import ast
@@ -64,60 +64,60 @@ class TestHazenlib(unittest.TestCase):
     def test_get_manufacturer(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                assert hazenlib.get_manufacturer(dcm) == test_dicoms[manufacturer]['MANUFACTURER']
+                assert hazenlib.utils.get_manufacturer(dcm) == test_dicoms[manufacturer]['MANUFACTURER']
 
     def test_get_rows(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                rows = hazenlib.get_rows(dcm)
+                rows = hazenlib.utils.get_rows(dcm)
                 assert rows == test_dicoms[manufacturer]['ROWS']
 
     def test_get_columns(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                columns = hazenlib.get_columns(dcm)
+                columns = hazenlib.utils.get_columns(dcm)
                 assert columns == test_dicoms[manufacturer]['COLUMNS']
 
     def test_get_TR(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                TR = hazenlib.get_TR(dcm)
+                TR = hazenlib.utils.get_TR(dcm)
                 assert TR == test_dicoms[manufacturer]['TR_CHECK']
 
     def test_get_bandwidth(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                bw = hazenlib.get_bandwidth(dcm)
+                bw = hazenlib.utils.get_bandwidth(dcm)
                 assert bw == test_dicoms[manufacturer]['BW']
 
     def test_is_enhanced(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                enhanced = hazenlib.is_enhanced_dicom(dcm)
+                enhanced = hazenlib.utils.is_enhanced_dicom(dcm)
                 assert enhanced == test_dicoms[manufacturer]['ENHANCED']
 
     def test_get_num_of_frames(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                pix_arr = hazenlib.get_num_of_frames(dcm)
+                pix_arr = hazenlib.utils.get_num_of_frames(dcm)
                 assert pix_arr == test_dicoms[manufacturer]['PIX_ARRAY']
 
     def test_get_slice_thickness(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                slice_thick = hazenlib.get_slice_thickness(dcm)
+                slice_thick = hazenlib.utils.get_slice_thickness(dcm)
                 assert slice_thick == test_dicoms[manufacturer]['SLICE_THICKNESS']
 
     def get_average(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                avg = hazenlib.get_average(dcm)
+                avg = hazenlib.utils.get_average(dcm)
                 assert avg == test_dicoms[manufacturer]['AVERAGE']
 
     def get_pixel_size(self):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                pix_size = hazenlib.get_pixel_size(dcm)
+                pix_size = hazenlib.utils.get_pixel_size(dcm)
                 pix_size = list(pix_size)
                 self.assertEqual(pix_size, test_dicoms[manufacturer]['PIX_SIZE'])
 
@@ -135,7 +135,7 @@ class TestHazenlib(unittest.TestCase):
         for manufacturer in test_dicoms.keys():
             with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
                 # first test function
-                fov = hazenlib.get_field_of_view(dcm)
+                fov = hazenlib.utils.get_field_of_view(dcm)
                 print(fov)
                 assert fov == test_dicoms[manufacturer]['FOV']
 
@@ -150,7 +150,7 @@ class Test(unittest.TestCase):
     def test_rescale_to_byte(self):
         test_array = np.array([[1, 2], [3, 4]])
         TEST_OUT = np.array([[63, 127], [191, 255]])
-        test_array = hazenlib.rescale_to_byte(test_array)
+        test_array = hazenlib.utils.rescale_to_byte(test_array)
         test_array = test_array.tolist()
         TEST_OUT = TEST_OUT.tolist()
         self.assertListEqual(test_array, TEST_OUT)
