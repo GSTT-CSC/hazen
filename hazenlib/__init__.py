@@ -1,9 +1,7 @@
 
 import logging
 import pydicom
-from hazenlib.hazen import main
+import hazenlib.utils
 from hazenlib._version import __version__
 
-
-EXCLUDED_FILES = ['.DS_Store']
 
