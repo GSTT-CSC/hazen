@@ -18,9 +18,8 @@ import pydicom
 import skimage.filters
 from scipy import ndimage
 
-import hazenlib
+import hazenlib.utils
 import hazenlib.exceptions as exc
-import hazenlib.tools
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 
@@ -84,18 +83,18 @@ class SNR(HazenTask):
 
         """
 
-        dx, dy = hazenlib.get_pixel_size(dcm)
-        bandwidth = hazenlib.get_bandwidth(dcm)
-        TR = hazenlib.get_TR(dcm)
-        rows = hazenlib.get_rows(dcm)
-        columns = hazenlib.get_columns(dcm)
+        dx, dy = hazenlib.utils.get_pixel_size(dcm)
+        bandwidth = hazenlib.utils.get_bandwidth(dcm)
+        TR = hazenlib.utils.get_TR(dcm)
+        rows = hazenlib.utils.get_rows(dcm)
+        columns = hazenlib.utils.get_columns(dcm)
 
         if measured_slice_width:
             slice_thickness = measured_slice_width
         else:
-            slice_thickness = hazenlib.get_slice_thickness(dcm)
+            slice_thickness = hazenlib.utils.get_slice_thickness(dcm)
 
-        averages = hazenlib.get_average(dcm)
+        averages = hazenlib.utils.get_average(dcm)
         bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
         voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
@@ -247,8 +246,8 @@ class SNR(HazenTask):
         # Shape Detection
         try:
             logger.debug('Performing phantom shape detection.')
-            shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
-            orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
+            shape_detector = hazenlib.utils.ShapeDetector(arr=dcm.pixel_array)
+            orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
 
             if orientation in ['Sagittal', 'Coronal']:
                 logger.debug('Orientation = sagittal or coronal.')

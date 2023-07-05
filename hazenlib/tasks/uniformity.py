@@ -23,7 +23,7 @@ import traceback
 import os
 import numpy as np
 
-import hazenlib.tools
+import hazenlib.utils
 import hazenlib.exceptions as exc
 from hazenlib.HazenTask import HazenTask
 
@@ -81,8 +81,8 @@ class Uniformity(HazenTask):
 
     def get_object_centre(self, dcm):
         arr = dcm.pixel_array
-        shape_detector = hazenlib.tools.ShapeDetector(arr=arr)
-        orientation = hazenlib.tools.get_image_orientation(dcm.ImageOrientationPatient)
+        shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
+        orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
 
         if orientation in ['Sagittal', 'Coronal']:
             # orientation is sagittal to patient

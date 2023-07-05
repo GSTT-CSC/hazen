@@ -5,20 +5,17 @@ http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
 """
 from hazenlib.logger import logger
-import sys
 import os
 import copy
 
-import traceback
-from hazenlib.HazenTask import HazenTask
 import pydicom
 from skimage import measure, filters
 import numpy as np
 import cv2 as cv
 
-import hazenlib
-import hazenlib.tools
+import hazenlib.utils
 import hazenlib.exceptions
+from hazenlib.HazenTask import HazenTask
 
 
 class SlicePosition(HazenTask):
@@ -84,7 +81,7 @@ class SlicePosition(HazenTask):
         return theta
 
     def get_rods_coords(self, dcm: pydicom.Dataset):
-        shape_detector = hazenlib.tools.ShapeDetector(arr=dcm.pixel_array)
+        shape_detector = hazenlib.utils.ShapeDetector(arr=dcm.pixel_array)
         try:
             x, y, r = shape_detector.get_shape('circle')
 
@@ -199,7 +196,7 @@ class SlicePosition(HazenTask):
         # Correct for phantom rotation
         left_rod, right_rod = self.correct_rods_for_rotation(left_rod, right_rod)
 
-        fov = hazenlib.get_field_of_view(data[0])
+        fov = hazenlib.utils.get_field_of_view(data[0])
 
         # x_length_mm = np.subtract(right_rod['x_pos'], left_rod['x_pos']) * fov/data[0].Columns
         y_length_mm = np.subtract(left_rod['y_pos'], right_rod['y_pos']) * fov / data[0].Columns
