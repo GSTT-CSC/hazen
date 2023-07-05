@@ -167,5 +167,3 @@ def is_dicom_file(filename):
             return True
         else:
             return False
-
-
