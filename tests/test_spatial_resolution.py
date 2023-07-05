@@ -9,7 +9,7 @@ import os
 import hazenlib
 from hazenlib.tasks.spatial_resolution import SpatialResolution
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.tools import get_dicom_files
+from hazenlib.utils import get_dicom_files
 
 
 class TestSpatialResolution(unittest.TestCase):

@@ -4,7 +4,7 @@ import os
 import numpy as np
 import pydicom
 
-import hazenlib.tools as hazen_tools
+import hazenlib.utils as hazen_tools
 from tests import TEST_DATA_DIR
 
 
