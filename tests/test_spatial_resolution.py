@@ -3,13 +3,11 @@ import pathlib
 import pytest
 
 import numpy as np
-import pydicom
 import os
 
-import hazenlib
-from hazenlib.tasks.spatial_resolution import SpatialResolution
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.utils import get_dicom_files
+from hazenlib.tasks.spatial_resolution import SpatialResolution
+from hazenlib.utils import get_dicom_files, rescale_to_byte
 
 
 class TestSpatialResolution(unittest.TestCase):
@@ -330,24 +328,24 @@ class TestSpatialResolution(unittest.TestCase):
         assert roi.max() == 1.0
 
     def test_get_circles(self):
-        img = hazenlib.rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
         circles = self.hazen_spatial_resolution.get_circles(img)
         assert np.testing.assert_allclose(circles[0][0][:], self.CIRCLE[0][0][:]) is None
 
     def test_thresh_image(self):
-        img = hazenlib.rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         assert np.count_nonzero(thresh) < np.count_nonzero(img)
 
     def test_find_square(self):
-        img = hazenlib.rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         square, _ = self.hazen_spatial_resolution.find_square(thresh)
 
         assert np.testing.assert_allclose(square, self.TEST_SQUARE) is None
 
     def test_get_bisecting_normals(self):
-        img = hazenlib.rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         square, _ = self.hazen_spatial_resolution.find_square(thresh)
         vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}

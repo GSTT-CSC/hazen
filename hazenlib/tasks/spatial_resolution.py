@@ -6,7 +6,7 @@ Haris Shuaib, haris.shuaib@gstt.nhs.uk
 Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
 .. todo::
-    Replace shape finding functions with hazenlib.tools equivalents
+    Replace shape finding functions with hazenlib.utils equivalents
     
 """
 import copy
@@ -19,7 +19,7 @@ import cv2 as cv
 import numpy as np
 from numpy.fft import fftfreq
 
-import hazenlib
+import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 
 
@@ -298,7 +298,7 @@ class SpatialResolution(HazenTask):
         pixels = dicom.pixel_array
         pe = dicom.InPlanePhaseEncodingDirection
 
-        img = hazenlib.rescale_to_byte(pixels)  # rescale for OpenCV operations
+        img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
         thresh = self.thresh_image(img)
         circle = self.get_circles(img)
         square, box = self.find_square(thresh)
@@ -310,7 +310,7 @@ class SpatialResolution(HazenTask):
         edge_arr = self.get_edge_roi(pixels, centre)
         void_arr = self.get_void_roi(pixels, circle)
         signal_arr = self.get_signal_roi(pixels, edge, centre, circle)
-        spacing = hazenlib.get_pixel_size(dicom)
+        spacing = hazenlib.utils.get_pixel_size(dicom)
         mean = np.mean([void_arr, signal_arr])
         x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
