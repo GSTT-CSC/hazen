@@ -15,19 +15,23 @@ class Ghosting(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        ghosting_results = {}
+        results = {}
+
         for dcm in self.data:
             key = self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
             try:
-                fig, ghosting_results[key] = self.get_ghosting(dcm)
+                fig, ghosting = self.get_ghosting(dcm)
 
             except Exception as e:
                 print(f"Could not calculate the ghosting for {key} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-        results = {'ghosting_results': ghosting_results,
-                   'reports': self.report_files}
+            results[self.key(dcm)] = ghosting
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -86,14 +90,12 @@ class Ghosting(HazenTask):
             np.array(range(centre_row - slice_radius, centre_row + slice_radius), dtype=np.intp))
         return idxs
 
-    def get_pe_direction(self, dcm):
-        return dcm.InPlanePhaseEncodingDirection
 
     def get_background_rois(self, dcm, signal_centre):
 
         background_rois = []
 
-        if self.get_pe_direction(dcm) == 'ROW':  # phase encoding is left -right i.e. increases with columns
+        if dcm.InPlanePhaseEncodingDirection == 'ROW':  # phase encoding is left -right i.e. increases with columns
             if signal_centre[1] < dcm.Rows * 0.5:  # phantom is in top half of image
                 background_rois_row = round(dcm.Rows * 0.75)  # in the bottom quadrant
             else:  # phantom is bottom half of image
@@ -145,7 +147,7 @@ class Ghosting(HazenTask):
 
         padding_from_box = 30  # pixels
 
-        if self.get_pe_direction(dcm) == 'ROW':
+        if dcm.InPlanePhaseEncodingDirection == 'ROW':
             if left_column < dcm.Columns / 2:
                 # signal is in left half
                 eligible_columns = range(right_column + padding_from_box, dcm.Columns - slice_radius)

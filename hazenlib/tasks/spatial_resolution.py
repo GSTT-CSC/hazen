@@ -3,7 +3,9 @@ Spatial Resolution
 
 Contributors:
 Haris Shuaib, haris.shuaib@gstt.nhs.uk
-Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
+Neil Heraghty, neil.heraghty@nhs.net
+
+16/05/2018
 
 .. todo::
     Replace shape finding functions with hazenlib.utils equivalents
@@ -32,18 +34,23 @@ class SpatialResolution(HazenTask):
         results = {}
         for dcm in self.data:
             try:
-                results[self.key(dcm)] = self.calculate_mtf(dcm)
+                result = self.calculate_mtf(dcm)
             except Exception as e:
                 print(f"Could not calculate the spatial resolution for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-        results['reports'] = {'images': self.report_files}
+            results[self.key(dcm)] = result
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
     def deri(self, a):
-        # This function calculated the LSF by taking the derivative of the ESF. Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
+        # This function calculated the LSF by taking the derivative of the ESF.
+        # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
         b = np.gradient(a)
         return b
 
@@ -55,7 +62,7 @@ class SpatialResolution(HazenTask):
 
         while True:
             circles = cv.HoughCircles(image, cv.HOUGH_GRADIENT, 1.2, 256,
-                                      param1=upper, param2=i, minRadius=80, maxRadius=200)
+                        param1=upper, param2=i, minRadius=80, maxRadius=200)
             # min and max radius need to accomodate at least 256 and 512 matrix sizes
             i -= 1
             if circles is None:
@@ -75,6 +82,10 @@ class SpatialResolution(HazenTask):
         return thresh
 
     def find_square(self, img):
+        # TODO Replace shape finding functions with hazenlib.utils equivalents
+        # arr = dcm.pixel_array
+        # shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
+        # (x, y), size, angle = shape_detector.get_shape('rectangle')
         cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
 
         for c in cnts:
@@ -83,22 +94,18 @@ class SpatialResolution(HazenTask):
             if len(approx) == 4:
                 # compute the bounding box of the contour and use the
                 # bounding box to compute the aspect ratio
-                rect = cv.minAreaRect(approx)
+                (x,y), (h,w), angle = cv.minAreaRect(approx)
 
                 # OpenCV 4.5 adjustment
                 # - cv.minAreaRect() output tuple order changed since v3.4
                 # - swap rect[1] order & rotate rect[2] by -90
                 # – convert tuple>list>tuple to do this
-                rectAsList = list(rect)
-                rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
-                rectAsList[2] = rectAsList[2] - 90
-                rect = tuple(rectAsList)
+                angle = angle-90
 
-                box = cv.boxPoints(rect)
+                box = cv.boxPoints(((x,y), (w,h), angle))
                 box = np.int0(box)
-                w, h = rect[1]
-                ar = w / float(h)
 
+                ar = w / float(h)
                 # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
                 if not 20 < w < 100:
                     continue
@@ -294,9 +301,9 @@ class SpatialResolution(HazenTask):
 
         return u, esf
 
-    def calculate_mtf_for_edge(self, dicom, edge):
-        pixels = dicom.pixel_array
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf_for_edge(self, dcm, edge):
+        pixels = dcm.pixel_array
+        pe = dcm.InPlanePhaseEncodingDirection
 
         img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
         thresh = self.thresh_image(img)
@@ -310,7 +317,7 @@ class SpatialResolution(HazenTask):
         edge_arr = self.get_edge_roi(pixels, centre)
         void_arr = self.get_void_roi(pixels, circle)
         signal_arr = self.get_signal_roi(pixels, edge, centre, circle)
-        spacing = hazenlib.utils.get_pixel_size(dicom)
+        spacing = hazenlib.utils.get_pixel_size(dcm)
         mean = np.mean([void_arr, signal_arr])
         x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
@@ -363,21 +370,30 @@ class SpatialResolution(HazenTask):
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel('lp/mm')
             logger.info(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dicom)}_{pe}_{edge}.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_{pe}_{edge}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
         return res
 
-    def calculate_mtf(self, dicom):
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf(self, dcm):
+        """Calculates MTF
+
+        Args:
+            dcm (DICOM): dicom image
+
+        Returns:
+            dict: spatial resolution values in
+                phase_encoding_direction and frequency_encoding_direction
+        """
+        pe = dcm.InPlanePhaseEncodingDirection
         pe_result, fe_result = None, None
 
         if pe == 'COL':
-            pe_result = self.calculate_mtf_for_edge(dicom, 'top')
-            fe_result = self.calculate_mtf_for_edge(dicom, 'right')
+            pe_result = self.calculate_mtf_for_edge(dcm, 'top')
+            fe_result = self.calculate_mtf_for_edge(dcm, 'right')
         elif pe == 'ROW':
-            pe_result = self.calculate_mtf_for_edge(dicom, 'right')
-            fe_result = self.calculate_mtf_for_edge(dicom, 'top')
+            pe_result = self.calculate_mtf_for_edge(dcm, 'right')
+            fe_result = self.calculate_mtf_for_edge(dcm, 'top')
 
         return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
