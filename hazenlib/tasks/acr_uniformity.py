@@ -49,7 +49,9 @@ class ACRUniformity(HazenTask):
 
                 results[self.key(dcm)] = result
 
-        results['reports'] = {'images': self.report_files}
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -115,8 +117,8 @@ class ACRUniformity(HazenTask):
         min_loc = np.where(mean_array == sig_min)
 
         piu = 100 * (1 - (sig_max - sig_min) / (sig_max + sig_min))
-
         piu = np.round(piu,2)
+
         if self.report:
             import matplotlib.pyplot as plt
             theta = np.linspace(0, 2 * np.pi, 360)
