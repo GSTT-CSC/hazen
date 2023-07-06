@@ -31,6 +31,7 @@ class ACRSNR(HazenTask):
         self.data2 = []
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
+        results = {}
         snr_results = {}
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
@@ -45,6 +46,9 @@ class ACRSNR(HazenTask):
             except Exception as e:
                 print(f"Could not calculate the SNR for {self.key(self.data)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
+
+            results[self.key(self.data[0])] = snr_results
+
         # SUBTRACTION METHOD
         else:
             temp = [f for f in os.listdir(subtract) if os.path.isfile(os.path.join(subtract, f))]
@@ -66,7 +70,11 @@ class ACRSNR(HazenTask):
                       f"{self.key(self.data2)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
 
-        results = {self.key(self.data[0]): snr_results, 'reports': {'images': self.report_files}}
+            results[self.key(self.data[0])] = snr_results
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
@@ -119,7 +127,8 @@ class ACRSNR(HazenTask):
         """
         a = dcm.pixel_array.astype('int')
 
-        # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
+        # filter size = 9, following MATLAB code and McCann 2013 paper for head coil,
+        # although note McCann 2013 recommends 25x25 for body coil.
         filtered_array = ndimage.uniform_filter(a, 25, mode='constant')
         return filtered_array
 
@@ -189,20 +198,22 @@ class ACRSNR(HazenTask):
         normalised_snr: float
 
         """
-        _, centre = self.centroid(dcm)
-        col, row = centre
+        _, (col, row) = self.centroid(dcm)
         noise_img = self.get_noise_image(dcm)
 
-        signal = [np.mean(roi) for roi in
-                  self.get_roi_samples(ax=None, dcm=dcm, centre_col=int(col), centre_row=int(row))]
+        signal = [np.mean(roi) for roi in self.get_roi_samples(
+                    ax=None, dcm=dcm, centre_col=col, centre_row=row)
+                ]
 
-        noise = [np.std(roi, ddof=1) for roi in
-                 self.get_roi_samples(ax=None, dcm=noise_img, centre_col=int(col), centre_row=int(row))]
+        noise = [np.std(roi, ddof=1) for roi in self.get_roi_samples(
+                    ax=None, dcm=noise_img, centre_col=col, centre_row=row)
+                ]
         # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and McCann 2013
 
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+                                        dcm, measured_slice_width)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -216,13 +227,15 @@ class ACRSNR(HazenTask):
             self.get_roi_samples(axes, dcm, int(col), int(row))
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                            f'{self.key(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
         return snr, normalised_snr
 
-    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None) -> float:
+    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset,
+                            measured_slice_width=None) -> float:
         """
 
         Parameters
@@ -235,20 +248,23 @@ class ACRSNR(HazenTask):
         -------
 
         """
-        _, centre = self.centroid(dcm1)
-        col, row = centre
+        _, (col, row) = self.centroid(dcm1)
 
-        difference = np.subtract(dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int'))
+        difference = np.subtract(
+            dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int')
+            )
 
-        signal = [np.mean(roi) for roi in
-                  self.get_roi_samples(ax=None, dcm=dcm1, centre_col=int(col), centre_row=int(row))]
+        signal = [np.mean(roi) for roi in self.get_roi_samples(
+                    ax=None, dcm=dcm1, centre_col=col, centre_row=row)
+                ]
         noise = np.divide(
-            [np.std(roi, ddof=1) for roi in
-             self.get_roi_samples(ax=None, dcm=difference, centre_col=int(col), centre_row=int(row))],
-            np.sqrt(2))
+                    [np.std(roi, ddof=1) for roi in self.get_roi_samples(
+                        ax=None, dcm=difference, centre_col=col, centre_row=row
+                    )], np.sqrt(2))
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm1, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+            dcm1, measured_slice_width)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -262,7 +278,8 @@ class ACRSNR(HazenTask):
             self.get_roi_samples(axes, dcm1, int(col), int(row))
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                            f'{self.key(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

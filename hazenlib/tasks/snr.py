@@ -6,6 +6,7 @@ Calculates the SNR for a single-slice image of a uniform MRI phantom
 This script utilises the smoothed subtraction method described in McCann 2013:
 A quick and robust method for measurement of signal-to-noise ratio in MRI, Phys. Med. Biol. 58 (2013) 3775:3790
 
+and a standard subtraction SNR.
 
 Created by Neil Heraghty
 
@@ -30,22 +31,29 @@ class SNR(HazenTask):
         super().__init__(**kwargs)
 
     def run(self, measured_slice_width=None) -> dict:
+        results = {}
         snr_results = {}
+        # SUBTRACTION METHOD (when exactly 2 images are provided)
         if len(self.data) == 2:
             snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
             snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
             snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
 
+        # SMOOTHING METHOD (one image at a time)
         for idx, dcm in enumerate(self.data):
             snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
             snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
             snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
 
-        results = {self.key(self.data[0]): snr_results, 'reports': {'images': self.report_files}}
+        results[self.key(self.data[0])] = snr_results
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
-    def two_inputs_match(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
+    def two_inputs_match(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool: # NOT USED
         """
         Checks if two DICOMs are sufficiently similar
 
@@ -283,14 +291,14 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+    def snr_by_smoothing(self, dcm: pydicom.Dataset,
+                            measured_slice_width=None) -> float:
         """
 
         Parameters
         ----------
         dcm
         measured_slice_width
-        report_path
 
         Returns
         -------
@@ -300,14 +308,20 @@ class SNR(HazenTask):
         col, row = self.get_object_centre(dcm=dcm)
         noise_img = self.get_noise_image(dcm=dcm)
 
-        signal = [np.mean(roi) for roi in self.get_roi_samples(ax=None, dcm=dcm, centre_col=col, centre_row=row)]
+        signal = [np.mean(roi) for roi in self.get_roi_samples(
+                    ax=None, dcm=dcm, centre_col=col, centre_row=row)
+                ]
 
-        noise = [np.std(roi, ddof=1) for roi in self.get_roi_samples(ax=None, dcm=noise_img, centre_col=col, centre_row=row)]
-        # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and McCann 2013
+        noise = [np.std(roi, ddof=1) for roi in self.get_roi_samples(
+                    ax=None, dcm=noise_img, centre_col=col, centre_row=row)
+                ]
+        # note no root_2 factor in noise for smoothed subtraction (one image) method,
+        # replicating Matlab approach and McCann 2013
 
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+                                        dcm, measured_slice_width)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -321,7 +335,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                            f'{self.key(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -338,7 +353,8 @@ class SNR(HazenTask):
 
         return largest_col, largest_row, largest_r
 
-    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None) -> float:
+    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset,
+                            measured_slice_width=None) -> float:
         """
 
         Parameters
@@ -346,7 +362,6 @@ class SNR(HazenTask):
         dcm1
         dcm2
         measured_slice_width
-        report_path
 
         Returns
         -------
@@ -354,15 +369,21 @@ class SNR(HazenTask):
         """
         col, row = self.get_object_centre(dcm=dcm1)
 
-        difference = np.subtract(dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int'))
+        difference = np.subtract(
+            dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int')
+            )
 
-        signal = [np.mean(roi) for roi in self.get_roi_samples(ax=None, dcm=dcm1, centre_col=col, centre_row=row)]
+        signal = [np.mean(roi) for roi in self.get_roi_samples(
+                    ax=None, dcm=dcm1, centre_col=col, centre_row=row)
+                ]
         noise = np.divide(
-            [np.std(roi, ddof=1) for roi in self.get_roi_samples(ax=None, dcm=difference, centre_col=col, centre_row=row)],
-            np.sqrt(2))
+                    [np.std(roi, ddof=1) for roi in self.get_roi_samples(
+                        ax=None, dcm=difference, centre_col=col, centre_row=row
+                    )], np.sqrt(2))
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm1, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+                                        dcm1, measured_slice_width)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -376,7 +397,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm1, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                            f'{self.key(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
