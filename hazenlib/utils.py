@@ -13,6 +13,7 @@ import hazenlib.exceptions as exc
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
+    # sorting is only used in test_slicewidth
     if sort:
         file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
         file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
@@ -241,7 +242,7 @@ def get_image_orientation(iop):
     """
     From http://dicomiseasy.blogspot.com/2013/06/getting-oriented-using-image-plane.html
     Args:
-        iop:
+        iop: ImageOrientationPatient
 
     Returns:
 
