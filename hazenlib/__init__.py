@@ -182,9 +182,8 @@ def main():
     else:
         result = task.run()
 
-    print(pp.pformat(result))
-    return None
+    return pp.pformat(result)
 
 
 if __name__ == "__main__":
-    main()
+    result = main()
