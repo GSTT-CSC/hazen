@@ -8,6 +8,7 @@ class ACRObject:
     def __init__(self, dcm):
         self.dcm = dcm
         self.images, self.dcm = self.sort_images()
+        self.orientation_checks()
         self.rot_angle = self.determine_rotation()
         self.centre, self.radius = self.find_phantom_center()
 
@@ -20,7 +21,7 @@ class ACRObject:
         img_stack : np.array
             A sorted stack of images, where each image is represented as a 2D numpy array.
         dcm_stack : pyd
-            A sorted stack of
+            A sorted stack of dicoms
         """
 
         z = np.array([dcm_file.ImagePositionPatient[2] for dcm_file in self.dcm])
@@ -28,6 +29,46 @@ class ACRObject:
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
 
         return img_stack, dicom_stack
+
+    def orientation_checks(self):
+        """
+        Perform orientation checks on a set of images to determine if slice order inversion or an
+        LR orientation swap is required.
+
+        Description
+        -----------
+        This function analyzes the given set of images and their associated DICOM objects to determine if any
+        adjustments are needed to restore the correct slice order and view orientation.
+        """
+        test_images = (self.images[0], self.images[-1])
+
+        pixel_spacing = self.dcm[0].PixelSpacing
+
+        normalised_images = [cv2.normalize(src=image, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX,
+                                           dtype=cv2.CV_8U) for image in test_images]
+
+        # search for circle in first slice of ACR phantom dataset with radius of ~11mm
+        detected_circles = [cv2.HoughCircles(norm_image, cv2.HOUGH_GRADIENT, 1, minDist=int(180 / pixel_spacing[0]),
+                                             param1=50, param2=30, minRadius=int(5 / pixel_spacing[0]),
+                                             maxRadius=int(16 / pixel_spacing[0])) for norm_image in normalised_images]
+
+        true_circle = detected_circles[0].flatten() if detected_circles[0] is not None else detected_circles[
+            1].flatten()
+
+        if detected_circles[0] is None and detected_circles[1] is not None:
+            print('Performing slice order inversion to restore correct slice order.')
+            self.images.reverse()
+            self.dcm.reverse()
+        else:
+            print('Slice order inversion not required.')
+
+        if true_circle[0] > self.images[0].shape[0] // 2:
+            print('Performing LR orientation swap to restore correct view.')
+            flipped_images = [np.fliplr(image) for image in self.images]
+            for index, dcm in enumerate(self.dcm):
+                dcm.PixelData = flipped_images[index].tobytes()
+        else:
+            print('LR orientation swap not required.')
 
     def determine_rotation(self):
         """
