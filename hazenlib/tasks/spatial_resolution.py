@@ -38,7 +38,9 @@ class SpatialResolution(HazenTask):
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-        results['reports'] = {'images': self.report_files}
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
