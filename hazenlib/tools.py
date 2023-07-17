@@ -1,12 +1,12 @@
+import os
 from collections import defaultdict
-
-
+from skimage import filters
 import cv2 as cv
 import imutils
-import numpy as np
 import matplotlib
+import numpy as np
+from pydicom import dcmread
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 import hazenlib.exceptions as exc
 
@@ -65,7 +65,10 @@ class ShapeDetector:
     def find_contours(self):
         # convert the resized image to grayscale, blur it slightly, and threshold it
         self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)    # magic numbers
-        self.thresh = np.where(self.blurred > self.blurred.max()//5, 255, 0) .astype(np.uint8)
+
+        optimal_threshold = filters.threshold_li(self.blurred, initial_guess=np.quantile(self.blurred, 0.50))
+        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(np.uint8)
+
         # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
         self.contours = imutils.grab_contours(contours)
@@ -136,6 +139,14 @@ class ShapeDetector:
             angle = angle-90
             return (x,y), size, angle
 
+
+def get_dicom_files(folder: str, sort=False) -> list:
+    if sort:
+        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+        file_list.sort(key=lambda x: dcmread(x).InstanceNumber)
+    else:
+        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+    return file_list
 
 
 def is_dicom_file(filename):

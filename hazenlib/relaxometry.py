@@ -194,7 +194,7 @@ TEMPLATE_VALUES = {
         'bolt_centres_row_col': ((52, 80), (92, 141), (138, 85)),
         't1': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T1_signed'),
-            'relax_times':{
+            'relax_times': {
                 '1.5T':
                     np.array([2033, 1489, 1012, 730.8, 514.1, 367.9, 260.1,
                               184.6, 132.7, 92.7, 65.4, 46.32, 32.45, 22.859,
@@ -206,7 +206,7 @@ TEMPLATE_VALUES = {
 
         't2': {
             'filename': os.path.join(TEMPLATE_DIR, 'Plate5_T2'),
-            'relax_times':{
+            'relax_times': {
                 '1.5T':
                     np.array([1669.0, 1244.0, 859.3, 628.5, 446.3, 321.2,
                               227.7, 161.9, 117.1, 81.9, 57.7, 41.0, 28.7,
@@ -537,7 +537,8 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
-
+    
+    
 def rms(arr):
     """
     Calculate RMS of an array.
@@ -1159,7 +1160,7 @@ def main(dcm_target_list, *, plate_number=None,
         }
     """
 
-    # check for exactly one relaxometry calculation
+    # check for exactly one relaxometry.py calculation
     if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify either calc_t1=True OR calc_t2=True.')
@@ -1167,8 +1168,8 @@ def main(dcm_target_list, *, plate_number=None,
     # check plate number specified and either 4 or 5
     try:
         plate_number = int(plate_number)  # convert to int if required
-    except(ValueError, TypeError):
-        pass # will raise error at next statement
+    except (ValueError, TypeError):
+        pass  # will raise error at next statement
 
     if plate_number not in [4, 5]:
         raise hazenlib.exceptions.ArgumentCombinationError(
@@ -1232,9 +1233,8 @@ def main(dcm_target_list, *, plate_number=None,
             fig.savefig(save_path, dpi=300)
             output_files_path['rois'] = save_path
 
-
     relax_published = \
-        TEMPLATE_VALUES[f'plate{image_stack.plate_number}'][relax_str] \
+        TEMPLATE_VALUES [f'plate{image_stack.plate_number}'][relax_str] \
             ['relax_times'][image_stack.b0_str]
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()

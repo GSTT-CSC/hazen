@@ -13,21 +13,21 @@ from pydicom.errors import InvalidDicomError
 
 import hazenlib.relaxometry as hazen_relaxometry
 from hazenlib.exceptions import ArgumentCombinationError
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestRelaxometry(unittest.TestCase):
     # test parameters here
-    
+
     # Values for transform_coords tests
     TEST_COORDS = [[0, 0], [0, 1], [1, 2]]
     COORDS_FLIP = [[0, 0], [1, 0], [2, 1]]
     COORDS_TRANS = [[3, 1], [3, 2], [4, 3]]
     COORDS_TRANS_FLIP = [[3, 1], [4, 1], [5, 2]]
     COORDS_TRANS_COL_ROW = [[1, 3], [1, 4], [2, 5]]
-    COORDS_TRANS_ROTATE = [[10, 20], [10.5, 20 + np.sqrt(3)/2],
-                           [11 + np.sqrt(3)/2, 19.5 + np.sqrt(3)]]
-    
+    COORDS_TRANS_ROTATE = [[10, 20], [10.5, 20 + np.sqrt(3) / 2],
+                           [11 + np.sqrt(3) / 2, 19.5 + np.sqrt(3)]]
+
     # T1_FILES are in random order to test sorting    
     T1_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1', 'site1_20200218',
                           'plate5')
@@ -66,16 +66,16 @@ class TestRelaxometry(unittest.TestCase):
                                       [73, 127], [60, 109], [60, 84], [73, 65],
                                       [81, 81], [112, 81], [112, 112],
                                       [81, 111], [43, 97]]
-    
+
     # Mask generation
     MASK_POI_TEMPLATE = np.zeros((14, 192, 192))
-    
+
     for i in range(14):
-        MASK_POI_TEMPLATE[i, TEMPLATE_TEST_COORDS_ROW_COL[i][0], 
+        MASK_POI_TEMPLATE[i, TEMPLATE_TEST_COORDS_ROW_COL[i][0],
                           TEMPLATE_TEST_COORDS_ROW_COL[i][1]] = 1
     MASK_POI_TARGET = np.zeros((14, 192, 192))
     for i in range(14):
-        MASK_POI_TARGET[i, TEMPLATE_TARGET_COORDS_COL_ROW[i][1], 
+        MASK_POI_TARGET[i, TEMPLATE_TARGET_COORDS_COL_ROW[i][1],
                         TEMPLATE_TARGET_COORDS_COL_ROW[i][0]] = 1
 
     ROI0_TEMPLATE_PIXELS = [-620, -706, -678, -630, -710, -672, -726, -684,
@@ -85,7 +85,7 @@ class TestRelaxometry(unittest.TestCase):
 
     # Only check first three ROIs
     ROI_TEMPLATE_MEANS_T0 = [-683.840, -819.28, -1019.84]
-    
+
     # Values from IDL routine
     PLATE5_T1 = [1862.6, 1435.8, 999.9, 740.7, 498.2, 351.6, 255.2, 178.0,
                  131.7, 93.3, 66.6, 45.1, 32.5, 22.4, 2632]
@@ -101,9 +101,9 @@ class TestRelaxometry(unittest.TestCase):
     TEMPLATE_P4_TEST_COORDS_ROW_COL = [[56, 95], [62, 117], [81, 133],
                                        [104, 134], [124, 121], [133, 98],
                                        [127, 75], [109, 61], [84, 60],
-                                       [64, 72], [80, 81], [78, 111], 
+                                       [64, 72], [80, 81], [78, 111],
                                        [109, 113], [110, 82], [148, 118]]
-    
+
     # Values from IDL routine. Site 2 T1 values are signed not magnitude
     SITE2_PLATE5_T1 = [1880.5, 1432.3, 1012.0, 742.5, 504.0, 354.4, 256.3,
                        178.9, 131.9, 93.8, 67.9, 45.8, 33.4, 23.6, 2700]
@@ -147,7 +147,6 @@ class TestRelaxometry(unittest.TestCase):
     SITE4_T2_P4 = [830.93, 597.30, 437.69, 313.22, 220.64, 157.19, 110.05, 78.48,
                    55.53, 39.33, 27.20, 18.24, 13.17, 9.38, 2254]
 
-
     SITE4_T2_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
                                    'site4_philips', 'plate5')
 
@@ -166,10 +165,10 @@ class TestRelaxometry(unittest.TestCase):
     PATH_256_MATRIX = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T1',
                                    'site3_ge', 'plate4', 'Z675')
 
-    TARGET_COORDS_256 = np.array([[ 75, 125], [ 85, 155], [111, 173],
+    TARGET_COORDS_256 = np.array([[75, 125], [85, 155], [111, 173],
                                   [142, 175], [168, 155], [177, 127],
-                                  [168,  95], [142,  76], [110,  76],
-                                  [ 85,  95], [106, 106], [105, 146],
+                                  [168, 95], [142, 76], [110, 76],
+                                  [85, 95], [106, 106], [105, 146],
                                   [146, 147], [147, 105], [198, 151]])
 
     # Site 3 from GE scanner
@@ -230,10 +229,8 @@ class TestRelaxometry(unittest.TestCase):
                          'IM_0557', 'IM_0558', 'IM_0559', 'IM_0560', 'IM_0561',
                          'IM_0562', 'IM_0563']
 
-
     SITE5_T2_P4 = [625.5, 435.9, 309.3, 216.8, 149.7, 106.3, 74.3, 51.6, 35.7,
                    25.4, 16.5, 11.0, 7.1, 4.2, 2497.2]
-
 
     SITE5_T2_P5_DIR = os.path.join(TEST_DATA_DIR, 'relaxometry', 'T2',
                                    'site5_philips_3T', 'plate5')
@@ -248,7 +245,6 @@ class TestRelaxometry(unittest.TestCase):
 
     SITE5_T2_P5 = [1591.4, 1119.2, 742.7, 524.5, 370.7, 256.0, 180.5, 125.9,
                    91.2, 64.4, 45.2, 30.8, 22.0, 15.4, 2706.2]
-
 
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
@@ -266,7 +262,7 @@ class TestRelaxometry(unittest.TestCase):
         op = hazen_relaxometry.transform_coords(self.TEST_COORDS, warp_matrix,
                                                 input_row_col=False,
                                                 output_row_col=True)
-        
+
         np.testing.assert_allclose(op, self.COORDS_FLIP)
 
         # no translation, no rotation, input = col_row (xy), 
@@ -306,8 +302,8 @@ class TestRelaxometry(unittest.TestCase):
 
         # rotation (-30) degrees, translation col=10, row=20,
         # input = col_row (xy), output = col_row (xy)
-        warp_matrix = np.array([[np.sqrt(3)/2, 0.5, 10],
-                                [-0.5, np.sqrt(3)/2, 20]])
+        warp_matrix = np.array([[np.sqrt(3) / 2, 0.5, 10],
+                                [-0.5, np.sqrt(3) / 2, 20]])
         # use float64 rather than int32 for coordinates to better test rotation
         op = hazen_relaxometry.transform_coords(np.array(self.TEST_COORDS,
                                                          dtype=np.float64),
@@ -345,7 +341,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_image_stack_T2_sort(self):
         # read list of un-ordered T2 files, sort by TE, test sorted
-        t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname)) 
+        t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname))
                    for fname in self.T2_FILES]
         t2_image_stack = hazen_relaxometry.T2ImageStack(t2_dcms)
 
@@ -353,7 +349,7 @@ class TestRelaxometry(unittest.TestCase):
                          t2_image_stack.images]
 
         assert sorted_output == self.T2_TE_SORTED
-       
+
     def test_generate_time_series_template_POIs(self):
         # Test on template first, no image fitting needed
         # Need image to get correct size
@@ -362,7 +358,7 @@ class TestRelaxometry(unittest.TestCase):
         template_image_stack.generate_time_series(
             self.TEMPLATE_TEST_COORDS_ROW_COL,
             fit_coords=False)
-        
+
         for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
             np.testing.assert_equal(
                 template_image_stack.ROI_time_series[i].POI_mask,
@@ -402,7 +398,7 @@ class TestRelaxometry(unittest.TestCase):
         np.testing.assert_equal(
             template_image_stack.ROI_time_series[0].pixel_values[0],
             self.ROI0_TEMPLATE_PIXELS)
-        
+
     def test_template_roi_means(self):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
@@ -424,7 +420,6 @@ class TestRelaxometry(unittest.TestCase):
                 np.mean(template_image_stack.ROI_time_series[i].pixel_values),
                 self.ROI_TEMPLATE_MEANS_T0[i])
 
-
     def test_t1_calc_magnitude_image(self):
         """Test T1 value for plate 5 spheres."""
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
@@ -440,7 +435,7 @@ class TestRelaxometry(unittest.TestCase):
         t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
 
         t1_image_stack.find_relax_times()
-    
+
         np.testing.assert_allclose(t1_image_stack.t1s, self.PLATE5_T1,
                                    rtol=0.02, atol=1)
 
@@ -458,7 +453,7 @@ class TestRelaxometry(unittest.TestCase):
         t2_image_stack.initialise_fit_parameters(t2_estimates=t2_published)
         t2_image_stack.initialise_fit_parameters(t2_published)
         t2_image_stack.find_relax_times()
-    
+
         np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2,
                                    rtol=0.01, atol=1)
 
@@ -476,7 +471,7 @@ class TestRelaxometry(unittest.TestCase):
             hazen_relaxometry.TEMPLATE_VALUES['plate5']['t1']['relax_times']['1.5T']
         t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
         t1_image_stack.find_relax_times()
-    
+
         np.testing.assert_allclose(t1_image_stack.t1s, self.SITE2_PLATE5_T1,
                                    rtol=0.02, atol=1)
 
@@ -491,7 +486,7 @@ class TestRelaxometry(unittest.TestCase):
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=True,
                           calc_t2=True, plate_number=5)
-        
+
     def test_t1_siemens(self):
         """Test T1 values on Siemens images."""
         dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in
@@ -572,23 +567,23 @@ class TestRelaxometry(unittest.TestCase):
             atol=1)
 
     def test_ge(self):
-        """Test relaxometry values on GE."""
-        for plate in (4,5):
+        """Test relaxometry.py values on GE."""
+        for plate in (4, 5):
             for tparam in ('T1', 'T2'):
                 calc_t1 = tparam == 'T1'
                 calc_t2 = tparam == 'T2'
                 dcms = [pydicom.dcmread(os.path.join(
-                    getattr(self,f'SITE3_{tparam}_P{plate}_DIR'), fname))
-                        for fname in getattr(self,f'SITE3_{tparam}_P{plate}_FILES')]
+                    getattr(self, f'SITE3_{tparam}_P{plate}_DIR'), fname))
+                    for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
 
                 t_results = hazen_relaxometry.main(dcms, plate_number=plate,
-                                                 calc_t2=calc_t2,
-                                                 calc_t1=calc_t1,
+                                                   calc_t2=calc_t2,
+                                                   calc_t1=calc_t1,
                                                    verbose=True)
                 results, = t_results.values()
                 np.testing.assert_allclose(
                     results['calc_times'],
-                    getattr(self,f'SITE3_{tparam}_P{plate}_VALS'),
+                    getattr(self, f'SITE3_{tparam}_P{plate}_VALS'),
                     rtol=0.02, atol=1)
 
     def test_plate_number_not_specified(self):

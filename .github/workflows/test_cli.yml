@@ -1,0 +1,114 @@
+# Runs on pull request or release - checks CLI tools are working without raising exception
+
+
+name: CLI tests
+
+on:
+  pull_request:
+  release:
+
+jobs:
+ test_cli:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: [ '3.9', '3.10' ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 pytest pytest-cov
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Install hazen
+        run: |
+          pip install .
+
+      - name: test snr
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen snr tests/data/snr/Siemens --report
+          hazen snr tests/data/snr/Siemens --measured_slice_width 5.0012 --report
+
+      - name: test_acr_snr
+        if: always() # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_snr tests/data/acr/Siemens --report
+          hazen acr_snr tests/data/acr/Siemens --subtract tests/data/acr/Siemens2 --report
+
+      - name: test acr_uniformity
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_uniformity tests/data/acr/Siemens --report
+      
+      - name: test acr_ghosting
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_ghosting tests/data/acr/Siemens --report
+          
+      - name: test acr_slice_position
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_slice_position tests/data/acr/Siemens --report
+
+      - name: test acr_slice_thickness
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_slice_thickness tests/data/acr/Siemens --report
+
+      - name: test acr_geometric_accuracy
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_geometric_accuracy tests/data/acr/Siemens --report
+
+      - name: test acr_spatial_resolution
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
+
+      - name: test slice_position
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen slice_position tests/data/slicepos/SLICEPOSITION --report
+
+      - name: test slice_width
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen slice_width tests/data/slicewidth/512_matrix --report
+          hazen slice_width tests/data/slicewidth/SLICEWIDTH --report
+
+      - name: test spatial_resolution
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen spatial_resolution tests/data/resolution/RESOLUTION/ --report
+
+      - name: test uniformity
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+           hazen uniformity tests/data/uniformity --report
+
+      - name: test ghosting
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen ghosting tests/data/ghosting/GHOSTING --report
+          hazen ghosting tests/data/ghosting/PE_COL_PHANTOM_BOTTOM_RIGHT --report
+
+      - name: test snr_map
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen snr_map tests/data/snr/Siemens --report
+
+      - name: test relaxometry
+        if: always()  # will always run regardless of whether previous step fails - useful to ensure all CLI functions tested
+        run: |
+          hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc_t1 --plate_number=5 --report
+
