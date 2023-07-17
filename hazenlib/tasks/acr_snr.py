@@ -67,6 +67,7 @@ class ACRSNR(HazenTask):
                 traceback.print_exc(file=sys.stdout)
 
         results = {self.key(self.data[0]): snr_results}
+
         # only return reports if requested
         if self.report:
             results['reports'] = {'images': self.report_files}

@@ -27,6 +27,7 @@ class Ghosting(HazenTask):
                 continue
 
         results = {'ghosting_results': ghosting_results}
+
         # only return reports if requested
         if self.report:
             results['reports'] = {'images': self.report_files}

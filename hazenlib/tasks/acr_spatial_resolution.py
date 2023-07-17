@@ -82,6 +82,7 @@ class ACRSpatialResolution(HazenTask):
                     continue
 
         results = {self.key(self.data[0]): mtf_results}
+
         # only return reports if requested
         if self.report:
             results['reports'] = {'images': self.report_files}

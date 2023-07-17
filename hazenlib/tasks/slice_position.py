@@ -46,6 +46,7 @@ class SlicePosition(HazenTask):
         del decimal
 
         results = {self.key(self.data[0]): {'slice_positions': result}}
+
         # only return reports if requested
         if self.report:
             results['reports'] = {'images': self.report_files}
