@@ -103,8 +103,7 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects,
-                           report):  # def parse_relaxometry_data(arguments, dicom_objects, report):   #
+def parse_relaxometry_data(task, arguments, dicom_objects, report):
 
     # Relaxometry arguments
     relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
@@ -173,8 +172,9 @@ def main():
             acr_snr_args[key[2:]] = arguments[key]
 
         result = task.run(**acr_snr_args)
-    # TODO: Refactor Relaxometry task into HazenTask object Relaxometry not currently converted to HazenTask object -
-    #  this task accessible in the CLI using the old syntax until it can be refactored
+    # TODO: Refactor Relaxometry task into HazenTask object
+    #  - Relaxometry not currently converted to HazenTask object
+    #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
     elif arguments['<task>'] == 'relaxometry':
         task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
