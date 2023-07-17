@@ -26,6 +26,7 @@ import numpy as np
 import hazenlib.utils
 import hazenlib.exceptions as exc
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
 
 
 class Uniformity(HazenTask):
@@ -39,6 +40,9 @@ class Uniformity(HazenTask):
         for dcm in self.data:
             try:
                 result = self.get_fractional_uniformity(dcm)
+                logger.info("Calculating uniformity for image {}".format(
+                    self.key(dcm)
+                ))
             except Exception as e:
                 print(f"Could not calculate the uniformity for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
@@ -148,5 +152,5 @@ class Uniformity(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-                'vertical': {'IPEM': fractional_uniformity_vertical}}
+        return {'horizontal': fractional_uniformity_horizontal,
+                'vertical': fractional_uniformity_vertical}
