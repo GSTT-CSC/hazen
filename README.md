@@ -1,7 +1,7 @@
 <!-- PROJECT HEADING -->
 <br />
 <p align="center">
-<img src="https://raw.githubusercontent.com/GSTT-CSC/hazen/readme-dev/docs/assets/ibn-al-haytham.jpeg" alt="Ibn Al-Haytham">
+<img src="https://upload.wikimedia.org/wikipedia/commons/a/a3/Ibn_Al-Haytham_portrait.jpg" alt="Ibn Al-Haytham" width="512">
 </p>   
 <h1 align="center">hazen</h1>
 <p align="center">
