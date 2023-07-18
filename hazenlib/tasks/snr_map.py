@@ -314,3 +314,119 @@ class SNRMap(HazenTask):
 
         return fig
 
+
+    def get_rois(self):
+        """
+        Identify phantom and generate ROI locations.
+        """
+
+        # Threshold from smooth_image to reduce noise effects
+        threshold = filters.threshold_minimum(self.smooth_image)
+        self.mask = self.smooth_image > threshold
+
+        #  Get centroid (=centre of mass for binary image) and convert to array
+        self.image_centre = \
+            np.array(ndimage.measurements.center_of_mass(self.mask))
+        logger.debug('image_centre = %r.', self.image_centre)
+
+        #  Store corner of centre ROI, cast as int for indexing
+        roi_corners = [np.rint(self.image_centre - self.roi_size / 2).astype(int)]
+
+        #  Add corners of remaining ROIs
+        roi_distance = self.roi_distance
+        roi_corners.append(roi_corners[0] + [-roi_distance, -roi_distance])
+        roi_corners.append(roi_corners[0] + [roi_distance, -roi_distance])
+        roi_corners.append(roi_corners[0] + [-roi_distance, roi_distance])
+        roi_corners.append(roi_corners[0] + [roi_distance, roi_distance])
+
+        self.roi_corners = roi_corners
+
+
+    def run(self):
+        """
+        Returns SNR parametric map on flood phantom DICOM file.
+
+        Five square ROIs are created, one at the image centre, and four peripheral
+        ROIs with their centres displaced at 45, 135, 225 and 315 degrees from the
+        centre. Displays and saves a parametric map.
+
+        Returns
+        -------
+        results : dict
+        """
+        # Initialise variables
+        self.kernel_len = 9
+        self.roi_size = 20
+        self.roi_distance = 40
+
+        # ----
+        # * Scale ROI distance to account for different image sizes.
+        # * Pass kernel_len and roi_size parameters from command line.
+
+        results = {}
+
+        for self.current_dcm in self.data:
+
+            key = self.key(self.current_dcm)
+
+            #  Create original, smoothed and noise images
+            #  ==========================================
+            self.smooth(skimage.morphology.square(self.kernel_len))
+
+            #  Note: access NumPy arrays by column then row. E.g.
+            #
+            #  t=np.array([[1,2,3],[4,5,6]])
+            #  t
+            #  Out[118]:
+            #  array([[1, 2, 3],
+            #         [4, 5, 6]])
+            #
+            #  t[1,0]
+            #  Out[119]: 4 # not 2
+            #
+            #  Confusingly, patches (circles, rectangles) use traditional [x,y]
+            #  positioning. To centre a circle on pixel [a,b], the circle must be
+            #  centred on [b,a]. The function np.flip(coords) can help.
+
+            #  Warn if not 256 x 256 image
+            #  TODO scale distances for other image sizes
+            if self.original_image.shape != (256, 256):
+                logger.warning('Expected image size (256, 256). Image size is %r.'
+                               ' Algorithm untested with these dimensions.',
+                               self.original_image.shape)
+
+            #  Calculate mask and ROIs
+            #  =======================
+            self.get_rois()
+
+            #  Calculate SNR
+            #  =============
+            self.calc_snr()
+
+            #  Generate local SNR parametric map
+            #  =================================
+            self.calc_snr_map()
+
+            #  Plot images
+            #  ===========
+            fig_detailed = self.plot_detailed()
+            fig_summary = self.plot_summary()
+
+            #  Save images
+            #  ===========
+            if self.report:
+                detailed_image_path = os.path.join(self.report_path, f'{key}_snr_map_detailed.png')
+                summary_image_path = os.path.join(self.report_path, f'{key}_snr_map.png')
+
+                fig_detailed.savefig(detailed_image_path, dpi=300)
+                fig_summary.savefig(summary_image_path, dpi=300)
+
+                self.report_files.append(summary_image_path)
+                self.report_files.append(detailed_image_path)
+
+                results['reports'] = {'images': self.report_files}
+
+            results[key] = self.snr
+
+        return results
+

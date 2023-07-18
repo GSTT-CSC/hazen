@@ -6,10 +6,8 @@ import imutils
 import matplotlib
 import numpy as np
 import pydicom
-matplotlib.use("Agg")
-
 import hazenlib.exceptions as exc
-
+matplotlib.use("Agg")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -23,7 +21,7 @@ def get_dicom_files(folder: str, sort=False) -> list:
 
 
 def is_dicom_file(filename):
-        """
+    """
         Util function to check if file is a dicom file
         the first 128 bytes are preamble
         the next 4 bytes should contain DICM otherwise it is not a dicom
@@ -32,14 +30,14 @@ def is_dicom_file(filename):
         :type filename: str
         :returns: True if it is a dicom file
         """
-        file_stream = open(filename, 'rb')
-        file_stream.seek(128)
-        data = file_stream.read(4)
-        file_stream.close()
-        if data == b'DICM':
-            return True
-        else:
-            return False
+    file_stream = open(filename, 'rb')
+    file_stream.seek(128)
+    data = file_stream.read(4)
+    file_stream.close()
+    if data == b'DICM':
+        return True
+    else:
+        return False
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -311,6 +309,7 @@ class ShapeDetector:
     This class is largely adapted from https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/
 
     """
+
     def __init__(self, arr):
         self.arr = arr
         self.contours = None
@@ -320,7 +319,7 @@ class ShapeDetector:
 
     def find_contours(self):
         # convert the resized image to grayscale, blur it slightly, and threshold it
-        self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)    # magic numbers
+        self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)  # magic numbers
 
         optimal_threshold = filters.threshold_li(self.blurred, initial_guess=np.quantile(self.blurred, 0.50))
         self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(np.uint8)
@@ -373,7 +372,7 @@ class ShapeDetector:
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
-            shapes = [{shape: len(contours)}for shape, contours in self.shapes.items()]
+            shapes = [{shape: len(contours)} for shape, contours in self.shapes.items()]
             raise exc.MultipleShapesError(shapes)
 
         contour = self.shapes[shape][0]
@@ -382,16 +381,15 @@ class ShapeDetector:
             (x, y), r = cv.minEnclosingCircle(contour)
             return x, y, r
 
-        #have changed name of outputs in below code to match cv.minAreaRect output
-        #(https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html#b-rotated-rectangle)
+        # Outputs in below code chosen to match cv.minAreaRect output
+        # https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html#b-rotated-rectangle
         # (x,y) is top-left of rectangle, in x, y coordinates. x=column, y=row.
 
         if shape == 'rectangle' or shape == 'square':
-            (x,y), size, angle = cv.minAreaRect(contour)
+            (x, y), size, angle = cv.minAreaRect(contour)
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4
             # - swap size order & rotate angle by -90
             size = (size[1], size[0])
-            angle = angle-90
-            return (x,y), size, angle
-
+            angle = angle - 90
+            return (x, y), size, angle
