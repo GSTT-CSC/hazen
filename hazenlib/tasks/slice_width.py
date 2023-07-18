@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 from skimage.measure import regionprops
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.shapes import Rod
+from hazenlib.utils import Rod
 
 
 class SliceWidth(HazenTask):

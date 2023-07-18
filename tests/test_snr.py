@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 import os
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.tools import get_dicom_files
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.snr import SNR
 
 

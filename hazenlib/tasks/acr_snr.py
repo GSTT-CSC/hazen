@@ -16,7 +16,7 @@ Created by Neil Heraghty (Adapted by Yassine Azma)
 import sys
 import traceback
 import os
-import hazenlib
+import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 from scipy import ndimage
 import numpy as np
@@ -90,18 +90,18 @@ class ACRSNR(HazenTask):
         return mask, cxy
 
     def get_normalised_snr_factor(self, dcm, measured_slice_width=None) -> float:
-        dx, dy = hazenlib.get_pixel_size(dcm)
-        bandwidth = hazenlib.get_bandwidth(dcm)
-        TR = hazenlib.get_TR(dcm)
-        rows = hazenlib.get_rows(dcm)
-        columns = hazenlib.get_columns(dcm)
+        dx, dy = hazenlib.utils.get_pixel_size(dcm)
+        bandwidth = hazenlib.utils.get_bandwidth(dcm)
+        TR = hazenlib.utils.get_TR(dcm)
+        rows = hazenlib.utils.get_rows(dcm)
+        columns = hazenlib.utils.get_columns(dcm)
 
         if measured_slice_width:
             slice_thickness = measured_slice_width
         else:
-            slice_thickness = hazenlib.get_slice_thickness(dcm)
+            slice_thickness = hazenlib.utils.get_slice_thickness(dcm)
 
-        averages = hazenlib.get_average(dcm)
+        averages = hazenlib.utils.get_average(dcm)
         bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
         voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 

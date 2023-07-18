@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import cv2 as cv
 
-import hazenlib
+import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 
 
@@ -199,7 +199,7 @@ class Ghosting(HazenTask):
 
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
 
-        x, y = hazenlib.get_pixel_size(dcm)  # assume square pixels i.e. x=y
+        x, y = hazenlib.utils.get_pixel_size(dcm)  # assume square pixels i.e. x=y
         # ROIs need to be 10mmx10mm
         slice_radius = int(10 // (2 * x))
 
@@ -226,7 +226,7 @@ class Ghosting(HazenTask):
             img = img.astype('float64')
             # print('this is img',img)
             img *= 255.0 / img.max()
-            # img = hazenlib.rescale_to_byte(dcm.pixel_array)
+            # img = hazenlib.utils.rescale_to_byte(dcm.pixel_array)
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
             for roi in background_rois:
