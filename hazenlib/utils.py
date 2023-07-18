@@ -134,7 +134,7 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
     return slice_thickness
 
 
-def get_pixel_size(dcm: pydicom.Dataset) -> tuple(float, float):
+def get_pixel_size(dcm: pydicom.Dataset) -> (float,float):
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
