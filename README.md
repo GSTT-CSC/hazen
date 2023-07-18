@@ -120,4 +120,8 @@ Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have an
 
 We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with hazen, or the results are unexpected, please submit an Issue and we will investigate.
 
+### Contributing as a developer
+
+Please see the CONTRIBUTING.md for developer guidelines.
+
 ---
