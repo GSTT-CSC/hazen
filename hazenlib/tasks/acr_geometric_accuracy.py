@@ -62,13 +62,16 @@ class ACRGeometricAccuracy(HazenTask):
 
                 results[self.key(dcm)] = result5
 
-        results['reports'] = {'images': self.report_files}
-
         L = result1 + result5
         mean_err, max_err, cov_l = self.distortion_metric(L)
         print(f"Mean relative measurement error is equal to {np.round(mean_err, 2)}mm")
         print(f"Maximum absolute measurement error is equal to {np.round(max_err, 2)}mm")
         print(f"Coefficient of variation of measurements is equal to {np.round(cov_l, 2)}%")
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
+
         return results
 
     def centroid_com(self, dcm):

@@ -26,8 +26,11 @@ class Ghosting(HazenTask):
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-        results = {'ghosting_results': ghosting_results,
-                   'reports': self.report_files}
+        results = {'ghosting_results': ghosting_results}
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
