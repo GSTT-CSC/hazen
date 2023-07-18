@@ -1,33 +1,47 @@
+## Overview
+
+Welcome to the Developer guidance for contributing to `hazen`.
 ## How to contribute
 
 ### 1. Clone this repo for local development
 
-Requires Python 3.9, pip and venv installed and on PATH. We highly recommend using a virtual environment for development and testing.
+Requires git, Python 3.9, pip and venv installed and on PATH. We highly recommend using a virtual environment for development and testing.
+
+Make sure to make granular commits with descriptive messages and separate feature/bugfix updates into branches for easier review.
 
 ```bash
 # Install OpenSSL - is it still needed? TODO
-git clone https://github.com/GSTT-CSC/hazen...
+git clone https://github.com/GSTT-CSC/hazen.git
+# This will create a folder named 'hazen' in the current working directory
 
 # Go to local copy of hazen repo
 cd hazen
 
 # Create and activate a virtual environment
-python3 -m venv ./hazen-venv
-source hazen-venv/bin/activate
+# using 'python' or 'python3' will depend on local installation of Python
+python3 -m venv ~/hazen-venv
+source ~/hazen-venv/bin/activate
 
 # Install requirements
 pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 
-# Run tests to ensure everything is working
+# Run tests to ensure everything is working prior to development
 pytest tests/
 
 # for development and testing, the hazen module may be installed after each change
 pip install .
-# and then running the relevant task, eg
+# optionally, use the -e flag to install the module in editable way,
+#   to avoid having to reinstall after each change
+# optionally, use the -q flag for quiet installation
+# pip install -e . -q
+
+# and then run the relevant task using the example data provided, eg
 hazen snr tests/data/snr/GE
-# or specific tasks/scripts can be run without installing the module
-python hazenlib/hazen.py snr tests/data/snr/GE
+
+# OR specific tasks/scripts can be run without installing the module
+# by directly executing the local file
+python hazenlib/__init__.py snr tests/data/snr/GE
 ```
 
 ---
@@ -73,7 +87,7 @@ To run local, install sonar-scanner. Edit properties file in conf so that url is
 - Update docs (try sphinx-apidoc for autodocumentation of modules)
 <br></br>
 
-The Release Manager should ensure:
+### The Release Manager should ensure:
 - All outstanding issues for the current release have been closed, or transferred to future release.
 - All tests are passing on GitHub Actions.
 - All documentation has been updated with correct version numbers:
@@ -86,5 +100,6 @@ The Release Manager should ensure:
 
 ![image](https://user-images.githubusercontent.com/19840489/143266366-06e33949-12c7-44b4-9ed7-c0a795b5d492.png)
 
-- RMs: Tom Roberts
+### current RMs:
+- Tom Roberts
 
