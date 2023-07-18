@@ -21,8 +21,8 @@ import cv2 as cv
 import numpy as np
 from numpy.fft import fftfreq
 
-import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
+from hazenlib.utils import rescale_to_byte, get_pixel_size, ShapeDetector
 
 
 class SpatialResolution(HazenTask):
@@ -31,7 +31,14 @@ class SpatialResolution(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
+        """Main function to run task with specified args
+
+        Returns:
+            results (dict): dictionary of tasK - value pair and optionally
+                        a images key with value listing image paths
+        """
         results = {}
+
         for dcm in self.data:
             try:
                 result = self.calculate_mtf(dcm)
@@ -47,12 +54,6 @@ class SpatialResolution(HazenTask):
             results['reports'] = {'images': self.report_files}
 
         return results
-
-    def deri(self, a):
-        # This function calculated the LSF by taking the derivative of the ESF.
-        # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
-        b = np.gradient(a)
-        return b
 
 
     def get_circles(self, image):
@@ -76,7 +77,17 @@ class SpatialResolution(HazenTask):
         # plt.show()
         return circles
 
-    def thresh_image(self, img, bound=150):
+    def get_thresh_image(self, img, bound=150):
+        """Create an image of pixels above threshold
+
+        Args:
+            img (rescaled pixel array): _description_
+            bound (int, optional): might be boundary? ie threshold?.
+                    Defaults to 150.
+
+        Returns:
+            _type_: _description_
+        """
         blurred = cv.GaussianBlur(img, (5, 5), 0)
         thresh = cv.threshold(blurred, bound, 255, cv.THRESH_TOZERO_INV)[1]
         return thresh
@@ -185,7 +196,6 @@ class SpatialResolution(HazenTask):
         right_edge_profile_roi_centre = {"x": (square[3][0] + square[0][0]) // 2,
                                          "y": (square[3][1] + square[0][1]) // 2}
         return right_edge_profile_vector, right_edge_profile_roi_centre
-
 
     def get_signal_roi(self, pixels, edge, edge_centre, circle, size=20):
         circle_r = circle[0][0][2]
@@ -301,7 +311,16 @@ class SpatialResolution(HazenTask):
 
         return u, esf
 
-    def calculate_mtf_for_edge(self, dcm, edge):
+    def calculate_mtf_for_edge(self, dcm, edge) -> float:
+        """Calculate MTF along edge
+
+        Args:
+            dcm (DICOM): DICOM image object
+            edge (string): "top" or "right" edge of the image
+
+        Returns:
+            float: MTF value for the selected edge
+        """
         pixels = dcm.pixel_array
         pe = dcm.InPlanePhaseEncodingDirection
 
@@ -369,6 +388,8 @@ class SpatialResolution(HazenTask):
             axes[10].set_title('normalised MTF')
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel('lp/mm')
+
+            pe = dcm.InPlanePhaseEncodingDirection
             logger.info(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_{pe}_{edge}.png'))
             fig.savefig(img_path)
@@ -376,15 +397,15 @@ class SpatialResolution(HazenTask):
 
         return res
 
-    def calculate_mtf(self, dcm):
-        """Calculates MTF
+    def calculate_mtf(self, dcm) -> dict:
+        """Calculate MTF
 
         Args:
-            dcm (DICOM): dicom image
+            dcm (DICOM): DICOM image object
 
         Returns:
-            dict: spatial resolution values in
-                phase_encoding_direction and frequency_encoding_direction
+            dict: dictionary of spatial resolution in the phase and frequency
+                    encoding directions
         """
         pe = dcm.InPlanePhaseEncodingDirection
         pe_result, fe_result = None, None
@@ -395,5 +416,6 @@ class SpatialResolution(HazenTask):
         elif pe == 'ROW':
             pe_result = self.calculate_mtf_for_edge(dcm, 'right')
             fe_result = self.calculate_mtf_for_edge(dcm, 'top')
+        # TODO should there be an else?
 
         return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
