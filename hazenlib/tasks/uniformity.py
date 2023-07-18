@@ -30,6 +30,12 @@ from hazenlib.logger import logger
 
 
 class Uniformity(HazenTask):
+    """Task to measure uniformity using a MagNET phantom
+    No additional arguments.
+
+    Args:
+        HazenTask: inherits from the HazenTask class
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -38,7 +44,7 @@ class Uniformity(HazenTask):
         """Main function to run task with specified args
 
         Returns:
-            results (dict): dictionary of tasK - value pair and optionally
+            results (dict): dictionary of task - value pair and optionally
                         a images key with value listing image paths
         """
         results = {}
@@ -63,7 +69,7 @@ class Uniformity(HazenTask):
         return results
 
     def mode(self, a, axis=0):
-        """Finds the modal value of an array. From scipy.stats.mode
+        """Find the modal value of an array. From scipy.stats.mode
         TODO: lookup whether np has a built-in mode function
 
         Args:
