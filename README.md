@@ -40,7 +40,7 @@ Some example outputs from hazen:
 
 | hazen acr_ghosting                        | hazen ghosting                |
 |----------------------------------|-------------------------------|
-| ![](docs/assets/SNR.png) | ![](docs/assets/ghosting.png) |
+| <img src="docs/assets/SNR.png" height="500"> | <img src="docs/assets/ghosting.png" height="500" > |
 
 ---
 
