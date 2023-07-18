@@ -71,29 +71,22 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 Welcome to the Hazen Command Line Interface
+    Please select a task from the available list
+    The relaxometry, SNR and SNR with ACR tasks have additional optional inputs
 Usage:
     hazen <task> <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [--report] [--output=<path>]
     [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
     hazen -h|--help
     hazen --version
-Options:
-Report is an optional argument needed if you want to get a plot of your results.
-'Calc_t1', 'calc_t', 'plate_number=<n>', 'show_template_fit', 'show_relax_fits', 'show_rois', 'verbose' are optional arguments for the relaxometry function.
-'Measured_slice_width' is an optional argument for the SNR function.
-'Log' is an optional argument that allows users to set the severity of the logs.
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
-    acr_ghosting | acr_uniformity | acr_spatial_resolution | acr_slice_thickness | acr_snr | acr_slice_position | acr_geometric_accuracy
-    <folder>
-    --report
-
 """
+    # --report some tasks can generate an output image to help interpret the report (optional argument needed if you want to get a plot of your results)
 
 import importlib
 import inspect
 import logging
 import sys
-import pprint
+import json
 import os
 
 from docopt import docopt
@@ -124,7 +117,6 @@ def main():
     arguments = docopt(__doc__, version=__version__)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
     files = get_dicom_files(arguments['<folder>'])
-    pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
 
     log_levels = {
         "critical": logging.CRITICAL,
@@ -137,9 +129,6 @@ def main():
     if arguments['--log'] in log_levels.keys():
         level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
-    else:
-        # logging.basicConfig()
-        logging.getLogger().setLevel(logging.INFO)
 
     class_list = [cls for _, cls in inspect.getmembers(
         sys.modules[task_module.__name__],
@@ -182,7 +171,9 @@ def main():
     else:
         result = task.run()
 
-    print(pp.pformat(result))
+    result_string = json.dumps(result, indent=2)
+    print(result_string)
+
 
 
 if __name__ == "__main__":
