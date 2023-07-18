@@ -45,7 +45,7 @@ class Uniformity(HazenTask):
 
         Returns:
             results (dict): dictionary of task - value pair and optionally
-                        a images key with value listing image paths
+                        an images key with value listing image paths
         """
         results = {}
 
