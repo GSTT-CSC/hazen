@@ -63,13 +63,14 @@ The CLI version of hazen is designed to be pointed at single folders containing 
 # To see the full list of available tasks, enter:
 hazen -h
 
-# To perform a spatial resolution measurement on example data provided by the East Kent Trust:
+# To perform a spatial resolution measurement on example data:
 hazen spatial_resolution tests/data/resolution/philips
 
-# To perform an SNR measurement on the provided example Philips DICOMs:
+# To perform an SNR measurement on example Philips DICOMs:
 hazen snr tests/data/snr/Philips
 
-# The `--report` option provides additional information about some of the calculations. For example, to gain additional insight into the performance of the snr function:
+# The `--report` option provides additional information about the calculations and is available for all tasks.
+# Example usage for the snr function, returns images showing regions used for the measurement.
 hazen snr tests/data/snr/Philips --report
 ```
 
@@ -79,9 +80,10 @@ The Docker version of hazen has been made available as it is easy to get up-and-
 
 The containerised version of Hazen can be obtained from the DockerHub (see commands below). For ease of use, it is recommended to copy the `hazen-app` script to a location accessible on the path such as `/usr/local/bin`. This will allow you to run hazen from any location on your computer. Then, to use Docker hazen, simply run the `hazen-app` script appended with the function you want to use (e.g.: `snr`). 
 
-In Terminal:
+in Terminal:
 
 ```bash
+# Once Docker is installed and is running,
 # Pull the latest release of the Hazen Docker container
 docker pull gsttmriphysics/hazen:latest
 # command output will look something like this
@@ -90,10 +92,11 @@ Digest: sha256:18603e40b45f3af4bf45f07559a08a7833af92a6efe21cb7306f758e8eeab24a
 Status: Image is up to date for gsttmriphysics/hazen:latest
 docker.io/gsttmriphysics/hazen:latest
 
-cd hazen
-cp ./hazen-app /usr/local/bin
+# This will create a folder named 'hazen' in the current working directory
+# which can be moved to make it available from anywhere on the terminal
+cp hazen/hazen-app /usr/local/bin
 
-# run hazen with CLI arguments
+# run hazen with CLI arguments, for example
 hazen-app snr tests/data/snr/Siemens/
 # example command output for the SNR calculation
 {   'snr_smoothing_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 191.16,
@@ -101,19 +104,20 @@ hazen-app snr tests/data/snr/Siemens/
     'snr_smoothing_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 1866.09,
     'snr_smoothing_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_3_1': 1909.2,
     'snr_subtraction_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 220.73,
-    'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69}
+    'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69
+}
 ```
 
 ### Web Interface
 
-WIP: we are developing a web interface for hazen. --> link to hazen web-app? or to the website where it will be hosted
+Development of a web interface for hazen is in progress. --> link to hazen web-app? or to the website where it will be hosted
 
 ---
 
 ## Contributing as a user
 
-Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have any problems installing or running hazen.
+Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have any problems installing or running hazen. Or if you have suggestions or requests for new features.
 
-We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with hazen, or the results are unexpected, please submit an Issue and we will investigate. 
+We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with hazen, or the results are unexpected, please submit an Issue and we will investigate.
 
 ---
