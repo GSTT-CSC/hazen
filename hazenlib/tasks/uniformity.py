@@ -35,6 +35,12 @@ class Uniformity(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
+        """Main function to run task with specified args
+
+        Returns:
+            results (dict): dictionary of tasK - value pair and optionally
+                        a images key with value listing image paths
+        """
         results = {}
 
         for dcm in self.data:
@@ -57,17 +63,16 @@ class Uniformity(HazenTask):
         return results
 
     def mode(self, a, axis=0):
-        """
-        Finds the modal value of an array. From scipy.stats.mode
+        """Finds the modal value of an array. From scipy.stats.mode
+        TODO: lookup whether np has a built-in mode function
 
-        Parameters:
-        ---------------
-        a: array
+        Args:
+            a (array): _description_
+            axis (int, optional): Defaults to 0.
 
         Returns:
-        ---------------
-        most_frequent: the modal value
-        old_counts: the number of times this value was counted (check this)
+            most_frequent: the modal value
+            old_counts: the number of times this value was counted (check this)
         """
         scores = np.unique(np.ravel(a))  # get ALL unique values
         test_shape = list(a.shape)
@@ -86,6 +91,19 @@ class Uniformity(HazenTask):
         return most_frequent, old_counts
 
     def get_object_centre(self, dcm):
+        """Find the centre coordinates of an object
+        Based on orientation of the phantom in the input image, this function
+        identifies the centre coords of a rectangle or circle.
+
+        Args:
+            dcm (DICOM): DICOM image object
+
+        Raises:
+            Exception: checks for the orientation of the object
+
+        Returns:
+            x,y: a tuple of integer values corresponding to the indices
+        """
         arr = dcm.pixel_array
         shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
         orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
@@ -107,6 +125,16 @@ class Uniformity(HazenTask):
         return int(x), int(y)
 
     def get_fractional_uniformity(self, dcm):
+        """Identify a central ROI 160x160 and count the number of pixels within
+            +/-0.1 of the mode of a 10x10 ROI horizontally and vertically
+
+        Args:
+            dcm (DICOM): DICOM image object
+
+        Returns:
+            result (dict): dictionary of the horizontal and vertical
+                            uniformity values
+        """
 
         arr = dcm.pixel_array
         x, y = self.get_object_centre(dcm)
@@ -123,12 +151,15 @@ class Uniformity(HazenTask):
         vertical_profile = np.mean(vertical_roi, axis=1)
 
         # Count how many elements are within 0.9-1.1 times the modal value
-        horizontal_count = np.where(
-            np.logical_and((horizontal_profile > (0.9 * central_roi_mode)), (horizontal_profile < (
-                    1.1 * central_roi_mode))))
+        horizontal_count = np.where(np.logical_and(
+                            (horizontal_profile > (0.9 * central_roi_mode)),
+                            (horizontal_profile < (1.1 * central_roi_mode))
+                            ))
         horizontal_count = len(horizontal_count[0])
-        vertical_count = np.where(np.logical_and((vertical_profile > (0.9 * central_roi_mode)), (vertical_profile < (
-                1.1 * central_roi_mode))))
+        vertical_count = np.where(np.logical_and(
+                            (vertical_profile > (0.9 * central_roi_mode)),
+                            (vertical_profile < (1.1 * central_roi_mode))
+                            ))
         vertical_count = len(vertical_count[0])
 
         # Calculate fractional uniformity
