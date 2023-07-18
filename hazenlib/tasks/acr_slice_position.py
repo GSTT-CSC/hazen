@@ -69,7 +69,9 @@ class ACRSlicePosition(HazenTask):
 
                 results[self.key(dcm)] = result
 
-        results['reports'] = {'images': self.report_files}
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 
