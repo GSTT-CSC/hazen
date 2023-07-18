@@ -44,7 +44,6 @@ class TestCliParser(unittest.TestCase):
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         files = get_dicom_files(path)
-        # sys.argv = ["hazen", "snr", path, "--measured_slice_width", "1"]
         snr_task = SNR(data_paths=files, report=False)
         result = snr_task.run(measured_slice_width=1)
 
@@ -61,7 +60,6 @@ class TestCliParser(unittest.TestCase):
         path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
         files = get_dicom_files(path)
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        # sys.argv = ["hazen", "relaxometry", path, "--plate_number", "4", "--calc_t1"]
         result = relaxometry_run(dicom_objects, plate_number=4,
          calc_t1=True, calc_t2=False, report_path=False, verbose=False)
 
