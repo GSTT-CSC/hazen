@@ -55,6 +55,10 @@ Prerequisits include Python 3.9 version installed, along with `pip` and `venv`
 python3 -m venv hazen-venv
 source hazen-venv/bin/activate
 pip install hazen
+
+# if hazen is already installed locally, you may upgrade to the latest version
+pip install --upgrade pip
+pip install --upgrade hazen
 ```
 
 The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory. If you are using the Docker version of hazen (installation described below), replace `hazen` with `hazen-app` in the following commands.
