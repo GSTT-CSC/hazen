@@ -36,11 +36,26 @@ It provides automatic quantitative analysis for the following measurements of MR
 - Ghosting
 - MR Relaxometry
 
-Some example outputs from hazen:
+Each Task outputs numerical results to the user's terminal. Below is an output from the `hazen snr` Task performed on 
+some example MRI data:
 
-| hazen acr_ghosting                        | hazen ghosting                |
-|----------------------------------|-------------------------------|
-| <img src="docs/assets/SNR.png" height="500"> | <img src="docs/assets/ghosting.png" height="500" > |
+```shell
+hazen snr tests/data/snr/Siemens
+{
+  'snr_smoothing_measured_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 173.97,
+  'snr_smoothing_measured_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_3_1': 177.91,
+  'snr_smoothing_normalised_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 1698.21,
+  'snr_smoothing_normalised_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_3_1': 1736.66,
+  'snr_subtraction_measured_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 220.73,
+  'snr_subtraction_normalised_SNR_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69
+}
+```
+
+The optional `--report` flag allows the user to visualise the image processing performed by each hazen Task:
+
+| `hazen snr tests/data/snr/Siemens --report` | `hazen acr_ghosting tests/data/acr/Siemens --report` |
+|---------------------------------------------|------------------------------------------------------|
+| <img src="docs/assets/snr.png" height="500"> | <img src="docs/assets/acr_ghosting.png" height="500" > |
 
 ---
 
