@@ -151,14 +151,18 @@ Development of a [web interface for hazen](https://github.com/GSTT-CSC/hazen-web
 
 ---
 
-## Contributing as a user
+## Contributing to hazen
 
-Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) if you have any problems installing or running hazen. Or if you have suggestions or requests for new features.
+### Users
+Please [raise an Issue](https://github.com/GSTT-CSC/hazen/issues) for any of the following reasons:
+- Problems installing or running hazen
+- Suggestions for improvements
+- Requests for new features
 
-We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with hazen, or the results are unexpected, please submit an Issue and we will investigate.
+We have used hazen with MRI data from a handful of different MRI scanners, including multiple different vendors. If 
+hazen does not perform with your MRI data, or the results are unexpected, please raise an Issue.
 
-### Contributing as a developer
-
-Please see the CONTRIBUTING.md for developer guidelines.
+### Developers
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for developer guidelines.
 
 ---
