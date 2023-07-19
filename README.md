@@ -61,63 +61,80 @@ The optional `--report` flag allows the user to visualise the image processing p
 
 ## Installation and usage
 
-### Command line using pip
+There are two main options for running hazen.
+1. Install using Python and run directly via command line interface (CLI)
+2. Run using the latest Docker container build
 
-Hazen can be installed using pip on Python 3.9 or higher, it is recommended to use a virtual environment.
-Prerequisits include Python 3.9 version installed, along with `pip` and `venv`
+### 1) Python install and run (CLI)
+
+hazen can be installed with Python 3.9 or higher via pip. It is strongly recommended to use a virtual environment.
 
 ```bash
 python3 -m venv hazen-venv
 source hazen-venv/bin/activate
 pip install hazen
+```
 
-# if hazen is already installed locally, you may upgrade to the latest version
+#### Updating hazen
+If you already have an old version of hazen installed, upgrade to the latest version with:
+
+```shell
+source hazen-venv/bin/activate
 pip install --upgrade pip
 pip install --upgrade hazen
 ```
 
-The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory. If you are using the Docker version of hazen (installation described below), replace `hazen` with `hazen-app` in the following commands.
+#### Running hazen via CLI
+The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are 
+provided in the `tests/data/` directory. If you are using the Docker version of hazen (installation described below), 
+replace `hazen` with `hazen-app` in the following commands.
 
 ```bash
-# To see the full list of available tasks, enter:
+# To see the full list of available Tasks, enter:
 hazen -h
 
-# To perform a spatial resolution measurement on example data:
+# To perform the spatial resolution Task on example data:
 hazen spatial_resolution tests/data/resolution/philips
 
-# To perform an SNR measurement on example Philips DICOMs:
+# To perform the SNR Task on example data:
 hazen snr tests/data/snr/Philips
 
-# The `--report` option provides additional information about the calculations and is available for all tasks.
-# Example usage for the snr function, returns images showing regions used for the measurement.
+# The `--report` option provides additional information about the image processing measurement methods and is available 
+# for all tasks. Example usage for the SNR Task, which returns images showing the regions used for SNR calculation.
 hazen snr tests/data/snr/Philips --report
 ```
 
-### Docker
+### 2) Docker
 
-The Docker version of hazen has been made available as it is easy to get up-and-running and is linked to the most recent stable release. Refer to the [Docker installation instructions](https://docs.docker.com/engine/install) to install Docker on your host computer.
+The Docker version of hazen has been made available as it is easy to get up-and-running and is linked to the most recent 
+stable release. Refer to the [Docker installation instructions](https://docs.docker.com/engine/install) to install 
+Docker on your host computer.
 
-The containerised version of Hazen can be obtained from the DockerHub (see commands below). For ease of use, it is recommended to copy the `hazen-app` script to a location accessible on the path such as `/usr/local/bin`. This will allow you to run hazen from any location on your computer. Then, to use Docker hazen, simply run the `hazen-app` script appended with the function you want to use (e.g.: `snr`). 
+The containerised version of hazen can be obtained from DockerHub (see commands below). For ease of use, it is 
+recommended to copy the `hazen-app` script to a location accessible on the PATH such as `/usr/local/bin`. This will 
+allow you to run hazen from any directory on your computer. Then, to use Docker hazen, simply run the `hazen-app` script 
+appended with the function you want to use (e.g.: `snr`). 
 
-in Terminal:
+In Terminal:
 
-```bash
-# Once Docker is installed and is running,
-# Pull the latest release of the Hazen Docker container
+```shell
+# Ensure Docker installed and running, then pull the latest hazen Docker container
 docker pull gsttmriphysics/hazen:latest
-# command output will look something like this
+
+# Command line output will look something like:
 latest: Pulling from gsttmriphysics/hazen
 Digest: sha256:18603e40b45f3af4bf45f07559a08a7833af92a6efe21cb7306f758e8eeab24a
 Status: Image is up to date for gsttmriphysics/hazen:latest
 docker.io/gsttmriphysics/hazen:latest
 
-# This will create a folder named 'hazen' in the current working directory
-# which can be moved to make it available from anywhere on the terminal
-cp hazen/hazen-app /usr/local/bin
+# Copy the 'hazen-app' executable file into your local bin folder
+cd hazen
+cp hazen-app /usr/local/bin
 
-# run hazen with CLI arguments, for example
+# Run hazen via Docker with the normal CLI inputs
 hazen-app snr tests/data/snr/Siemens/
-# example command output for the SNR calculation
+
+# Example command line output for the SNR Task:
 {   'snr_smoothing_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 191.16,
     'snr_smoothing_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_3_1': 195.58,
     'snr_smoothing_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 1866.09,
@@ -129,7 +146,7 @@ hazen-app snr tests/data/snr/Siemens/
 
 ### Web Interface
 
-Development of a web interface for hazen is in progress. --> link to hazen web-app? or to the website where it will be hosted
+Development of a [web interface for hazen](https://github.com/GSTT-CSC/hazen-web-app) is in progress.
 
 ---
 
