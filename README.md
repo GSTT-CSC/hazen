@@ -100,7 +100,7 @@ hazen spatial_resolution tests/data/resolution/philips
 hazen snr tests/data/snr/Philips
 
 # The `--report` option provides additional information about the image processing measurement methods and is available 
-# for all tasks. Example usage for the SNR Task, which returns images showing the regions used for SNR calculation.
+# for all Tasks. Example usage for the SNR Task, which returns images showing the regions used for SNR calculation.
 hazen snr tests/data/snr/Philips --report
 ```
 
