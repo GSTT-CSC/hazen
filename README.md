@@ -59,7 +59,7 @@ The optional `--report` flag allows the user to visualise the image processing p
 
 | `hazen snr tests/data/snr/Siemens --report` | `hazen acr_ghosting tests/data/acr/Siemens --report` |
 |---------------------------------------------|------------------------------------------------------|
-| <img src="/docs/assets/snr.jpg?raw=true" height="500"> | <img src="/docs/assets/acr_ghosting.jpg?raw=true" height="500" > |
+| <img src="/docs/assets/snr.jpg?raw=true"> | <img src="/docs/assets/acr_ghosting.jpg?raw=true"> |
 
 ---
 
