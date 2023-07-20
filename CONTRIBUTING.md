@@ -1,8 +1,8 @@
 ## Table of Contents
 - [Introduction](#introduction)
-- [1) How to make and test code changes](#how-to-make-and-test-code-changes)
-- [2) Developer Process for Contributing](#developer-process-for-contributing)
-- [3) Release Process](#release-process)
+- [1) How to make and test code changes](#1-how-to-make-and-test-code-changes)
+- [2) Developer Process for Contributing](#2-developer-process-for-contributing)
+- [3) Release Process](#3-release-process)
 
 ## Introduction
 
