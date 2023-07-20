@@ -114,36 +114,37 @@ For a new release: <br>
 8. Send a Release email to the hazen users!
    - Below is an example email from a previous release. 
    - The "What's Changed" section is copy-pasted from the 
-   [corresponding Release page](https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2).<br>
-   > **Subject:** hazen 0.5.2 released
+   [corresponding Release page](https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2).
+
+> **Subject:** hazen 0.5.2 released
    
-   > Dear hazen users,
-   > 
-   > We have released hazen version 0.5.2: 
-   >
-   > https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2
-   >
-   > We have improved the ghosting function to be more robust, the rod centroid estimates within the within the 
-   > slice_width function are now more accurate which provides better linearity measurements (thanks Sian!) and Paul’s 
-   > snr_map function is now part of hazen too, which provides an SNR map across the phantom – useful for seeing 
-   > signal dropout/fluctuations. Also some under the hood improvements.
-   >
-   > Full changelog below. Let us know any issues.
-   > 
-   > Thanks,
-   > 
-   > [_name of Release Master_]
-   >
-   > ---
-   > ## 0.5.2
-   > ### What's Changed
-   > - Updated ghosting function – fixes sampling point issue by @Lucrezia-Cester in #185
-   > - Added new hazen snr_map function – generates SNR parametric map by @pcw24601 in #113
-   > - Corrects hazen slice_width geometric distortion measurements by @superresolusian @tomaroberts in #175
-   > - Updated LSF function by @Lucrezia-Cester in #191
-   > - Added hazenlib init tests coverage by @Lucrezia-Cester in #144
-   > - Creates citation button on Github page, updates contributors.txt by @tomaroberts in #194
-   > - Updated cli-test.yml by @laurencejackson in #195
-   > - Release/0.5.2 by @tomaroberts in #196
+> Dear hazen users,
+> 
+> We have released hazen version 0.5.2: 
+>
+> https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2
+>
+> We have improved the ghosting function to be more robust, the rod centroid estimates within the within the 
+> slice_width function are now more accurate which provides better linearity measurements (thanks Sian!) and Paul’s 
+> snr_map function is now part of hazen too, which provides an SNR map across the phantom – useful for seeing 
+> signal dropout/fluctuations. Also some under the hood improvements.
+>
+> Full changelog below. Let us know any issues.
+> 
+> Thanks,
+> 
+> [_name of Release Master_]
+>
+> ---
+> ## 0.5.2
+> ### What's Changed
+> - Updated ghosting function – fixes sampling point issue by @Lucrezia-Cester in #185
+> - Added new hazen snr_map function – generates SNR parametric map by @pcw24601 in #113
+> - Corrects hazen slice_width geometric distortion measurements by @superresolusian @tomaroberts in #175
+> - Updated LSF function by @Lucrezia-Cester in #191
+> - Added hazenlib init tests coverage by @Lucrezia-Cester in #144
+> - Creates citation button on Github page, updates contributors.txt by @tomaroberts in #194
+> - Updated cli-test.yml by @laurencejackson in #195
+> - Release/0.5.2 by @tomaroberts in #196
 
 
