@@ -95,7 +95,7 @@ For each PR:
 3. Merge the PR into the `main` branch
    - Provide a brief description of changes in the PR textbox as this forms the Release Notes 
 
-For a new release:
+For a new release: <br>
 4. Close all related Issues resolved by the merged PRs
 5. **Important**: Update version numbers across the repo:
    - Update version number in `hazenlib/_version.py`
