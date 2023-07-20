@@ -10,7 +10,8 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
-    permissions: write
+    permissions:
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
