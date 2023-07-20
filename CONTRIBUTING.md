@@ -124,9 +124,9 @@ For a new release: <br>
 >
 > https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2
 >
-> We have improved the ghosting function to be more robust, the rod centroid estimates within the within the 
+> We have improved the ghosting function to be more robust, the rod centroid estimates within the 
 > slice_width function are now more accurate which provides better linearity measurements (thanks Sian!) and Paul’s 
-> snr_map function is now part of hazen too, which provides an SNR map across the phantom – useful for seeing 
+> snr_map function is now part of hazen too, which provides an SNR map across the phantom – useful for seeing 
 > signal dropout/fluctuations. Also some under the hood improvements.
 >
 > Full changelog below. Let us know any issues.
