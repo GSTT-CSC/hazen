@@ -71,12 +71,12 @@ contribution.
    - Name the branch with the issue number and a short description, e.g.: `123-snr-bugfix`
 4. Make your code changes (see guidance above)
 5. Perform unit tests on your machine: `pytest tests/`
-6. Create a [Pull Request](https://github.com/GSTT-CSC/hazen/pulls)
+6. Create a [Pull Request](https://github.com/GSTT-CSC/hazen/pulls) (PR)
    - Describe your changes
    - Describe why you coded your change this way
    - Describe any shortcomings or work still to do
    - Cross-reference any relevant Issues
-7. One of the hazen team members will review your Pull Request and then:
+7. One of the hazen team members will review your PR and then:
    - Ask questions
    - Request any changes
    - Merge into `main` – thank you and congratulations on contributing to hazen!
@@ -84,7 +84,7 @@ contribution.
 
 ## 3) Release Process
 
-The Release Process involves approving and then merging all Pull Requests identified for the new release of hazen. 
+The Release Process involves approving and then merging all PRs identified for the new release of hazen. 
 Follow these steps for a new Release:
 
 For each PR:
