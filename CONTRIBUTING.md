@@ -115,6 +115,7 @@ For a new release: <br>
    - Below is an example email from a previous release. 
    - The "What's Changed" section is copy-pasted from the 
    [corresponding Release page](https://github.com/GSTT-CSC/hazen/releases/tag/0.5.2).
+   <br>
    > **Subject:** hazen 0.5.2 released
    
    > Dear hazen users,
