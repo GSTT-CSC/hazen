@@ -1,10 +1,10 @@
 ## Table of Contents
-- [Introduction](#introduction)
-- [1) How to make and test code changes](#1-how-to-make-and-test-code-changes)
-- [2) Developer Process for Contributing](#2-developer-process-for-contributing)
-- [3) Release Process](#3-release-process)
+- [1) Introduction](#1-introduction)
+- [2) How to make and test code changes](#1-how-to-make-and-test-code-changes)
+- [3) Developer Process for Contributing](#2-developer-process-for-contributing)
+- [4) Release Process](#3-release-process)
 
-## Introduction
+## 1) Introduction
 
 Welcome to hazen! This documentation is intended for individuals and developers interested in contributing to hazen. We 
 anticipate contributions in the following main areas:
@@ -15,7 +15,7 @@ anticipate contributions in the following main areas:
 4. **DICOM**: DICOM file and metadata manipulation
 5. **Documentation**: Improvements to user guidance
 
-## 1) How to make and test code changes
+## 2) How to make and test code changes
 
 Clone and install this repo following the guidance below. This requires git, Python 3.9, pip and a venv installed and on
 accessible within your PATH. We highly recommend using a virtual environment for development and testing.
@@ -57,7 +57,7 @@ hazen snr tests/data/snr/GE
 python hazenlib/__init__.py snr tests/data/snr/GE
 ```
 
-## 2) Developer Process for Contributing
+## 3) Developer Process for Contributing
 
 Follow these steps to make a contribution to hazen:
 
@@ -82,7 +82,7 @@ contribution.
    - Merge into `main` – thank you and congratulations on contributing to hazen!
 
 
-## 3) Release Process
+## 4) Release Process
 
 The Release Process involves approving and then merging all PRs identified for the new release of hazen. 
 Follow these steps for a new Release:
@@ -132,7 +132,7 @@ For a new release: <br>
    > 
    > Thanks,
    > 
-   > [name of Release Master]
+   > [_name of Release Master_]
    >
    > ---
    > ## 0.5.2
