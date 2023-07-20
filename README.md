@@ -26,15 +26,19 @@ Quality assurance framework for Magnetic Resonance Imaging
 
 ## Overview
 
-hazen is a software framework for performing automated analysis of magnetic resonance imaging (MRI) quality assurance (QA) data.
+hazen is a software framework for performing automated analysis of magnetic resonance imaging (MRI) quality assurance 
+(QA) data. hazen consists of multiple [Tasks](hazenlib/tasks) which perform quantitative processing and analysis of 
+MRI phantom data. Currently, hazen supports the [ACR Large MRI Phantom](https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf)
+and the MagNET Test Objects collection of phantoms.
 
-It provides automatic quantitative analysis for the following measurements of MRI phantom data:
+The hazen Tasks provide the following measurements within these phantoms:
 - Signal-to-noise ratio (SNR)
 - Spatial resolution
-- Slice position and width
+- Slice position
+- Slice width
 - Uniformity
 - Ghosting
-- MR Relaxometry
+- MR relaxometry
 
 Each Task outputs numerical results to the user's terminal. Below is an output from the `hazen snr` Task performed on 
 some example MRI data:
