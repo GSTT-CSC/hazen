@@ -64,6 +64,7 @@ The optional `--report` flag allows the user to visualise the image processing p
 ---
 
 ## Installation and usage
+##### Below instructions apply on Mac and Linux-based operating systems. For PowerShell commands compatible with Windows 10+ please see the bottom of this page, or use the Docker instructions.
 
 There are two main options for running hazen.
 1. Install using Python and run directly via command line interface (CLI)
@@ -73,10 +74,31 @@ There are two main options for running hazen.
 
 hazen can be installed with Python 3.9 or higher via pip. It is strongly recommended to use a virtual environment.
 
+##### Mac and Linux
 ```bash
 python3 -m venv hazen-venv
 source hazen-venv/bin/activate
 pip install hazen
+```
+
+##### Windows 10+ PowerShell with administrator rights
+```PowerShell
+# check that appropriate Python version is available
+> python --version
+Python 3.9.7
+# Create a virtual environment
+> python -m venv Hazen_3.9.7
+# Activate virtual environment
+> Hazen_3.9.7\\Scripts\Activate.ps1
+# Update the available package list
+> python -m pip install --upgrade pip
+# Install hazen from the Python Package Index
+> pip install hazen
+# This will install the latest available version of the hazen package and make it available for use
+
+# Check that installation was successful by checking the version, eg
+> hazen --version
+1.2.0
 ```
 
 #### Updating hazen
