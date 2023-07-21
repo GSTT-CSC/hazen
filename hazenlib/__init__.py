@@ -77,18 +77,31 @@ acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | ac
 
 Usage:
     hazen <task> <folder> [options]
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>]
-    hazen <task> <folder> [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
-    [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
+    hazen acr_snr <folder> [acr_snr-options] [options]
+    hazen snr <folder> [snr-options] [options]
+    hazen relaxometry <folder> [--calc_t1 | --calc_t2] --plate_number=<n> [relaxometry-options] [options]
 
     hazen -h|--help
     hazen --version
+
 Options:
     --report
     --output=<path>
     --log=<level>
 
+SNR-options:
+    --measured_slice_width=<mm>
+
+ACR_SNR-options:
+    --subtract=<folder2>
+
+Relaxometry-options:
+    --show_template_fit
+    --show_relax_fits
+    --show_rois
+    --verbose
 """
+
 
 import importlib
 import inspect
