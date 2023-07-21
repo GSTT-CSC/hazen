@@ -71,21 +71,22 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 Welcome to the Hazen Command Line Interface
+Currently the below tasks are available:
+snr |snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry |
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting |  acr_geometric_accuracy
+
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [--report] [--output=<path>]
-    [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
+    hazen <task> <folder> [options]
+    hazen <task> <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>]
+    hazen <task> <folder> [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
     [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
+
     hazen -h|--help
     hazen --version
 Options:
-Report is an optional argument needed if you want to get a plot of your results.
-'Calc_t1', 'calc_t', 'plate_number=<n>', 'show_template_fit', 'show_relax_fits', 'show_rois', 'verbose' are optional arguments for the relaxometry function.
-'Measured_slice_width' is an optional argument for the SNR function.
-'Log' is an optional argument that allows users to set the severity of the logs.
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
-    acr_ghosting | acr_uniformity | acr_spatial_resolution | acr_slice_thickness | acr_snr | acr_slice_position | acr_geometric_accuracy
-    <folder>
     --report
+    --output=<path>
+    --log=<level>
 
 """
 
@@ -122,6 +123,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report):
 
 def main():
     arguments = docopt(__doc__, version=__version__)
+    print(arguments)
     task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
     files = get_dicom_files(arguments['<folder>'])
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
