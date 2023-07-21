@@ -95,7 +95,8 @@ class Ghosting(HazenTask):
 
         background_rois = []
 
-        if dcm.InPlanePhaseEncodingDirection == 'ROW':  # phase encoding is left -right i.e. increases with columns
+        if dcm.InPlanePhaseEncodingDirection == 'ROW':
+            # phase encoding is left -right i.e. increases with columns
             if signal_centre[1] < dcm.Rows * 0.5:  # phantom is in top half of image
                 background_rois_row = round(dcm.Rows * 0.75)  # in the bottom quadrant
             else:  # phantom is bottom half of image
@@ -111,7 +112,8 @@ class Ghosting(HazenTask):
                 gap = round((dcm.Columns - background_rois[0][0]) / 4)
                 background_rois = [(background_rois[0][0] + i * gap, background_rois_row) for i in range(4)]
 
-        else:  # phase encoding is top-down i.e. increases with rows (y-axis)
+        else: # dcm.InPlanePhaseEncodingDirection == 'ROW':
+            # phase encoding is top-down i.e. increases with rows (y-axis)
             if signal_centre[0] < dcm.Columns * 0.5:  # phantom is in left half of image
                 background_rois_column = round(dcm.Columns * 0.75)  # in the right quadrant
             else:  # phantom is right half of image
@@ -166,7 +168,7 @@ class Ghosting(HazenTask):
                               np.newaxis], np.array(
                     range(upper_row, lower_row))
 
-        else:
+        else: # dcm.InPlanePhaseEncodingDirection == 'COL':
             if upper_row < dcm.Rows / 2:
                 # signal is in top half
                 eligible_rows = range(lower_row + padding_from_box, dcm.Rows - slice_radius)
@@ -203,6 +205,7 @@ class Ghosting(HazenTask):
         slice_radius = int(10 // (2 * x))
 
         signal_centre = [(bbox[0] + bbox[1]) // 2, (bbox[2] + bbox[3]) // 2]
+        # TODO find equivalent of get_object_centre
         background_rois = self.get_background_rois(dcm, signal_centre)
         ghost_col, ghost_row = self.get_ghost_slice(bbox, dcm, slice_radius=slice_radius)
         ghost = dcm.pixel_array[(ghost_col, ghost_row)]

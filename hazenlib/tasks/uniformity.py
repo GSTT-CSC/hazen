@@ -102,7 +102,7 @@ class Uniformity(HazenTask):
         identifies the centre coords of a rectangle or circle.
 
         Args:
-            dcm (DICOM): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object
 
         Raises:
             Exception: checks for the orientation of the object
