@@ -26,26 +26,50 @@ from hazenlib.logger import logger
 
 
 class SNR(HazenTask):
+    """Task to measure signal to noise ratio using a MagNET phantom
+    Optional arguments: measured slice width
+
+    Args:
+        HazenTask: inherits from the HazenTask class
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def run(self, measured_slice_width=None) -> dict:
+        """Main function to run task with specified args
+
+        Returns:
+            results (dict): dictionary of task - value pair and optionally
+                        an images key with value listing image paths
+        """
         results = {}
-        snr_results = {}
         # SUBTRACTION METHOD (when exactly 2 images are provided)
         if len(self.data) == 2:
-            snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
-            snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-            snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+            dcm1 = self.data[0]
+            dcm2 = self.data[1]
+            logger.info("Calculating SNR by subtraction for images {} and {}".format(
+                self.key(dcm1), self.key(dcm2)
+            ))
+            snr = self.snr_by_subtraction(dcm1, dcm2, measured_slice_width)
+            normalised_snr = self.get_normalised_snr(snr, dcm1, measured_slice_width)
+            results["SNR by subtraction"] = {"files": [self.key(dcm1), self.key(dcm2)]}
+            results["SNR by subtraction"]["measured"] = round(snr, 2)
+            results["SNR by subtraction"]["normalised"] = round(normalised_snr, 2)
 
+        results["SNR by smoothing"] = {}
         # SMOOTHING METHOD (one image at a time)
-        for idx, dcm in enumerate(self.data):
-            snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
-            snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
-            snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
+        for dcm in self.data:
+            logger.info("Calculating SNR by smoothing for image {}".format(
+                self.key(dcm)
+            ))
+            snr_results = {}
+            snr = self.snr_by_smoothing(dcm, measured_slice_width)
+            normalised_snr = self.get_normalised_snr(snr, dcm, measured_slice_width)
+            snr_results["measured"] = round(snr, 2)
+            snr_results["normalised"] = round(normalised_snr, 2)
 
-        results = {self.key(self.data[0]): snr_results}
+            results["SNR by smoothing"][self.key(dcm)] = snr_results
 
         # only return reports if requested
         if self.report:
@@ -73,22 +97,21 @@ class SNR(HazenTask):
                 return False
         return True
 
-    def get_normalised_snr_factor(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
-
-        """
-        Calculates SNR normalisation factor. Method matches MATLAB script.
-        Utilises user provided slice_width if provided. Else finds from dcm.
+    def get_normalised_snr(self, snr, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+        """Calculates normalised SNR, based on a normalisation factor
+        calculated following a method that matches MATLAB script.
+        Utilises measured_slice_width if provided. Else finds from dcm.
         Finds dx, dy and bandwidth from dcm.
         Seeks to find TR, image columns and rows from dcm. Else uses default values.
 
-        Parameters
-        ----------
-        dcm, measured_slice_width
+        Args:
+            snr (float): calculated SNR
+            dcm (pydicom.Dataset): DICOM image object
+            measured_slice_width (float, optional): measured slice width to be
+                used in the calculation, defined in mm. Defaults to None.
 
-        Returns
-        -------
-        normalised snr factor: float
-
+        Returns:
+            float: normalised SNR value
         """
 
         dx, dy = hazenlib.utils.get_pixel_size(dcm)
@@ -107,10 +130,11 @@ class SNR(HazenTask):
         voxel_factor = (1 / (0.001 * dx * dy * slice_thickness))
 
         normalised_snr_factor = bandwidth_factor * voxel_factor * (1 / (np.sqrt(averages * rows * (TR / 1000))))
+        normalised_snr = snr * normalised_snr_factor
 
-        return normalised_snr_factor
+        return normalised_snr
 
-    def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
+    def filtered_image(self, arr: np.ndarray) -> np.array:
         """
         Performs a 2D convolution (for filtering images)
         uses uniform_filter SciPy function
@@ -123,55 +147,49 @@ class SNR(HazenTask):
         ---------------
         filtered numpy array
         """
-        a = dcm.pixel_array.astype('int')
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
-        filtered_array = ndimage.uniform_filter(a, 25, mode='constant')
+        filtered_array = ndimage.uniform_filter(arr, 25, mode='constant')
         return filtered_array
 
-    def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
-        """
-        Separates the image noise by smoothing the image and subtracting the smoothed image
-        from the original.
+    def get_noise_image(self, arr: np.ndarray) -> np.array:
+        """Separates the image noise by smoothing the image and subtracting
+        the smoothed image from the original.
+        Convert image into pixel array from dcmread and .pixel_array
 
-        parameters:
-        ---------------
-        a: image array from dcmread and .pixelarray
+        Args:
+            arr (np.ndarray): pixel array
 
-        returns:
-        ---------------
-        Imnoise: image representing the image noise
+        Returns:
+            Imnoise (np.array): pixel array representing the image noise
         """
-        a = dcm.pixel_array.astype('int')
 
         # Convolve image with boxcar/uniform kernel
-        imsmoothed = self.filtered_image(dcm)
+        imsmoothed = self.filtered_image(arr)
 
         # Subtract smoothed array from original
-        imnoise = a - imsmoothed
+        imnoise = arr - imsmoothed
 
         return imnoise
 
-    def threshold_image(self, dcm: pydicom.Dataset):
+    def threshold_image(self, arr):
+        """Create threshold image (only when phantom could not be detected)
+        Convert image into pixel array from dcmread and .pixel_array
+        Apply a filter skimage.filters.threshold_li and return masked image
+
+        Args:
+            arr (dcm.pixel_array): DICOM image object
+
+        Returns:
+            imthresholded: thresholded image
+            mask: threshold mask
         """
-        Threshold images
-
-        parameters:
-        ---------------
-        a: image array from dcmread and .pixelarray
-
-        returns:
-        ---------------
-        imthresholded: thresholded image
-        mask: threshold mask
-        """
-        a = dcm.pixel_array.astype('int')
-
-        threshold_value = skimage.filters.threshold_li(a)  # threshold_li: Pixels > this value are assumed foreground
-        # print('threshold_value =', threshold_value)
-        mask = a > threshold_value
-        imthresholded = np.zeros_like(a)
-        imthresholded[mask] = a[mask]
+        # threshold_li: Pixels > this value are assumed foreground
+        threshold_value = skimage.filters.threshold_li(arr)
+        mask = arr > threshold_value
+        # Initialise array of zeros in shape of original image
+        imthresholded = np.zeros_like(arr)
+        imthresholded[mask] = arr[mask]
 
         # # For debugging: Threshold figures:
         # from matplotlib import pyplot as plt
@@ -186,21 +204,18 @@ class SNR(HazenTask):
         return imthresholded, mask
 
     def get_binary_mask_centre(self, binary_mask) -> (int, int):
-        """
-        Return centroid coordinates of binary polygonal shape
+        """Find centroid coordinates of binary polygonal shape
 
-        parameters:
-        ---------------
-        binary_mask: mask of a shape
+        Args:
+            binary_mask: mask of a shape
 
-        returns:
-        ---------------
-        centroid_coords: (col:int, row:int)
+        Returns:
+            tuple: centroid_coords (col:int, row:int)
         """
 
-        from skimage import util
+        from skimage.util import img_as_ubyte
         from skimage.measure import label, regionprops
-        img = util.img_as_ubyte(binary_mask) > 0
+        img = img_as_ubyte(binary_mask) > 0
         label_img = label(img, connectivity=img.ndim)
         props = regionprops(label_img)
         col = int(props[0].centroid[0])
@@ -209,56 +224,58 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def get_roi_samples(self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int) -> list:
+    def get_roi_samples(self, dcm: pydicom.Dataset or np.ndarray,
+                        centre_col: int, centre_row: int) -> list:
+        """Get pixel arrays for regions of interest
+
+        Args:
+            dcm (pydicom.Dataset or np.ndarray): original pixel array
+            centre_col (int): y coordinate of ROI centre
+            centre_row (int): x coordinate of ROI centre
+
+        Returns:
+            samples: list of pixel value arrays (subsets/ROI)
+        """
 
         if type(dcm) == np.ndarray:
             data = dcm
         else:
             data = dcm.pixel_array
 
-        sample = [None] * 5
         # for array indexing: [row, column] format
-        sample[0] = data[(centre_row - 10):(centre_row + 10), (centre_col - 10):(centre_col + 10)]
-        sample[1] = data[(centre_row - 50):(centre_row - 30), (centre_col - 50):(centre_col - 30)]
-        sample[2] = data[(centre_row + 30):(centre_row + 50), (centre_col - 50):(centre_col - 30)]
-        sample[3] = data[(centre_row - 50):(centre_row - 30), (centre_col + 30):(centre_col + 50)]
-        sample[4] = data[(centre_row + 30):(centre_row + 50), (centre_col + 30):(centre_col + 50)]
+        samples = [
+            data[(centre_row - 10):(centre_row + 10), (centre_col - 10):(centre_col + 10)],
+            data[(centre_row - 50):(centre_row - 30), (centre_col - 50):(centre_col - 30)],
+            data[(centre_row + 30):(centre_row + 50), (centre_col - 50):(centre_col - 30)],
+            data[(centre_row - 50):(centre_row - 30), (centre_col + 30):(centre_col + 50)],
+            data[(centre_row + 30):(centre_row + 50), (centre_col + 30):(centre_col + 50)]
+        ]
 
-        if ax:
-            from matplotlib.patches import Rectangle
-            from matplotlib.collections import PatchCollection
-            # for patches: [column/x, row/y] format
+        return samples
 
-            rects = [Rectangle((centre_col - 10, centre_row - 10), 20, 20),
-                     Rectangle((centre_col - 50, centre_row - 50), 20, 20),
-                     Rectangle((centre_col + 30, centre_row - 50), 20, 20),
-                     Rectangle((centre_col - 50, centre_row + 30), 20, 20),
-                     Rectangle((centre_col + 30, centre_row + 30), 20, 20)]
-            pc = PatchCollection(rects, edgecolors='red', facecolors="None", label='ROIs')
-            ax.add_collection(pc)
-
-        return sample
-
-    def get_object_centre(self, dcm) -> (int, int):
-        """
-        Find the phantom object within the image and returns its centre col and row value. Note first element in output = col, second = row.
+    def get_object_centre(self, dcm: pydicom.Dataset) -> (int, int):
+        """Find the phantom object within the image and return the coords of
+        its centre (col and row) values.
 
         Args:
-            dcm:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Raises:
+            e: _description_
+            exc.ShapeError: _description_
 
         Returns:
             centre: (col:int, row:int)
-
         """
-
         # Shape Detection
         try:
+            arr = dcm.pixel_array
             logger.debug('Performing phantom shape detection.')
-            shape_detector = hazenlib.utils.ShapeDetector(arr=dcm.pixel_array)
+            shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
             orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
 
             if orientation in ['Sagittal', 'Coronal']:
-                logger.debug('Orientation = sagittal or coronal.')
+                logger.debug('Orientation is sagittal or coronal.')
                 # orientation is sagittal to patient
                 try:
                     (col, row), size, angle = shape_detector.get_shape('rectangle')
@@ -274,7 +291,7 @@ class SNR(HazenTask):
                     # print(shape_detector.shapes.keys())
                     raise e
             elif orientation == 'Transverse':
-                logger.debug('Orientation = transverse.')
+                logger.debug('Orientation is transverse.')
                 try:
                     col, row, r = shape_detector.get_shape('circle')
                 except exc.MultipleShapesError:
@@ -285,46 +302,44 @@ class SNR(HazenTask):
 
         # Threshold Detection
         except exc.ShapeError:
+            arr = dcm.pixel_array # .astype('int')
             logger.info('Shape detection failed. Performing object centre measurement by thresholding.')
-            _, mask = self.threshold_image(dcm)
+            _, mask = self.threshold_image(arr)
             row, col = self.get_binary_mask_centre(mask)
 
         return int(col), int(row)
 
-    def snr_by_smoothing(self, dcm: pydicom.Dataset,
-                            measured_slice_width=None) -> float:
+    def snr_by_smoothing(self, dcm: pydicom.Dataset) -> float:
+        """Calculate signal to noise ratio by subtraction
+
+        Args:
+            dcm1 (pydicom.Dataset): image 1
+            dcm2 (pydicom.Dataset): image 2
+
+        Returns:
+            tuple: measured and normalised SNR values (float)
         """
+        arr = dcm.pixel_array # .astype('int')
 
-        Parameters
-        ----------
-        dcm
-        measured_slice_width
-
-        Returns
-        -------
-        normalised_snr: float
-
-        """
         col, row = self.get_object_centre(dcm=dcm)
-        noise_img = self.get_noise_image(dcm=dcm)
+        noise_img = self.get_noise_image(arr)
 
         signal = [np.mean(roi) for roi in self.get_roi_samples(
-                    ax=None, dcm=dcm, centre_col=col, centre_row=row)
+                    dcm=dcm, centre_col=col, centre_row=row)
                 ]
 
         noise = [np.std(roi, ddof=1) for roi in self.get_roi_samples(
-                    ax=None, dcm=noise_img, centre_col=col, centre_row=row)
+                    dcm=noise_img, centre_col=col, centre_row=row)
                 ]
         # note no root_2 factor in noise for smoothed subtraction (one image) method,
         # replicating Matlab approach and McCann 2013
 
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(
-                                        dcm, measured_slice_width)
-
         if self.report:
             import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+            from matplotlib.collections import PatchCollection
             fig, axes = plt.subplots(1, 1)
             fig.set_size_inches(5, 5)
             fig.tight_layout(pad=1)
@@ -332,7 +347,13 @@ class SNR(HazenTask):
             axes.set_title('smoothed noise image')
             axes.imshow(noise_img, cmap='gray', label='smoothed noise image')
             axes.scatter(col, row, 10, marker="+", label='centre')
-            self.get_roi_samples(axes, dcm, col, row)
+            rects = [Rectangle((col - 10, row - 10), 20, 20),
+                     Rectangle((col - 50, row - 50), 20, 20),
+                     Rectangle((col + 30, row - 50), 20, 20),
+                     Rectangle((col - 50, row + 30), 20, 20),
+                     Rectangle((col + 30, row + 30), 20, 20)]
+            pc = PatchCollection(rects, edgecolors='red', facecolors="None", label='ROIs')
+            axes.add_collection(pc)
             axes.legend()
 
             img_path = os.path.realpath(os.path.join(self.report_path,
@@ -340,7 +361,7 @@ class SNR(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return snr, normalised_snr
+        return snr
 
     def get_largest_circle(self, circles):
         largest_r = 0
@@ -353,40 +374,36 @@ class SNR(HazenTask):
 
         return largest_col, largest_row, largest_r
 
-    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset,
-                            measured_slice_width=None) -> float:
-        """
+    def snr_by_subtraction(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> (float, float):
+        """Calculate signal to noise ratio by subtraction
 
-        Parameters
-        ----------
-        dcm1
-        dcm2
-        measured_slice_width
+        Args:
+            dcm1 (pydicom.Dataset): image 1
+            dcm2 (pydicom.Dataset): image 2
 
-        Returns
-        -------
-
+        Returns:
+            tuple: measured and normalised SNR values (float)
         """
         col, row = self.get_object_centre(dcm=dcm1)
 
         difference = np.subtract(
             dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int')
             )
+        # TODO losing accuracy by converting pixel values to int
 
         signal = [np.mean(roi) for roi in self.get_roi_samples(
-                    ax=None, dcm=dcm1, centre_col=col, centre_row=row)
+                    dcm=dcm1, centre_col=col, centre_row=row)
                 ]
         noise = np.divide(
                     [np.std(roi, ddof=1) for roi in self.get_roi_samples(
-                        ax=None, dcm=difference, centre_col=col, centre_row=row
+                        dcm=difference, centre_col=col, centre_row=row
                     )], np.sqrt(2))
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(
-                                        dcm1, measured_slice_width)
-
         if self.report:
             import matplotlib.pyplot as plt
+            from matplotlib.patches import Rectangle
+            from matplotlib.collections import PatchCollection
             fig, axes = plt.subplots(1, 1)
             fig.set_size_inches(5, 5)
             fig.tight_layout(pad=1)
@@ -394,12 +411,20 @@ class SNR(HazenTask):
             axes.set_title('difference image')
             axes.imshow(difference, cmap='gray', label='difference image')
             axes.scatter(col, row, 10, marker="+", label='centre')
-            self.get_roi_samples(axes, dcm1, col, row)
+            # for patches: [column/x, row/y] format
+
+            rects = [Rectangle((col - 10, row - 10), 20, 20),
+                     Rectangle((col - 50, row - 50), 20, 20),
+                     Rectangle((col + 30, row - 50), 20, 20),
+                     Rectangle((col - 50, row + 30), 20, 20),
+                     Rectangle((col + 30, row + 30), 20, 20)]
+            pc = PatchCollection(rects, edgecolors='red', facecolors="None", label='ROIs')
+            axes.add_collection(pc)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path,
-                            f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_name = f'{self.key(dcm1)}_snr_subtraction.png'
+            img_path = os.path.realpath(os.path.join(self.report_path, img_name))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return snr, normalised_snr
+        return snr
