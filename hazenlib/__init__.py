@@ -167,7 +167,7 @@ def main():
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-    report = arguments['--report'],
+    report = arguments['--report']
     report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
                 os.getcwd(), 'report')
 
