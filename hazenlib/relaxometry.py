@@ -121,7 +121,6 @@ calculation of mean if elements are not 0 or 1.
 Get r-squared measure of fit.
 
 """
-import sys
 import json
 import os.path
 import pathlib
@@ -137,7 +136,7 @@ from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
 import hazenlib.exceptions
-from hazenlib.config import MAX_RICIAN_NOISE, SEED_RICIAN_NOISE, TEMPLATE_VALUES
+from hazenlib.config import MAX_RICIAN_NOISE, SEED_RICIAN_NOISE, TEMPLATE_VALUES, SMOOTH_TIMES
 
 # Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches 
@@ -467,7 +466,6 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
-
 
 
 class ROITimeSeries:
@@ -1015,9 +1013,8 @@ class T2ImageStack(ImageStack):
         return self.t2s
 
 
-def main(dcm_target_list, plate_number=None,
-         calc: str = 'T1', verbose=False,
-         report=False, report_dir=None):
+def main(data, plate_number=None, calc: str = 'T1', verbose=False,
+            report=False, report_dir=None):
     """
     Calculate T1 or T2 values for relaxometry phantom.
 
@@ -1025,7 +1022,7 @@ def main(dcm_target_list, plate_number=None,
 
     Parameters
     ----------
-    dcm_target_list : list of pydicom.dataset.FileDataSet objects
+    data : list of pydicom.dataset.FileDataSet objects
         List of DICOM images of a plate of the HPD relaxometry phantom.
     calc : str, required
         Whether to calculate T1 or T2 relaxation. Default is T1.
@@ -1073,8 +1070,7 @@ def main(dcm_target_list, plate_number=None,
     # Set up parameters specific to T1 or T2
     if calc in ['T1', 't1']:
         ImStack = T1ImageStack
-        relax_str = 't1'
-        smooth_times = range(0, 1000, 10)
+        relax_str = calc.lower()
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -1085,8 +1081,7 @@ def main(dcm_target_list, plate_number=None,
 
     elif calc in ['T2', 't2']:
         ImStack = T2ImageStack
-        relax_str = 't2'
-        smooth_times = range(0, 500, 5)
+        relax_str = calc.lower()
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -1096,9 +1091,9 @@ def main(dcm_target_list, plate_number=None,
             exit()
     else:
         print("Please provide 'T1' or 'T2' for the --calc argument.")
-        sys.exit()
+        exit()
 
-    image_stack = ImStack(dcm_target_list, template_dcm)
+    image_stack = ImStack(data, template_dcm)
     image_stack.template_fit()
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{plate_number}']
@@ -1142,7 +1137,7 @@ def main(dcm_target_list, plate_number=None,
 
         # Show ROIs
         roi_fig = image_stack.plot_rois()
-        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
+        plt.title(f'ROI positions ({calc.upper()}, plate {plate_number})')
         roi_img = f'{img_path}_rois.png'
         roi_fig.savefig(roi_img, dpi=300)
         report_files['rois'] = roi_img
@@ -1150,7 +1145,8 @@ def main(dcm_target_list, plate_number=None,
         # Show relax fits
         rois = image_stack.ROI_time_series
         relax_fit_fig = plt.figure()
-        relax_fit_fig.suptitle(relax_str.upper() + ' relaxometry fits')
+        relax_fit_fig.suptitle(calc.upper() + ' relaxometry fits')
+        smooth_times = SMOOTH_TIMES[relax_str]
         for i in range(15):
             plt.subplot(5, 3, i + 1)
             plt.plot(smooth_times,
@@ -1182,7 +1178,7 @@ def main(dcm_target_list, plate_number=None,
         metadata = dict(
             files=[im.filename for im in image_stack.images],
             plate=plate_number,
-            relaxation_type=relax_str,
+            relaxation_type=calc.upper(),
             institution_name=index_im.InstitutionName,
             manufacturer=index_im.Manufacturer,
             model=index_im.ManufacturerModelName,
