@@ -317,8 +317,7 @@ class TestRelaxometry(unittest.TestCase):
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         t1_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
-                                                        template_dcm,
-                                                        plate_number=5)
+                                                        template_dcm)
         t1_image_stack.template_fit()
 
         transformed_coordinates_xy = hazen_relaxometry.transform_coords(
@@ -552,8 +551,7 @@ class TestRelaxometry(unittest.TestCase):
 
         target_dcm = pydicom.dcmread(self.PATH_256_MATRIX)
         t1_image_stack = hazen_relaxometry.T1ImageStack([target_dcm],
-                                                        template_dcm,
-                                                        plate_number=4)
+                                                        template_dcm)
         t1_image_stack.template_fit()
 
         transformed_coordinates_xy = hazen_relaxometry.transform_coords(
@@ -590,11 +588,6 @@ class TestRelaxometry(unittest.TestCase):
         """Test exception raised if plate_number not specified."""
         self.assertRaises(ArgumentCombinationError,
                           hazen_relaxometry.main, [], calc_t1=True)
-
-    def test_rms(self):
-        """Test rms calculated correctly."""
-        self.assertAlmostEqual(hazen_relaxometry.rms([i for i in range(10)]),
-                               5.338539126015656)
 
     def test_philips_3T(self):
         """Test calculation on 3T dataset."""
