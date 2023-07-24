@@ -6,9 +6,9 @@ Introduction
 
 This module determines the T1 and T2 decay constants for the relaxometry
 spheres in the Caliber (HPD) system phantom
-qmri.com/qmri-solutions/t1-t2-pd-imaging-phantom (plates 4 and 5). Values are
-compared to published values (without temperature correction). Graphs of fit
-and phantom registration images can optionally be produced.
+qmri.com/qmri-solutions/t1-t2-pd-imaging-phantom (plates 4 and 5).
+Values are compared to published values (without temperature correction).
+Graphs of fit and phantom registration images can optionally be produced.
 
 
 Scan parameters
@@ -81,10 +81,9 @@ Algorithm overview
     each relaxation parameter (T1 or T2) on plates 4 and 5, and regression
     is performed on the first image in the sequence. Optionally output the
     overlay image to visually check the fit.
-3. An ROI is generated for each target sphere using stored coordinates, the
-    RT transformation above, and a structuring element (default is a 5x5
-    boxcar).
-4. Store pixel data for each ROI, at various times, in an ``ROITimeSeries``
+3. A ROI is generated for each target sphere using stored coordinates, the RT
+    transformation above, and a structuring element (default is a 5x5 boxcar).
+4. Store pixel data for each ROI at various times, in an ``ROITimeSeries``
     object. A list of these objects is stored in 
     ``ImageStack.ROI_time_series``.
 5. Generate the fit function. For T1 this looks up TR for the given TI 
@@ -93,7 +92,7 @@ Algorithm overview
     measurements.
 6. Determine relaxation time (T1 or T2) by fitting the decay equation to
     the ROI data for each sphere. The published values of the relaxation
-    times are used to seed the optimisation algorithm. A Rician nose model is
+    times are used to seed the optimisation algorithm. A Rician noise model is
     used for T2 fitting [1]_. Optionally plot and save the decay curves.
 7. Return plate number, relaxation type (T1 or T2), measured relaxation
     times, published relaxation times, and fractional differences in a
@@ -113,8 +112,8 @@ Template fit on bolt holes--possibly better with large rotation angles
     -have bolthole template, find 3 positions in template and image, figure out
     transformation.
 
-Template fit on outline image--poss run though edge detection algorithms then
-fit.
+Template fit on outline image--possibly run though edge detection algorithms
+then fit.
 
 Use normalised structuring element in ROITimeSeries. This will allow correct
 calculation of mean if elements are not 0 or 1.
@@ -122,9 +121,9 @@ calculation of mean if elements are not 0 or 1.
 Get r-squared measure of fit.
 
 """
-import os.path
 import sys
 import json
+import os.path
 import pathlib
 
 import cv2 as cv
