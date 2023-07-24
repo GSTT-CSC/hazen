@@ -491,7 +491,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
                 for fname in self.SITE4_T1_P4_FILES]
         t1_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc_t1=True, verbose=True)
+                                            calc="T1", verbose=True)
         # `t1_results` is a dict with one item where we don't know the key.
         # Need to extract via unpacking
         results, = t1_results.values()
@@ -504,7 +504,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
                 for fname in self.SITE4_T1_P5_FILES]
         t1_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc_t1=True, verbose=True)
+                                            calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T1_P5,
@@ -515,7 +515,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
                 for fname in self.SITE4_T2_P4_FILES]
         t2_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc_t2=True, verbose=True)
+                                            calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P4,
@@ -526,7 +526,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
                 for fname in self.SITE4_T2_P5_FILES]
         t2_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc_t2=True, verbose=True)
+                                            calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P5,
@@ -556,16 +556,12 @@ class TestRelaxometry(unittest.TestCase):
         """Test relaxometry.py values on GE."""
         for plate in (4, 5):
             for tparam in ('T1', 'T2'):
-                calc_t1 = tparam == 'T1'
-                calc_t2 = tparam == 'T2'
                 dcms = [pydicom.dcmread(os.path.join(
                     getattr(self, f'SITE3_{tparam}_P{plate}_DIR'), fname))
                     for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
 
                 t_results = hazen_relaxometry.main(dcms, plate_number=plate,
-                                                   calc_t2=calc_t2,
-                                                   calc_t1=calc_t1,
-                                                   verbose=True)
+                                                 calc = tparam, verbose=True)
                 results, = t_results.values()
                 np.testing.assert_allclose(
                     results['calc_times'],
@@ -575,7 +571,7 @@ class TestRelaxometry(unittest.TestCase):
     def test_plate_number_not_specified(self):
         """Test exception raised if plate_number not specified."""
         self.assertRaises(ArgumentCombinationError,
-                          hazen_relaxometry.main, [], calc_t1=True)
+                          hazen_relaxometry.main, [], calc="T1")
 
     def test_philips_3T(self):
         """Test calculation on 3T dataset."""
@@ -584,7 +580,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P4_DIR, fname))
                 for fname in self.SITE5_T1_P4_FILES]
         t1_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc_t1=True, verbose=True)
+                                            calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T1_P4,
@@ -594,7 +590,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P5_DIR, fname))
                 for fname in self.SITE5_T1_P5_FILES]
         t1_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc_t1=True, verbose=True)
+                                            calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T1_P5,
@@ -604,7 +600,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P4_DIR, fname))
                 for fname in self.SITE5_T2_P4_FILES]
         t2_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc_t2=True, verbose=True)
+                                            calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P4,
@@ -614,7 +610,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
                 for fname in self.SITE5_T2_P5_FILES]
         t2_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc_t2=True, verbose=True)
+                                            calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P5,
