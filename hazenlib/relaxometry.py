@@ -313,8 +313,8 @@ def transform_coords(coords, rt_matrix, input_row_col=True,
     if input_row_col:  # convert to col_row (xy) format
         in_coords = np.flip(in_coords, axis=1)
 
-    out_coords = cv.transform(np.array([in_coords]), rt_matrix)
-    out_coords = out_coords[0]  # reduce to two dimensions
+    out_coords = cv.transform(np.array([in_coords]), rt_matrix)[0]  # reduce to two dimensions
+    # out_coords = out_coords
 
     if output_row_col:
         out_coords = np.flip(out_coords, axis=1)
@@ -322,7 +322,7 @@ def transform_coords(coords, rt_matrix, input_row_col=True,
     return out_coords
 
 
-def pixel_rescale(dcmfile):
+def pixel_rescale(dcm):
     """
     Transforms pixel values according to scale values in DICOM header.
     
@@ -336,13 +336,13 @@ def pixel_rescale(dcmfile):
 
     Parameters
     ----------
-    dcmfile : Pydicom.dataset.FileDataset
+    dcm : Pydicom.dataset.FileDataset
         DICOM file containing one image.
 
     Returns
     -------
     numpy.array
-        Values in ``dcmfile.pixel_array`` transformed using DICOM scaling.
+        Values in ``dcm.pixel_array`` transformed using DICOM scaling.
 
     References
     ----------
@@ -352,14 +352,14 @@ def pixel_rescale(dcmfile):
 
     """
     # Check for Philips
-    if dcmfile.Manufacturer.startswith('Philips'):
-        ss = dcmfile['2005100e'].value  # Scale slope
-        si = dcmfile['2005100d'].value  # Scale intercept
+    if dcm.Manufacturer.startswith('Philips'):
+        ss = dcm['2005100e'].value  # Scale slope
+        si = dcm['2005100d'].value  # Scale intercept
 
-        return (dcmfile.pixel_array - si) / ss
+        return (dcm.pixel_array - si) / ss
     else:
         return pydicom.pixel_data_handlers.util.apply_modality_lut(
-            dcmfile.pixel_array, dcmfile)
+            dcm.pixel_array, dcm)
 
 
 def generate_t1_function(ti_interp_vals, tr_interp_vals, mag_image=False):
@@ -502,7 +502,6 @@ def t2_function(te, t2, s0, c):
     Resonance in Medicine, 63(1), pp.181-193.
     """
 
-    s0 = s0
     alpha = (s0 / (2 * c) * np.exp(-te / t2)) **2
     # NB need to use `i0e` and `ive` below to avoid numeric inaccuracy from
     # multiplying by huge exponentials then dividing by the same exponential
@@ -537,23 +536,7 @@ def est_t2_s0(te, t2, pv, c=0.0):
 
     """
     return (pv - c) / np.exp(-te / t2)
-    
-    
-def rms(arr):
-    """
-    Calculate RMS of an array.
 
-    Parameters
-    ----------
-    arr : array_like
-         Input array
-
-    Returns
-    -------
-    rms : float
-        sqrt(mean(square(arr)))
-    """
-    return np.sqrt(np.mean(np.square(arr)))
 
 
 class ROITimeSeries:
@@ -1182,7 +1165,7 @@ def main(dcm_target_list, *, plate_number=None,
         smooth_times = range(0, 1000, 10)
         try:
             template_dcm = pydicom.read_file(
-                TEMPLATE_VALUES[f'plate{plate_number}']['t1']['filename'])
+                TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
         except KeyError:
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
@@ -1194,7 +1177,7 @@ def main(dcm_target_list, *, plate_number=None,
         smooth_times = range(0, 500, 5)
         try:
             template_dcm = pydicom.read_file(
-                TEMPLATE_VALUES[f'plate{plate_number}']['t2']['filename'])
+                TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
         except KeyError:
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
@@ -1208,6 +1191,13 @@ def main(dcm_target_list, *, plate_number=None,
         TEMPLATE_VALUES[f'plate{image_stack.plate_number}']
         ['sphere_centres_row_col'])
     image_stack.generate_fit_function()
+
+    # if report:
+    #     import matplotlib.pyplot as plt
+    #     fig, axes = plt.subplots(3, 1)
+    #     fig.set_size_inches(5, 36)
+    #     fig.tight_layout(pad=4)
+
 
     if show_template_fit:
         fig = image_stack.plot_fit()
@@ -1276,7 +1266,9 @@ def main(dcm_target_list, *, plate_number=None,
     # Generate output dict
     index_im = image_stack.images[0]
     # last value is for background water. Strip before calculating RMS frac error
-    output = {'rms_frac_time_difference' : rms(frac_time_diff[:-1])}
+    frac_time = frac_time_diff[:-1]
+    RMS_frac_error = np.sqrt(np.mean(np.square(frac_time)))
+    output = {'rms_frac_time_difference' : RMS_frac_error}
     if verbose:
         output.update(dict(plate=image_stack.plate_number,
                       relaxation_type=relax_str,
@@ -1295,7 +1287,7 @@ def main(dcm_target_list, *, plate_number=None,
             'TE': [im.EchoTime for im in image_stack.images],
             'TR': [im.RepetitionTime for im in image_stack.images],
             'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
-                   for im in image_stack.images],
+                    for im in image_stack.images],
             # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
             # fit_parameters (T2) = [[T2, s0, C] for each ROI]
             'fit_parameters': [param[0] for param in image_stack.relax_fit],
@@ -1307,5 +1299,5 @@ def main(dcm_target_list, *, plate_number=None,
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
                  f"P{image_stack.plate_number}_{relax_str}"
 
-    plt.show()
+    # plt.show()
     return {output_key: output}
