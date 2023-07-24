@@ -478,8 +478,8 @@ class TestRelaxometry(unittest.TestCase):
         """Test T1 values on Siemens images."""
         dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in
                 self.T1_FILES]
-        t1_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc="T1", verbose=True)
+        t1_results = hazen_relaxometry.main(dcms, plate_number=5, calc="T1",
+                                verbose=True, report_dir="report/relaxometry/")
         # `t1_results` is a dict with one item where we don't know the key.
         # Need to extract via unpacking
         results, = t1_results.values()
@@ -490,8 +490,8 @@ class TestRelaxometry(unittest.TestCase):
         """Test T1 values on plate 4 on Philips."""
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
                 for fname in self.SITE4_T1_P4_FILES]
-        t1_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc="T1", verbose=True)
+        t1_results = hazen_relaxometry.main(dcms, plate_number=4, calc="T1",
+                                verbose=True, report_dir="report/relaxometry/")
         # `t1_results` is a dict with one item where we don't know the key.
         # Need to extract via unpacking
         results, = t1_results.values()
@@ -503,8 +503,8 @@ class TestRelaxometry(unittest.TestCase):
         """Test T1 values on plate 5 on Philips."""
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
                 for fname in self.SITE4_T1_P5_FILES]
-        t1_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc="T1", verbose=True)
+        t1_results = hazen_relaxometry.main(dcms, plate_number=5, calc="T1",
+                                verbose=True, report_dir="report/relaxometry/")
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T1_P5,
@@ -514,8 +514,8 @@ class TestRelaxometry(unittest.TestCase):
         """Test T2 values on plate 4 on Philips."""
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
                 for fname in self.SITE4_T2_P4_FILES]
-        t2_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc="T2", verbose=True)
+        t2_results = hazen_relaxometry.main(dcms, plate_number=4, calc="T2",
+                               verbose=True, report_dir="report/relaxometry/")
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P4,
@@ -525,8 +525,8 @@ class TestRelaxometry(unittest.TestCase):
         """Test T2 values on plate 4 on Philips."""
         dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
                 for fname in self.SITE4_T2_P5_FILES]
-        t2_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc="T2", verbose=True)
+        t2_results = hazen_relaxometry.main(dcms, plate_number=5, calc="T2",
+                               verbose=True, report_dir="report/relaxometry/")
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P5,
@@ -561,7 +561,8 @@ class TestRelaxometry(unittest.TestCase):
                     for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
 
                 t_results = hazen_relaxometry.main(dcms, plate_number=plate,
-                                                 calc = tparam, verbose=True)
+                                calc = tparam, verbose=True,
+                                report_dir="report/relaxometry/")
                 results, = t_results.values()
                 np.testing.assert_allclose(
                     results['calc_times'],
@@ -579,8 +580,8 @@ class TestRelaxometry(unittest.TestCase):
         # T1 plate 4
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P4_DIR, fname))
                 for fname in self.SITE5_T1_P4_FILES]
-        t1_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc="T1", verbose=True)
+        t1_results = hazen_relaxometry.main(dcms, plate_number=4, calc="T1",
+                                verbose=True, report_dir="report/relaxometry/")
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T1_P4,
@@ -589,8 +590,8 @@ class TestRelaxometry(unittest.TestCase):
         # T1 plate 5
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P5_DIR, fname))
                 for fname in self.SITE5_T1_P5_FILES]
-        t1_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc="T1", verbose=True)
+        t1_results = hazen_relaxometry.main(dcms, plate_number=5, calc="T1",
+                                verbose=True, report_dir="report/relaxometry/")
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T1_P5,
@@ -599,8 +600,8 @@ class TestRelaxometry(unittest.TestCase):
         # T2 plate 4
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P4_DIR, fname))
                 for fname in self.SITE5_T2_P4_FILES]
-        t2_results = hazen_relaxometry.main(dcms, plate_number=4,
-                                            calc="T2", verbose=True)
+        t2_results = hazen_relaxometry.main(dcms, plate_number=4, calc="T2",
+                                verbose=True, report_dir="report/relaxometry/")
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P4,
@@ -609,8 +610,8 @@ class TestRelaxometry(unittest.TestCase):
         # T2 plate 5
         dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
                 for fname in self.SITE5_T2_P5_FILES]
-        t2_results = hazen_relaxometry.main(dcms, plate_number=5,
-                                            calc="T2", verbose=True)
+        t2_results = hazen_relaxometry.main(dcms, plate_number=5, calc="T2",
+                                verbose=True, report_dir="report/relaxometry/")
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P5,
