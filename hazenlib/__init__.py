@@ -79,8 +79,8 @@ acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | ac
 
 Usage:
     hazen <task> <folder> [options]
-    hazen acr_snr <folder> [acr_snr-options] [options]
     hazen snr <folder> [--measured_slice_width=<mm>] [options]
+    hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
     hazen relaxometry <folder> (--calc_t1 | --calc_t2) --plate_number=<n> [relaxometry-options] [options]
 
     hazen -h|--help
@@ -96,7 +96,9 @@ ACR_SNR task options:
     --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
 
 Relaxometry task options:
-    --verbose                    Whether to provide additional metadata about the calculation in the result.
+    (--calc_t1 | --calc_t2)      Whether to measure T1 or T2 relaxometry (required)
+    --plate_number=<n>           Which plate to use for measurement (required)
+    --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
     --show_rois                  Whether to show the selected regions of interest - only available in Jupyter.
     --show_template_fit          Whether to show the template fit diagram - only available in Jupyter.
     --show_relax_fits            Whether to show the relax fit diagrams - only available in Jupyter.
@@ -176,18 +178,18 @@ def main():
                 os.getcwd(), 'report')
 
     # Parse the task and optional arguments:
-    if arguments['<task>'] == 'snr':
+    if arguments['snr'] or arguments['<task>'] == 'snr':
         selected_task = 'snr'
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
                 measured_slice_width = arguments['--measured_slice_width'])
-    elif arguments['<task>'] == 'acr_snr':
+    elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
         selected_task = 'acr_snr'
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
                 subtract = arguments['--subtract'],
                 measured_slice_width = arguments['--measured_slice_width'])
-    elif arguments['relaxometry']: # == 'relaxometry'
+    elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
         # TODO: Refactor Relaxometry task into HazenTask object
         #  - Relaxometry not currently converted to HazenTask object
         #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
