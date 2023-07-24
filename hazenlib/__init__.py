@@ -99,9 +99,6 @@ Relaxometry task options:
     (--calc_t1 | --calc_t2)      Whether to measure T1 or T2 relaxometry (required)
     --plate_number=<n>           Which plate to use for measurement (required)
     --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
-    --show_rois                  Whether to show the selected regions of interest - only available in Jupyter.
-    --show_template_fit          Whether to show the template fit diagram - only available in Jupyter.
-    --show_relax_fits            Whether to show the relax fit diagrams - only available in Jupyter.
 """
 
 
@@ -119,12 +116,11 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects, report_path):
+def parse_relaxometry_data(task, arguments, dicom_objects, report_dir):
 
     # Relaxometry arguments
     relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
+                            '--report', '--verbose'}
 
     # Pass arguments with dictionary, stripping initial double dash ('--')
     relaxometry_args = {}
@@ -132,7 +128,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report_path):
     for key in relaxometry_cli_args:
         relaxometry_args[key[2:]] = arguments[key]
 
-    return task.main(dicom_objects, report_path=report_path,
+    return task.main(dicom_objects, report_dir=report_dir,
                      **relaxometry_args)
 
 

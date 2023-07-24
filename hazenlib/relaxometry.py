@@ -1085,11 +1085,11 @@ class T2ImageStack(ImageStack):
 
 
 def main(dcm_target_list, *, plate_number=None,
-         show_template_fit=False, show_relax_fits=False, calc_t1=False,
-         calc_t2=False, report_path=False, show_rois=False, verbose=False):
+         report=False, calc_t1=False,
+         calc_t2=False, report_dir=False, verbose=False):
     """
     Calculate T1 or T2 values for relaxometry phantom.
-    
+
     Note: either ``calc_t1`` or ``calc_t2`` (but not both) must be True.
 
     Parameters
@@ -1098,23 +1098,14 @@ def main(dcm_target_list, *, plate_number=None,
         List of DICOM images of a plate of the HPD relaxometry phantom.
     plate_number : int
         Plate number of the HPD relaxometry phantom (either 4 or 5)
-    show_template_fit : bool, optional
-        If True, displays images to show template fitting and ROIs. The 
-        default is False.
-    show_relax_fits : bool, optional
-        If True, displays graphs to show relaxometry fitting. The  default
-        is False.
-    show_rois : bool, optional
-        If True, display original image with ROIs overlaid. The default is
-        False
     calc_t1 : bool, optional
         Calculate T1. The default is False.
     calc_t2 : bool, optional
         Calculate T2. The default is False.
-    report_path : path, optional
-        If a valid file root, save template_fit images and relax_fit graphs.
-        These must first have been generated with ``show_template_fit=True``
-        or ``show_relax_fit=True``. The default is False.
+    report : bool, optional
+        Whether to save images showing the measurement details
+    report_dir : path, optional
+        Folder path to save images to. The default is False.
     verbose : bool, optional
         Provide verbose output. If True, the following key / values will be
         added to the output dictionary:
@@ -1127,9 +1118,7 @@ def main(dcm_target_list, *, plate_number=None,
             manufacturer=index_im.Manufacturer,
             model=index_im.ManufacturerModelName,
             date=index_im.StudyDate,
-            output_graphics=output_files_path
             detailed_output : dict with extensive information
-
         The default is False.
 
     Returns
@@ -1182,44 +1171,12 @@ def main(dcm_target_list, *, plate_number=None,
                   f' Please pass plate number as arg.')
             exit()
 
-    output_files_path = {}  # save path to output files
     image_stack = ImStack(dcm_target_list, template_dcm)
     image_stack.template_fit()
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{plate_number}']
         ['sphere_centres_row_col'])
     image_stack.generate_fit_function()
-
-    # if report:
-    #     import matplotlib.pyplot as plt
-    #     fig, axes = plt.subplots(3, 1)
-    #     fig.set_size_inches(5, 36)
-    #     fig.tight_layout(pad=4)
-
-
-    if show_template_fit:
-        fig = image_stack.plot_fit()
-        if report_path:
-            old_dims = fig.get_size_inches()
-            # Improve saved image quality
-            fig.set_size_inches(24, 24)
-            save_path = f'{report_path}_template_fit.png'
-            for subplt in fig.get_axes():
-                subplt.title.set_fontsize(40)
-            fig.savefig(save_path, dpi=150)
-            output_files_path['template_fit'] = save_path
-            # Restore screen quality
-            for subplt in fig.get_axes():
-                subplt.title.set_fontsize('large')
-            fig.set_size_inches(old_dims)
-
-    if show_rois:
-        fig = image_stack.plot_rois()
-        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
-        if report_path:
-            save_path = f'{report_path}_rois.png'
-            fig.savefig(save_path, dpi=300)
-            output_files_path['rois'] = save_path
 
     relax_published = \
         TEMPLATE_VALUES [f'plate{plate_number}'][relax_str] \
@@ -1229,11 +1186,32 @@ def main(dcm_target_list, *, plate_number=None,
     frac_time_diff = (image_stack.relax_times - relax_published) \
                      / relax_published
 
-    if show_relax_fits:
-        rois = image_stack.ROI_time_series
-        fig = plt.figure()
-        fig.suptitle(relax_str.upper() + ' relaxometry fits')
 
+    report_dir = "report/relaxometry/relax"
+
+    if report:
+        report_files = {}  # save path to output files
+        # Show template fit
+        template_fit_fig = image_stack.plot_fit()
+        # Improve saved image quality
+        template_fit_fig.set_size_inches(24, 24)
+        for subplt in template_fit_fig.get_axes():
+            subplt.title.set_fontsize(40)
+        template_fit_img = f'{report_dir}_template_fit.png'
+        template_fit_fig.savefig(template_fit_img, dpi=150)
+        report_files['template_fit'] = template_fit_img
+
+        # Show ROIs
+        roi_fig = image_stack.plot_rois()
+        plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
+        roi_img = f'{report_dir}_rois.png'
+        roi_fig.savefig(roi_img, dpi=300)
+        report_files['rois'] = roi_img
+
+        # Show relax fits
+        rois = image_stack.ROI_time_series
+        relax_fit_fig = plt.figure()
+        relax_fit_fig.suptitle(relax_str.upper() + ' relaxometry fits')
         for i in range(15):
             plt.subplot(5, 3, i + 1)
             plt.plot(smooth_times,
@@ -1250,16 +1228,12 @@ def main(dcm_target_list, *, plate_number=None,
                           f'pub={relax_published[i]:.4g} '
                           f'({frac_time_diff[i] * 100:+.2f}%)',
                           fontsize=8)
-        if report_path:
-            # Improve saved image quality
-            old_dims = fig.get_size_inches()
-            fig.set_size_inches(9, 15)
-            plt.tight_layout(rect=(0, 0, 1, 0.97))
-            save_path = f'{report_path}_decay_graphs.png'
-            fig.savefig(save_path, dpi=300)
-            output_files_path['decay_graphs'] = save_path
-            # Restore screen quality
-            fig.set_size_inches(old_dims)
+        # Improve saved image quality
+        relax_fit_fig.set_size_inches(9, 15)
+        plt.tight_layout(rect=(0, 0, 1, 0.97))
+        relax_fit_img = f'{report_dir}_decay_graphs.png'
+        relax_fit_fig.savefig(relax_fit_img, dpi=300)
+        report_files['decay_graphs'] = relax_fit_img
 
     # Generate output dict
     index_im = image_stack.images[0]
@@ -1276,8 +1250,8 @@ def main(dcm_target_list, *, plate_number=None,
                       institution_name=index_im.InstitutionName,
                       manufacturer=index_im.Manufacturer,
                       model=index_im.ManufacturerModelName,
-                      date=index_im.StudyDate,
-                      output_graphics=output_files_path))
+                      date=index_im.StudyDate))
+        # , output_graphics=output_files_path
 
         detailed_output = {
             'filenames': [im.filename for im in image_stack.images],
