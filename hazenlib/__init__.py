@@ -72,34 +72,34 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 Welcome to the Hazen Command Line Interface
 Currently the below tasks are available:
-snr |snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry |
+- MagNET phantom:
+snr |snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
+- ACR phantom:
 acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting |  acr_geometric_accuracy
 
 Usage:
     hazen <task> <folder> [options]
     hazen acr_snr <folder> [acr_snr-options] [options]
-    hazen snr <folder> [snr-options] [options]
-    hazen relaxometry <folder> [--calc_t1 | --calc_t2] --plate_number=<n> [relaxometry-options] [options]
+    hazen snr <folder> [--measured_slice_width=<mm>] [options]
+    hazen relaxometry <folder> (--calc_t1 | --calc_t2) --plate_number=<n> [relaxometry-options] [options]
 
     hazen -h|--help
     hazen --version
 
-Options:
-    --report
-    --output=<path>
-    --log=<level>
+Options: available for all tasks
+    --report                     Whether to generate visualisation of the measurement steps.
+    --output=<path>              Provide a folder where report images are to be saved.
+    --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
 
-SNR-options:
-    --measured_slice_width=<mm>
+ACR_SNR task options:
+    --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM. Available for both snr and acr_snr tasks.
+    --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
 
-ACR_SNR-options:
-    --subtract=<folder2>
-
-Relaxometry-options:
-    --show_template_fit
-    --show_relax_fits
-    --show_rois
-    --verbose
+Relaxometry task options:
+    --verbose                    Whether to provide additional metadata about the calculation in the result.
+    --show_rois                  Whether to show the selected regions of interest - only available in Jupyter.
+    --show_template_fit          Whether to show the template fit diagram - only available in Jupyter.
+    --show_relax_fits            Whether to show the relax fit diagrams - only available in Jupyter.
 """
 
 
