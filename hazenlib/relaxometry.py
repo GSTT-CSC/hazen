@@ -124,6 +124,8 @@ Get r-squared measure of fit.
 """
 import os.path
 import sys
+import json
+import pathlib
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -1097,9 +1099,9 @@ def main(dcm_target_list, plate_number=None,
     ----------
     dcm_target_list : list of pydicom.dataset.FileDataSet objects
         List of DICOM images of a plate of the HPD relaxometry phantom.
-    calc : str
+    calc : str, required
         Whether to calculate T1 or T2 relaxation. Default is T1.
-    plate_number : int
+    plate_number : str, required
         Plate number of the HPD relaxometry phantom (either 4 or 5)
     report : bool, optional
         Whether to save images showing the measurement details
@@ -1175,33 +1177,45 @@ def main(dcm_target_list, plate_number=None,
         ['sphere_centres_row_col'])
     image_stack.generate_fit_function()
 
-    relax_published = \
-        TEMPLATE_VALUES [f'plate{plate_number}'][relax_str] \
+    # Published relaxation time for matching plate and T1/T2
+    relax_published = TEMPLATE_VALUES [f'plate{plate_number}'][relax_str] \
             ['relax_times'][image_stack.b0_str]
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
     frac_time_diff = (image_stack.relax_times - relax_published) \
                      / relax_published
+    # last value is for background water. Strip before calculating RMS frac error
+    frac_time = frac_time_diff[:-1]
+    RMS_frac_error = np.sqrt(np.mean(np.square(frac_time)))
 
+    # Generate output dict
+    index_im = image_stack.images[0]
+    output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
+                 f"P{plate_number}_{relax_str}"
 
-    report_dir = "report/relaxometry/relax"
+    relax_result = {'rms_frac_time_difference' : RMS_frac_error}
+
+    if report or verbose:
+        report_path = os.path.join(report_dir, 'relaxometry')
+        pathlib.Path(report_path).mkdir(parents=True, exist_ok=True)
 
     if report:
         report_files = {}  # save path to output files
+        img_path = os.path.join(report_path, output_key)
         # Show template fit
         template_fit_fig = image_stack.plot_fit()
         # Improve saved image quality
         template_fit_fig.set_size_inches(24, 24)
         for subplt in template_fit_fig.get_axes():
             subplt.title.set_fontsize(40)
-        template_fit_img = f'{report_dir}_template_fit.png'
+        template_fit_img = f'{img_path}_template_fit.png'
         template_fit_fig.savefig(template_fit_img, dpi=150)
         report_files['template_fit'] = template_fit_img
 
         # Show ROIs
         roi_fig = image_stack.plot_rois()
         plt.title(f'ROI positions ({relax_str.upper()}, plate {plate_number})')
-        roi_img = f'{report_dir}_rois.png'
+        roi_img = f'{img_path}_rois.png'
         roi_fig.savefig(roi_img, dpi=300)
         report_files['rois'] = roi_img
 
@@ -1228,45 +1242,45 @@ def main(dcm_target_list, plate_number=None,
         # Improve saved image quality
         relax_fit_fig.set_size_inches(9, 15)
         plt.tight_layout(rect=(0, 0, 1, 0.97))
-        relax_fit_img = f'{report_dir}_decay_graphs.png'
+        relax_fit_img = f'{img_path}_decay_graphs.png'
         relax_fit_fig.savefig(relax_fit_img, dpi=300)
         report_files['decay_graphs'] = relax_fit_img
 
-    # Generate output dict
-    index_im = image_stack.images[0]
-    # last value is for background water. Strip before calculating RMS frac error
-    frac_time = frac_time_diff[:-1]
-    RMS_frac_error = np.sqrt(np.mean(np.square(frac_time)))
-    output = {'rms_frac_time_difference' : RMS_frac_error}
     if verbose:
-        output.update(dict(plate=image_stack.plate_number,
-                      relaxation_type=relax_str,
-                      calc_times=image_stack.relax_times,
-                      manufacturers_times=relax_published,
-                      frac_time_difference=frac_time_diff,
-                      institution_name=index_im.InstitutionName,
-                      manufacturer=index_im.Manufacturer,
-                      model=index_im.ManufacturerModelName,
-                      date=index_im.StudyDate))
+        # Dump additional details about the images and the measurement to a file
+        detailed_output = {}
+        detailed_outpath = os.path.join(report_path, f"{output_key}_details.json")
+
+        detailed_output['metadata'] = dict(
+            files=[im.filename for im in image_stack.images],
+            plate=plate_number,
+            relaxation_type=relax_str,
+            institution_name=index_im.InstitutionName,
+            manufacturer=index_im.Manufacturer,
+            model=index_im.ManufacturerModelName,
+            date=index_im.StudyDate,
+            manufacturers_times=relax_published.tolist(),
+            frac_time_difference=frac_time_diff.tolist())
         # , output_graphics=output_files_path
 
-        detailed_output = {
-            'filenames': [im.filename for im in image_stack.images],
-            'ROI_means': {i: im.means for i, im in enumerate(image_stack.ROI_time_series)},
-            'TE': [im.EchoTime for im in image_stack.images],
-            'TR': [im.RepetitionTime for im in image_stack.images],
-            'TI': [im.InversionTime if hasattr(im, 'InversionTime') else None \
-                    for im in image_stack.images],
+        detailed_output['measurement details'] = {
+            'calc_times' : image_stack.relax_times,
+            'Echo Time': [im.EchoTime for im in image_stack.images],
+            'Repetition Time': [im.RepetitionTime for im in image_stack.images],
+            'Inversion Time': [im.InversionTime if hasattr(
+                im, 'InversionTime') else None for im in image_stack.images],
             # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
             # fit_parameters (T2) = [[T2, s0, C] for each ROI]
-            'fit_parameters': [param[0] for param in image_stack.relax_fit],
+            'ROI_means': {i: im.means for i, im in enumerate(image_stack.ROI_time_series)},
+            'fit_parameters': [tuple(param[0].tolist()) for param in image_stack.relax_fit],
             'fit_equation': image_stack.fit_eqn_str
         }
+        json_object = json.dumps(detailed_output, indent = 4)
+        with open(detailed_outpath, "w") as f:
+            f.write(json_object)
+        detailed_output
 
-        output['detailed'] = detailed_output
-
-    output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
-                 f"P{plate_number}_{relax_str}"
+    result = {output_key: relax_result}
 
     # plt.show()
-    return {output_key: output}
+    return result
