@@ -81,7 +81,7 @@ Usage:
     hazen <task> <folder> [options]
     hazen snr <folder> [--measured_slice_width=<mm>] [options]
     hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
-    hazen relaxometry <folder> (--calc_t1 | --calc_t2) --plate_number=<n> [relaxometry-options] [options]
+    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
 
     hazen -h|--help
     hazen --version
@@ -96,8 +96,8 @@ ACR_SNR task options:
     --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
 
 Relaxometry task options:
-    (--calc_t1 | --calc_t2)      Whether to measure T1 or T2 relaxometry (required)
-    --plate_number=<n>           Which plate to use for measurement (required)
+    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
+    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
     --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
 """
 
@@ -116,11 +116,10 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects, report_dir):
+def parse_relaxometry_args(arguments):
 
     # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--report', '--verbose'}
+    relaxometry_cli_args = {'--calc', '--plate_number', '--verbose'}
 
     # Pass arguments with dictionary, stripping initial double dash ('--')
     relaxometry_args = {}
@@ -128,8 +127,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report_dir):
     for key in relaxometry_cli_args:
         relaxometry_args[key[2:]] = arguments[key]
 
-    return task.main(dicom_objects, report_dir=report_dir,
-                     **relaxometry_args)
+    return relaxometry_args
 
 
 def init_task(selected_task, files, report, report_dir):
@@ -191,7 +189,9 @@ def main():
         #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
         relax_task = importlib.import_module(f"hazenlib.relaxometry")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = parse_relaxometry_data(relax_task, arguments, dicom_objects, report_dir)
+        relaxometry_args = parse_relaxometry_args(arguments)
+        result = relax_task.main(dicom_objects, **relaxometry_args,
+                                report=report, report_dir=report_dir)
     else:
         selected_task = arguments['<task>']
         task = init_task(selected_task, files, report, report_dir)

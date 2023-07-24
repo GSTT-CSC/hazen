@@ -123,6 +123,7 @@ Get r-squared measure of fit.
 
 """
 import os.path
+import sys
 
 import cv2 as cv
 import matplotlib.pyplot as plt
@@ -1084,9 +1085,9 @@ class T2ImageStack(ImageStack):
         return self.t2s
 
 
-def main(dcm_target_list, *, plate_number=None,
-         report=False, calc_t1=False,
-         calc_t2=False, report_dir=False, verbose=False):
+def main(dcm_target_list, plate_number=None,
+         calc: str = 'T1', verbose=False,
+         report=False, report_dir=None):
     """
     Calculate T1 or T2 values for relaxometry phantom.
 
@@ -1096,12 +1097,10 @@ def main(dcm_target_list, *, plate_number=None,
     ----------
     dcm_target_list : list of pydicom.dataset.FileDataSet objects
         List of DICOM images of a plate of the HPD relaxometry phantom.
+    calc : str
+        Whether to calculate T1 or T2 relaxation. Default is T1.
     plate_number : int
         Plate number of the HPD relaxometry phantom (either 4 or 5)
-    calc_t1 : bool, optional
-        Calculate T1. The default is False.
-    calc_t2 : bool, optional
-        Calculate T2. The default is False.
     report : bool, optional
         Whether to save images showing the measurement details
     report_dir : path, optional
@@ -1131,12 +1130,7 @@ def main(dcm_target_list, *, plate_number=None,
         }
     """
 
-    # check for exactly one relaxometry.py calculation
-    if all([calc_t1, calc_t2]) or not any([calc_t1, calc_t2]):
-        raise hazenlib.exceptions.ArgumentCombinationError(
-            'Must specify either calc_t1=True OR calc_t2=True.')
-
-    # check plate number specified and either 4 or 5
+    # check plate number specified: should be either 4 or 5
     try:
         plate_number = int(plate_number)  # convert to int if required
     except (ValueError, TypeError):
@@ -1147,7 +1141,7 @@ def main(dcm_target_list, *, plate_number=None,
             'Must specify plate_number (4 or 5)')
 
     # Set up parameters specific to T1 or T2
-    if calc_t1:
+    if calc in ['T1', 't1']:
         ImStack = T1ImageStack
         relax_str = 't1'
         smooth_times = range(0, 1000, 10)
@@ -1159,7 +1153,7 @@ def main(dcm_target_list, *, plate_number=None,
                   f' Please pass plate number as arg.')
             exit()
 
-    elif calc_t2:
+    elif calc in ['T2', 't2']:
         ImStack = T2ImageStack
         relax_str = 't2'
         smooth_times = range(0, 500, 5)
@@ -1170,6 +1164,9 @@ def main(dcm_target_list, *, plate_number=None,
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
             exit()
+    else:
+        print("Please provide 'T1' or 'T2' for the --calc argument.")
+        sys.exit()
 
     image_stack = ImStack(dcm_target_list, template_dcm)
     image_stack.template_fit()
