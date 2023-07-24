@@ -31,7 +31,10 @@ class ACRSNR(HazenTask):
         self.data2 = []
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
+        if measured_slice_width is not None:
+            measured_slice_width = float(measured_slice_width)
         snr_results = {}
+
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
             z = [dcm.ImagePositionPatient[2] for dcm in self.data]
