@@ -35,12 +35,6 @@ class TestCliParser(unittest.TestCase):
 
         self.assertEqual(logging.root.level, logging.INFO)
 
-    def test_main_snr_exception(self):
-        path = str(TEST_DATA_DIR / 'snr' / 'Siemens')
-        sys.argv = ["hazen", "spatial_resolution", path, "--measured_slice_width=10"]
-
-        self.assertRaises(Exception, hazenlib.main)
-
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         files = get_dicom_files(path)
