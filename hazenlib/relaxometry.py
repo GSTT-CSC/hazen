@@ -639,7 +639,7 @@ class ImageStack():
     Object to hold image_slices and methods for T1, T2 calculation.
     """
 
-    def __init__(self, image_slices, template_dcm, plate_number=None,
+    def __init__(self, image_slices, template_dcm,
                  dicom_order_key=None):
         """
         Create ImageStack object.
@@ -660,7 +660,6 @@ class ImageStack():
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
         """
-        self.plate_number = plate_number
         # Store template pixel array, after scaling in 0028,1052 and 0028,1053
         # applied
         self.template_dcm = template_dcm
@@ -891,8 +890,8 @@ class T1ImageStack(ImageStack):
 
     """
 
-    def __init__(self, image_slices, template_dcm=None, plate_number=None):
-        super().__init__(image_slices, template_dcm, plate_number=plate_number,
+    def __init__(self, image_slices, template_dcm=None):
+        super().__init__(image_slices, template_dcm,
                          dicom_order_key='InversionTime')
 
     def generate_fit_function(self):
@@ -986,8 +985,8 @@ class T2ImageStack(ImageStack):
 
     """
 
-    def __init__(self, image_slices, template_dcm=None, plate_number=None):
-        super().__init__(image_slices, template_dcm, plate_number=plate_number,
+    def __init__(self, image_slices, template_dcm=None):
+        super().__init__(image_slices, template_dcm,
                          dicom_order_key='EchoTime')
 
         self.fit_function = t2_function
@@ -1184,11 +1183,10 @@ def main(dcm_target_list, *, plate_number=None,
             exit()
 
     output_files_path = {}  # save path to output files
-    image_stack = ImStack(dcm_target_list, template_dcm,
-                          plate_number=plate_number)
+    image_stack = ImStack(dcm_target_list, template_dcm)
     image_stack.template_fit()
     image_stack.generate_time_series(
-        TEMPLATE_VALUES[f'plate{image_stack.plate_number}']
+        TEMPLATE_VALUES[f'plate{plate_number}']
         ['sphere_centres_row_col'])
     image_stack.generate_fit_function()
 
@@ -1224,7 +1222,7 @@ def main(dcm_target_list, *, plate_number=None,
             output_files_path['rois'] = save_path
 
     relax_published = \
-        TEMPLATE_VALUES [f'plate{image_stack.plate_number}'][relax_str] \
+        TEMPLATE_VALUES [f'plate{plate_number}'][relax_str] \
             ['relax_times'][image_stack.b0_str]
     image_stack.initialise_fit_parameters(relax_published)
     image_stack.find_relax_times()
@@ -1297,7 +1295,7 @@ def main(dcm_target_list, *, plate_number=None,
         output['detailed'] = detailed_output
 
     output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
-                 f"P{image_stack.plate_number}_{relax_str}"
+                 f"P{plate_number}_{relax_str}"
 
     # plt.show()
     return {output_key: output}
