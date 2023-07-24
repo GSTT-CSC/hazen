@@ -1251,7 +1251,7 @@ def main(dcm_target_list, plate_number=None,
         detailed_output = {}
         detailed_outpath = os.path.join(report_path, f"{output_key}_details.json")
 
-        detailed_output['metadata'] = dict(
+        metadata = dict(
             files=[im.filename for im in image_stack.images],
             plate=plate_number,
             relaxation_type=relax_str,
@@ -1260,11 +1260,12 @@ def main(dcm_target_list, plate_number=None,
             model=index_im.ManufacturerModelName,
             date=index_im.StudyDate,
             manufacturers_times=relax_published.tolist(),
+            calc_times=image_stack.relax_times,
             frac_time_difference=frac_time_diff.tolist())
         # , output_graphics=output_files_path
+        relax_result.update(metadata)
 
         detailed_output['measurement details'] = {
-            'calc_times' : image_stack.relax_times,
             'Echo Time': [im.EchoTime for im in image_stack.images],
             'Repetition Time': [im.RepetitionTime for im in image_stack.images],
             'Inversion Time': [im.InversionTime if hasattr(
@@ -1275,10 +1276,10 @@ def main(dcm_target_list, plate_number=None,
             'fit_parameters': [tuple(param[0].tolist()) for param in image_stack.relax_fit],
             'fit_equation': image_stack.fit_eqn_str
         }
+        detailed_output['metadata'] = metadata
         json_object = json.dumps(detailed_output, indent = 4)
         with open(detailed_outpath, "w") as f:
             f.write(json_object)
-        detailed_output
 
     result = {output_key: relax_result}
 
