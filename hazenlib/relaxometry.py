@@ -1069,22 +1069,22 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
 
     # Set up parameters specific to T1 or T2
     if calc in ['T1', 't1']:
-        ImStack = T1ImageStack
         relax_str = calc.lower()
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
+            image_stack = T1ImageStack(data, template_dcm)
         except KeyError:
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
             exit()
 
     elif calc in ['T2', 't2']:
-        ImStack = T2ImageStack
         relax_str = calc.lower()
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
+            image_stack = T2ImageStack(data, template_dcm)
         except KeyError:
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
@@ -1093,7 +1093,6 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
         print("Please provide 'T1' or 'T2' for the --calc argument.")
         exit()
 
-    image_stack = ImStack(data, template_dcm)
     image_stack.template_fit()
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{plate_number}']
@@ -1146,7 +1145,7 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
         rois = image_stack.ROI_time_series
         relax_fit_fig = plt.figure()
         relax_fit_fig.suptitle(calc.upper() + ' relaxometry fits')
-        smooth_times = SMOOTH_TIMES[relax_str]
+        smooth_times = SMOOTH_TIMES[calc.lower()]
         for i in range(15):
             plt.subplot(5, 3, i + 1)
             plt.plot(smooth_times,
