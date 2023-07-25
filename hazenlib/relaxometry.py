@@ -423,7 +423,10 @@ class ImageStack():
                   f" {self.images[0]['MagneticFieldStrength']}")
             self.b0_str = '1.5T'
         else:
-            self.b0_str = f"{b0_val}T"
+            if b0_val == 3:
+                self.b0_str = "3.0T"
+            else:
+                self.b0_str = f"{b0_val}T"
 
     def order_by(self, images, att):
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
