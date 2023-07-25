@@ -538,7 +538,6 @@ class ROITimeSeries:
 
         self.ROI_mask = np.zeros_like(self.POI_mask)
         self.ROI_mask = scipy.ndimage.filters.convolve(self.POI_mask, kernel)
-        self._time_attr = time_attr
 
         if time_attr is not None:
             self.times = [x[time_attr].value.real for x in dcm_images]
@@ -569,7 +568,7 @@ class ImageStack():
     """
 
     def __init__(self, image_slices, template_dcm,
-                 dicom_order_key=None):
+                 time_attribute=None):
         """
         Create ImageStack object.
 
@@ -585,20 +584,21 @@ class ImageStack():
             For future use. Reference to the plate in the relaxometry phantom.
             The default is None.
             
-        dicom_order_key : string, optional
+        time_attribute : string, optional
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
         """
-        # Store template pixel array, after scaling in 0028,1052 and 0028,1053
-        # applied
+        # Store template pixel array, after scaling in 0028,1052 and
+        # 0028,1053 applied
         self.template_dcm = template_dcm
         if template_dcm is not None:
             self.template_px = pixel_rescale(template_dcm)
 
-        self.dicom_order_key = dicom_order_key
-        self.images = image_slices  # store images
-        if dicom_order_key is not None:
-            self.order_by(dicom_order_key)
+        # store sorted images
+        if time_attribute is not None:
+            self.images = self.order_by(image_slices, time_attribute)
+        else:
+            self.images = image_slices
 
         b0_val = self.images[0]['MagneticFieldStrength'].value
         if b0_val == 1.5:
@@ -656,32 +656,31 @@ class ImageStack():
         angle rotations.
         """
         target_px = pixel_rescale(self.images[0])
-        template_px = self.template_px
 
-        # Pad template or target pixels if required
-        scale_factor = len(target_px) / len(template_px)
-        pad_size = np.subtract(template_px.shape, target_px.shape)
+        ## Pad template or target pixels if required
+        # Determine difference in shape
+        pad_size = np.subtract(self.template_px.shape, target_px.shape)
         assert pad_size[0] == pad_size[1], "Image matrices must be square."
         if pad_size[0] > 0:  # pad target--UNTESTED
+            # add pixels to target if smaller than template
             target_px = np.pad(target_px, pad_width=(0, pad_size[0]))
         elif pad_size[0] < 0:  # pad template
-            template_px = np.pad(template_px, pad_width=(0, -pad_size[0]))
+            # add pixels to template if smaller than target
+            self.template_px = np.pad(self.template_px, pad_width=(0, -pad_size[0]))
 
         # Always fit on magnitude images for simplicity. May be suboptimal
-        self.template8bit = \
-            cv.normalize(abs(template_px),
-                         None, 0, 255, norm_type=cv.NORM_MINMAX,
-                         dtype=cv.CV_8U)
+        self.template8bit = cv.normalize(abs(self.template_px), None, 0, 255,
+                            norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
 
-        self.target8bit = cv.normalize(abs(target_px),
-                                       None, 0, 255, norm_type=cv.NORM_MINMAX,
-                                       dtype=cv.CV_8U)
+        self.target8bit = cv.normalize(abs(target_px), None, 0, 255,
+                            norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U)
 
         # initialise transformation fitting parameters.
         number_of_iterations = 500
         termination_eps = 1e-10
         criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT,
                     number_of_iterations, termination_eps)
+        scale_factor = len(target_px) / len(self.template_px)
         self.warp_matrix = scale_factor * np.eye(2, 3, dtype=np.float32)
 
         self.scaled_template8bit = cv.warpAffine(self.template8bit,
@@ -768,9 +767,10 @@ class ImageStack():
 
         return fig
 
-    def order_by(self, att):
+    def order_by(self, images, att):
         """Order images by attribute (e.g. EchoTime, InversionTime)."""
-        self.images.sort(key=lambda x: x[att].value.real)
+        sorted_images = sorted(images, key=lambda x: x[att].value.real)
+        return sorted_images
 
     def generate_time_series(self, coords_row_col, fit_coords=True,
                              kernel=None):
@@ -801,7 +801,7 @@ class ImageStack():
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(ROITimeSeries(
-                self.images, coords_row_col[i], time_attr=self.dicom_order_key,
+                self.images, coords_row_col[i], time_attr=self.time_attribute,
                 kernel=kernel))
 
     def generate_fit_function(self):
@@ -821,7 +821,7 @@ class T1ImageStack(ImageStack):
 
     def __init__(self, image_slices, template_dcm=None):
         super().__init__(image_slices, template_dcm,
-                         dicom_order_key='InversionTime')
+                         time_attribute='InversionTime')
 
     def generate_fit_function(self):
         """"Create T1 fit function for magnitude/signed image and variable TI."""
@@ -916,7 +916,7 @@ class T2ImageStack(ImageStack):
 
     def __init__(self, image_slices, template_dcm=None):
         super().__init__(image_slices, template_dcm,
-                         dicom_order_key='EchoTime')
+                         time_attribute='EchoTime')
 
         self.fit_function = t2_function
         self.fit_jacobian = None
@@ -1062,7 +1062,6 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
         plate_number = int(plate_number)  # convert to int if required
     except (ValueError, TypeError):
         pass  # will raise error at next statement
-
     if plate_number not in [4, 5]:
         raise hazenlib.exceptions.ArgumentCombinationError(
             'Must specify plate_number (4 or 5)')
@@ -1078,7 +1077,6 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
             print(f'Could not find template with plate number: {plate_number}.'
                   f' Please pass plate number as arg.')
             exit()
-
     elif calc in ['T2', 't2']:
         relax_str = calc.lower()
         try:
