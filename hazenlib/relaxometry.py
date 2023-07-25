@@ -296,57 +296,6 @@ def pixel_rescale(dcm):
             dcm.pixel_array, dcm)
 
 
-def est_t1_s0(ti, tr, t1, pv):
-    """
-    Return initial guess of s0 to seed T1 curve fitting.
-
-    Parameters
-    ----------
-    ti : array_like
-        TI values.
-    tr : array_like
-        TR values.
-    t1 : array_like
-        Estimated T1 (typically from manufacturer's documentation).
-    pv : array_like
-        Mean pixel value (signal) in ROI.
-
-    Returns
-    -------
-    array_like
-        Initial s0 guess for calculating T1 relaxation time.
-
-    """
-    return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
-
-
-def est_t2_s0(te, t2, pv, c=0.0):
-    """
-    Initial guess for s0 to seed curve fitting::
-        .. math::
-            S_0=\\frac{pv-c}{exp(-TE/T_2)}
-
-
-    Parameters
-    ----------
-    te : array_like
-        Echo time(s).
-    t2 : array_like
-        T2 decay constant.
-    pv : array_like
-        Mean pixel value (signal) in ROI with ``te`` echo time.
-    c : array_like
-        Constant offset, theoretically ``full_like(te, 0.0)``.
-
-    Returns
-    -------
-    array_like
-        Initial s0 estimate.
-
-    """
-    return (pv - c) / np.exp(-te / t2)
-
-
 class ROITimeSeries:
     """
     Samples at one image location (ROI) at numerous sample times.
@@ -596,9 +545,6 @@ class ImageStack():
             self.ROI_time_series.append(ROITimeSeries(
                 self.images, flipped_coords_row_col[i], time_attribute))
 
-    def generate_fit_function(self):
-        """Null method in base class, may be overwritten in subclass."""
-
     def plot_fit(self):
         """
         Visual representation of target fitting.
@@ -674,12 +620,6 @@ class ImageStack():
 class T1ImageStack(ImageStack):
     """
     Calculate T1 relaxometry.
-
-    Overloads the following methods from ``ImageStack``:
-        ``generate_fit_function``
-        ``initialise_fit_parameters``
-        ``find_relax_times``
-
     """
 
     def __init__(self, image_slices, time_attribute):
@@ -774,6 +714,29 @@ class T1ImageStack(ImageStack):
                 self.ROI_time_series[0].times, self.ROI_time_series[0].trs,
                 mag_image=mag_image)
 
+    def est_t1_s0(self, ti, tr, t1, pv):
+        """
+        Return initial guess of s0 to seed T1 curve fitting.
+
+        Parameters
+        ----------
+        ti : array_like
+            TI values.
+        tr : array_like
+            TR values.
+        t1 : array_like
+            Estimated T1 (typically from manufacturer's documentation).
+        pv : array_like
+            Mean pixel value (signal) in ROI.
+
+        Returns
+        -------
+        array_like
+            Initial s0 guess for calculating T1 relaxation time.
+
+        """
+        return -pv / (1 - 2 * np.exp(-ti / t1) + np.exp(-tr / t1))
+
     def initialise_fit_parameters(self, t1_estimates):
         """
         Estimate fit parameters (t1, s0, a1) for T1 curve fitting.
@@ -787,7 +750,36 @@ class T1ImageStack(ImageStack):
             causes a large rounding error.
             
         A1 is estimated as 2.0, the theoretical value assuming homogeneous B0
-   
+
+        Parameters
+        ----------
+        t1_estimates : array_like
+            T1 values to seed estimation. These should be the manufacturer
+            provided T1 values where known.
+
+        Returns
+        -------
+        s0_est
+
+        """
+        self.t1_est = t1_estimates
+        rois = self.ROI_time_series
+        rois_first_mean = np.array([roi.means[0] for roi in rois])
+        rois_last_mean = np.array([roi.means[-1] for roi in rois])
+        s0_est_last = abs(self.est_t1_s0(rois[0].times[-1], rois[0].trs[-1],
+                                    self.t1_est, rois_last_mean))
+        s0_est_first = abs(self.est_t1_s0(rois[0].times[0], rois[0].trs[0],
+                                     self.t1_est, rois_first_mean))
+        s0_est = np.where(rois_first_mean > rois_last_mean,
+                               s0_est_first, s0_est_last)
+        self.a1_est = np.full_like(s0_est, 2.0)
+
+        return s0_est
+
+    def find_relax_times(self, t1_estimates, s0_est):
+        """
+        Calculate T1 values. Access as ``image_stack.relax_fits``
+
         Parameters
         ----------
         t1_estimates : array_like
@@ -799,43 +791,16 @@ class T1ImageStack(ImageStack):
         None.
 
         """
-        self.t1_est = t1_estimates
-        rois = self.ROI_time_series
-        rois_first_mean = np.array([roi.means[0] for roi in rois])
-        rois_last_mean = np.array([roi.means[-1] for roi in rois])
-        s0_est_last = abs(est_t1_s0(rois[0].times[-1], rois[0].trs[-1],
-                                    self.t1_est, rois_last_mean))
-        s0_est_first = abs(est_t1_s0(rois[0].times[0], rois[0].trs[0],
-                                     self.t1_est, rois_first_mean))
-        self.s0_est = np.where(rois_first_mean > rois_last_mean,
-                               s0_est_first, s0_est_last)
-        self.a1_est = np.full_like(self.s0_est, 2.0)
-
-    def find_relax_times(self):
-        """
-        Calculate T1 values. Access as ``image_stack.t1s``
-
-        Returns
-        -------
-        None.
-
-        """
         rois = self.ROI_time_series
         self.relax_fit = [scipy.optimize.curve_fit(
             self.t1_fit_function, rois[i].times, rois[i].means,
-            p0=[self.t1_est[i], self.s0_est[i], self.a1_est[i]],
+            p0=[t1_estimates[i], s0_est[i], self.a1_est[i]],
             jac=self.fit_jacobian, method='lm') for i in range(len(rois))]
 
 
 class T2ImageStack(ImageStack):
     """
     Calculate T2 relaxometry.
-
-    Overloads the following methods from ``ImageStack``:
-        ``generate_fit_function``
-        ``initialise_fit_parameters``
-        ``find_relax_times``
-
     """
 
     def __init__(self, image_slices, time_attribute):
@@ -843,34 +808,8 @@ class T2ImageStack(ImageStack):
 
         self.fit_eqn_str = 'T2 with Rician noise (Raya et al 2010)'
 
-    def initialise_fit_parameters(self, t2_estimates):
-        """
-        Estimate fit parameters (t2, s0, c) for T2 curve fitting.
-        
-        T2 estimates are provided.
-        
-        s0 is estimated using est_t2_s0(te, t2_est, mean_pv, c).
-            
-        C is estimated as 5.0.
-   
-        Parameters
-        ----------
-        t2_estimates : array_like
-            T2 values to seed estimation. These should be the manufacturer
-            provided T2 values where known.
-
-        Returns
-        -------
-        None.
-
-        """
-        self.t2_est = t2_estimates
-        rois = self.ROI_time_series
-        rois_second_mean = np.array([roi.means[1] for roi in rois])
-        self.c_est = np.full_like(self.t2_est, SEED_RICIAN_NOISE)
-        # estimate s0 from second image--first image is too low.
-        self.s0_est = est_t2_s0(rois[0].times[1], self.t2_est,
-                                rois_second_mean, self.c_est)
+    def generate_fit_function(self):
+        """Null method in base class, may be overwritten in subclass."""
 
     def t2_fit_function(self, te, t2, s0, c):
         r"""
@@ -918,9 +857,66 @@ class T2ImageStack(ImageStack):
 
         return pv
 
-    def find_relax_times(self):
+    def est_t2_s0(self, te, t2, pv, c=0.0):
         """
-        Calculate T2 values. Access as ``image_stack.t2s``.
+        Initial guess for s0 to seed curve fitting::
+            .. math::
+                S_0=\\frac{pv-c}{exp(-TE/T_2)}
+
+
+        Parameters
+        ----------
+        te : array_like
+            Echo time(s).
+        t2 : array_like
+            T2 decay constant.
+        pv : array_like
+            Mean pixel value (signal) in ROI with ``te`` echo time.
+        c : array_like
+            Constant offset, theoretically ``full_like(te, 0.0)``.
+
+        Returns
+        -------
+        array_like
+            Initial s0 estimate.
+
+        """
+        return (pv - c) / np.exp(-te / t2)
+
+    def initialise_fit_parameters(self, t2_estimates):
+        """
+        Estimate fit parameters (t2, s0, c) for T2 curve fitting.
+        
+        T2 estimates are provided.
+        
+        s0 is estimated using est_t2_s0(te, t2_est, mean_pv, c).
+            
+        C is estimated as 5.0.
+
+        Parameters
+        ----------
+        t2_estimates : array_like
+            T2 values to seed estimation. These should be the manufacturer
+            provided T2 values where known.
+
+        Returns
+        -------
+        None.
+
+        """
+        self.t2_est = t2_estimates
+        rois = self.ROI_time_series
+        rois_second_mean = np.array([roi.means[1] for roi in rois])
+        self.c_est = np.full_like(self.t2_est, SEED_RICIAN_NOISE)
+        # estimate s0 from second image--first image is too low.
+        s0_est = self.est_t2_s0(rois[0].times[1], self.t2_est,
+                                rois_second_mean, self.c_est)
+
+        return s0_est
+
+    def find_relax_times(self, t2_estimates, s0_est):
+        """
+        Calculate T2 values. Access as ``image_stack.relax_times``
         
         Uses the 'skip first echo' fit method [1]_ with a Rician noise model
         [2]_. Ideally the Rician noise parameter should be determined from the
@@ -929,6 +925,12 @@ class T2ImageStack(ImageStack):
         whether the image is normalised or unfiltered. Fitting the noise
         parameter makes this easier. It has an upper limit of MAX_RICIAN_NOISE,
         currently set to 20.0.
+
+        Parameters
+        ----------
+        t2_estimates : array_like
+            T2 values to seed estimation. These should be the manufacturer
+            provided T2 values where known.
 
         Returns
         -------
@@ -957,7 +959,7 @@ class T2ImageStack(ImageStack):
 
         self.relax_fit = [scipy.optimize.curve_fit(
             self.t2_fit_function, rois[i].times[1:], rois[i].means[1:],
-            p0=[self.t2_est[i], self.s0_est[i], self.c_est[i]],
+            p0=[t2_estimates[i], s0_est[i], self.c_est[i]],
             jac=None, bounds=bounds, method='trf') for i in range(len(rois))]
 
 
@@ -1047,13 +1049,15 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{plate_number}']['sphere_centres_row_col'],
         time_attribute=time_attributes[relax_str], warp_matrix=warp_matrix)
+    # only applies to T1
     image_stack.generate_fit_function()
 
     # Published relaxation time for matching plate and T1/T2
     relax_published = TEMPLATE_VALUES [f'plate{plate_number}'][relax_str] \
             ['relax_times'][image_stack.b0_str]
-    image_stack.initialise_fit_parameters(relax_published)
-    image_stack.find_relax_times()
+    s0_est = image_stack.initialise_fit_parameters(relax_published)
+
+    image_stack.find_relax_times(relax_published, s0_est)
     frac_time_diff = (image_stack.relax_times - relax_published) \
                      / relax_published
     # last value is for background water. Strip before calculating RMS frac error
