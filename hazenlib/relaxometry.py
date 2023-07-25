@@ -709,7 +709,7 @@ class T1ImageStack(ImageStack):
             mag_image = True
         else:
             mag_image = False
-        self.t1_fit_function, self.fit_jacobian, self.fit_eqn_str = \
+        self.fit_function, self.fit_jacobian, self.fit_eqn_str = \
             self.generate_t1_function(
                 self.ROI_time_series[0].times, self.ROI_time_series[0].trs,
                 mag_image=mag_image)
@@ -793,7 +793,7 @@ class T1ImageStack(ImageStack):
         """
         rois = self.ROI_time_series
         self.relax_fit = [scipy.optimize.curve_fit(
-            self.t1_fit_function, rois[i].times, rois[i].means,
+            self.fit_function, rois[i].times, rois[i].means,
             p0=[t1_estimates[i], s0_est[i], self.a1_est[i]],
             jac=self.fit_jacobian, method='lm') for i in range(len(rois))]
 
@@ -811,8 +811,8 @@ class T2ImageStack(ImageStack):
     def generate_fit_function(self):
         """Null method in base class, may be overwritten in subclass."""
 
-    def t2_fit_function(self, te, t2, s0, c):
-        r"""
+    def fit_function(self, te, t2, s0, c):
+        """
         Calculated pixel value with Rician noise model.
         
         Calculates pixel value from [1]_::
@@ -958,7 +958,7 @@ class T2ImageStack(ImageStack):
         bounds = ([0, 0, 1], [np.inf, np.inf, MAX_RICIAN_NOISE])
 
         self.relax_fit = [scipy.optimize.curve_fit(
-            self.t2_fit_function, rois[i].times[1:], rois[i].means[1:],
+            self.fit_function, rois[i].times[1:], rois[i].means[1:],
             p0=[t2_estimates[i], s0_est[i], self.c_est[i]],
             jac=None, bounds=bounds, method='trf') for i in range(len(rois))]
 
