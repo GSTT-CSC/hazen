@@ -1,10 +1,6 @@
 import os.path
 import numpy as np
 
-# Parameters for Rician noise model
-MAX_RICIAN_NOISE = 20.0
-SEED_RICIAN_NOISE = 5.0
-
 TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                             'data', 'relaxometry')
 TEMPLATE_VALUES = {
@@ -76,3 +72,10 @@ SMOOTH_TIMES = {
     "t1": range(0, 1000, 10),
     "t2": range(0, 500, 5)
 }
+
+TEMPLATE_FIT_ITERS = 500
+TERMINATION_EPS = 1e-10
+
+# Parameters for Rician noise model - used in T2 calculation
+MAX_RICIAN_NOISE = 20.0
+SEED_RICIAN_NOISE = 5.0
