@@ -318,8 +318,7 @@ class TestRelaxometry(unittest.TestCase):
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
-        t1_image_stack = T1ImageStack([target_dcm],
-                                                time_attribute="InversionTime")
+        t1_image_stack = T1ImageStack([target_dcm])
         warp_matrix = t1_image_stack.template_fit(template_dcm)
 
         transformed_coordinates_xy = transform_coords(
@@ -335,8 +334,7 @@ class TestRelaxometry(unittest.TestCase):
         # read list of un-ordered T1 files, sort by TI, test sorted
         t1_dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname))
                    for fname in self.T1_FILES]
-        t1_image_stack = T1ImageStack(
-            t1_dcms, time_attribute="InversionTime")
+        t1_image_stack = T1ImageStack(t1_dcms)
         sorted_output = [image.InversionTime.real for image in
                          t1_image_stack.images]
         assert sorted_output == self.T1_TI_SORTED
@@ -345,8 +343,7 @@ class TestRelaxometry(unittest.TestCase):
         # read list of un-ordered T2 files, sort by TE, test sorted
         t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname))
                    for fname in self.T2_FILES]
-        t2_image_stack = T2ImageStack(
-            t2_dcms, time_attribute="EchoTime")
+        t2_image_stack = T2ImageStack(t2_dcms)
 
         sorted_output = [image.EchoTime.real for image in
                          t2_image_stack.images]
@@ -357,11 +354,10 @@ class TestRelaxometry(unittest.TestCase):
         # Test on template first, no image fitting needed
         # Need image to get correct size
         template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
-        template_image_stack = T1ImageStack([template_dcm],
-                                            time_attribute="InversionTime")
+        template_image_stack = T1ImageStack([template_dcm])
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix, fit_coords=False)
 
         for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
@@ -374,14 +370,13 @@ class TestRelaxometry(unittest.TestCase):
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
-        target_image_stack = T1ImageStack([target_dcm],
-                                            time_attribute="InversionTime")
+        target_image_stack = T1ImageStack([target_dcm])
         warp_matrix = target_image_stack.template_fit(template_dcm)
         # transformed_coordinates_yx = transform_coords(
         #     self.TEMPLATE_TEST_COORDS_YX, target_image_stack.warp_matrix,
         #     input_yx=True, output_yx=True)
         target_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix)
         for i in range(np.size(self.MASK_POI_TARGET, 0)):
             np.testing.assert_equal(
@@ -394,13 +389,12 @@ class TestRelaxometry(unittest.TestCase):
         # fitting.
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
-        template_image_stack = T1ImageStack([template_dcm],
-                                            time_attribute="InversionTime")
+        template_image_stack = T1ImageStack([template_dcm])
         # set warp_matrix to identity matrix
         # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix, fit_coords=False)
 
         np.testing.assert_equal(
@@ -411,12 +405,11 @@ class TestRelaxometry(unittest.TestCase):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
 
-        template_image_stack = T1ImageStack([template_dcm],
-                                            time_attribute="InversionTime")
+        template_image_stack = T1ImageStack([template_dcm])
 
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix, fit_coords=False)
 
         # Check all pixels in ROI[0] match
@@ -435,11 +428,10 @@ class TestRelaxometry(unittest.TestCase):
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname))
                    for fname in self.T1_FILES]
-        t1_image_stack = T1ImageStack(t1_dcms,
-                                            time_attribute="InversionTime")
+        t1_image_stack = T1ImageStack(t1_dcms)
         warp_matrix = t1_image_stack.template_fit(template_dcm)
         t1_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix)
         t1_image_stack.generate_fit_function()
         t1_published = TEMPLATE_VALUES['plate5']['t1']['relax_times']['1.5T']
@@ -456,11 +448,10 @@ class TestRelaxometry(unittest.TestCase):
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T2)
         t2_dcms = [pydicom.dcmread(os.path.join(self.T2_DIR, fname))
                    for fname in self.T2_FILES]
-        t2_image_stack = T2ImageStack(
-            t2_dcms, time_attribute="EchoTime")
+        t2_image_stack = T2ImageStack(t2_dcms)
         warp_matrix = t2_image_stack.template_fit(template_dcm)
         t2_image_stack.generate_time_series(
-            self.TEMPLATE_P4_TEST_COORDS_ROW_COL, time_attribute="EchoTime",
+            self.TEMPLATE_P4_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix)
         t2_published = TEMPLATE_VALUES['plate4']['t2']['relax_times']['1.5T']
         s0_est = t2_image_stack.initialise_fit_parameters(
@@ -476,11 +467,10 @@ class TestRelaxometry(unittest.TestCase):
         template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [pydicom.dcmread(os.path.join(self.SITE2_T1_DIR, fname))
                    for fname in self.SITE2_T1_FILES]
-        t1_image_stack = T1ImageStack(
-            t1_dcms, time_attribute="InversionTime")
+        t1_image_stack = T1ImageStack(t1_dcms)
         warp_matrix = t1_image_stack.template_fit(template_dcm)
         t1_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, time_attribute="InversionTime",
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
             warp_matrix=warp_matrix)
         t1_image_stack.generate_fit_function()
         t1_published = TEMPLATE_VALUES['plate5']['t1']['relax_times']['1.5T']
@@ -556,8 +546,7 @@ class TestRelaxometry(unittest.TestCase):
                             TEMPLATE_VALUES['plate4']['t1']['filename'])
 
         target_dcm = pydicom.dcmread(self.PATH_256_MATRIX)
-        t1_image_stack = T1ImageStack([target_dcm],
-                                            time_attribute="InversionTime")
+        t1_image_stack = T1ImageStack([target_dcm])
         warp_matrix = t1_image_stack.template_fit(template_dcm)
 
         transformed_coordinates_xy = transform_coords(
