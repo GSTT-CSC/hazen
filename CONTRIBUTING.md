@@ -96,10 +96,11 @@ For each PR:
    - Provide a brief description of changes in the PR textbox as this forms the Release Notes 
 
 For a new release: <br>
+
 4. Close all related Issues resolved by the merged PRs
 5. **Important**: Update version numbers across the repo:
    - Update version number in `hazenlib/_version.py`
-     - (This is automatically propagated into `docs/source/conf.py`, `hazenlib/__init__.py` and `setup.cfg`)
+     - This is automatically propagated into `docs/source/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
    - Update version number in `CITATION.cff`
 6. Create a [new Release](https://github.com/GSTT-CSC/hazen/releases)
    - Create a tag equal to the version number, e.g. 1.2.1
