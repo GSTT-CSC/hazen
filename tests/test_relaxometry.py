@@ -468,7 +468,7 @@ class TestRelaxometry(unittest.TestCase):
         t2_image_stack.find_relax_times(
             t2_estimates=t2_published, s0_est=s0_est)
 
-        np.testing.assert_allclose(t2_image_stack.t2s, self.PLATE4_T2,
+        np.testing.assert_allclose(t2_image_stack.relax_times, self.PLATE4_T2,
                                    rtol=0.01, atol=1)
 
     def test_t1_calc_signed_image(self):
