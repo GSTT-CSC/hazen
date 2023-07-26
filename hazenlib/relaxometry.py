@@ -523,7 +523,7 @@ class ImageStack():
         return warp_matrix
 
     def generate_time_series(self, coords_row_col, time_attribute,
-                             warp_matrix):
+                             warp_matrix, fit_coords=True):
         """
         Create list of ROITimeSeries objects.
 
@@ -540,13 +540,18 @@ class ImageStack():
             RT transform matrix (2,3).
         """
         num_coords = np.size(coords_row_col, axis=0)
-        flipped_coords_row_col = transform_coords(coords_row_col, warp_matrix,
-                                input_row_col=True, output_row_col=True)
+
+        # adjustment may not be required for the template DICOM
+        if fit_coords:
+            adjusted_coords_row_col = transform_coords(coords_row_col,
+                    warp_matrix, input_row_col=True, output_row_col=True)
+        else:  # used in testing
+            adjusted_coords_row_col = coords_row_col
 
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(ROITimeSeries(
-                self.images, flipped_coords_row_col[i], time_attribute))
+                self.images, adjusted_coords_row_col[i], time_attribute))
 
     def plot_fit(self):
         """
@@ -904,7 +909,7 @@ class T2ImageStack(ImageStack):
 
         Returns
         -------
-        None.
+        s0_est.
 
         """
         self.t2_est = t2_estimates
