@@ -5,7 +5,7 @@ import pydicom
 import hazenlib
 from hazenlib.utils import get_dicom_files, is_dicom_file
 from hazenlib.tasks.snr import SNR
-from hazenlib.relaxometry import main as relaxometry_run
+from hazenlib.tasks.relaxometry import Relaxometry
 
 
 class TestCliParser(unittest.TestCase):
@@ -53,9 +53,8 @@ class TestCliParser(unittest.TestCase):
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
         files = get_dicom_files(path)
-        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = relaxometry_run(dicom_objects, plate_number=4,
-         calc='T1', report=False, verbose=False)
+        relaxometry_task = Relaxometry(data_paths=files, report=False)
+        result = relaxometry_task.run(calc='T1', plate_number=4, verbose=False)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
         self.assertEqual(dict1.keys(), result.keys())
