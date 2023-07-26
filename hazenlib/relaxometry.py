@@ -413,6 +413,7 @@ class ImageStack():
             DICOM attribute to order images. Typically 'InversionTime' for T1
             relaxometry or 'EchoTime' for T2.
         """
+        self.time_attr = time_attribute
         # store sorted images
         self.images = self.order_by(image_slices, time_attribute)
 
@@ -522,8 +523,7 @@ class ImageStack():
 
         return warp_matrix
 
-    def generate_time_series(self, coords_row_col, time_attribute,
-                             warp_matrix, fit_coords=True):
+    def generate_time_series(self, coords_row_col, warp_matrix, fit_coords=True):
         """
         Create list of ROITimeSeries objects.
 
@@ -551,7 +551,7 @@ class ImageStack():
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(ROITimeSeries(
-                self.images, adjusted_coords_row_col[i], time_attribute))
+                self.images, adjusted_coords_row_col[i], self.time_attr))
 
     def plot_fit(self):
         """
@@ -630,7 +630,8 @@ class T1ImageStack(ImageStack):
     Calculate T1 relaxometry.
     """
 
-    def __init__(self, image_slices, time_attribute):
+    def __init__(self, image_slices):
+        time_attribute = "InversionTime"
         super().__init__(image_slices, time_attribute)
 
     def generate_t1_function(self, ti_interp_vals, tr_interp_vals, mag_image=False):
@@ -811,7 +812,8 @@ class T2ImageStack(ImageStack):
     Calculate T2 relaxometry.
     """
 
-    def __init__(self, image_slices, time_attribute):
+    def __init__(self, image_slices):
+        time_attribute = "EchoTime"
         super().__init__(image_slices, time_attribute)
 
         self.fit_eqn_str = 'T2 with Rician noise (Raya et al 2010)'
@@ -1026,13 +1028,9 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
 
     # Set up parameters specific to T1 or T2
     relax_str = calc.lower()
-    time_attributes = {
-        "t1": 'InversionTime',
-        "t2": 'EchoTime'
-    }
 
     if calc in ['T1', 't1']:
-        image_stack = T1ImageStack(data, time_attribute=time_attributes[relax_str])
+        image_stack = T1ImageStack(data)
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -1041,7 +1039,7 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
                   f' Please pass plate number as arg.')
             exit()
     elif calc in ['T2', 't2']:
-        image_stack = T2ImageStack(data, time_attribute=time_attributes[relax_str])
+        image_stack = T2ImageStack(data)
         try:
             template_dcm = pydicom.read_file(
                 TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -1056,7 +1054,7 @@ def main(data, plate_number=None, calc: str = 'T1', verbose=False,
     warp_matrix = image_stack.template_fit(template_dcm)
     image_stack.generate_time_series(
         TEMPLATE_VALUES[f'plate{plate_number}']['sphere_centres_row_col'],
-        time_attribute=time_attributes[relax_str], warp_matrix=warp_matrix)
+        warp_matrix=warp_matrix)
     # only applies to T1
     image_stack.generate_fit_function()
 
