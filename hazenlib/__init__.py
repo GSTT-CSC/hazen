@@ -116,39 +116,30 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_args(arguments):
-
-    # Relaxometry arguments
-    relaxometry_cli_args = {'--calc', '--plate_number', '--verbose'}
-
-    # Pass arguments with dictionary, stripping initial double dash ('--')
-    relaxometry_args = {}
-
-    for key in relaxometry_cli_args:
-        relaxometry_args[key[2:]] = arguments[key]
-
-    return relaxometry_args
-
-
 def init_task(selected_task, files, report, report_dir):
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
-
-    class_list = [cls for _, cls in inspect.getmembers(
-        sys.modules[task_module.__name__],
-        lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__)
-        )]
-
-    if len(class_list) > 1:
-        raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')
-
-    task = getattr(task_module, class_list[0].__name__)(
-        data_paths=files, report=report, report_dir=report_dir)
+    
+    try:
+        task = getattr(task_module, selected_task.capitalize())(
+            data_paths=files, report=report, report_dir=report_dir)
+    except:
+        class_list = [cls.__name__ for _, cls in inspect.getmembers(
+            sys.modules[task_module.__name__],
+            lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__)
+            )]
+        if len(class_list) == 1:
+            task = getattr(task_module, class_list[0])(
+                data_paths=files, report=report, report_dir=report_dir)
+        else:
+            raise Exception(
+                f'Task {task_module} has multiple class definitions: {class_list}')
 
     return task
 
 
 def main():
     arguments = docopt(__doc__, version=__version__)
+    print(arguments)
     files = get_dicom_files(arguments['<folder>'])
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
 
@@ -187,11 +178,17 @@ def main():
         # TODO: Refactor Relaxometry task into HazenTask object
         #  - Relaxometry not currently converted to HazenTask object
         #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
-        relax_task = importlib.import_module(f"hazenlib.relaxometry")
-        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        relaxometry_args = parse_relaxometry_args(arguments)
-        result = relax_task.main(dicom_objects, **relaxometry_args,
-                                report=report, report_dir=report_dir)
+        # relax_task = importlib.import_module(f"hazenlib.relaxometry")
+        # dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        # relaxometry_args = parse_relaxometry_args(arguments)
+        # result = relax_task.main(dicom_objects, **relaxometry_args,
+        #                         report=report, report_dir=report_dir)
+        selected_task = 'relaxometry'
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(
+                    calc = arguments['--calc'],
+                    plate_number = arguments['--plate_number'], 
+                    verbose = arguments['--verbose'])
     else:
         selected_task = arguments['<task>']
         task = init_task(selected_task, files, report, report_dir)
