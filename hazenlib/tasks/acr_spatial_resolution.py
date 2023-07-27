@@ -45,6 +45,7 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.acr_object import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRSpatialResolution(HazenTask):
@@ -56,10 +57,17 @@ class ACRSpatialResolution(HazenTask):
     def run(self) -> dict:
         mtf_results = {}
         self.ACR_obj = ACRObject(self.data)
+        rot_ang = self.ACR_obj.rot_angle
+
+        if np.round(np.abs(rot_ang), 2) < 3:
+            logger.warning(f'The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which '
+                           f'is less than the recommended 3 degrees. Results will be unreliable!')
+
         mtf_dcm = self.ACR_obj.dcm[0]
 
         try:
             raw_res, fitted_res = self.get_mtf50(mtf_dcm)
+            mtf_results[f"estimated_rotation_angle_{self.key(mtf_dcm)}"] = rot_ang
             mtf_results[f"raw_mtf50_{self.key(mtf_dcm)}"] = raw_res
             mtf_results[f"fitted_mtf50_{self.key(mtf_dcm)}"] = fitted_res
         except Exception as e:
@@ -244,13 +252,6 @@ class ACRSpatialResolution(HazenTask):
         img = dcm.pixel_array
         res = dcm.PixelSpacing
         cxy = self.ACR_obj.centre
-        rot_ang = self.ACR_obj.rot_angle
-
-        if np.round(np.abs(rot_ang), 2) < 3:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which has an absolute less than 3 '
-                  f'degrees. Results will be unreliable!')
-        else:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}')
 
         ramp_x, ramp_y = int(cxy[0]), self.y_position_for_ramp(res, img, cxy)
         width = int(13 * img.shape[0] / 256)
