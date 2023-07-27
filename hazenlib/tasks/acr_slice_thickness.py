@@ -22,7 +22,7 @@ import skimage.measure
 import scipy
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRSliceThickness(HazenTask):
@@ -32,7 +32,7 @@ class ACRSliceThickness(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         slice_thickness_dcm = self.ACR_obj.dcm[0]
         try:
             result = self.get_slice_thickness(slice_thickness_dcm)

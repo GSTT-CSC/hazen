@@ -22,7 +22,7 @@ import os
 import numpy as np
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRUniformity(HazenTask):
@@ -33,7 +33,7 @@ class ACRUniformity(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         uniformity_dcm = self.ACR_obj.dcm[6]
 
         try:
@@ -58,7 +58,7 @@ class ACRUniformity(HazenTask):
         dims = img.shape  # Dimensions of image
 
         cxy = self.ACR_obj.centre
-        base_mask = ACRTools.circular_mask((cxy[0], cxy[1] + d_void), r_small, dims)  # Dummy circular mask at
+        base_mask = ACRObject.circular_mask((cxy[0], cxy[1] + d_void), r_small, dims)  # Dummy circular mask at
         # centroid
         coords = np.nonzero(base_mask)  # Coordinates of mask
 

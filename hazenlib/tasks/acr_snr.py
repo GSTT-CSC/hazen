@@ -23,7 +23,7 @@ import pydicom
 from scipy import ndimage
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRSNR(HazenTask):
@@ -36,7 +36,7 @@ class ACRSNR(HazenTask):
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
         snr_results = {}
-        self.ACR_obj = [ACRTools(self.data)]
+        self.ACR_obj = [ACRObject(self.data)]
         snr_dcm = self.ACR_obj[0].dcm[6]
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
@@ -53,7 +53,7 @@ class ACRSNR(HazenTask):
             filenames = [f'{subtract}/{file}' for file in temp]
 
             self.data2 = [pydicom.dcmread(dicom) for dicom in filenames]
-            self.ACR_obj.append(ACRTools(self.data2))
+            self.ACR_obj.append(ACRObject(self.data2))
             snr_dcm2 = self.ACR_obj[1].dcm[6]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2)
@@ -202,7 +202,6 @@ class ACRSNR(HazenTask):
             axes[1].set_title('Smoothed Noise Image')
             axes[1].imshow(noise_img, cmap='gray')
             self.get_roi_samples(axes[1], dcm, int(col), int(row))
-            axes[1].legend()
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
             fig.savefig(img_path)
@@ -253,7 +252,6 @@ class ACRSNR(HazenTask):
             axes[1].imshow(difference, cmap='gray',)
             self.get_roi_samples(axes[1], dcm1, int(col), int(row))
             axes[1].axis('off')
-            axes[1].legend()
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)

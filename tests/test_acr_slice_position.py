@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_slice_position import ACRSlicePosition
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR
 
 
@@ -16,7 +16,7 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_position_task.ACR_obj = ACRTools(
+        self.acr_slice_position_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
 
@@ -64,7 +64,7 @@ class TestACRSlicePositionGE(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_position_task.ACR_obj = ACRTools(
+        self.acr_slice_position_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 

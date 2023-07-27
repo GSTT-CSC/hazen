@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR
 
 
@@ -16,7 +16,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_thickness_task.ACR_obj = ACRTools(
+        self.acr_slice_thickness_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
 
@@ -49,7 +49,7 @@ class TestACRSliceThicknessGE(unittest.TestCase):
 
     def setUp(self):
         self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_thickness_task.ACR_obj = ACRTools(
+        self.acr_slice_thickness_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 

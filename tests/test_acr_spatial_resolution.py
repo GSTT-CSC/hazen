@@ -5,7 +5,7 @@ import pydicom
 import numpy as np
 
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -23,7 +23,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     def setUp(self):
         self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_spatial_resolution_task.ACR_obj = ACRTools(
+        self.acr_spatial_resolution_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF'))])
 
@@ -70,7 +70,7 @@ class TestACRSpatialResolutionGE(unittest.TestCase):
     def setUp(self):
         self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_spatial_resolution_task.ACR_obj = ACRTools(
+        self.acr_spatial_resolution_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 

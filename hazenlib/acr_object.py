@@ -4,7 +4,7 @@ import scipy
 import skimage
 
 
-class ACRTools:
+class ACRObject:
     def __init__(self, dcm):
         self.dcm = dcm
         self.images, self.dcm = self.sort_images()

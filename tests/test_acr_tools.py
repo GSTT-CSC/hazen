@@ -5,7 +5,7 @@ import pydicom
 import numpy as np
 
 from hazenlib import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -20,8 +20,8 @@ class TestACRTools(unittest.TestCase):
         self.GE_data = [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
                         os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))]
 
-        self.Siemens_ACR_obj = ACRTools(self.Siemens_data)
-        self.GE_ACR_obj = ACRTools(self.GE_data)
+        self.Siemens_ACR_obj = ACRObject(self.Siemens_data)
+        self.GE_ACR_obj = ACRObject(self.GE_data)
 
     def test_find_rotation(self):
         assert self.rotation[0] == np.round(self.Siemens_ACR_obj.determine_rotation(), 1)

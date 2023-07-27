@@ -5,7 +5,7 @@ import pydicom
 import numpy as np
 
 from hazenlib.tasks.acr_geometric_accuracy import ACRGeometricAccuracy
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -17,7 +17,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     def setUp(self):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_geometric_accuracy_task.ACR_obj = ACRTools(
+        self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
 
@@ -44,7 +44,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         assert (slice5_vals == self.L5).all() == True
 
 
-# class TestACRUniformityPhilips(unittest.TestCase):
+# TODO: Add unit tests for Philips datasets.
 
 class TestACRGeometricAccuracyGE(unittest.TestCase):
     ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
@@ -55,7 +55,7 @@ class TestACRGeometricAccuracyGE(unittest.TestCase):
     def setUp(self):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_geometric_accuracy_task.ACR_obj = ACRTools(
+        self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 

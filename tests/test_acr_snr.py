@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_snr import ACRSNR
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -17,12 +17,12 @@ class TestACRSNRSiemens(unittest.TestCase):
     def setUp(self):
         self.acr_snr_task = ACRSNR(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                    report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_snr_task.ACR_obj = [ACRTools(
+        self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])]
         self.acr_snr_task.ACR_obj.append(
-            ACRTools([pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2', f'{i}')) for i in
-                      os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2'))]))
+            ACRObject([pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2', f'{i}')) for i in
+                       os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2'))]))
 
         self.dcm = [i.dcm[6] for i in self.acr_snr_task.ACR_obj]
 
@@ -53,7 +53,7 @@ class TestACRSNRGE(unittest.TestCase):
     def setUp(self):
         self.acr_snr_task = ACRSNR(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                    report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_snr_task.ACR_obj = [ACRTools(
+        self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])]
 

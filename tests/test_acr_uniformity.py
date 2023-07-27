@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_uniformity import ACRUniformity
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -16,7 +16,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
         self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
-        self.acr_uniformity_task.ACR_obj = ACRTools(
+        self.acr_uniformity_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
 
@@ -33,8 +33,8 @@ class TestACRUniformitySiemens(unittest.TestCase):
         assert rounded_results == self.piu
 
 
-# class TestACRUniformityPhilips(unittest.TestCase):
-#
+# TODO: Add unit tests for Philips datasets.
+
 class TestACRUniformityGE(unittest.TestCase):
     ACR_UNIFORMITY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     piu = 85.17
@@ -42,7 +42,7 @@ class TestACRUniformityGE(unittest.TestCase):
     def setUp(self):
         self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_uniformity_task.ACR_obj = ACRTools(
+        self.acr_uniformity_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 

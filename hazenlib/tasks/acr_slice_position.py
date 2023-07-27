@@ -33,7 +33,7 @@ import skimage.morphology
 import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
@@ -44,7 +44,7 @@ class ACRSlicePosition(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         dcms = [self.ACR_obj.dcm[0], self.ACR_obj.dcm[-1]]
         for dcm in dcms:
             try:
@@ -150,7 +150,7 @@ class ACRSlicePosition(HazenTask):
         interp_line_prof_R = scipy.interpolate.interp1d(x, line_prof_R)(new_x)  # interpolate right line profile
 
         delta = interp_line_prof_L - interp_line_prof_R  # difference of line profiles
-        peaks, _ = ACRTools.find_n_highest_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
+        peaks, _ = ACRObject.find_n_highest_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
 
         if len(peaks) == 1:
             peaks = [peaks[0] - 50, peaks[0] + 50]  # if only one peak, set dummy range

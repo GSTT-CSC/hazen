@@ -44,7 +44,7 @@ import skimage.morphology
 import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRSpatialResolution(HazenTask):
@@ -55,7 +55,7 @@ class ACRSpatialResolution(HazenTask):
 
     def run(self) -> dict:
         mtf_results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         mtf_dcm = self.ACR_obj.dcm[0]
 
         try:
@@ -247,8 +247,8 @@ class ACRSpatialResolution(HazenTask):
         rot_ang = self.ACR_obj.rot_angle
 
         if np.round(np.abs(rot_ang), 2) < 3:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which has an absolute is less than 3 '
-                  f'degree. Results will be unreliable!')
+            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which has an absolute less than 3 '
+                  f'degrees. Results will be unreliable!')
         else:
             print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}')
 

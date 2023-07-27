@@ -21,7 +21,7 @@ import os
 import numpy as np
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRGhosting(HazenTask):
@@ -32,7 +32,7 @@ class ACRGhosting(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         ghosting_dcm = self.ACR_obj.dcm[6]
 
         try:

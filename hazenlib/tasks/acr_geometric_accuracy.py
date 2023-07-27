@@ -28,7 +28,7 @@ import skimage.measure
 import skimage.transform
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_tools import ACRTools
+from hazenlib.acr_object import ACRObject
 
 
 class ACRGeometricAccuracy(HazenTask):
@@ -39,7 +39,7 @@ class ACRGeometricAccuracy(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        self.ACR_obj = ACRTools(self.data)
+        self.ACR_obj = ACRObject(self.data)
         slice1_dcm = self.ACR_obj.dcm[0]
         slice5_dcm = self.ACR_obj.dcm[4]
 
@@ -75,8 +75,8 @@ class ACRGeometricAccuracy(HazenTask):
         origin = (cxy[0], cxy[1])
         start = (extent_h[0], cxy[1])
         end = (extent_h[-1], cxy[1])
-        se_x_start, se_y_start = ACRTools.rotate_point(origin, start, 45)
-        se_x_end, se_y_end = ACRTools.rotate_point(origin, end, 45)
+        se_x_start, se_y_start = ACRObject.rotate_point(origin, start, 45)
+        se_x_end, se_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_se = np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start]))) * eff_res
         se_dict = {
@@ -90,8 +90,8 @@ class ACRGeometricAccuracy(HazenTask):
 
         start = (cxy[0], extent_v[0])
         end = (cxy[0], extent_v[-1])
-        sw_x_start, sw_y_start = ACRTools.rotate_point(origin, start, 45)
-        sw_x_end, sw_y_end = ACRTools.rotate_point(origin, end, 45)
+        sw_x_start, sw_y_start = ACRObject.rotate_point(origin, start, 45)
+        sw_x_end, sw_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_sw = np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start]))) * eff_res
         sw_dict = {
