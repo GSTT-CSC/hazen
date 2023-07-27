@@ -58,7 +58,8 @@ class ACRGeometricAccuracy(HazenTask):
             traceback.print_exc(file=sys.stdout)
 
 
-        L = result1 + result5
+        L = lengths_1 + lengths_5
+
         mean_err, max_err, cov_l = self.distortion_metric(L)
 
         print(f"Mean relative measurement error is equal to {np.round(mean_err, 2)}mm")
