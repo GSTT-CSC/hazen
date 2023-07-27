@@ -102,6 +102,22 @@ class Uniformity(HazenTask):
 
         return int(x), int(y)
 
+    def count_in_range(self, profile, modal):
+        """Count the number of pixels that have value within a defined range
+
+        Args:
+            profile (np.ndarray): 10x160 array of pixel values
+            modal (float/int): value to base threshold range on
+
+        Returns:
+            int: number of pixels that have value within a defined range
+        """
+        in_range = np.where(
+            np.logical_and((profile > (0.9 * modal)),
+                           (profile < (1.1 * modal))))
+        count = len(in_range[0])
+        return count
+
     def get_fractional_uniformity(self, dcm):
 
         arr = dcm.pixel_array
@@ -119,13 +135,8 @@ class Uniformity(HazenTask):
         vertical_profile = np.mean(vertical_roi, axis=1)
 
         # Count how many elements are within 0.9-1.1 times the modal value
-        horizontal_count = np.where(
-            np.logical_and((horizontal_profile > (0.9 * central_roi_mode)), (horizontal_profile < (
-                    1.1 * central_roi_mode))))
-        horizontal_count = len(horizontal_count[0])
-        vertical_count = np.where(np.logical_and((vertical_profile > (0.9 * central_roi_mode)), (vertical_profile < (
-                1.1 * central_roi_mode))))
-        vertical_count = len(vertical_count[0])
+        horizontal_count = self.count_in_range(horizontal_profile, central_roi_mode)
+        vertical_count = self.count_in_range(vertical_profile, central_roi_mode)
 
         # Calculate fractional uniformity
         fractional_uniformity_horizontal = horizontal_count / 160
@@ -148,5 +159,5 @@ class Uniformity(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-                'vertical': {'IPEM': fractional_uniformity_vertical}}
+        return {'horizontal': fractional_uniformity_horizontal,
+                'vertical': fractional_uniformity_vertical}
