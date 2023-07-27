@@ -74,7 +74,11 @@ class ACRSpatialResolution(HazenTask):
             print(f"Could not calculate the spatial resolution for {self.key(mtf_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
-        results = {self.key(self.data[0]): mtf_results, 'reports': {'images': self.report_files}}
+        results = {self.key(self.data[0]): mtf_results}
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 

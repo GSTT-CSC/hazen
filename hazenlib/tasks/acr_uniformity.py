@@ -39,12 +39,14 @@ class ACRUniformity(HazenTask):
         try:
             result = self.get_integral_uniformity(uniformity_dcm)
             results[self.key(uniformity_dcm)] = result
-
-            results['reports'] = {'images': self.report_files}
         except Exception as e:
             print(
                 f"Could not calculate the percent integral uniformity for {self.key(uniformity_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 

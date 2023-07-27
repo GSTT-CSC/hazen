@@ -50,12 +50,13 @@ class ACRSlicePosition(HazenTask):
             try:
                 result = self.get_slice_position(dcm)
                 results[self.key(dcm)] = result
-
-                results['reports'] = {'images': self.report_files}
             except Exception as e:
                 print(f"Could not calculate the bar length difference for {self.key(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 

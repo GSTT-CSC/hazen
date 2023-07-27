@@ -57,12 +57,18 @@ class ACRGeometricAccuracy(HazenTask):
             print(f"Could not calculate the geometric accuracy for {self.key(slice5_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
-        results['reports'] = {'images': self.report_files}
 
-        mean_err, max_err, cov_l = self.distortion_metric(lengths_1 + lengths_5)
+        L = result1 + result5
+        mean_err, max_err, cov_l = self.distortion_metric(L)
+
         print(f"Mean relative measurement error is equal to {np.round(mean_err, 2)}mm")
         print(f"Maximum absolute measurement error is equal to {np.round(max_err, 2)}mm")
         print(f"Coefficient of variation of measurements is equal to {np.round(cov_l, 2)}%")
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
+
         return results
 
     def diagonal_lengths(self, res, img, cxy):

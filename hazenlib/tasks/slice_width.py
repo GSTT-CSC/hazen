@@ -18,7 +18,7 @@ from scipy.interpolate import interp1d
 from skimage.measure import regionprops
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.shapes import Rod
+from hazenlib.utils import Rod
 
 
 class SliceWidth(HazenTask):
@@ -36,7 +36,9 @@ class SliceWidth(HazenTask):
                 traceback.print_exc(file=sys.stdout)
                 continue
 
-        results['reports'] = {'images': self.report_files}
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 

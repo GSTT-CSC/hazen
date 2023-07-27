@@ -37,11 +37,13 @@ class ACRSliceThickness(HazenTask):
         try:
             result = self.get_slice_thickness(slice_thickness_dcm)
             results[self.key(slice_thickness_dcm)] = result
-
-            results['reports'] = {'images': self.report_files}
         except Exception as e:
             print(f"Could not calculate the slice thickness for {self.key(slice_thickness_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
+
+        # only return reports if requested
+        if self.report:
+            results['reports'] = {'images': self.report_files}
 
         return results
 

@@ -7,8 +7,7 @@ import pydicom
 # import hazenlib.slice_width as hazen_slice_width
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tasks.slice_width import SliceWidth
-from hazenlib.shapes import Rod
-from hazenlib.tools import get_dicom_files
+from hazenlib.utils import get_dicom_files, Rod
 import os
 
 

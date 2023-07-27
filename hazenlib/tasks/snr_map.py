@@ -261,9 +261,6 @@ class SNRMap(HazenTask):
         # * Pass kernel_len and roi_size parameters from command line.
 
         results = {}
-        if self.report:
-            # Create nested report folder and ignore if already exists
-            pathlib.Path.mkdir(pathlib.Path(self.report_path), parents=True, exist_ok=True)
 
         for self.current_dcm in self.data:
 
