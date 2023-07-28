@@ -77,8 +77,9 @@ acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | ac
 - other phantoms:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 
-All tasks can be run by executing 'hazen <task> <folder>'. There are additional options available to further customise the calculation and output.
-
+All tasks can be run by executing 'hazen <task> <folder>'. There are additional
+options available to further customise the calculation and output (see General Options).
+The SNR tasks have optional arguments to be used in the calculations (measured slice width for snr and acr_snr)
 
 Usage:
     hazen <task> <folder> [options]
@@ -86,10 +87,10 @@ Usage:
     hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
     hazen relaxometry <folder> (--calc_t1 | --calc_t2) --plate_number=<n> [relaxometry-options] [options]
 
-    hazen -h|--help
+    hazen -h |--help
     hazen --version
 
-Options: available for all tasks
+General options: available for all tasks
     --report                     Whether to generate visualisation of the measurement steps.
     --output=<path>              Provide a folder where report images are to be saved.
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
