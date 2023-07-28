@@ -4,7 +4,7 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 

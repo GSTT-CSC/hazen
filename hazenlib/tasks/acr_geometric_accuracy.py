@@ -28,7 +28,7 @@ import skimage.measure
 import skimage.transform
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRGeometricAccuracy(HazenTask):
