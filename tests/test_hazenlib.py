@@ -1,160 +1,11 @@
-import pydicom
-from tests import TEST_DATA_DIR
-import hazenlib
-import unittest
-import numpy as np
-from docopt import docopt
-from hazenlib.logger import logger
-from pprint import pprint
 import sys
-import ast
-import os
-
-TEST_DICOM = str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm')
-TEST_DICOM = pydicom.read_file(TEST_DICOM)
-print(TEST_DICOM.Columns * TEST_DICOM.PixelSpacing[0])
-test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm'),
-                           'MANUFACTURER': 'philips',
-                           'ROWS': 512,
-                           'COLUMNS': 512,
-                           'TR_CHECK': 500,
-                           'BW': 205.0,
-                           'ENHANCED': False,
-                           'PIX_ARRAY': 1,
-                           'SLICE_THICKNESS': 5,
-                           'PIX_SIZE': [0.48828125, 0.48828125],
-                           'AVERAGE': 1},
-               'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA'),
-                           'MANUFACTURER': 'siemens',
-                           'ROWS': 256,
-                           'COLUMNS': 256,
-                           'TR_CHECK': 500,
-                           'BW': 130.0,
-                           'ENHANCED': False,
-                           'PIX_ARRAY': 1,
-                           'SLICE_THICKNESS': 5,
-                           'PIX_SIZE': [0.9765625, 0.9765625],
-                           'AVERAGE': 1},
-               'toshiba': {'file': str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm'),
-                           'MANUFACTURER': 'toshiba',
-                           'ROWS': 256,
-                           'COLUMNS': 256,
-                           'TR_CHECK': 45.0,
-                           'BW': 244.0,
-                           'ENHANCED': False,
-                           'PIX_ARRAY': 1,
-                           'SLICE_THICKNESS': 6,
-                           'PIX_SIZE': [1.0, 1.0],
-                           'AVERAGE': 1},
-               'ge': {'file': str(TEST_DATA_DIR / 'ge' / 'ge_eFilm.dcm'),
-                      'MANUFACTURER': 'ge',
-                      'ROWS': 256,
-                      'COLUMNS': 256,
-                      'TR_CHECK': 1000.0,
-                      'BW': 156.25,
-                      'ENHANCED': False,
-                      'PIX_ARRAY': 1,
-                      'SLICE_THICKNESS': 5,
-                      'PIX_SIZE': [0.625, 0.625],
-                      'AVERAGE': 1}}
-
-class TestHazenlib(unittest.TestCase):
-
-
-    def test_get_manufacturer(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                assert hazenlib.get_manufacturer(dcm) == test_dicoms[manufacturer]['MANUFACTURER']
-
-
-    def test_get_rows(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                rows = hazenlib.get_rows(dcm)
-                assert rows == test_dicoms[manufacturer]['ROWS']
-
-    def test_get_columns(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                columns = hazenlib.get_columns(dcm)
-                assert columns == test_dicoms[manufacturer]['COLUMNS']
-
-    def test_get_TR(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                TR = hazenlib.get_TR(dcm)
-                assert TR == test_dicoms[manufacturer]['TR_CHECK']
-
-    def test_get_bandwidth(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                bw = hazenlib.get_bandwidth(dcm)
-                assert bw == test_dicoms[manufacturer]['BW']
-
-    def test_is_enhanced(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                enhanced = hazenlib.is_enhanced_dicom(dcm)
-                assert enhanced == test_dicoms[manufacturer]['ENHANCED']
-
-    def test_get_num_of_frames(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                pix_arr = hazenlib.get_num_of_frames(dcm)
-                assert pix_arr == test_dicoms[manufacturer]['PIX_ARRAY']
-
-    def test_get_slice_thickness(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                slice_thick = hazenlib.get_slice_thickness(dcm)
-                assert slice_thick == test_dicoms[manufacturer]['SLICE_THICKNESS']
-
-    def get_average(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                avg = hazenlib.get_average(dcm)
-                assert avg == test_dicoms[manufacturer]['AVERAGE']
-
-    def get_pixel_size(self):
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                pix_size = hazenlib.get_pixel_size(dcm)
-                pix_size = list(pix_size)
-                self.assertEqual(pix_size,test_dicoms[manufacturer]['PIX_SIZE'])
-
-    def test_fov(self):
-        test_dicoms = {'philips': {'file': str(TEST_DATA_DIR / 'resolution' / 'philips' / 'IM-0004-0002.dcm'),
-                                   'MANUFACTURER': 'philips',
-                                   'FOV': 250.0},
-                       'siemens': {'file': str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA'),
-                                   'MANUFACTURER': 'siemens',
-                                   'FOV': 250.0},
-                       'toshiba': {'file': str(TEST_DATA_DIR / 'toshiba' / 'TOSHIBA_TM_MR_DCM_V3_0.dcm'),
-                                   'MANUFACTURER': 'toshiba',
-                                   'FOV': 256.0}}
-
-        for manufacturer in test_dicoms.keys():
-            with pydicom.read_file(test_dicoms[manufacturer]['file']) as dcm:
-                # first test function
-                fov = hazenlib.get_field_of_view(dcm)
-                print(fov)
-                assert fov == test_dicoms[manufacturer]['FOV']
-
-
-class Test(unittest.TestCase):
-
-    def setUp(self):
-        self.file = str(TEST_DATA_DIR / 'resolution' / 'resolution_site01' / '256_sag.IMA')
-        self.dcm = pydicom.read_file(self.file)
-        self.dcm = self.dcm.pixel_array
-
-    def test_rescale_to_byte(self):
-        test_array = np.array([[1,2], [3,4]])
-        TEST_OUT = np.array([[63,127],[191,255]])
-        test_array = hazenlib.rescale_to_byte(test_array)
-        test_array = test_array.tolist()
-        TEST_OUT = TEST_OUT.tolist()
-        self.assertListEqual(test_array, TEST_OUT)
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+import unittest
+import pydicom
+import hazenlib
+from hazenlib.utils import get_dicom_files, is_dicom_file
+from hazenlib.tasks.snr import SNR
+from hazenlib.relaxometry import main as relaxometry_run
 
 
 class TestCliParser(unittest.TestCase):
@@ -184,44 +35,29 @@ class TestCliParser(unittest.TestCase):
 
         self.assertEqual(logging.root.level, logging.INFO)
 
-    def test_main_snr_exception(self):
-        path = str(TEST_DATA_DIR / 'snr' / 'Siemens')
-        sys.argv = ["hazen", "spatial_resolution", path, "--measured_slice_width=10"]
-
-        self.assertRaises(Exception, hazenlib.main)
-
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
-        sys.argv = ["hazen", "snr", path, "--measured_slice_width", "1"]
+        files = get_dicom_files(path)
+        snr_task = SNR(data_paths=files, report=False)
+        result = snr_task.run(measured_slice_width=1)
 
-        output=hazenlib.main()
-        output_dict = ast.literal_eval(output)
+        dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.97,
+                 'snr_subtraction_normalised_SNR_SNR_SAG_MEAS1_23_1': 7593.04,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS2_24_1': 183.93,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS2_24_1': 7591.33,
+                 'snr_smoothing_measured_SNR_SNR_SAG_MEAS1_23_1': 179.94,
+                 'snr_smoothing_normalised_SNR_SNR_SAG_MEAS1_23_1': 7426.54}
 
-        dict1={'snr_subtraction_measured_SNR SAG MEAS2_24_1': 182.87,
-         'snr_subtraction_normalised_SNR SAG MEAS2_24_1': 7547.37,
-               'snr_smoothing_measured_SNR SAG MEAS2_24_1': 189.38,
-               'snr_smoothing_normalised_SNR SAG MEAS2_24_1': 7816.0,
-               'snr_smoothing_measured_SNR SAG MEAS1_23_1': 184.41,
-               'snr_smoothing_normalised_SNR SAG MEAS1_23_1':  7610.83}
-
-        maxDiff = None
-        self.assertDictEqual(output_dict, dict1)
+        self.assertDictEqual(result['SNR_SNR_SAG_MEAS1_23_1'], dict1)
 
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
-        sys.argv = ["hazen", "relaxometry", path,  "--plate_number", "4", "--calc_t1"]
+        files = get_dicom_files(path)
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        result = relaxometry_run(dicom_objects, plate_number=4,
+         calc='T1', report=False, verbose=False)
 
-        output = hazenlib.main()
-        output_dict = ast.literal_eval(output)
-
-        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference':  0.13499936644959437}}
+        dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
+        self.assertEqual(dict1.keys(), result.keys())
         self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
-                               output_dict['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)
-
-
-
-
-
-
-
-
+                               result['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)

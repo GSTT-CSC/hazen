@@ -16,6 +16,9 @@ authors:
     family-names: Vilic
     given-names: Dika
   -
+    family-names: Ratkai
+    given-names: Sophie
+  -
     family-names: Culley
     given-names: Siân
     orcid: "https://orcid.org/0000-0003-2112-0143"
@@ -43,5 +46,5 @@ date-released: 2022-02-24
 message: "If you use hazen in your work, please cite it using these metadata."
 repository-code: "https://github.com/GSTT-CSC/hazen"
 title: hazen
-version: "0.6.0"
+version: "1.2.0"
 ...

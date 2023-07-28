@@ -60,8 +60,6 @@ MMMMMMMMMMMMMMMMMMMMMMMMWN0xoc:cccccldkxxkOOO0KXNWMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
-
-
 `7MMF'  `7MMF'
   MM      MM
   MM      MM   ,6"Yb.  M""MMV .gP"Ya  7MMpMMMb.
@@ -72,251 +70,59 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 
-Welcome to the Hazen Command Line Interface
+Welcome to the hazen Command Line Interface
+
+The following Tasks are available:
+- ACR phantom:
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+- MagNET Test Objects:
+snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+- Caliber phantom:
+relaxometry
+
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--report] [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
-    [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
+    hazen <task> <folder> [options]
+    hazen snr <folder> [--measured_slice_width=<mm>] [options]
+    hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
+    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
+
     hazen -h|--help
-    hazen -v|--version
-Options:
-    <task>    snr | acr_snr | slice_position | slice_width | spatial_resolution | uniformity | acr_uniformity | ghosting | relaxometry | snr_map
-    <folder>
-    --report
+    hazen --version
 
+Options: available for all Tasks
+    --report                     Whether to generate visualisation of the measurement steps.
+    --output=<path>              Provide a folder where report images are to be saved.
+    --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
 
+acr_snr Task options:
+    --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM. Available for both snr and acr_snr tasks.
+    --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
+
+relaxometry Task options:
+    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
+    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
+    --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
 """
-import logging
-import os
-import pprint
+
+
 import importlib
+import inspect
+import logging
+import sys
+import pprint
+import os
 
-import pydicom
 from docopt import docopt
-import numpy as np
-import cv2
-from hazenlib.tools import is_dicom_file
+import pydicom
+from hazenlib.logger import logger
+from hazenlib.utils import is_dicom_file, get_dicom_files
+from hazenlib._version import __version__
 
 
-__version__ = '0.6.0'
-
-
-
-import hazenlib.exceptions
-
-EXCLUDED_FILES = ['.DS_Store']
-
-
-def rescale_to_byte(array):
-    image_histogram, bins = np.histogram(array.flatten(), 255)
-    cdf = image_histogram.cumsum()  # cumulative distribution function
-    cdf = 255 * cdf / cdf[-1]  # normalize
-    # use linear interpolation of cdf to find new pixel values
-    image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
-    return image_equalized.reshape(array.shape).astype('uint8')
-#
-
-def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
-    """
-
-    Parameters
-    ----------
-    dcm
-
-    Returns
-    -------
-    bool
-
-    Raises
-    ------
-    Exception
-     Unrecognised SOPClassUID
-
-    """
-
-    if dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4.1':
-        return True
-    elif dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4':
-        return False
-    else:
-        raise Exception('Unrecognised SOPClassUID')
-
-
-def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['ge', 'siemens', 'philips', 'toshiba', 'canon']
-    manufacturer = dcm.Manufacturer.lower()
-    for item in supported:
-        if item in manufacturer:
-            return item
-
-    raise Exception(f'{manufacturer} not recognised manufacturer')
-
-
-def get_average(dcm: pydicom.Dataset) -> float:
-    if is_enhanced_dicom(dcm):
-        averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
-    else:
-        averages = dcm.NumberOfAverages
-
-    return averages
-
-
-def get_bandwidth(dcm: pydicom.Dataset) -> float:
-    """
-    Returns PixelBandwidth
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-
-    Returns
-    -------
-    bandwidth: float
-    """
-    bandwidth = dcm.PixelBandwidth
-    return bandwidth
-
-
-def get_num_of_frames(dcm: pydicom.Dataset) -> int:
-    """
-    Returns number of frames of dicom object
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-        DICOM object
-
-    Returns
-    -------
-
-    """
-    if len(dcm.pixel_array.shape) > 2:
-        return dcm.pixel_array.shape[0]
-    elif len(dcm.pixel_array.shape) == 2:
-        return 1
-
-
-def get_slice_thickness(dcm: pydicom.Dataset) -> float:
-    if is_enhanced_dicom(dcm):
-        try:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
-        except AttributeError:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].Private_2005_140f[0].SliceThickness
-        except Exception:
-            raise Exception('Unrecognised metadata Field for Slice Thickness')
-    else:
-        slice_thickness = dcm.SliceThickness
-
-    return slice_thickness
-
-
-def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
-    manufacturer = get_manufacturer(dcm)
-    try:
-        if is_enhanced_dicom(dcm):
-            dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
-        else:
-            dx, dy = dcm.PixelSpacing
-    except:
-        print('Warning: Could not find PixelSpacing..')
-        if 'ge' in manufacturer:
-            fov = get_field_of_view(dcm)
-            dx = fov / dcm.Columns
-            dy = fov / dcm.Rows
-        else:
-            raise Exception('Manufacturer not recognised')
-
-    return dx, dy
-
-
-def get_TR(dcm: pydicom.Dataset) -> (float):
-    """
-    Returns Repetition Time (TR)
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-
-    Returns
-    -------
-    TR: float
-    """
-
-    try:
-        TR = dcm.RepetitionTime
-    except:
-        print('Warning: Could not find Repetition Time. Using default value of 1000 ms')
-        TR = 1000
-    return TR
-
-
-def get_rows(dcm: pydicom.Dataset) -> (float):
-    """
-    Returns number of image rows (rows)
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-
-    Returns
-    -------
-    rows: float
-    """
-    try:
-        rows = dcm.Rows
-    except:
-        print('Warning: Could not find Number of matrix rows. Using default value of 256')
-        rows = 256
-
-    return rows
-
-
-def get_columns(dcm: pydicom.Dataset) -> (float):
-    """
-    Returns number of image columns (columns)
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-
-    Returns
-    -------
-    columns: float
-    """
-    try:
-        columns = dcm.Columns
-    except:
-        print('Warning: Could not find matrix size (columns). Using default value of 256.')
-        columns = 256
-    return columns
-
-
-def get_field_of_view(dcm: pydicom.Dataset):
-    # assumes square pixels
-    manufacturer = get_manufacturer(dcm)
-
-    if 'ge' in manufacturer:
-        fov = dcm[0x19, 0x101e].value
-    elif 'siemens' in manufacturer:
-        fov = dcm.Columns * dcm.PixelSpacing[0]
-    elif 'philips' in manufacturer:
-        if is_enhanced_dicom(dcm):
-            fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
-        else:
-            fov = dcm.Columns * dcm.PixelSpacing[0]
-    elif 'toshiba' in manufacturer:
-        fov = dcm.Columns * dcm.PixelSpacing[0]
-    else:
-        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
-
-    return fov
-
-
-def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse_relaxometry_data(arguments, dicom_objects, report):   #
+def parse_relaxometry_args(arguments):
 
     # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
+    relaxometry_cli_args = {'--calc', '--plate_number', '--verbose'}
 
     # Pass arguments with dictionary, stripping initial double dash ('--')
     relaxometry_args = {}
@@ -324,31 +130,39 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report):   #def parse
     for key in relaxometry_cli_args:
         relaxometry_args[key[2:]] = arguments[key]
 
-    return task.main(dicom_objects, report_path = report,
-                               **relaxometry_args)
+    return relaxometry_args
+
+
+def init_task(selected_task, files, report, report_dir):
+    task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
+
+    class_list = [cls for _, cls in inspect.getmembers(
+        sys.modules[task_module.__name__],
+        lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__)
+        )]
+
+    if len(class_list) > 1:
+        raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')
+
+    task = getattr(task_module, class_list[0].__name__)(
+        data_paths=files, report=report, report_dir=report_dir)
+
+    return task
 
 
 def main():
     arguments = docopt(__doc__, version=__version__)
-    task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
-    folder = arguments['<folder>']
-    files = [os.path.join(folder, x) for x in os.listdir(folder) if x not in EXCLUDED_FILES]
-    dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+    files = get_dicom_files(arguments['<folder>'])
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
-    if arguments['--report']:
-        report = True
-    else:
-        report = False
 
+    # Set common options
     log_levels = {
         "critical": logging.CRITICAL,
         "debug": logging.DEBUG,
         "info": logging.INFO,
         "warning": logging.WARNING,
         "error": logging.ERROR
-
     }
-
     if arguments['--log'] in log_levels.keys():
         level = log_levels[arguments['--log']]
         logging.getLogger().setLevel(level)
@@ -356,19 +170,38 @@ def main():
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-    if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
-        raise Exception("the (--measured_slice_width) option can only be used with snr")
-    elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
-        measured_slice_width = float(arguments['--measured_slice_width'])
-        result = task.main(dicom_objects, measured_slice_width, report_path=report)
-    elif arguments['<task>'] == 'relaxometry':
-        result = parse_relaxometry_data(task, arguments, dicom_objects, report)
+    report = arguments['--report']
+    report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
+                os.getcwd(), 'report')
+
+    # Parse the task and optional arguments:
+    if arguments['snr'] or arguments['<task>'] == 'snr':
+        selected_task = 'snr'
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(
+                measured_slice_width = arguments['--measured_slice_width'])
+    elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
+        selected_task = 'acr_snr'
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(
+                subtract = arguments['--subtract'],
+                measured_slice_width = arguments['--measured_slice_width'])
+    elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
+        # TODO: Refactor Relaxometry task into HazenTask object
+        #  - Relaxometry not currently converted to HazenTask object
+        #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
+        relax_task = importlib.import_module(f"hazenlib.relaxometry")
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        relaxometry_args = parse_relaxometry_args(arguments)
+        result = relax_task.main(dicom_objects, **relaxometry_args,
+                                report=report, report_dir=report_dir)
     else:
-        result = task.main(dicom_objects, report_path=report)
+        selected_task = arguments['<task>']
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run()
 
-    return pp.pformat(result)
+    print(pp.pformat(result))
 
 
-def entry_point():
-    result = main()
-    print(result)
+if __name__ == "__main__":
+    main()
