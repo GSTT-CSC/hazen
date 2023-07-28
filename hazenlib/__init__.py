@@ -70,12 +70,15 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 
-Welcome to the Hazen Command Line Interface
-Currently the below tasks are available:
-- MagNET phantom:
-snr |snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
+Welcome to the hazen Command Line Interface
+
+The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting |  acr_geometric_accuracy
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+- MagNET Test Objects:
+snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+- Caliber phantom:
+relaxometry
 
 Usage:
     hazen <task> <folder> [options]
@@ -86,16 +89,16 @@ Usage:
     hazen -h|--help
     hazen --version
 
-Options: available for all tasks
+Options: available for all Tasks
     --report                     Whether to generate visualisation of the measurement steps.
     --output=<path>              Provide a folder where report images are to be saved.
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
 
-ACR_SNR task options:
+acr_snr Task options:
     --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM. Available for both snr and acr_snr tasks.
     --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
 
-Relaxometry task options:
+relaxometry Task options:
     --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
     --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
