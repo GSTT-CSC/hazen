@@ -30,7 +30,10 @@ class SNR(HazenTask):
         super().__init__(**kwargs)
 
     def run(self, measured_slice_width=None) -> dict:
+        if measured_slice_width is not None:
+            measured_slice_width = float(measured_slice_width)
         snr_results = {}
+
         if len(self.data) == 2:
             snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
             snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
