@@ -443,7 +443,7 @@ class TestPhilipsResolution(TestSpatialResolution):
 
 class TestSite01Resolution(TestSpatialResolution):
 
-    files = get_dicom_files(os.path.join(TEST_DATA_DIR, 'resolution_site01'))
+    files = get_dicom_files(os.path.join(TEST_DATA_DIR, 'resolution', 'resolution_site01'))
 
     TEST_SQUARE = [[142, 105], [104, 113], [112, 152], [150, 144]]
     CIRCLE = [[[127, 128, 96]]]
