@@ -109,7 +109,7 @@ import importlib
 import inspect
 import logging
 import sys
-import pprint
+import json
 import os
 
 from docopt import docopt
@@ -153,7 +153,6 @@ def init_task(selected_task, files, report, report_dir):
 def main():
     arguments = docopt(__doc__, version=__version__)
     files = get_dicom_files(arguments['<folder>'])
-    pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
 
     # Set common options
     log_levels = {
@@ -200,7 +199,8 @@ def main():
         task = init_task(selected_task, files, report, report_dir)
         result = task.run()
 
-    print(pp.pformat(result))
+    result_string = json.dumps(result, indent=2)
+    print(result_string)
 
 
 if __name__ == "__main__":
