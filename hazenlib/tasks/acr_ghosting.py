@@ -21,7 +21,7 @@ import os
 import numpy as np
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRGhosting(HazenTask):

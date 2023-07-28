@@ -5,7 +5,7 @@ import pydicom
 import numpy as np
 
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 

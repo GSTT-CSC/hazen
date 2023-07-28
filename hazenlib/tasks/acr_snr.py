@@ -27,7 +27,7 @@ import pydicom
 from scipy import ndimage
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRSNR(HazenTask):

@@ -33,7 +33,7 @@ import skimage.morphology
 import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
-from hazenlib.acr_object import ACRObject
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
