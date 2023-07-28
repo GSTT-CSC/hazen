@@ -35,12 +35,6 @@ class TestCliParser(unittest.TestCase):
 
         self.assertEqual(logging.root.level, logging.INFO)
 
-    def test_main_snr_exception(self):
-        path = str(TEST_DATA_DIR / 'snr' / 'Siemens')
-        sys.argv = ["hazen", "spatial_resolution", path, "--measured_slice_width=10"]
-
-        self.assertRaises(Exception, hazenlib.main)
-
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         files = get_dicom_files(path)
@@ -61,8 +55,9 @@ class TestCliParser(unittest.TestCase):
         files = get_dicom_files(path)
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = relaxometry_run(dicom_objects, plate_number=4,
-         calc_t1=True, calc_t2=False, report_path=False, verbose=False)
+         calc='T1', report=False, verbose=False)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
+        self.assertEqual(dict1.keys(), result.keys())
         self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
                                result['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)

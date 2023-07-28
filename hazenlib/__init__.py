@@ -70,24 +70,40 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 
-Welcome to the Hazen Command Line Interface
+Welcome to the hazen Command Line Interface
+
+The following Tasks are available:
+- ACR phantom:
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+- MagNET Test Objects:
+snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+- Caliber phantom:
+relaxometry
+
 Usage:
-    hazen <task> <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [--report] [--output=<path>]
-    [--calc_t1 | --calc_t2] [--plate_number=<n>] [--show_template_fit]
-    [--show_relax_fits] [--show_rois] [--log=<lvl>] [--verbose]
+    hazen <task> <folder> [options]
+    hazen snr <folder> [--measured_slice_width=<mm>] [options]
+    hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
+    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
+
     hazen -h|--help
     hazen --version
-Options:
-Report is an optional argument needed if you want to get a plot of your results.
-'Calc_t1', 'calc_t', 'plate_number=<n>', 'show_template_fit', 'show_relax_fits', 'show_rois', 'verbose' are optional arguments for the relaxometry function.
-'Measured_slice_width' is an optional argument for the SNR function.
-'Log' is an optional argument that allows users to set the severity of the logs.
-    <task>    snr | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry | snr_map |
-    acr_ghosting | acr_uniformity | acr_spatial_resolution | acr_slice_thickness | acr_snr | acr_slice_position | acr_geometric_accuracy
-    <folder>
-    --report
 
+Options: available for all Tasks
+    --report                     Whether to generate visualisation of the measurement steps.
+    --output=<path>              Provide a folder where report images are to be saved.
+    --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
+
+acr_snr Task options:
+    --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM. Available for both snr and acr_snr tasks.
+    --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
+
+relaxometry Task options:
+    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
+    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
+    --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
 """
+
 
 import importlib
 import inspect
@@ -103,12 +119,10 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects, report):
+def parse_relaxometry_args(arguments):
 
     # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
+    relaxometry_cli_args = {'--calc', '--plate_number', '--verbose'}
 
     # Pass arguments with dictionary, stripping initial double dash ('--')
     relaxometry_args = {}
@@ -116,30 +130,11 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report):
     for key in relaxometry_cli_args:
         relaxometry_args[key[2:]] = arguments[key]
 
-    return task.main(dicom_objects, report_path=report,
-                     **relaxometry_args)
+    return relaxometry_args
 
 
-def main():
-    arguments = docopt(__doc__, version=__version__)
-    task_module = importlib.import_module(f"hazenlib.tasks.{arguments['<task>']}")
-    files = get_dicom_files(arguments['<folder>'])
-    pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
-
-    log_levels = {
-        "critical": logging.CRITICAL,
-        "debug": logging.DEBUG,
-        "info": logging.INFO,
-        "warning": logging.WARNING,
-        "error": logging.ERROR
-    }
-
-    if arguments['--log'] in log_levels.keys():
-        level = log_levels[arguments['--log']]
-        logging.getLogger().setLevel(level)
-    else:
-        # logging.basicConfig()
-        logging.getLogger().setLevel(logging.INFO)
+def init_task(selected_task, files, report, report_dir):
+    task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
 
     class_list = [cls for _, cls in inspect.getmembers(
         sys.modules[task_module.__name__],
@@ -150,36 +145,59 @@ def main():
         raise Exception(f'Task {task_module} has multiple class definitions: {class_list}')
 
     task = getattr(task_module, class_list[0].__name__)(
-        data_paths=files, report=arguments['--report'],
-        # TODO: Is this necessary? See HazenTask __init__()
-        report_dir=[
-            arguments['--output'] if arguments['--output'] else os.path.join(
-                os.getcwd(), 'report')][0])
+        data_paths=files, report=report, report_dir=report_dir)
 
-    if not arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
-        raise Exception("the (--measured_slice_width) option can only be used with snr")
-    elif not arguments['<task>'] == 'acr_snr' and arguments['--subtract']:
-        raise Exception("the (--subtract) option can only be used with acr_snr")
-    elif arguments['<task>'] == 'snr' and arguments['--measured_slice_width']:
-        measured_slice_width = float(arguments['--measured_slice_width'])
-        logger.info(f'Calculating SNR with measured slice width {measured_slice_width}')
-        result = task.run(measured_slice_width)
-    elif arguments['<task>'] == 'acr_snr':
-        acr_snr_cli_args = {'--subtract'}
+    return task
 
-        acr_snr_args = {}
-        for key in acr_snr_cli_args:
-            acr_snr_args[key[2:]] = arguments[key]
 
-        result = task.run(**acr_snr_args)
-    # TODO: Refactor Relaxometry task into HazenTask object
-    #  - Relaxometry not currently converted to HazenTask object
-    #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
-    elif arguments['<task>'] == 'relaxometry':
-        task = importlib.import_module(f"hazenlib.{arguments['<task>']}")
-        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = parse_relaxometry_data(task, arguments, dicom_objects, report=True)
+def main():
+    arguments = docopt(__doc__, version=__version__)
+    files = get_dicom_files(arguments['<folder>'])
+    pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
+
+    # Set common options
+    log_levels = {
+        "critical": logging.CRITICAL,
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warning": logging.WARNING,
+        "error": logging.ERROR
+    }
+    if arguments['--log'] in log_levels.keys():
+        level = log_levels[arguments['--log']]
+        logging.getLogger().setLevel(level)
     else:
+        # logging.basicConfig()
+        logging.getLogger().setLevel(logging.INFO)
+
+    report = arguments['--report']
+    report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
+                os.getcwd(), 'report')
+
+    # Parse the task and optional arguments:
+    if arguments['snr'] or arguments['<task>'] == 'snr':
+        selected_task = 'snr'
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(
+                measured_slice_width = arguments['--measured_slice_width'])
+    elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
+        selected_task = 'acr_snr'
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(
+                subtract = arguments['--subtract'],
+                measured_slice_width = arguments['--measured_slice_width'])
+    elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
+        # TODO: Refactor Relaxometry task into HazenTask object
+        #  - Relaxometry not currently converted to HazenTask object
+        #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
+        relax_task = importlib.import_module(f"hazenlib.relaxometry")
+        dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
+        relaxometry_args = parse_relaxometry_args(arguments)
+        result = relax_task.main(dicom_objects, **relaxometry_args,
+                                report=report, report_dir=report_dir)
+    else:
+        selected_task = arguments['<task>']
+        task = init_task(selected_task, files, report, report_dir)
         result = task.run()
 
     print(pp.pformat(result))
