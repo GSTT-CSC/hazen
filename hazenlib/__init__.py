@@ -70,12 +70,15 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 
-Welcome to the Hazen Command Line Interface
+Welcome to the hazen Command Line Interface!
 Currently the below tasks are available:
-- MagNET phantom:
-snr |snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting | relaxometry
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting |  acr_geometric_accuracy
+acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+- other phantoms:
+snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+
+All tasks can be run by executing 'hazen <task> <folder>'. There are additional options available to further customise the calculation and output.
+
 
 Usage:
     hazen <task> <folder> [options]
