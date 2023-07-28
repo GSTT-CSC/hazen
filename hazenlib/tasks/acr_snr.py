@@ -39,9 +39,14 @@ class ACRSNR(HazenTask):
         self.data2 = []
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
+        
+        if measured_slice_width is not None:
+            measured_slice_width = float(measured_slice_width)
+        
         snr_results = {}
         self.ACR_obj = [ACRObject(self.data)]
         snr_dcm = self.ACR_obj[0].dcm[6]
+
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
             try:
