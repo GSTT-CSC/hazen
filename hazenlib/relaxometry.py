@@ -136,7 +136,7 @@ from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
 
 import hazenlib.exceptions
-from hazenlib.config import (
+from hazenlib.relaxometry_params import (
     MAX_RICIAN_NOISE, SEED_RICIAN_NOISE, TEMPLATE_VALUES, SMOOTH_TIMES,
     TEMPLATE_FIT_ITERS, TERMINATION_EPS
 )

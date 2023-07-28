@@ -15,7 +15,7 @@ from hazenlib.relaxometry import (
     transform_coords, T1ImageStack, T2ImageStack, main)
 from hazenlib.exceptions import ArgumentCombinationError
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.config import TEMPLATE_VALUES
+from hazenlib.relaxometry_params import TEMPLATE_VALUES
 
 
 class TestRelaxometry(unittest.TestCase):
