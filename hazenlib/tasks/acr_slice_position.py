@@ -33,61 +33,32 @@ import skimage.morphology
 import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
-
-
-def find_n_peaks(data, n, height=1):
-    peaks = scipy.signal.find_peaks(data, height)
-    pk_heights = peaks[1]['peak_heights']
-    pk_ind = peaks[0]
-    highest_peaks = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
-
-    return np.sort(highest_peaks)
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = None
 
     def run(self) -> dict:
         results = {}
-        z = []
-        for dcm in self.data:
-            z.append(dcm.ImagePositionPatient[2])
-
-        idx_sort = np.argsort(z)
-
-        for dcm in self.data:
-            curr_z = dcm.ImagePositionPatient[2]
-            if curr_z in (z[idx_sort[0]], z[idx_sort[10]]):
-                try:
-                    result = self.get_slice_position(dcm)
-                except Exception as e:
-                    print(f"Could not calculate the bar length difference for {self.key(dcm)} because of : {e}")
-                    traceback.print_exc(file=sys.stdout)
-                    continue
-
+        self.ACR_obj = ACRObject(self.data)
+        dcms = [self.ACR_obj.dcm[0], self.ACR_obj.dcm[-1]]
+        for dcm in dcms:
+            try:
+                result = self.get_slice_position(dcm)
                 results[self.key(dcm)] = result
-
+            except Exception as e:
+                print(f"Could not calculate the bar length difference for {self.key(dcm)} because of : {e}")
+                traceback.print_exc(file=sys.stdout)
+                continue
         # only return reports if requested
         if self.report:
             results['reports'] = {'images': self.report_files}
 
         return results
-
-    def centroid_com(self, dcm):
-        # Calculate centroid of object using a centre-of-mass calculation
-        thresh_img = dcm > 0.25 * np.max(dcm)
-        open_img = skimage.morphology.area_opening(thresh_img, area_threshold=500)
-        bhull = skimage.morphology.convex_hull_image(open_img)
-        coords = np.nonzero(bhull)  # row major - first array is columns
-
-        sum_x = np.sum(coords[1])
-        sum_y = np.sum(coords[0])
-        cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
-
-        cxy = [cxy[0].astype(int), cxy[1].astype(int)]
-        return bhull, cxy
 
     def find_wedges(self, img, mask, res):
         # X COORDINATES
@@ -115,7 +86,7 @@ class ACRSlicePosition(HazenTask):
         mean_x_profile = np.mean(invest_x, 1)  # mean of horizontal projections of phantom
         abs_diff_x_profile = np.abs(np.diff(mean_x_profile))  # absolute first derivative of mean
 
-        x_peaks = find_n_peaks(abs_diff_x_profile, 2)  # find two highest peaks
+        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 2)  # find two highest peaks
         x_locs = w_point + x_peaks  # x coordinates of these peaks in image coordinate system(before diff operation)
 
         width_pts = [x_locs[0], x_locs[1]]  # width of wedges
@@ -147,7 +118,7 @@ class ACRSlicePosition(HazenTask):
         mean_y_profile = np.mean(invest_y, 1)  # mean of vertical projections of phantom
         abs_diff_y_profile = np.abs(np.diff(mean_y_profile))  # absolute first derivative of mean
 
-        y_peaks = find_n_peaks(abs_diff_y_profile, 2)  # find two highest peaks
+        y_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_y_profile, 2)  # find two highest peaks
         y_locs = w_point + y_peaks - 1  # y coordinates of these peaks in image coordinate system(before diff operation)
 
         if y_locs[1] - y_locs[0] < 5 / res[1]:
@@ -156,14 +127,15 @@ class ACRSlicePosition(HazenTask):
             y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs)))  # define y coordinate
 
         dist_to_y = np.abs(n_point - y[0]) * res[1]  # distance to y from top of phantom
-        y_pts = np.append(y, np.round(y[0] + (47 - dist_to_y) / res[1])).astype(int)  # place 2nd y point 47mm from top of phantom
+        y_pts = np.append(y, np.round(y[0] + (47 - dist_to_y) / res[1])).astype(
+            int)  # place 2nd y point 47mm from top of phantom
 
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
-        mask, cxy = self.centroid_com(img)
+        mask = self.ACR_obj.mask_image(self.ACR_obj.images[6])
         x_pts, y_pts = self.find_wedges(img, mask, res)
 
         line_prof_L = skimage.measure.profile_line(img, (y_pts[0], x_pts[0]), (y_pts[1], x_pts[0]),
@@ -179,7 +151,7 @@ class ACRSlicePosition(HazenTask):
         interp_line_prof_R = scipy.interpolate.interp1d(x, line_prof_R)(new_x)  # interpolate right line profile
 
         delta = interp_line_prof_L - interp_line_prof_R  # difference of line profiles
-        peaks = find_n_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
+        peaks, _ = ACRObject.find_n_highest_peaks(abs(delta), 2, 0.5 * np.max(abs(delta)))  # find two highest peaks
 
         if len(peaks) == 1:
             peaks = [peaks[0] - 50, peaks[0] + 50]  # if only one peak, set dummy range
@@ -213,30 +185,31 @@ class ACRSlicePosition(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
-            fig = plt.figure()
-            plt.suptitle('Bar Length Difference = ' + str(np.round(dL, 2)) + 'mm', x=0.5, ha='center')
-            fig.set_size_inches(8, 8)
+            fig, axes = plt.subplots(4, 1)
+            fig.set_size_inches(8, 32)
+            fig.tight_layout(pad=4)
 
-            plt.subplot(2, 2, (1, 3))
-            plt.imshow(img)
-            plt.plot([x_pts[0], x_pts[0]], [y_pts[0], y_pts[1]], 'b')
-            plt.plot([x_pts[1], x_pts[1]], [y_pts[0], y_pts[1]], 'r')
-            plt.axis('off')
-            plt.tight_layout()
+            axes[0].imshow(mask)
+            axes[0].axis('off')
+            axes[0].set_title('Thresholding Result')
 
-            plt.subplot(2, 2, 2)
-            plt.grid()
-            plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
-                     interp_line_prof_L, 'b')
-            plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R)) * res[1],
-                     interp_line_prof_R, 'r')
-            plt.title('Original Line Profiles')
-            plt.xlabel('Relative Pixel Position (mm)')
-            plt.tight_layout()
+            axes[1].imshow(img)
+            axes[1].plot([x_pts[0], x_pts[0]], [y_pts[0], y_pts[1]], 'b')
+            axes[1].plot([x_pts[1], x_pts[1]], [y_pts[0], y_pts[1]], 'r')
+            axes[1].axis('off')
+            axes[1].set_title('Line Profiles')
 
-            plt.subplot(2, 2, 4)
-            plt.grid()
-            plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
+            axes[2].grid()
+            axes[2].plot(
+                (1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
+                interp_line_prof_L, 'b')
+            axes[2].plot(
+                (1 / interp_factor) * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R)) * res[1],
+                interp_line_prof_R, 'r')
+            axes[2].set_title('Original Line Profiles')
+            axes[2].set_xlabel('Relative Pixel Position (mm)')
+
+            axes[3].plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
                      interp_line_prof_L, 'b')
 
             shift_line = np.roll(interp_line_prof_R, pos * shift)
@@ -249,11 +222,11 @@ class ACRSlicePosition(HazenTask):
             else:
                 shift_line[0:np.abs(pos) * shift] = np.nan
 
-            plt.plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
+            axes[3].grid()
+            axes[3].plot((1 / interp_factor) * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L)) * res[1],
                      shift_line, 'r')
-            plt.title('Shifted Line Profiles')
-            plt.xlabel('Relative Pixel Position (mm)')
-            plt.tight_layout()
+            axes[3].set_title('Shifted Line Profiles')
+            axes[3].set_xlabel('Relative Pixel Position (mm)')
 
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
             fig.savefig(img_path)

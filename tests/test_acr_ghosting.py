@@ -4,21 +4,24 @@ import pathlib
 import pydicom
 
 from hazenlib.tasks.acr_ghosting import ACRGhosting
+from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGhostingSiemens(unittest.TestCase):
     ACR_GHOSTING_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = [129, 128]
-    psg = 0.056
+    psg = 0.035
 
     def setUp(self):
         self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                              report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '6.dcm'))
 
-    def test_object_centre(self):
-        assert self.acr_ghosting_task.centroid_com(self.dcm.pixel_array)[1] == self.centre
+        self.acr_ghosting_task.ACR_obj = ACRObject(
+            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
+             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
+
+        self.dcm = self.acr_ghosting_task.ACR_obj.dcm[6]
 
     def test_ghosting(self):
         ghosting_val = round(self.acr_ghosting_task.get_signal_ghosting(self.dcm), 3)
@@ -33,15 +36,16 @@ class TestACRGhostingSiemens(unittest.TestCase):
 class TestACRGhostingGE(unittest.TestCase):
     ACR_GHOSTING_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = [253, 256]
-    psg = 0.487
+    psg = 0.471
 
     def setUp(self):
         self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
                                              report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '4.dcm'))
+        self.acr_ghosting_task.ACR_obj = ACRObject(
+            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
+             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 
-    def test_object_centre(self):
-        assert self.acr_ghosting_task.centroid_com(self.dcm.pixel_array)[1] == self.centre
+        self.dcm = self.acr_ghosting_task.ACR_obj.dcm[6]
 
     def test_ghosting(self):
         assert round(self.acr_ghosting_task.get_signal_ghosting(self.dcm), 3) == self.psg

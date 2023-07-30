@@ -74,8 +74,10 @@ Welcome to the hazen Command Line Interface!
 Currently the below tasks are available:
 - ACR phantom:
 acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
-- other phantoms:
+- MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
+- Caliber phantom:
+relaxometry
 
 All tasks can be run by executing 'hazen <task> <folder>'. There are additional
 options available to further customise the calculation and output (see General Options).
@@ -85,7 +87,7 @@ Usage:
     hazen <task> <folder> [options]
     hazen snr <folder> [--measured_slice_width=<mm>] [options]
     hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
-    hazen relaxometry <folder> (--calc_t1 | --calc_t2) --plate_number=<n> [relaxometry-options] [options]
+    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
 
     hazen -h |--help
     hazen --version
@@ -95,17 +97,14 @@ General options: available for all tasks
     --output=<path>              Provide a folder where report images are to be saved.
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
 
-ACR_SNR task options:
+acr_snr Task options:
     --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM. Available for both snr and acr_snr tasks.
     --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom.
 
-Relaxometry task options:
-    (--calc_t1 | --calc_t2)      Whether to measure T1 or T2 relaxometry (required)
-    --plate_number=<n>           Which plate to use for measurement (required)
+relaxometry Task options:
+    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
+    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
     --verbose                    Whether to provide additional metadata about the calculation in the result (optional)
-    --show_rois                  Whether to show the selected regions of interest - only available in Jupyter.
-    --show_template_fit          Whether to show the template fit diagram - only available in Jupyter.
-    --show_relax_fits            Whether to show the relax fit diagrams - only available in Jupyter.
 """
 
 
@@ -123,12 +122,10 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
-def parse_relaxometry_data(task, arguments, dicom_objects, report_path):
+def parse_relaxometry_args(arguments):
 
     # Relaxometry arguments
-    relaxometry_cli_args = {'--calc_t1', '--calc_t2', '--plate_number',
-                            '--show_template_fit', '--show_relax_fits',
-                            '--show_rois', '--verbose'}
+    relaxometry_cli_args = {'--calc', '--plate_number', '--verbose'}
 
     # Pass arguments with dictionary, stripping initial double dash ('--')
     relaxometry_args = {}
@@ -136,8 +133,7 @@ def parse_relaxometry_data(task, arguments, dicom_objects, report_path):
     for key in relaxometry_cli_args:
         relaxometry_args[key[2:]] = arguments[key]
 
-    return task.main(dicom_objects, report_path=report_path,
-                     **relaxometry_args)
+    return relaxometry_args
 
 
 def init_task(selected_task, files, report, report_dir):
@@ -177,7 +173,7 @@ def main():
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-    report = arguments['--report'],
+    report = arguments['--report']
     report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
                 os.getcwd(), 'report')
 
@@ -199,7 +195,9 @@ def main():
         #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
         relax_task = importlib.import_module(f"hazenlib.relaxometry")
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        result = parse_relaxometry_data(relax_task, arguments, dicom_objects, report_dir)
+        relaxometry_args = parse_relaxometry_args(arguments)
+        result = relax_task.main(dicom_objects, **relaxometry_args,
+                                report=report, report_dir=report_dir)
     else:
         selected_task = arguments['<task>']
         task = init_task(selected_task, files, report, report_dir)

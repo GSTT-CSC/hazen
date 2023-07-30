@@ -55,8 +55,9 @@ class TestCliParser(unittest.TestCase):
         files = get_dicom_files(path)
         dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
         result = relaxometry_run(dicom_objects, plate_number=4,
-         calc_t1=True, calc_t2=False, report_path=False, verbose=False)
+         calc='T1', report=False, verbose=False)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}
+        self.assertEqual(dict1.keys(), result.keys())
         self.assertAlmostEqual(dict1['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'],
                                result['Spin Echo_32_2_P4_t1']['rms_frac_time_difference'], 4)

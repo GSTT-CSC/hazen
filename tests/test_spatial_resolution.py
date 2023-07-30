@@ -441,10 +441,10 @@ class TestPhilipsResolution(TestSpatialResolution):
     bisecting_normal = (281, 245, 319, 239)
 
 
-class TestEastKentResolution(TestSpatialResolution):
-    # RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')
-    # dicom = pydicom.read_file(str(RESOLUTION_DATA / 'eastkent' / "256_sag.IMA"))
-    files = get_dicom_files(os.path.join(TEST_DATA_DIR, 'resolution', 'eastkent'))
+class TestSite01Resolution(TestSpatialResolution):
+
+    files = get_dicom_files(os.path.join(TEST_DATA_DIR, 'resolution', 'resolution_site01'))
+
     TEST_SQUARE = [[142, 105], [104, 113], [112, 152], [150, 144]]
     CIRCLE = [[[127, 128, 96]]]
     TOP_CENTRE = {'x': 123, 'y': 109}

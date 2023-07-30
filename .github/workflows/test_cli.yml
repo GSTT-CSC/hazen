@@ -8,7 +8,7 @@ on:
   release:
 
 jobs:
- test_cli:
+  test_cli:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -111,5 +111,6 @@ jobs:
       - name: test relaxometry
         if: always()
         run: |
-          hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc_t1 --plate_number=5 --report
+          hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc T1 --plate_number=5 --report
+          hazen relaxometry tests/data/relaxometry/T2/site3_ge/plate4/ --calc T2 --plate_number=4 --report
 
