@@ -18,8 +18,8 @@ class TestUniformity(unittest.TestCase):
     def test_uniformity(self):
         results = self.uniformity_task.run()
         key = self.uniformity_task.key(self.uniformity_task.data[0])
-        horizontal_ipem = results[key]['horizontal']['IPEM']
-        vertical_ipem = results[key]['vertical']['IPEM']
+        horizontal_ipem = results[key]['horizontal']
+        vertical_ipem = results[key]['vertical']
 
         print("\ntest_uniformity.py::TestUniformity::test_uniformity")
 
