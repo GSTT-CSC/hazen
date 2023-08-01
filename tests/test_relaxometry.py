@@ -16,7 +16,7 @@ from hazenlib.tasks.relaxometry import (
 from hazenlib.utils import get_dicom_files
 from hazenlib.exceptions import ArgumentCombinationError
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.config import TEMPLATE_VALUES
+from hazenlib.relaxometry_params import TEMPLATE_VALUES
 
 
 class TestRelaxometry(unittest.TestCase):
