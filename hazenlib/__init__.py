@@ -142,7 +142,6 @@ def init_task(selected_task, files, report, report_dir):
 
 def main():
     arguments = docopt(__doc__, version=__version__)
-    print(arguments)
     files = get_dicom_files(arguments['<folder>'])
     pp = pprint.PrettyPrinter(indent=4, depth=1, width=1)
 
