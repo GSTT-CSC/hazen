@@ -567,7 +567,7 @@ class TestRelaxometry(unittest.TestCase):
     def test_ge(self):
         """Test relaxometry.py values on GE."""
         for plate in (4, 5):
-            for tparam in ['T1']: # , 'T2'
+            for tparam in ['T1', 'T2']:
                 dcms = get_dicom_files(
                     getattr(self, f'SITE3_{tparam}_P{plate}_DIR'))
                 # dcms = [pydicom.dcmread(os.path.join(
