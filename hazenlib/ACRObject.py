@@ -2,15 +2,11 @@ import numpy as np
 import cv2
 import scipy
 import skimage
-from hazenlib.utils import get_image_orientation
 
 
 class ACRObject:
     def __init__(self, dcm):
         self.dcm = dcm
-        print(self.dcm)
-        self.imaging_plane = get_image_orientation(self.dcm[0])
-        print(self.imaging_plane)
         self.images, self.dcm = self.sort_images()
         self.orientation_checks()
         self.rot_angle = self.determine_rotation()
