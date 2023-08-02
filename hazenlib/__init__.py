@@ -70,8 +70,9 @@ MMMMMMMMMMMMMMMMMMMMMMMMMMMMN0xc;;::cxXMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 
 
-Welcome to the hazen Command Line Interface!
-Currently the below tasks are available:
+Welcome to the hazen Command Line Interface
+
+The following Tasks are available:
 - ACR phantom:
 acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
 - MagNET Test Objects:
@@ -79,9 +80,8 @@ snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity |
 - Caliber phantom:
 relaxometry
 
-All tasks can be run by executing 'hazen <task> <folder>'. There are additional
-options available to further customise the calculation and output (see General Options).
-The SNR tasks have optional arguments to be used in the calculations (measured slice width for snr and acr_snr)
+All tasks can be run by executing 'hazen <task> <folder>'. Optional flags are available for the Tasks; see the General
+Options section below. The 'acr_snr' and 'snr' Tasks have additional optional flags, also detailed below.
 
 Usage:
     hazen <task> <folder> [options]
@@ -89,10 +89,10 @@ Usage:
     hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
     hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
 
-    hazen -h |--help
+    hazen -h | --help
     hazen --version
 
-General options: available for all tasks
+General Options: available for all Tasks
     --report                     Whether to generate visualisation of the measurement steps.
     --output=<path>              Provide a folder where report images are to be saved.
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
