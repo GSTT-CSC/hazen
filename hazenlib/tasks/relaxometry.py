@@ -310,6 +310,7 @@ class Relaxometry(HazenTask):
 
         if verbose:
             # Dump additional details about the images and the measurement to a file
+            pathlib.Path(self.report_path).mkdir(parents=True, exist_ok=True)
             detailed_output = {}
             detailed_outpath = os.path.join(self.report_path, f"{output_key}_details.json")
 
