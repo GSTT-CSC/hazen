@@ -110,7 +110,7 @@ class TestCOLPEGhosting(TestGhosting):
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
 
-class TestAxialPhilipsBroomfields(TestGhosting):
+class TestAxialPhilipsGhosting(TestGhosting):
     SIGNAL_BOUNDING_BOX = (217, 299, 11, 93)
     SIGNAL_CENTRE = [(SIGNAL_BOUNDING_BOX[0] + SIGNAL_BOUNDING_BOX[1]) // 2,
                      (SIGNAL_BOUNDING_BOX[2] + SIGNAL_BOUNDING_BOX[3]) // 2]
@@ -130,6 +130,6 @@ class TestAxialPhilipsBroomfields(TestGhosting):
 
     def setUp(self):
         self.dcm = pydicom.read_file(
-            os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING', 'axial_philips_broomfields.dcm'))
+            os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING', 'axial_philips_ghosting.dcm'))
         self.ghosting = Ghosting(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')),
                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
