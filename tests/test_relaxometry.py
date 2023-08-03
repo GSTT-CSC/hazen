@@ -629,7 +629,8 @@ class TestRelaxometry(unittest.TestCase):
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
         #         for fname in self.SITE5_T2_P5_FILES]
         task = Relaxometry(data_paths=dcms)
-        t2_results = task.run(plate_number=5, calc="T2", verbose=True)        # results, = t2_results.values()
+        t2_results = task.run(plate_number=5, calc="T2", verbose=True)
+        results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P5,
                                    rtol=0.02, atol=1)
