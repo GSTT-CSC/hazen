@@ -148,5 +148,5 @@ class Uniformity(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return {'horizontal': {'IPEM': fractional_uniformity_horizontal},
-                'vertical': {'IPEM': fractional_uniformity_vertical}}
+        return {'horizontal': fractional_uniformity_horizontal,
+                'vertical': fractional_uniformity_vertical}
