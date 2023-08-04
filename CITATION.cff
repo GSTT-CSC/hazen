@@ -42,9 +42,9 @@ authors:
     given-names: Haris
     orcid: "https://orcid.org/0000-0001-6975-5960"
 cff-version: "1.1.0"
-date-released: 2022-02-24
+date-released: 2023-08-04
 message: "If you use hazen in your work, please cite it using these metadata."
 repository-code: "https://github.com/GSTT-CSC/hazen"
 title: hazen
-version: "1.2.0"
+version: "1.3.0"
 ...
