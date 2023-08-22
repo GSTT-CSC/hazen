@@ -125,7 +125,10 @@ class SNR(HazenTask):
         a = dcm.pixel_array.astype('int')
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
-        filtered_array = ndimage.uniform_filter(a, 25, mode='constant')
+        filter_size = 9
+        # 9 for head coil, 25 for body coil
+        # TODO make kernel size optional
+        filtered_array = ndimage.uniform_filter(a, filter_size, mode='constant')
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:

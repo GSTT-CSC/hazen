@@ -137,7 +137,7 @@ from scipy.special import i0e, ive
 
 import hazenlib.exceptions
 from hazenlib.HazenTask import HazenTask
-from hazenlib.config import (
+from hazenlib.relaxometry_params import (
     MAX_RICIAN_NOISE, SEED_RICIAN_NOISE, TEMPLATE_VALUES, SMOOTH_TIMES,
     TEMPLATE_FIT_ITERS, TERMINATION_EPS
 )
@@ -310,6 +310,7 @@ class Relaxometry(HazenTask):
 
         if verbose:
             # Dump additional details about the images and the measurement to a file
+            pathlib.Path(self.report_path).mkdir(parents=True, exist_ok=True)
             detailed_output = {}
             detailed_outpath = os.path.join(self.report_path, f"{output_key}_details.json")
 
@@ -1027,12 +1028,12 @@ class T2ImageStack(ImageStack):
         
         Calculates pixel value from [1]_::
             .. math::
-                S=\sqrt{\frac{\pi \alpha^2}{2}} \exp(- \alpha) \left( (1+ 2 \alpha)
-                \  \text{I_0}(\alpha) + 2 \alpha \ \text{I_1}(\alpha) \right)
+                S=sqrt{frac{pi alpha^2}{2}} exp(- alpha) left( (1+ 2 alpha)
+                text{I_0}(alpha) + 2 alpha text{I_1}(alpha) right)
 
-                \alpha() = \left( \frac{S_0}{2 \sigma} \ \exp{\left(-\frac{\text{TE}}{\text{T}_2}\right)} \right)^2
+                alpha() = left(frac{S_0}{2 sigma} exp{left(-frac{text{TE}}{text{T}_2}right)} right)^2
 
-                \text{I}_n() = n^\text{th} \ \text{order modified Bessel function of the first kind}
+                text{I}_n() = n^text{th} text{order modified Bessel function of the first kind}
 
         Parameters
         ----------

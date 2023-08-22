@@ -16,7 +16,7 @@ from hazenlib.tasks.relaxometry import (
 from hazenlib.utils import get_dicom_files
 from hazenlib.exceptions import ArgumentCombinationError
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
-from hazenlib.config import TEMPLATE_VALUES
+from hazenlib.relaxometry_params import TEMPLATE_VALUES
 
 
 class TestRelaxometry(unittest.TestCase):
@@ -540,7 +540,7 @@ class TestRelaxometry(unittest.TestCase):
         # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
         #         for fname in self.SITE4_T2_P5_FILES]
         task = Relaxometry(data_paths=dcms)
-        t2_results = task.run(plate_number=4, calc="T2", verbose=True)
+        t2_results = task.run(plate_number=5, calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE4_T2_P5,
@@ -567,7 +567,7 @@ class TestRelaxometry(unittest.TestCase):
     def test_ge(self):
         """Test relaxometry.py values on GE."""
         for plate in (4, 5):
-            for tparam in ['T1']: # , 'T2'
+            for tparam in ['T1', 'T2']:
                 dcms = get_dicom_files(
                     getattr(self, f'SITE3_{tparam}_P{plate}_DIR'))
                 # dcms = [pydicom.dcmread(os.path.join(
@@ -629,7 +629,8 @@ class TestRelaxometry(unittest.TestCase):
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
         #         for fname in self.SITE5_T2_P5_FILES]
         task = Relaxometry(data_paths=dcms)
-        t2_results = task.run(plate_number=5, calc="T2", verbose=True)        # results, = t2_results.values()
+        t2_results = task.run(plate_number=5, calc="T2", verbose=True)
+        results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
                                    self.SITE5_T2_P5,
                                    rtol=0.02, atol=1)
