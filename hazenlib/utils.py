@@ -235,15 +235,16 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 
-def get_image_orientation(iop):
+def get_image_orientation(dcm: pydicom.Dataset):
     """
     From http://dicomiseasy.blogspot.com/2013/06/getting-oriented-using-image-plane.html
     Args:
-        iop:
+        dcm:
 
     Returns:
 
     """
+    iop = dcm.ImageOrientationPatient
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
     plane = [abs(x) for x in plane]

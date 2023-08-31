@@ -2,11 +2,13 @@ import numpy as np
 import cv2
 import scipy
 import skimage
+from hazenlib.utils import get_image_orientation
 
 
 class ACRObject:
     def __init__(self, dcm):
         self.dcm = dcm
+        self.imaging_plane = get_image_orientation(self.dcm[0])
         self.images, self.dcm = self.sort_images()
         self.orientation_checks()
         self.rot_angle = self.determine_rotation()
@@ -24,8 +26,21 @@ class ACRObject:
             A sorted stack of dicoms
         """
 
-        z = np.array([dcm_file.ImagePositionPatient[2] for dcm_file in self.dcm])
-        dicom_stack = [self.dcm[i] for i in np.argsort(z)]
+        if self.imaging_plane == 'Transverse':
+            slice_position = np.array([dcm_file.ImagePositionPatient[2] for dcm_file in self.dcm])
+        elif self.imaging_plane == 'Coronal':
+            slice_position = np.array([dcm_file.ImagePositionPatient[1] for dcm_file in self.dcm])
+        elif self.imaging_plane == 'Sagittal':
+            slice_position = np.array([dcm_file.ImagePositionPatient[0] for dcm_file in self.dcm])
+        else:
+            slice_position = []
+
+        if self.imaging_plane == 'Coronal':
+            for dicom in self.dcm:
+                rotated_image = self.rotate_images(dicom.pixel_array, -90)
+                dicom.PixelData = rotated_image.tobytes()
+
+        dicom_stack = [self.dcm[i] for i in np.argsort(slice_position)]
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
 
         return img_stack, dicom_stack
@@ -94,7 +109,8 @@ class ACRObject:
 
         return rot_angle
 
-    def rotate_images(self):
+    @staticmethod
+    def rotate_images(image, angle):
         """
         Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
 
@@ -104,7 +120,7 @@ class ACRObject:
             The rotated images.
         """
 
-        return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
+        return skimage.transform.rotate(image, angle, resize=False, preserve_range=True).astype(np.uint16)
 
     def mask_image(self, image, mag_threshold=0.05, open_threshold=500):
         """
@@ -142,14 +158,15 @@ class ACRObject:
         """
         img = self.images[6]
         dx, dy = self.dcm[6].PixelSpacing
-        img_blur = cv2.GaussianBlur(img, (1, 1), 0)
+        img_blur = cv2.GaussianBlur(img, (5, 5), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
-        detected_circles = cv2.HoughCircles(img_grad, cv2.HOUGH_GRADIENT, 1,
-                                            minDist=int(180 / dy), param1=50, param2=30,
-                                            minRadius=int(180 / (2 * dy)), maxRadius=int(200 / (2 * dx))).flatten()
+        detected_circles = cv2.HoughCircles(img_grad, cv2.HOUGH_GRADIENT, dp=1,
+                                            minDist=int(180 / dx), param1=250, param2=0.9,
+                                            minRadius=int(185 / (2 * dx)), maxRadius=int(195 / (2 * dx))).flatten()
 
         centre, radius = [int(i) for i in detected_circles[:2]], int(detected_circles[2])
+        print(centre, radius)
         return centre, radius
 
     @staticmethod
