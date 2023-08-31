@@ -9,6 +9,13 @@ import os
 
 
 class HazenTask:
+    # ANSI escape codes for coloured text
+    COLOR_CODES = {
+        'red': '\033[91m',
+        'green': '\u001b[32;1m',
+        'yellow': '\u001b[33;1m',
+        'reset': '\033[0m',
+    }
 
     def __init__(self, data_paths: list, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'report')):
         self.data_paths = sorted(data_paths)

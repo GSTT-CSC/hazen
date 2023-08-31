@@ -10,6 +10,16 @@ This is done by first defining a large 200cm2 ROI before placing 1cm2 ROIs at ev
 the large ROI. At each point, the mean of the 1cm2 ROI is calculated. The ROIs with the maximum and
 minimum mean value are used to calculate the integral uniformity. The results are also visualised.
 
+The ACR guidance defines the following pass/fail criteria:
+
+PASS
+3T>=    PIU > 82%
+<3T     PIU > 87.5%
+
+FAIL
+3T>=    PIU <80%
+<3T     PIU <85%
+
 Created by Yassine Azma
 yassine.azma@rmh.nhs.uk
 
@@ -38,7 +48,10 @@ class ACRUniformity(HazenTask):
 
         try:
             result = self.get_integral_uniformity(uniformity_dcm)
+            tolerance_test = self.assess_tolerance(uniformity_dcm, result)
             results[self.key(uniformity_dcm)] = result
+
+            print(tolerance_test)
         except Exception as e:
             print(
                 f"Could not calculate the percent integral uniformity for {self.key(uniformity_dcm)} because of : {e}")
@@ -49,6 +62,39 @@ class ACRUniformity(HazenTask):
             results['reports'] = {'images': self.report_files}
 
         return results
+
+    @staticmethod
+    def assess_tolerance(dcm, piu):
+        magnetic_field_strength = dcm.MagneticFieldStrength
+
+        if magnetic_field_strength >= 3:
+            if piu > 82:
+                message = "PASS. The percentage integral uniformity satisfies the requirement of being above 82% at a " \
+                          "magnetic field strength of 3T and higher."
+                color = 'green'
+            elif piu < 80:
+                message = 'FAIL. The percentage integral uniformity is below the minimum value of 80% at a magnetic ' \
+                          'field strength of 3T and higher.'
+                color = 'red'
+            else:
+                message = 'BORDERLINE. The percentage integral uniformity does not fulfil either pass or fail criteria ' \
+                          'at a magnetic field strength of 3T and higher.'
+                color = 'yellow'
+        else:
+            if piu > 87.5:
+                message = 'PASS. The percentage integral uniformity satisfies the requirement of being above 87.5% ' \
+                          'at a magnetic field strength below 3T.'
+                color = 'green'
+            elif piu < 85:
+                message = 'FAIL. The percentage integral uniformity is below the minimum value of 85% at a magnetic ' \
+                          'field strength below 3T.'
+                color = 'red'
+            else:
+                message = 'BORDERLINE. The percentage integral uniformity does not fulfil either pass or fail criteria ' \
+                          'at a magnetic field strength below 3T.'
+                color = 'yellow'
+
+        return f"{COLOR_CODES[color]}{message}{COLOR_CODES['reset']}"
 
     def get_integral_uniformity(self, dcm):
         # Calculate the integral uniformity in accordance with ACR guidance.

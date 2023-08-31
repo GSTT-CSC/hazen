@@ -68,7 +68,6 @@ class ACRSNR(HazenTask):
                       f"{self.key(snr_dcm2)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
 
-
         results = {self.key(snr_dcm): snr_results, 'reports': {'images': self.report_files}}
 
         # only return reports if requested
@@ -258,7 +257,7 @@ class ACRSNR(HazenTask):
             axes[0].set_title('Centroid Location')
 
             axes[1].set_title('Difference Image')
-            axes[1].imshow(difference, cmap='gray',)
+            axes[1].imshow(difference, cmap='gray', )
             self.get_roi_samples(axes[1], dcm1, int(col), int(row))
             axes[1].axis('off')
 
