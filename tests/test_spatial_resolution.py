@@ -328,24 +328,24 @@ class TestSpatialResolution(unittest.TestCase):
         assert roi.max() == 1.0
 
     def test_get_circles(self):
-        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.dcm_list[0].pixel_array)
         circles = self.hazen_spatial_resolution.get_circles(img)
         assert np.testing.assert_allclose(circles[0][0][:], self.CIRCLE[0][0][:]) is None
 
     def test_thresh_image(self):
-        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.dcm_list[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         assert np.count_nonzero(thresh) < np.count_nonzero(img)
 
     def test_find_square(self):
-        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.dcm_list[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         square, _ = self.hazen_spatial_resolution.find_square(thresh)
 
         assert np.testing.assert_allclose(square, self.TEST_SQUARE) is None
 
     def test_get_bisecting_normals(self):
-        img = rescale_to_byte(self.hazen_spatial_resolution.data[0].pixel_array)
+        img = rescale_to_byte(self.hazen_spatial_resolution.dcm_list[0].pixel_array)
         thresh = self.hazen_spatial_resolution.thresh_image(img)
         square, _ = self.hazen_spatial_resolution.find_square(thresh)
         vector = {"x": square[3][0] - square[0][0], "y": square[3][1] - square[0][1]}
@@ -362,20 +362,20 @@ class TestSpatialResolution(unittest.TestCase):
         assert centre == self.CENTRE
 
     def test_get_void_roi(self):
-        pixels = self.hazen_spatial_resolution.data[0].pixel_array
+        pixels = self.hazen_spatial_resolution.dcm_list[0].pixel_array
         void_arr = self.hazen_spatial_resolution.get_void_roi(pixels, self.CIRCLE)
 
         assert np.mean(void_arr) == self.VOID_MEAN
 
     def test_get_edge_roi(self):
-        pixels = self.hazen_spatial_resolution.data[0].pixel_array
+        pixels = self.hazen_spatial_resolution.dcm_list[0].pixel_array
         edge_arr = self.hazen_spatial_resolution.get_edge_roi(pixels, self.CENTRE)
         assert np.mean(edge_arr) == self.EDGE_MEAN
         edge_arr = self.hazen_spatial_resolution.get_edge_roi(pixels, self.TOP_CENTRE)
         assert np.mean(edge_arr) == self.TOP_EDGE_MEAN
 
     def test_get_signal_roi(self):
-        pixels = self.hazen_spatial_resolution.data[0].pixel_array
+        pixels = self.hazen_spatial_resolution.dcm_list[0].pixel_array
         signal_roi = self.hazen_spatial_resolution.get_signal_roi(pixels, 'right', self.CENTRE, self.CIRCLE)
         assert np.mean(signal_roi) == self.SIGNAL_MEAN
 
@@ -386,10 +386,10 @@ class TestSpatialResolution(unittest.TestCase):
     def test_get_edge(self):
         mean_value = np.mean([self.signal_roi, self.void_roi])
         assert self.x_edge, self.y_edge == self.hazen_spatial_resolution.get_edge(
-            self.edge_roi, mean_value, self.hazen_spatial_resolution.data[0].PixelSpacing)
+            self.edge_roi, mean_value, self.hazen_spatial_resolution.dcm_list[0].PixelSpacing)
 
         assert self.x_edge, self.y_edge == self.hazen_spatial_resolution.get_edge(
-            self.rotated_edge_roi, mean_value, self.hazen_spatial_resolution.data[0].PixelSpacing)
+            self.rotated_edge_roi, mean_value, self.hazen_spatial_resolution.dcm_list[0].PixelSpacing)
 
     def test_get_edge_angle_intercept(self):
         assert self.angle, self.intercept == self.hazen_spatial_resolution.get_edge_angle_and_intercept(
@@ -397,7 +397,7 @@ class TestSpatialResolution(unittest.TestCase):
 
     def test_get_edge_profile_coords(self):
         a, b = self.hazen_spatial_resolution.get_edge_profile_coords(self.angle, self.intercept,
-                                                                     self.hazen_spatial_resolution.data[0].PixelSpacing)
+                                                                     self.hazen_spatial_resolution.dcm_list[0].PixelSpacing)
         assert self.x, self.y == (a.flatten(), b.flatten())
 
     def test_get_esf(self):
@@ -412,7 +412,7 @@ class TestSpatialResolution(unittest.TestCase):
         assert self.mtf[0] == abs(np.fft.fft(self.lsf))[0]
 
     def test_calculate_mtf(self):
-        res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.data[0])
+        res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.dcm_list[0])
         fe_res = res['frequency_encoding_direction']
         pe_res = res['phase_encoding_direction']
 
