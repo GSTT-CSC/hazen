@@ -34,17 +34,17 @@ class SNR(HazenTask):
             measured_slice_width = float(measured_slice_width)
         snr_results = {}
 
-        if len(self.data) == 2:
-            snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
-            snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-            snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+        if len(self.dcm_list) == 2:
+            snr, normalised_snr = self.snr_by_subtraction(self.dcm_list[0], self.dcm_list[1], measured_slice_width)
+            snr_results[f"snr_subtraction_measured_{self.key(self.dcm_list[0])}"] = round(snr, 2)
+            snr_results[f"snr_subtraction_normalised_{self.key(self.dcm_list[0])}"] = round(normalised_snr, 2)
 
-        for idx, dcm in enumerate(self.data):
+        for idx, dcm in enumerate(self.dcm_list):
             snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
             snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
             snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
 
-        results = {self.key(self.data[0]): snr_results}
+        results = {self.key(self.dcm_list[0]): snr_results}
 
         # only return reports if requested
         if self.report:

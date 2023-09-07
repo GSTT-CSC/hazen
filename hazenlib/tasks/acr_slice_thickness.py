@@ -32,7 +32,7 @@ class ACRSliceThickness(HazenTask):
 
     def run(self) -> dict:
         results = self.init_result_dict()
-        self.ACR_obj = ACRObject(self.data)
+        self.ACR_obj = ACRObject(self.dcm_list)
         slice_thickness_dcm = self.ACR_obj.dcm[0]
         try:
             result = self.get_slice_thickness(slice_thickness_dcm)

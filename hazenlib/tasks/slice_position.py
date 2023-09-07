@@ -24,7 +24,7 @@ class SlicePosition(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        if len(self.data) != 60:
+        if len(self.dcm_list) != 60:
             raise Exception('Need 60 DICOM')
 
         slice_data = copy.deepcopy(self.data)

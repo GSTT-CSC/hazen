@@ -13,7 +13,8 @@ class HazenTask:
     def __init__(self, input_data, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'report')):
         # Check if input data is a single or list of files, load accordingly
         if isinstance(input_data, list):
-            self.data_paths = sorted(input_data)
+            data_paths = sorted(input_data)
+            self.dcm_list = [dcmread(dicom)for dicom in data_paths]
         else:
             self.single_dcm = dcmread(input_data)
         self.report: bool = report
@@ -24,14 +25,9 @@ class HazenTask:
             pass
         self.report_files = []
 
-    @property
-    def data(self) -> list:
-        return [dcmread(dicom)for dicom in self.data_paths]
-
     def init_result_dict(self) -> dict:
         result_dict = {"task": f"{type(self).__name__}"}
         return result_dict
-
 
     def key(self, dcm, properties=None) -> str:
         if properties is None:

@@ -214,7 +214,7 @@ class Relaxometry(HazenTask):
         relax_str = calc.lower()
 
         if calc in ['T1', 't1']:
-            image_stack = T1ImageStack(self.data)
+            image_stack = T1ImageStack(self.dcm_list)
             try:
                 template_dcm = pydicom.read_file(
                     TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -223,7 +223,7 @@ class Relaxometry(HazenTask):
                     f' Please pass plate number as arg.')
                 exit()
         elif calc in ['T2', 't2']:
-            image_stack = T2ImageStack(self.data)
+            image_stack = T2ImageStack(self.dcm_list)
             try:
                 template_dcm = pydicom.read_file(
                     TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])

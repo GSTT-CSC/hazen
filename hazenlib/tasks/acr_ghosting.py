@@ -32,7 +32,7 @@ class ACRGhosting(HazenTask):
 
     def run(self) -> dict:
         results = self.init_result_dict()
-        self.ACR_obj = ACRObject(self.data)
+        self.ACR_obj = ACRObject(self.dcm_list)
         ghosting_dcm = self.ACR_obj.dcm[6]
 
         try:

@@ -56,7 +56,7 @@ class ACRSpatialResolution(HazenTask):
 
     def run(self) -> dict:
         mtf_results = {}
-        self.ACR_obj = ACRObject(self.data)
+        self.ACR_obj = ACRObject(self.dcm_list)
         rot_ang = self.ACR_obj.rot_angle
 
         if np.round(np.abs(rot_ang), 2) < 3:
@@ -74,7 +74,7 @@ class ACRSpatialResolution(HazenTask):
             print(f"Could not calculate the spatial resolution for {self.key(mtf_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
-        results = {self.key(self.data[0]): mtf_results}
+        results = {self.key(self.dcm_list[0]): mtf_results}
 
         # only return reports if requested
         if self.report:
