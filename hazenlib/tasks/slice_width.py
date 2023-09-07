@@ -36,7 +36,7 @@ class SliceWidth(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_images'] = self.report_files
 
         return results
 

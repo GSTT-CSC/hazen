@@ -348,7 +348,7 @@ class Relaxometry(HazenTask):
 
         result = {output_key: relax_result}
         if self.report:
-            result['images'] = self.report_files
+            result['report_images'] = self.report_files
 
         # plt.show()
         return result
