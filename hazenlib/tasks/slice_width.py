@@ -28,13 +28,11 @@ class SliceWidth(HazenTask):
 
     def run(self):
         results = {}
-        for dcm in self.data:
-            try:
-                results[self.key(dcm)] = self.get_slice_width(dcm)
-            except Exception as e:
-                print(f"Could not calculate the slice_width for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
+        try:
+            results[self.key(self.single_dcm)] = self.get_slice_width(self.single_dcm)
+        except Exception as e:
+            print(f"Could not calculate the slice_width for {self.key(self.single_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:

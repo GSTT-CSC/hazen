@@ -36,15 +36,11 @@ class Uniformity(HazenTask):
     def run(self) -> dict:
         results = {}
 
-        for dcm in self.data:
-            try:
-                result = self.get_fractional_uniformity(dcm)
-            except Exception as e:
-                print(f"Could test not calculate the uniformity for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
-
-            results[self.key(dcm)] = result
+        try:
+            results[self.key(self.single_dcm)] = self.get_fractional_uniformity(self.single_dcm)
+        except Exception as e:
+            print(f"Could test not calculate the uniformity for {self.key(self.single_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:

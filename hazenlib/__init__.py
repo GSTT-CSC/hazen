@@ -122,12 +122,16 @@ from hazenlib.utils import is_dicom_file, get_dicom_files
 from hazenlib._version import __version__
 
 
+single_image_tasks = ["ghosting", "uniformity", "spatial_resolution",
+                      "slice_width", "snr_map"]
+
+
 def init_task(selected_task, files, report, report_dir):
     task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
     
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            data_paths=files, report=report, report_dir=report_dir)
+            input_data=files, report=report, report_dir=report_dir)
     except:
         class_list = [cls.__name__ for _, cls in inspect.getmembers(
             sys.modules[task_module.__name__],
@@ -135,7 +139,7 @@ def init_task(selected_task, files, report, report_dir):
             )]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                data_paths=files, report=report, report_dir=report_dir)
+                input_data=files, report=report, report_dir=report_dir)
         else:
             raise Exception(
                 f'Task {task_module} has multiple class definitions: {class_list}')
@@ -195,8 +199,16 @@ def main():
                     verbose = arguments['--verbose'])
     else:
         selected_task = arguments['<task>']
-        task = init_task(selected_task, files, report, report_dir)
-        result = task.run()
+        if selected_task in single_image_tasks:
+            for file in files:
+                task = init_task(selected_task, file, report, report_dir)
+                result = task.run()
+                result_string = json.dumps(result, indent=2)
+                print(result_string)
+            return
+        else:
+            task = init_task(selected_task, files, report, report_dir)
+            result = task.run()
 
     result_string = json.dumps(result, indent=2)
     print(result_string)

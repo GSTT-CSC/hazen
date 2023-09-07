@@ -30,13 +30,11 @@ class SpatialResolution(HazenTask):
 
     def run(self) -> dict:
         results = {}
-        for dcm in self.data:
-            try:
-                results[self.key(dcm)] = self.calculate_mtf(dcm)
-            except Exception as e:
-                print(f"Could not calculate the spatial resolution for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
+        try:
+            results[self.key(self.single_dcm)] = self.calculate_mtf(self.single_dcm)
+        except Exception as e:
+            print(f"Could not calculate the spatial resolution for {self.key(self.single_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
