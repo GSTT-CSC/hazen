@@ -27,7 +27,7 @@ class SlicePosition(HazenTask):
         if len(self.dcm_list) != 60:
             raise Exception('Need 60 DICOM')
 
-        slice_data = copy.deepcopy(self.data)
+        slice_data = copy.deepcopy(self.dcm_list)
         slice_data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
 
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
@@ -42,7 +42,7 @@ class SlicePosition(HazenTask):
         result = [str(abs(decimal.Decimal(i) * 1)) for i in result]
         del decimal
 
-        results = {self.key(self.data[0]): {'slice_positions': result}}
+        results = {self.key(self.dcm_list[0]): {'slice_positions': result}}
 
         # only return reports if requested
         if self.report:
@@ -229,20 +229,20 @@ class SlicePosition(HazenTask):
             plt.xlabel('slice position [slice number]')
             plt.ylabel('Slice position error [mm]')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_slice_position.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.dcm_list[0])}_slice_position.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
             # fig, ax = plt.subplots(1, 1)
             # for i, pos in enumerate(nominal_positions):
             #     ax.cla()
-            #     dcm = self.data[i+10]
+            #     dcm = self.dcm_list[i+10]
             #     ax.imshow(dcm.pixel_array, cmap='gray')
             #     rods_x = [left_rod["x_pos"][i], right_rod['x_pos'][i]]
             #     rods_y = [left_rod["y_pos"][i], right_rod['y_pos'][i]]
             #     ax.scatter(rods_x, rods_y, 20, c='green', marker='+')
             #
-            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_{i}_slice_position.png'))
+            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.dcm_listdcm_list[0])}_{i}_slice_position.png'))
             #     plt.savefig(img_path)
             #     self.report_files.append(img_path)
 
