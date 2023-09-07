@@ -15,16 +15,14 @@ class Ghosting(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        ghosting_results = {}
+        results = self.init_result_dict()
         key = self.key(self.single_dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
         try:
-            fig, ghosting_results[key] = self.get_ghosting(self.single_dcm)
+            fig, results[key] = self.get_ghosting(self.single_dcm)
 
         except Exception as e:
             print(f"Could not calculate the ghosting for {key} because of : {e}")
             traceback.print_exc(file=sys.stdout)
-
-        results = {'ghosting_results': ghosting_results}
 
         # only return reports if requested
         if self.report:

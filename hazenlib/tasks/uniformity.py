@@ -34,7 +34,7 @@ class Uniformity(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
 
         try:
             results[self.key(self.single_dcm)] = self.get_fractional_uniformity(self.single_dcm)

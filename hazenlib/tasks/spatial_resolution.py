@@ -29,7 +29,7 @@ class SpatialResolution(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
         try:
             results[self.key(self.single_dcm)] = self.calculate_mtf(self.single_dcm)
         except Exception as e:

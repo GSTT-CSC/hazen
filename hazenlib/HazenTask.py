@@ -28,6 +28,11 @@ class HazenTask:
     def data(self) -> list:
         return [dcmread(dicom)for dicom in self.data_paths]
 
+    def init_result_dict(self) -> dict:
+        result_dict = {"task": f"{type(self).__name__}"}
+        return result_dict
+
+
     def key(self, dcm, properties=None) -> str:
         if properties is None:
             properties = ['SeriesDescription', 'SeriesNumber', 'InstanceNumber']
@@ -37,5 +42,5 @@ class HazenTask:
             logger.warning(f"Could not find one or more of the following properties: {properties}")
             metadata = [str(dcm.get(field)) for field in ['SeriesDescription', 'SeriesNumber']]
 
-        key = f"{type(self).__name__}_" + '_'.join(metadata).replace(' ', '_')
+        key =  '_'.join(metadata).replace(' ', '_')
         return key

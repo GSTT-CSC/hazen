@@ -43,7 +43,7 @@ class ACRSlicePosition(HazenTask):
         self.ACR_obj = None
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
         self.ACR_obj = ACRObject(self.data)
         dcms = [self.ACR_obj.dcm[0], self.ACR_obj.dcm[-1]]
         for dcm in dcms:

@@ -27,7 +27,7 @@ class SliceWidth(HazenTask):
         super().__init__(**kwargs)
 
     def run(self):
-        results = {}
+        results = self.init_result_dict()
         try:
             results[self.key(self.single_dcm)] = self.get_slice_width(self.single_dcm)
         except Exception as e:

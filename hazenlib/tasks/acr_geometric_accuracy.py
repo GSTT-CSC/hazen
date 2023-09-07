@@ -38,7 +38,7 @@ class ACRGeometricAccuracy(HazenTask):
         self.ACR_obj = None
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
         self.ACR_obj = ACRObject(self.data)
         slice1_dcm = self.ACR_obj.dcm[0]
         slice5_dcm = self.ACR_obj.dcm[4]
