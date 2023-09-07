@@ -3,20 +3,24 @@ import unittest
 import pathlib
 import pydicom
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_snr import ACRSNR
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRSNRSiemens(unittest.TestCase):
-    ACR_SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     norm_factor = 9.761711312090041
     snr = 344.15
     sub_snr = 75.94
 
     def setUp(self):
-        self.acr_snr_task = ACRSNR(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                   report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+
+        self.acr_snr_task = ACRSNR(
+            input_data=siemens_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])]
@@ -46,13 +50,16 @@ class TestACRSNRSiemens(unittest.TestCase):
 
 
 class TestACRSNRGE(unittest.TestCase):
-    ACR_SNR_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     norm_factor = 57.12810400630368
     snr = 40.19
 
     def setUp(self):
-        self.acr_snr_task = ACRSNR(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                   report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
+
+        self.acr_snr_task = ACRSNR(
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])]

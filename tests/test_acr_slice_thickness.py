@@ -3,22 +3,25 @@ import unittest
 import pathlib
 import pydicom
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 
 class TestACRSliceThicknessSiemens(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     x_pts = [71, 181]
     y_pts = [132, 126]
     dz = 4.91
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=siemens_files)
         self.acr_slice_thickness_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
+            [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
+             os.listdir(ACR_DATA_SIEMENS)])
 
         self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
 
@@ -42,16 +45,18 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
 
 
 class TestACRSliceThicknessGE(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     x_pts = [146, 356]
     y_pts = [262, 250]
     dz = 5.02
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
+
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=ge_files)
         self.acr_slice_thickness_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
+             os.listdir(ACR_DATA_GE)])
 
         self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
 

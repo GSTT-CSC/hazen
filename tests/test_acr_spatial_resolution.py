@@ -4,13 +4,13 @@ import pathlib
 import pydicom
 import numpy as np
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_spatial_resolution import ACRSpatialResolution
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRSpatialResolutionSiemens(unittest.TestCase):
-    ACR_SPATIAL_RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = (128, 124)
     rotation_angle = 9
     y_ramp_pos = 118
@@ -21,8 +21,12 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     MTF50 = (1.18, 1.35)
 
     def setUp(self):
-        self.acr_spatial_resolution_task = ACRSpatialResolution(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                                report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+
+        self.acr_spatial_resolution_task = ACRSpatialResolution(
+            input_data=siemens_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_spatial_resolution_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF'))])
@@ -57,7 +61,6 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
         assert mtf50_val == self.MTF50
 
 class TestACRSpatialResolutionGE(unittest.TestCase):
-    ACR_SPATIAL_RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     centre = (254, 255)
     rotation_angle = 0
     y_ramp_pos = 244
@@ -68,11 +71,15 @@ class TestACRSpatialResolutionGE(unittest.TestCase):
     MTF50 = (0.72, 0.71)
 
     def setUp(self):
-        self.acr_spatial_resolution_task = ACRSpatialResolution(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                                report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
+
+        self.acr_spatial_resolution_task = ACRSpatialResolution(
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_spatial_resolution_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
+             os.listdir(ACR_DATA_GE)])
 
         self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcm[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(self.dcm.pixel_array, self.centre[0],

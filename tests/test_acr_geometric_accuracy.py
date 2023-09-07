@@ -4,22 +4,26 @@ import pathlib
 import pydicom
 import numpy as np
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_geometric_accuracy import ACRGeometricAccuracy
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGeometricAccuracySiemens(unittest.TestCase):
-    ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     L1 = 192.38, 188.48
     L5 = 192.38, 188.48, 190.43, 192.38
 
     def setUp(self):
-        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                                report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+
+        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
+            input_data=siemens_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
+            [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
+             os.listdir(ACR_DATA_SIEMENS)])
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcm[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcm[4]
@@ -47,17 +51,20 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 # TODO: Add unit tests for Philips datasets.
 
 class TestACRGeometricAccuracyGE(unittest.TestCase):
-    ACR_GEOMETRIC_ACCURACY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     L1 = 191.44, 191.44
     L5 = 191.44, 191.44, 191.44, 189.41
     distortion_metrics = [1.1, 1.44, 0.4]
 
     def setUp(self):
-        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                                report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
+
+        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
+             os.listdir(ACR_DATA_GE)])
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcm[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcm[4]
