@@ -15,7 +15,7 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
     dL = -0.59, -1.56
 
     def setUp(self):
-        self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_slice_position_task = ACRSlicePosition(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
         self.acr_slice_position_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
@@ -63,7 +63,7 @@ class TestACRSlicePositionGE(unittest.TestCase):
     dL = 0.41, 0.3
 
     def setUp(self):
-        self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_slice_position_task = ACRSlicePosition(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
         self.acr_slice_position_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])

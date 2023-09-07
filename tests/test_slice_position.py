@@ -25,7 +25,7 @@ class TestSlicePosition(unittest.TestCase):
 
     def setUp(self):
         self.hazen_slice_position = SlicePosition(
-            data_paths=get_dicom_files(os.path.join(self.SLICE_POS, 'SLICEPOSITION')),
+            input_data=get_dicom_files(os.path.join(self.SLICE_POS, 'SLICEPOSITION')),
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.sorted_slices = copy.deepcopy(self.hazen_slice_position.data)
         self.sorted_slices.sort(key=lambda x: x.SliceLocation)  # sort by slice location
@@ -67,7 +67,7 @@ class CanonTestSlicePosition(TestSlicePosition):
     def setUp(self):
         # self.test_files = [pydicom.read_file(str(i), force=True) for i in (self.SLICE_POS / 'canon').iterdir()]
         # self.test_files.sort(key=lambda x: x.SliceLocation)
-        self.hazen_slice_position = SlicePosition(data_paths=get_dicom_files(os.path.join(self.SLICE_POS, 'canon')),
+        self.hazen_slice_position = SlicePosition(input_data=get_dicom_files(os.path.join(self.SLICE_POS, 'canon')),
                                                   report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.sorted_slices = copy.deepcopy(self.hazen_slice_position.data)
         self.sorted_slices.sort(key=lambda x: x.SliceLocation)  # sort by slice location

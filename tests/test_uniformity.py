@@ -12,12 +12,12 @@ class TestUniformity(unittest.TestCase):
     IPEM_VERTICAL = 0.98125
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'axial_oil.IMA')],
+        self.uniformity_task = Uniformity(input_data=os.path.join(self.UNIFORMITY_DATA, 'axial_oil.IMA'),
                                           report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_uniformity(self):
         results = self.uniformity_task.run()
-        key = self.uniformity_task.key(self.uniformity_task.data[0])
+        key = self.uniformity_task.key(self.uniformity_task.single_dcm)
         horizontal_ipem = results[key]['horizontal']
         vertical_ipem = results[key]['vertical']
 
@@ -35,7 +35,7 @@ class TestSagUniformity(TestUniformity):
     IPEM_VERTICAL = 0.5125
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'sag.dcm')],
+        self.uniformity_task = Uniformity(input_data=os.path.join(self.UNIFORMITY_DATA, 'sag.dcm'),
                                           report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
 
@@ -44,5 +44,5 @@ class TestCorUniformity(TestUniformity):
     IPEM_VERTICAL = 0.45
 
     def setUp(self):
-        self.uniformity_task = Uniformity(data_paths=[os.path.join(self.UNIFORMITY_DATA, 'cor.dcm')],
+        self.uniformity_task = Uniformity(input_data=os.path.join(self.UNIFORMITY_DATA, 'cor.dcm'),
                                           report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))

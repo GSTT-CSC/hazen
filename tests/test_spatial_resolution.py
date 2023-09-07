@@ -310,7 +310,7 @@ class TestSpatialResolution(unittest.TestCase):
     bisecting_normal = (273, 257, 313, 263)
 
     def setUp(self) -> None:
-        self.hazen_spatial_resolution = SpatialResolution(data_paths=self.files,
+        self.hazen_spatial_resolution = SpatialResolution(input_data=self.files,
                                                           report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_roi(self):

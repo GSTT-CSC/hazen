@@ -13,7 +13,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
     piu = 67.95
 
     def setUp(self):
-        self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_uniformity_task = ACRUniformity(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
         self.acr_uniformity_task.ACR_obj = ACRObject(
@@ -40,7 +40,7 @@ class TestACRUniformityGE(unittest.TestCase):
     piu = 85.17
 
     def setUp(self):
-        self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_uniformity_task = ACRUniformity(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_uniformity_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in

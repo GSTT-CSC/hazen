@@ -15,7 +15,7 @@ class TestACRSNRSiemens(unittest.TestCase):
     sub_snr = 75.94
 
     def setUp(self):
-        self.acr_snr_task = ACRSNR(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_snr_task = ACRSNR(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                    report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
@@ -51,7 +51,7 @@ class TestACRSNRGE(unittest.TestCase):
     snr = 40.19
 
     def setUp(self):
-        self.acr_snr_task = ACRSNR(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_snr_task = ACRSNR(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                    report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_snr_task.ACR_obj = [ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in

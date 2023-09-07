@@ -38,7 +38,7 @@ class TestCliParser(unittest.TestCase):
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         files = get_dicom_files(path)
-        snr_task = SNR(data_paths=files, report=False)
+        snr_task = SNR(input_data=files, report=False)
         result = snr_task.run(measured_slice_width=1)
 
         dict1 = {'snr_subtraction_measured_SNR_SNR_SAG_MEAS1_23_1': 183.97,
@@ -53,7 +53,7 @@ class TestCliParser(unittest.TestCase):
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / 'relaxometry' / 'T1' / 'site3_ge' / 'plate4')
         files = get_dicom_files(path)
-        relaxometry_task = Relaxometry(data_paths=files, report=False)
+        relaxometry_task = Relaxometry(input_data=files, report=False)
         result = relaxometry_task.run(calc='T1', plate_number=4, verbose=False)
 
         dict1 = {'Spin Echo_32_2_P4_t1': {'rms_frac_time_difference': 0.13499936644959437}}

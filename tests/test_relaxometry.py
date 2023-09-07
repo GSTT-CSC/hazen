@@ -488,7 +488,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.T1_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in
         #         self.T1_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t1_results = task.run(plate_number=5, calc="T1", verbose=True)
         # `t1_results` is a dict with one item where we don't know the key.
         # Need to extract via unpacking
@@ -501,7 +501,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE4_T1_P4_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
         #         for fname in self.SITE4_T1_P4_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t1_results = task.run(plate_number=4, calc="T1", verbose=True)
         # `t1_results` is a dict with one item where we don't know the key.
         # Need to extract via unpacking
@@ -515,7 +515,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE4_T1_P5_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
         #         for fname in self.SITE4_T1_P5_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t1_results = task.run(plate_number=5, calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -527,7 +527,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE4_T2_P4_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
         #         for fname in self.SITE4_T2_P4_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t2_results = task.run(plate_number=4, calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -539,7 +539,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE4_T2_P5_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
         #         for fname in self.SITE4_T2_P5_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t2_results = task.run(plate_number=5, calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -573,7 +573,7 @@ class TestRelaxometry(unittest.TestCase):
                 # dcms = [pydicom.dcmread(os.path.join(
                 #     getattr(self, f'SITE3_{tparam}_P{plate}_DIR'), fname))
                 #     for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
-                task = Relaxometry(data_paths=dcms)
+                task = Relaxometry(input_data=dcms)
                 t_results = task.run(plate_number=plate,
                                 calc = tparam, verbose=True)
                 results, = t_results.values()
@@ -595,7 +595,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE5_T1_P4_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P4_DIR, fname))
         #         for fname in self.SITE5_T1_P4_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t1_results = task.run(plate_number=4, calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -606,7 +606,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE5_T1_P5_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P5_DIR, fname))
         #         for fname in self.SITE5_T1_P5_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t1_results = task.run(plate_number=5, calc="T1", verbose=True)
         results, = t1_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -617,7 +617,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE5_T2_P4_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P4_DIR, fname))
         #         for fname in self.SITE5_T2_P4_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t2_results = task.run(plate_number=4, calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],
@@ -628,7 +628,7 @@ class TestRelaxometry(unittest.TestCase):
         dcms = get_dicom_files(self.SITE5_T2_P5_DIR)
         # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
         #         for fname in self.SITE5_T2_P5_FILES]
-        task = Relaxometry(data_paths=dcms)
+        task = Relaxometry(input_data=dcms)
         t2_results = task.run(plate_number=5, calc="T2", verbose=True)
         results, = t2_results.values()
         np.testing.assert_allclose(results['calc_times'],

@@ -15,7 +15,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     L5 = 192.38, 188.48, 190.43, 192.38
 
     def setUp(self):
-        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
@@ -53,7 +53,7 @@ class TestACRGeometricAccuracyGE(unittest.TestCase):
     distortion_metrics = [1.1, 1.44, 0.4]
 
     def setUp(self):
-        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_geometric_accuracy_task = ACRGeometricAccuracy(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in

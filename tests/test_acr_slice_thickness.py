@@ -15,7 +15,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
     dz = 4.91
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
         self.acr_slice_thickness_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
@@ -48,7 +48,7 @@ class TestACRSliceThicknessGE(unittest.TestCase):
     dz = 5.02
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=[os.path.join(TEST_DATA_DIR, 'acr')])
         self.acr_slice_thickness_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
              os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])

@@ -22,7 +22,7 @@ class TestSnrMap(unittest.TestCase):
 
     def setUp(self):
         dcms = [self.siemens_1]  # Test on single SNR image
-        self.snr_map = SNRMap(data_paths=dcms, report=True)
+        self.snr_map = SNRMap(input_data=dcms, report=True)
         self.results = self.snr_map.run()
 
     def test_snr_value(self):

@@ -21,7 +21,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     MTF50 = (1.18, 1.35)
 
     def setUp(self):
-        self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_spatial_resolution_task = ACRSpatialResolution(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_spatial_resolution_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', f'{i}')) for i in
@@ -68,7 +68,7 @@ class TestACRSpatialResolutionGE(unittest.TestCase):
     MTF50 = (0.72, 0.71)
 
     def setUp(self):
-        self.acr_spatial_resolution_task = ACRSpatialResolution(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_spatial_resolution_task = ACRSpatialResolution(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_spatial_resolution_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in

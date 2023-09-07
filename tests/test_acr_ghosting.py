@@ -14,7 +14,7 @@ class TestACRGhostingSiemens(unittest.TestCase):
     psg = 0.035
 
     def setUp(self):
-        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_ghosting_task = ACRGhosting(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                              report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
         self.acr_ghosting_task.ACR_obj = ACRObject(
@@ -39,7 +39,7 @@ class TestACRGhostingGE(unittest.TestCase):
     psg = 0.471
 
     def setUp(self):
-        self.acr_ghosting_task = ACRGhosting(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
+        self.acr_ghosting_task = ACRGhosting(input_data=[os.path.join(TEST_DATA_DIR, 'acr')],
                                              report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         self.acr_ghosting_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
