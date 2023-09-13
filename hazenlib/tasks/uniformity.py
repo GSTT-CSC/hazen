@@ -124,8 +124,8 @@ class Uniformity(HazenTask):
         vertical_count = len(vertical_count[0])
 
         # Calculate fractional uniformity
-        fractional_uniformity_horizontal = horizontal_count / 160
-        fractional_uniformity_vertical = vertical_count / 160
+        fractional_uniformity_horizontal = round(horizontal_count / 160, 2)
+        fractional_uniformity_vertical = round(vertical_count / 160, 2)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -144,5 +144,5 @@ class Uniformity(HazenTask):
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return {'horizontal': fractional_uniformity_horizontal,
-                'vertical': fractional_uniformity_vertical}
+        return {'horizontal %': fractional_uniformity_horizontal,
+                'vertical %': fractional_uniformity_vertical}
