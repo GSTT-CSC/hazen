@@ -31,18 +31,15 @@ class SlicePosition(HazenTask):
         slice_data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
 
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
+        results = self.init_result_dict()
 
         try:
             result = self.slice_position_error(truncated_data)
         except Exception as e:
             raise
 
-        import decimal
-        decimal.getcontext().prec = 3
-        result = [str(abs(decimal.Decimal(i) * 1)) for i in result]
-        del decimal
 
-        results = {self.key(self.dcm_list[0]): {'slice_positions': result}}
+        results[self.key(self.dcm_list[0])] = result
 
         # only return reports if requested
         if self.report:
@@ -211,7 +208,11 @@ class SlicePosition(HazenTask):
 
         # Correct for zero offset
         nominal_positions = [x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions]
-        results = np.subtract(z_length_mm, nominal_positions)
+        positions = np.subtract(z_length_mm, nominal_positions)
+
+        # Round calculated values to the appropriate decimal places
+        max_pos = round(np.max(positions), 2)
+        avg_pos = round(np.mean(positions), 2)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -224,7 +225,7 @@ class SlicePosition(HazenTask):
                 rods_y = [left_rod["y_pos"][idx], right_rod['y_pos'][idx]]
                 ax[0].scatter(rods_x, rods_y, 20, c='green', marker='+')
 
-            ax[1].scatter(range(10, 50), results, marker='x')
+            ax[1].scatter(range(10, 50), positions, marker='x')
             ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
             plt.xlabel('slice position [slice number]')
             plt.ylabel('Slice position error [mm]')
@@ -246,4 +247,4 @@ class SlicePosition(HazenTask):
             #     plt.savefig(img_path)
             #     self.report_files.append(img_path)
 
-        return results
+        return {'maximum': max_pos, 'average': avg_pos}
