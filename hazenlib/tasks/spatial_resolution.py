@@ -362,7 +362,7 @@ class SpatialResolution(HazenTask):
             axes[10].set_title('normalised MTF')
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel('lp/mm')
-            logger.info(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
+            logger.debug(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
             img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dicom)}_{pe}_{edge}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
