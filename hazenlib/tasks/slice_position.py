@@ -209,10 +209,11 @@ class SlicePosition(HazenTask):
         # Correct for zero offset
         nominal_positions = [x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions]
         positions = np.subtract(z_length_mm, nominal_positions)
+        distances = [abs(x) for x in positions]
 
         # Round calculated values to the appropriate decimal places
-        max_pos = round(np.max(positions), 2)
-        avg_pos = round(np.mean(positions), 2)
+        max_pos = round(np.max(distances), 2)
+        avg_pos = round(np.mean(distances), 2)
 
         if self.report:
             import matplotlib.pyplot as plt
