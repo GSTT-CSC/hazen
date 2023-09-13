@@ -380,4 +380,5 @@ class SpatialResolution(HazenTask):
             pe_result = self.calculate_mtf_for_edge(dicom, 'right')
             fe_result = self.calculate_mtf_for_edge(dicom, 'top')
 
-        return {'phase_encoding_direction': pe_result, 'frequency_encoding_direction': fe_result}
+        return {'phase encoding direction mm': round(pe_result, 2),
+                'frequency encoding direction mm': round(fe_result, 2)}

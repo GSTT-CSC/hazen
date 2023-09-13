@@ -216,7 +216,7 @@ class SNRMap(HazenTask):
             # but using ddof=1 for consistency with IDL code.
 
         roi_snr = np.array(roi_signal) / np.array(roi_noise)
-        snr = roi_snr.mean()
+        snr = round(roi_snr.mean(), 2)
 
         logger.debug('ROIs signal=%r, noise=%r, snr=%r',
                      roi_signal, roi_noise, roi_snr)
