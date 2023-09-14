@@ -29,9 +29,10 @@ class SlicePosition(HazenTask):
 
         slice_data = copy.deepcopy(self.dcm_list)
         slice_data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
-
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
+
         results = self.init_result_dict()
+        results['file'] = self.img_desc(truncated_data[18])
 
         try:
             position_errors = self.slice_position_error(truncated_data)
@@ -40,16 +41,14 @@ class SlicePosition(HazenTask):
             max_pos = round(np.max(position_errors), 2)
             avg_pos = round(np.mean(position_errors), 2)
 
-            result = {'maximum': max_pos, 'average': avg_pos}
+            results['measurement'] = {
+                'maximum mm': max_pos, 'average mm': avg_pos}
         except Exception as e:
             raise
 
-
-        results[self.key(self.dcm_list[0])] = result
-
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -233,7 +232,8 @@ class SlicePosition(HazenTask):
             plt.xlabel('slice position [slice number]')
             plt.ylabel('Slice position error [mm]')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.dcm_list[0])}_slice_position.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(self.dcm_list[0])}_slice_position.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

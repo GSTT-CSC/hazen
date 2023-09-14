@@ -29,7 +29,7 @@ class HazenTask:
         result_dict = {
             "task": f"{type(self).__name__}",
             "file": None,
-            "measurement": None
+            "measurement": {}
         }
         return result_dict
 
