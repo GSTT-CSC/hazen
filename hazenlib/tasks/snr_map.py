@@ -105,7 +105,7 @@ class SNRMap(HazenTask):
         #  =================================
         snr_map = self.calc_snr_map(original, noise)
 
-        results[key] = snr
+        results[key] = round(snr, 2)
 
         if self.report:
             #  Plot images
@@ -216,7 +216,7 @@ class SNRMap(HazenTask):
             # but using ddof=1 for consistency with IDL code.
 
         roi_snr = np.array(roi_signal) / np.array(roi_noise)
-        snr = round(roi_snr.mean(), 2)
+        snr = roi_snr.mean()
 
         logger.debug('ROIs signal=%r, noise=%r, snr=%r',
                      roi_signal, roi_noise, roi_snr)
