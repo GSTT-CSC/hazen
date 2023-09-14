@@ -40,23 +40,30 @@ class ACRSlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ACR_obj = None
 
     def run(self) -> dict:
-        results = self.init_result_dict()
+        # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        dcms = [self.ACR_obj.dcm[0], self.ACR_obj.dcm[-1]]
+        dcms = [self.ACR_obj.dcms[0], self.ACR_obj.dcms[-1]]
+
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = [self.img_desc(dcm) for dcm in dcms]
+        results['measurement'] = {}
+
         for dcm in dcms:
             try:
                 result = self.get_slice_position(dcm)
-                results[self.key(dcm)] = result
+                results['measurement'][self.img_desc(dcm)] = {
+                    "length difference": round(result, 2)
+                    }
             except Exception as e:
-                print(f"Could not calculate the bar length difference for {self.key(dcm)} because of : {e}")
+                print(f"Could not calculate the bar length difference for {self.img_desc(dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
                 continue
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -135,7 +142,7 @@ class ACRSlicePosition(HazenTask):
     def get_slice_position(self, dcm):
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
-        mask = self.ACR_obj.mask_image(self.ACR_obj.images[6])
+        mask = self.ACR_obj.mask_image
         x_pts, y_pts = self.find_wedges(img, mask, res)
 
         line_prof_L = skimage.measure.profile_line(img, (y_pts[0], x_pts[0]), (y_pts[1], x_pts[0]),
@@ -181,7 +188,7 @@ class ACRSlicePosition(HazenTask):
         temp = np.argwhere(err == np.min(err[err > 0]))[0]  # find minimum non-zero error
         shift = -lag[temp][0] if pos == 1 else lag[temp][0]  # find shift corresponding to above error
 
-        dL = np.round(pos * np.abs(shift) * (1 / interp_factor) * res[1], 2)  # calculate bar length difference
+        dL = pos * np.abs(shift) * (1 / interp_factor) * res[1]  # calculate bar length difference
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -228,7 +235,8 @@ class ACRSlicePosition(HazenTask):
             axes[3].set_title('Shifted Line Profiles')
             axes[3].set_xlabel('Relative Pixel Position (mm)')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
