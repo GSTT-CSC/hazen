@@ -270,7 +270,6 @@ class SliceWidth(HazenTask):
         return horz_distortion, vert_distortion
 
     def baseline_correction(self, profile, sample_spacing):
-
         """
         Calculates quadratic fit of the baseline and subtracts from profile
 
@@ -283,7 +282,6 @@ class SliceWidth(HazenTask):
         -------
 
         """
-
         profile_width = len(profile)
         padding = 30
         outer_profile = np.concatenate([profile[0:padding], profile[-padding:]])
@@ -378,7 +376,6 @@ class SliceWidth(HazenTask):
         -------
         x0_im / y0_im : rod centroid coordinates in dimensions of original image
         x0 / y0 : rod centroid coordinates in dimensions of cropped image
-
         """
 
         # get (x,y) coordinates for fitting
@@ -424,7 +421,6 @@ class SliceWidth(HazenTask):
         return x0_im, y0_im, x0, y0
 
     def trapezoid(self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude):
-
         """
 
         Parameters
@@ -509,7 +505,6 @@ class SliceWidth(HazenTask):
         -------
         trapezoid_fit_initial
         trapezoid_fit_coefficients
-
         """
 
         n_plateau, n_ramp = None, None
@@ -537,7 +532,6 @@ class SliceWidth(HazenTask):
         return trapezoid_fit_initial, trapezoid_fit_coefficients
 
     def fit_trapezoid(self, profiles, slice_thickness):
-
         """
 
         Parameters
@@ -575,7 +569,8 @@ class SliceWidth(HazenTask):
 
         cont = 1
         j = 0
-        """Go through a series of changes to reduce error, if error doesn't reduced in one entire loop then exit"""
+        # Go through a series of changes to reduce error,
+        # if error doesn't reduced in one entire loop then exit
         while cont == 1:
             j += 1
             cont = 0
@@ -833,5 +828,5 @@ class SliceWidth(HazenTask):
         }
 
         return {'slice width mm': round(slice_width_mm['combined']['aapm_tilt_corrected'], 2),
-                # 'distortion values': distortion_values, 'linearity values': linearity_values,
+                'distortion values': distortion_values, 'linearity values': linearity_values,
                 'horizontal_distances_mm': horz_distances_mm, 'vertical_distances_mm': vert_distances_mm}
