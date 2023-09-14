@@ -34,7 +34,13 @@ class SlicePosition(HazenTask):
         results = self.init_result_dict()
 
         try:
-            result = self.slice_position_error(truncated_data)
+            position_errors = self.slice_position_error(truncated_data)
+
+            # Round calculated values to the appropriate decimal places
+            max_pos = round(np.max(position_errors), 2)
+            avg_pos = round(np.mean(position_errors), 2)
+
+            result = {'maximum': max_pos, 'average': avg_pos}
         except Exception as e:
             raise
 
@@ -211,10 +217,6 @@ class SlicePosition(HazenTask):
         positions = np.subtract(z_length_mm, nominal_positions)
         distances = [abs(x) for x in positions]
 
-        # Round calculated values to the appropriate decimal places
-        max_pos = round(np.max(distances), 2)
-        avg_pos = round(np.mean(distances), 2)
-
         if self.report:
             import matplotlib.pyplot as plt
             fig, ax = plt.subplots(2, 1)
@@ -248,4 +250,4 @@ class SlicePosition(HazenTask):
             #     plt.savefig(img_path)
             #     self.report_files.append(img_path)
 
-        return {'maximum': max_pos, 'average': avg_pos}
+        return distances
