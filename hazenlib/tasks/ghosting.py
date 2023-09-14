@@ -16,17 +16,21 @@ class Ghosting(HazenTask):
 
     def run(self) -> dict:
         results = self.init_result_dict()
-        key = self.key(self.single_dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
+        img_desc = self.img_desc(self.single_dcm,
+                        properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
+        results['file'] = img_desc
+
         try:
-            fig, results[key] = self.get_ghosting(self.single_dcm)
+            ghosting_value = self.get_ghosting(self.single_dcm)
+            results['measurement'] = {"ghosting %": round(ghosting_value, 3)}
 
         except Exception as e:
-            print(f"Could not calculate the ghosting for {key} because of : {e}")
+            print(f"Could not calculate the ghosting for {img_desc} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -247,11 +251,10 @@ class Ghosting(HazenTask):
 
             ax.imshow(img)
             # fig.savefig(f'{self.report_path}.png')
-            img_path = os.path.realpath(os.path.join(self.report_path,
-                                                     f"{self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])}.png"))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path,
+                f"{self.img_desc(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])}.png"))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-            return fig, ghosting
-
-        return None, ghosting
+        return ghosting

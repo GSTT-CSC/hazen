@@ -30,15 +30,20 @@ class SpatialResolution(HazenTask):
 
     def run(self) -> dict:
         results = self.init_result_dict()
+        results['file'] = self.img_desc(self.single_dcm)
         try:
-            results[self.key(self.single_dcm)] = self.calculate_mtf(self.single_dcm)
+            pe_result, fe_result = self.calculate_mtf(self.single_dcm)
+            results['measurement'] = {
+                'phase encoding direction mm': round(pe_result, 2),
+                'frequency encoding direction mm': round(fe_result, 2)
+            }
         except Exception as e:
-            print(f"Could not calculate the spatial resolution for {self.key(self.single_dcm)} because of : {e}")
+            print(f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -363,7 +368,8 @@ class SpatialResolution(HazenTask):
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel('lp/mm')
             logger.debug(f'Writing report image: {self.report_path}_{pe}_{edge}.png')
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dicom)}_{pe}_{edge}.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                                    f'{self.img_desc(dicom)}_{pe}_{edge}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -380,5 +386,4 @@ class SpatialResolution(HazenTask):
             pe_result = self.calculate_mtf_for_edge(dicom, 'right')
             fe_result = self.calculate_mtf_for_edge(dicom, 'top')
 
-        return {'phase encoding direction mm': round(pe_result, 2),
-                'frequency encoding direction mm': round(fe_result, 2)}
+        return pe_result, fe_result

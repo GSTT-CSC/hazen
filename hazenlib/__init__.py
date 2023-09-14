@@ -168,7 +168,7 @@ def main():
 
     report = arguments['--report']
     report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
-                os.getcwd(), 'report')
+                os.getcwd(), 'report_image')
 
     # Parse the task and optional arguments:
     if arguments['snr'] or arguments['<task>'] == 'snr':

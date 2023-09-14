@@ -68,8 +68,8 @@ class SNRMap(HazenTask):
         results : dict
         """
         results = self.init_result_dict()
-
-        key = self.key(self.single_dcm)
+        img_desc = self.img_desc(self.single_dcm)
+        results['file'] = img_desc
 
         #  Create original, smoothed and noise images
         #  ==========================================
@@ -105,7 +105,7 @@ class SNRMap(HazenTask):
         #  =================================
         snr_map = self.calc_snr_map(original, noise)
 
-        results[key] = round(snr, 2)
+        results['measurement'] = {"snr by smoothing": round(snr, 2)}
 
         if self.report:
             #  Plot images
@@ -116,8 +116,8 @@ class SNRMap(HazenTask):
 
             #  Save images
             #  ===========
-            detailed_image_path = os.path.join(self.report_path, f'{key}_snr_map_detailed.png')
-            summary_image_path = os.path.join(self.report_path, f'{key}_snr_map.png')
+            detailed_image_path = os.path.join(self.report_path, f'{img_desc}_snr_map_detailed.png')
+            summary_image_path = os.path.join(self.report_path, f'{img_desc}_snr_map.png')
 
             fig_detailed.savefig(detailed_image_path, dpi=300)
             fig_summary.savefig(summary_image_path, dpi=300)
@@ -125,7 +125,7 @@ class SNRMap(HazenTask):
             self.report_files.append(summary_image_path)
             self.report_files.append(detailed_image_path)
 
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 

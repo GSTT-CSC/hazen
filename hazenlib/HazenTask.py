@@ -10,7 +10,7 @@ import os
 
 class HazenTask:
 
-    def __init__(self, input_data, report: bool = False, report_dir: str = os.path.join(os.getcwd(), 'report')):
+    def __init__(self, input_data, report: bool = False, report_dir: str = ""):
         # Check if input data is a single or list of files, load accordingly
         if isinstance(input_data, list):
             data_paths = sorted(input_data)
@@ -26,10 +26,14 @@ class HazenTask:
         self.report_files = []
 
     def init_result_dict(self) -> dict:
-        result_dict = {"task": f"{type(self).__name__}"}
+        result_dict = {
+            "task": f"{type(self).__name__}",
+            "file": None,
+            "measurement": None
+        }
         return result_dict
 
-    def key(self, dcm, properties=None) -> str:
+    def img_desc(self, dcm, properties=None) -> str:
         if properties is None:
             properties = ['SeriesDescription', 'SeriesNumber', 'InstanceNumber']
         try:
@@ -38,5 +42,5 @@ class HazenTask:
             logger.warning(f"Could not find one or more of the following properties: {properties}")
             metadata = [str(dcm.get(field)) for field in ['SeriesDescription', 'SeriesNumber']]
 
-        key =  '_'.join(metadata).replace(' ', '_')
-        return key
+        img_desc =  '_'.join(metadata).replace(' ', '_')
+        return img_desc

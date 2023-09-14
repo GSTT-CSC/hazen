@@ -27,18 +27,18 @@ class SliceWidth(HazenTask):
         super().__init__(**kwargs)
         self.pixel_size = self.single_dcm.PixelSpacing[0]
 
-
     def run(self):
         results = self.init_result_dict()
+        results['file'] = self.img_desc(self.single_dcm)
         try:
-            results[self.key(self.single_dcm)] = self.get_slice_width(self.single_dcm)
+            results['measurement'] = self.get_slice_width(self.single_dcm)
         except Exception as e:
-            print(f"Could not calculate the slice_width for {self.key(self.single_dcm)} because of : {e}")
+            print(f"Could not calculate the slice_width for {self.img_desc(self.single_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -150,9 +150,9 @@ class SliceWidth(HazenTask):
         for idx in range(len(rods)):
             cropped_data = []
             cropped_data = arr_inv[bbox["x_start"][idx]:bbox["x_end"][idx], bbox["y_start"][idx]:bbox["y_end"][idx]]
-            x0_im[idx], y0_im[idx], x0[idx], y0[idx] = self.fit_gauss_2d_to_rods(cropped_data, bbox["intensity_max"][idx],
-                                                                            bbox["rod_dia"][idx], bbox["radius"],
-                                                                            bbox["x_start"][idx], bbox["y_start"][idx])
+            x0_im[idx], y0_im[idx], x0[idx], y0[idx] = self.fit_gauss_2d_to_rods(
+                cropped_data, bbox["intensity_max"][idx], bbox["rod_dia"][idx],
+                bbox["radius"], bbox["x_start"][idx], bbox["y_start"][idx])
 
             # note: flipped x/y
             rods[idx].x = y0_im[idx]
@@ -180,7 +180,8 @@ class SliceWidth(HazenTask):
             for idx in range(len(rods)):
                 axes[2].plot(rods_initial[idx].x, rods_initial[idx].y, 'y.')
                 axes[2].plot(rods[idx].x, rods[idx].y, 'r.')
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_rod_centroids.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(self.single_dcm)}_rod_centroids.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -801,7 +802,8 @@ class SliceWidth(HazenTask):
                 loc="center"
             )
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                            self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -829,4 +831,4 @@ class SliceWidth(HazenTask):
 
         return {'slice width mm': round(slice_width_mm['combined']['aapm_tilt_corrected'], 2),
                 'distortion values': distortion_values, 'linearity values': linearity_values,
-                'horizontal_distances_mm': horz_distances_mm, 'vertical_distances_mm': vert_distances_mm}
+                'horizontal distances mm': horz_distances_mm, 'vertical distances mm': vert_distances_mm}
