@@ -167,8 +167,7 @@ def main():
         logging.getLogger().setLevel(logging.INFO)
 
     report = arguments['--report']
-    report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
-                os.getcwd(), 'report_image')
+    report_dir = arguments['--output'] if arguments['--output'] else None
 
     # Parse the task and optional arguments:
     if arguments['snr'] or arguments['<task>'] == 'snr':
