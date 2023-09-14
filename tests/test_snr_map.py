@@ -34,7 +34,7 @@ class TestSnrMap(unittest.TestCase):
     def test_snr_value(self):
         np.testing.assert_almost_equal(
             192.88188017908504,
-            self.results['seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1'],
+            self.results['measurement']['snr by smoothing'],
             2)
 
     def test_smooth(self):

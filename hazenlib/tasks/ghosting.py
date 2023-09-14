@@ -195,7 +195,7 @@ class Ghosting(HazenTask):
         )
         return ghost_slice
 
-    def get_ghosting(self, dcm) -> dict:
+    def get_ghosting(self, dcm) -> float:
 
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
 

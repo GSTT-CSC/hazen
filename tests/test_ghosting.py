@@ -28,7 +28,7 @@ class TestGhosting(unittest.TestCase):
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
-    GHOSTING = (None, 0.11803264099090763)
+    GHOSTING = 0.11803264099090763
 
     def setUp(self):
         self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING', 'IM_0001.dcm'))
@@ -100,7 +100,7 @@ class TestCOLPEGhosting(TestGhosting):
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
     PE = "COL"
-    GHOSTING = (None, 0.015138960417776908)
+    GHOSTING = 0.015138960417776908
 
     def setUp(self):
         self.dcm = pydicom.read_file(
@@ -126,7 +126,7 @@ class TestAxialPhilipsGhosting(TestGhosting):
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
-    GHOSTING = (None, 0.007246960909896829)
+    GHOSTING = 0.007246960909896829
 
     def setUp(self):
         self.dcm = pydicom.read_file(

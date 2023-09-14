@@ -375,7 +375,7 @@ class SpatialResolution(HazenTask):
 
         return res
 
-    def calculate_mtf(self, dicom):
+    def calculate_mtf(self, dicom) -> tuple:
         pe = dicom.InPlanePhaseEncodingDirection
         pe_result, fe_result = None, None
 

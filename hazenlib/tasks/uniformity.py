@@ -40,8 +40,8 @@ class Uniformity(HazenTask):
         try:
             horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(self.single_dcm)
             results['measurement'] = {
-                "horizontal uniformity": round(horizontal_uniformity, 2),
-                "vertical uniformity": round(vertical_uniformity, 2),
+                "horizontal %": round(horizontal_uniformity, 2),
+                "vertical %": round(vertical_uniformity, 2),
                 }
         except Exception as e:
             print(f"Could test not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}")

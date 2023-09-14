@@ -396,12 +396,14 @@ class TestSpatialResolution(unittest.TestCase):
             self.x_edge, self.y_edge)
 
     def test_get_edge_profile_coords(self):
-        a, b = self.hazen_spatial_resolution.get_edge_profile_coords(self.angle, self.intercept,
-                                                                     self.hazen_spatial_resolution.dcm_list[0].PixelSpacing)
+        a, b = self.hazen_spatial_resolution.get_edge_profile_coords(
+                    self.angle, self.intercept,
+                    self.hazen_spatial_resolution.dcm_list[0].PixelSpacing)
         assert self.x, self.y == (a.flatten(), b.flatten())
 
     def test_get_esf(self):
-        assert self.u, self.esf == self.hazen_spatial_resolution.get_esf(self.rotated_edge_roi, self.y)
+        assert self.u, self.esf == self.hazen_spatial_resolution.get_esf(
+                                        self.rotated_edge_roi, self.y)
 
     def test_deri(self):
         a = [round(num, 3) for num in self.lsf]
@@ -412,17 +414,15 @@ class TestSpatialResolution(unittest.TestCase):
         assert self.mtf[0] == abs(np.fft.fft(self.lsf))[0]
 
     def test_calculate_mtf(self):
-        res = self.hazen_spatial_resolution.calculate_mtf(self.hazen_spatial_resolution.dcm_list[0])
-        fe_res = res['frequency encoding direction mm']
-        pe_res = res['phase encoding direction mm']
+        pe_result, fe_result = self.hazen_spatial_resolution.calculate_mtf(
+                                    self.hazen_spatial_resolution.dcm_list[0])
 
         print("\ntest_calculate_mtf.py::TestCalculateMtf::test_calculate_mtf")
-        print("new_release_value:", fe_res)
+        print("new_release_value:", fe_result)
         print("fixed_value:", self.MTF_FE)
 
-
-        assert fe_res == pytest.approx(self.MTF_FE, abs=0.005)
-        assert pe_res == pytest.approx(self.MTF_PE, abs=0.005)
+        assert fe_result == pytest.approx(self.MTF_FE, abs=0.005)
+        assert pe_result == pytest.approx(self.MTF_PE, abs=0.005)
 
 class TestPhilipsResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / 'resolution')

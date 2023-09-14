@@ -237,9 +237,8 @@ class TestSliceWidth(unittest.TestCase):
             assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
 
     def test_slice_width(self):
-        results = self.slice_width.run()
-        key = self.slice_width.key(self.slice_width.single_dcm)
-        slice_width_mm = results[key]['slice width mm']
+        result = self.slice_width.run()
+        slice_width_mm = result['measurement']['slice width mm']
 
         print("\ntest_slice_width.py::TestSliceWidth::test_slice_width")
         print("new_release_value:", slice_width_mm)

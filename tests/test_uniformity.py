@@ -19,14 +19,11 @@ class TestUniformity(unittest.TestCase):
 
     def test_uniformity(self):
         results = self.uniformity_task.run()
-        key = self.uniformity_task.key(self.uniformity_task.single_dcm)
-        horizontal_ipem = results[key]['horizontal %']
-        vertical_ipem = results[key]['vertical %']
+        horizontal_ipem = results['measurement']['horizontal %']
+        vertical_ipem = results['measurement']['vertical %']
 
         print("\ntest_uniformity.py::TestUniformity::test_uniformity")
-
         print("new_release_value:", vertical_ipem)
-
         print("fixed_value:", self.IPEM_VERTICAL)
 
         assert horizontal_ipem == pytest.approx(self.IPEM_HORIZONTAL, abs=0.005)
