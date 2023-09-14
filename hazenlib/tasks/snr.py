@@ -32,23 +32,30 @@ class SNR(HazenTask):
     def run(self, measured_slice_width=None) -> dict:
         if measured_slice_width is not None:
             measured_slice_width = float(measured_slice_width)
-        snr_results = {}
+        
+        results = self.init_result_dict()
+        results['file'] = [self.img_desc(img) for img in self.dcm_list]
+        results['measurement']["snr by smoothing"] = {}
 
         if len(self.dcm_list) == 2:
-            snr, normalised_snr = self.snr_by_subtraction(self.dcm_list[0], self.dcm_list[1], measured_slice_width)
-            snr_results[f"snr_subtraction_measured_{self.key(self.dcm_list[0])}"] = round(snr, 2)
-            snr_results[f"snr_subtraction_normalised_{self.key(self.dcm_list[0])}"] = round(normalised_snr, 2)
+            snr, normalised_snr = self.snr_by_subtraction(
+                self.dcm_list[0], self.dcm_list[1], measured_slice_width
+                )
+            results['measurement']["snr by subtraction"] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
 
         for idx, dcm in enumerate(self.dcm_list):
             snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
-            snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
-            snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
-
-        results = {self.key(self.dcm_list[0]): snr_results}
+            results['measurement']["snr by smoothing"][self.img_desc(dcm)] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
 
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
@@ -331,7 +338,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -386,7 +394,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm1, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
