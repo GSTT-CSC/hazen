@@ -29,25 +29,24 @@ class ACRUniformity(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    def run(self) -> dict:
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        uniformity_dcm = self.ACR_obj.dcms[6]
 
+
+    def run(self) -> dict:
         # Initialise results dictionary
         results = self.init_result_dict()
-        results['file'] = self.img_desc(uniformity_dcm)
+        results['file'] = self.img_desc(self.ACR_obj.slice7_dcm)
 
         try:
-            result = self.get_integral_uniformity(uniformity_dcm)
+            result = self.get_integral_uniformity(self.ACR_obj.slice7_dcm)
             results['measurement'] = {
                 "integral uniformity %": round(result, 2)
                 }
         except Exception as e:
             print(
                 f"Could not calculate the percent integral uniformity for"
-                f"{self.img_desc(uniformity_dcm)} because of : {e}")
+                f"{self.img_desc(self.ACR_obj.slice7_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested

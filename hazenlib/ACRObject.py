@@ -8,6 +8,7 @@ class ACRObject:
     def __init__(self, dcm_list):
         self.dcm_list = dcm_list
         self.images, self.dcms = self.sort_images()
+        self.slice7_dcm = self.dcms[6]
         self.pixel_spacing = self.dcms[0].PixelSpacing
         self.orientation_checks()
         self.rot_angle = self.determine_rotation()

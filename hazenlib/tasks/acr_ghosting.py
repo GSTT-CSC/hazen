@@ -28,23 +28,20 @@ class ACRGhosting(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
-        ghosting_dcm = self.ACR_obj.dcms[6]
-
         # Initialise results dictionary
         results = self.init_result_dict()
-        results['file'] = self.img_desc(ghosting_dcm)
+        results['file'] = self.img_desc(self.ACR_obj.slice7_dcm)
 
         try:
-            result = self.get_signal_ghosting(ghosting_dcm)
+            result = self.get_signal_ghosting(self.ACR_obj.slice7_dcm)
             results['measurement'] = {
                 "signal ghosting %": round(result, 3)
                 }
         except Exception as e:
-            print(f"Could not calculate the percent-signal ghosting for {self.img_desc(ghosting_dcm)} because of : {e}")
+            print(f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice7_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
