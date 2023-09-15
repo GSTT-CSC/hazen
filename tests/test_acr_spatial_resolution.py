@@ -21,27 +21,27 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     MTF50 = (1.18, 1.35)
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'SiemensMTF')
         siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
         self.acr_spatial_resolution_task = ACRSpatialResolution(
             input_data=siemens_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_spatial_resolution_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'SiemensMTF'))])
 
         self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcms[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(
             self.dcm.pixel_array, self.centre[0], self.y_ramp_pos, self.width)
+        self.data = self.dcm.pixel_array
+        self.res = self.dcm.PixelSpacing
 
     def test_find_y_ramp(self):
-        data = self.dcm.pixel_array
-        res = self.dcm.PixelSpacing
-        assert self.acr_spatial_resolution_task.y_position_for_ramp(res, data, self.centre) == self.y_ramp_pos
+        y_ramp_pos = self.acr_spatial_resolution_task.y_position_for_ramp(
+                            self.res, self.data, self.centre)
+        assert y_ramp_pos == self.y_ramp_pos
 
     def test_get_edge_type(self):
-        assert self.acr_spatial_resolution_task.get_edge_type(self.crop_image) == self.edge_type
+        edge_type = self.acr_spatial_resolution_task.get_edge_type(self.crop_image)
+        assert edge_type == self.edge_type
 
     def test_get_edge_loc(self):
         assert (self.acr_spatial_resolution_task.edge_location_for_plot(self.crop_image, self.edge_type[0] ==
@@ -79,9 +79,6 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
         self.acr_spatial_resolution_task = ACRSpatialResolution(
             input_data=ge_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_spatial_resolution_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
-             os.listdir(ACR_DATA_GE)])
 
         self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcms[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(

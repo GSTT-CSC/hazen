@@ -22,9 +22,6 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
             input_data=siemens_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
-             os.listdir(ACR_DATA_SIEMENS)])
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
@@ -67,9 +64,6 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
             input_data=ge_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_geometric_accuracy_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
-             os.listdir(ACR_DATA_GE)])
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]

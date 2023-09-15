@@ -40,10 +40,10 @@ class ACRSlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
+        # Identify relevant slices
         dcms = [self.ACR_obj.dcms[0], self.ACR_obj.dcms[-1]]
 
         # Initialise results dictionary
