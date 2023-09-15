@@ -41,16 +41,20 @@ class ACRSNR(HazenTask):
         if measured_slice_width is not None:
             measured_slice_width = float(measured_slice_width)
         
-        snr_results = {}
         self.ACR_obj = ACRObject(self.dcm_list)
         snr_dcm = self.ACR_obj.dcms[6]
+        # Initialise results dictionary
+        results = self.init_result_dict()
 
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
             try:
+                results['file'] = self.img_desc(snr_dcm)
                 snr, normalised_snr = self.snr_by_smoothing(snr_dcm, measured_slice_width)
-                snr_results[f"snr_smoothing_measured_{self.img_desc(snr_dcm)}"] = round(snr, 2)
-                snr_results[f"snr_smoothing_normalised_{self.img_desc(snr_dcm)}"] = round(normalised_snr, 2)
+                results['measurement']['snr by smoothing'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
                 print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
@@ -61,21 +65,21 @@ class ACRSNR(HazenTask):
 
             self.data2 = [pydicom.dcmread(dicom) for dicom in filenames]
             snr_dcm2 = ACRObject(self.data2).dcms[6]
+            results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
-                snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2)
-                snr_results[f"snr_subtraction_measured_{self.img_desc(snr_dcm)}"] = round(snr, 2)
-                snr_results[f"snr_subtraction_normalised_{self.img_desc(snr_dcm)}"] = round(normalised_snr, 2)
+                snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2, measured_slice_width)
+                results['measurement']['snr by subtraction'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
                 print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} and "
                       f"{self.img_desc(snr_dcm2)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
 
-
-        results = {self.img_desc(snr_dcm): snr_results}
-
         # only return reports if requested
         if self.report:
-            results['report_images'] = self.report_files
+            results['report_image'] = self.report_files
 
         return results
 
