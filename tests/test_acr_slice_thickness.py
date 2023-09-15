@@ -23,7 +23,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
              os.listdir(ACR_DATA_SIEMENS)])
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
 
     def test_ramp_find(self):
         res = self.dcm.PixelSpacing
@@ -58,7 +58,7 @@ class TestACRSliceThicknessGE(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
              os.listdir(ACR_DATA_GE)])
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
 
     def test_ramp_find(self):
         res = self.dcm.PixelSpacing

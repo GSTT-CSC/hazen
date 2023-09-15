@@ -21,25 +21,29 @@ class TestACRSNRSiemens(unittest.TestCase):
         self.acr_snr_task = ACRSNR(
             input_data=siemens_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_snr_task.ACR_obj = [ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])]
-        self.acr_snr_task.ACR_obj.append(
-            ACRObject([pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2', f'{i}')) for i in
-                       os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2'))]))
+        self.acr_snr_task.ACR_obj = ACRObject(
+            [pydicom.read_file(
+                os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
+                os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))
+            ])
+        self.snr_dcm = self.acr_snr_task.ACR_obj.dcms[6]
+        self.snr_dcm2 = ACRObject(
+            [pydicom.read_file(
+                os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2', f'{i}')) for i in
+                os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2'))
+            ]).dcms[6]
 
-        self.dcm = [i.dcm[6] for i in self.acr_snr_task.ACR_obj]
 
     def test_normalisation_factor(self):
-        SNR_factor = self.acr_snr_task.get_normalised_snr_factor(self.dcm[0])
+        SNR_factor = self.acr_snr_task.get_normalised_snr_factor(self.snr_dcm)
         assert SNR_factor == self.norm_factor
 
     def test_snr_by_smoothing(self):
-        snr, _ = self.acr_snr_task.snr_by_smoothing(self.dcm[0])
+        snr, _ = self.acr_snr_task.snr_by_smoothing(self.snr_dcm)
         assert round(snr, 2) == self.snr
 
     def test_snr_by_subtraction(self):
-        snr, _ = self.acr_snr_task.snr_by_subtraction(self.dcm[0], self.dcm[1])
+        snr, _ = self.acr_snr_task.snr_by_subtraction(self.snr_dcm, self.snr_dcm2)
         rounded_snr = round(snr, 2)
 
         print("\ntest_snr_by_subtraction.py::TestSnrBySubtraction::test_snr_by_subtraction")
@@ -60,11 +64,11 @@ class TestACRSNRGE(unittest.TestCase):
         self.acr_snr_task = ACRSNR(
             input_data=ge_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_snr_task.ACR_obj = [ACRObject(
+        self.acr_snr_task.ACR_obj = ACRObject(
             [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])]
+             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
 
-        self.dcm = self.acr_snr_task.ACR_obj[0].dcm[6]
+        self.dcm = self.acr_snr_task.ACR_obj.dcms[6]
 
     def test_normalisation_factor(self):
         SNR_factor = self.acr_snr_task.get_normalised_snr_factor(self.dcm)

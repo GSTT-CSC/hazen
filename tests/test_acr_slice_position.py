@@ -23,14 +23,14 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
              os.listdir(ACR_DATA_SIEMENS)])
 
-        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcm[0]
-        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcm[-1]
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
 
     def test_wedge_find(self):
         # IMAGE 1
         img = self.dcm_1.pixel_array
         res = self.dcm_1.PixelSpacing
-        mask = self.acr_slice_position_task.ACR_obj.mask_image(img)
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
         assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[0]).all() == True
 
@@ -40,7 +40,7 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
         # IMAGE 11
         img = self.dcm_11.pixel_array
         res = self.dcm_11.PixelSpacing
-        mask = self.acr_slice_position_task.ACR_obj.mask_image(img)
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
         assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[1]).all() == True
 
@@ -73,14 +73,14 @@ class TestACRSlicePositionGE(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
              os.listdir(ACR_DATA_GE)])
 
-        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcm[0]
-        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcm[-1]
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
 
     def test_wedge_find(self):
         # IMAGE 1
         img = self.dcm_1.pixel_array
         res = self.dcm_1.PixelSpacing
-        mask = self.acr_slice_position_task.ACR_obj.mask_image(img)
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
         assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[0]).all() == True
 
@@ -90,7 +90,7 @@ class TestACRSlicePositionGE(unittest.TestCase):
         # IMAGE 11
         img = self.dcm_11.pixel_array
         res = self.dcm_11.PixelSpacing
-        mask = self.acr_slice_position_task.ACR_obj.mask_image(img)
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
         assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[1]).all() == True
 

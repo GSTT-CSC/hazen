@@ -24,7 +24,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
              os.listdir(ACR_DATA_SIEMENS)])
 
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcm[6]
+        self.dcm = self.acr_uniformity_task.ACR_obj.dcms[6]
 
     def test_uniformity(self):
         results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
@@ -53,7 +53,7 @@ class TestACRUniformityGE(unittest.TestCase):
             [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
              os.listdir(ACR_DATA_GE)])
 
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcm[6]
+        self.dcm = self.acr_uniformity_task.ACR_obj.dcms[6]
 
     def test_uniformity(self):
         results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
