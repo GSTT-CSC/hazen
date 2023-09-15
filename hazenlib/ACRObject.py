@@ -13,7 +13,6 @@ class ACRObject:
         self.rot_angle = self.determine_rotation()
         self.centre, self.radius = self.find_phantom_center()
         self.mask_image = self.get_mask_image(self.images[6])
-        self.length_dict = self.measure_orthogonal_lengths(self.mask_image)
 
     def sort_images(self):
         """
