@@ -83,3 +83,5 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
         self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcms[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(
             self.dcm.pixel_array, self.centre[0], self.y_ramp_pos, self.width)
+        self.data = self.dcm.pixel_array
+        self.res = self.dcm.PixelSpacing
