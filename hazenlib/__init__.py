@@ -111,17 +111,26 @@ relaxometry Task options:
 import importlib
 import inspect
 import logging
-import sys
 import json
-import os
+import sys
 
 from docopt import docopt
-import pydicom
 from hazenlib.logger import logger
-from hazenlib.utils import is_dicom_file, get_dicom_files
+from hazenlib.utils import get_dicom_files
 from hazenlib._version import __version__
 
+"""
+Hazen is designed to measure the same parameters from multiple images.
+While some tasks require a set of multiple images (within the same folder),
+such as slice position, SNR and all ACR tasks,
+the majority of the calculations are performed on a single image at a time,
+and bulk processing all images in the input folder with the same task.
 
+In Sep 2023 a design decision was made to pass the minimum number of files
+to the task.run() functions.
+Below is a list of the single image tasks where the task.run() will be called
+on each image in the folder, while other tasks are being passed ALL image files.
+"""
 single_image_tasks = ["ghosting", "uniformity", "spatial_resolution",
                       "slice_width", "snr_map"]
 
