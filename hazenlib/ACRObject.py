@@ -6,12 +6,19 @@ import skimage
 
 class ACRObject:
     def __init__(self, dcm_list):
+        # Initialise an ACR object from a stack of images of the ACR phantom
         self.dcm_list = dcm_list
+        # Load files as DICOM and their pixel arrays into 'images'
         self.images, self.dcms = self.sort_images()
+        # Store the pixel spacing value from the first image (expected to be the same for all)
         self.pixel_spacing = self.dcms[0].PixelSpacing
+        # Check whether images of the phantom are the correct orientation
         self.orientation_checks()
+        # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
+        # Find the centre coordinates of the phantom (circle)
         self.centre, self.radius = self.find_phantom_center()
+        # Store a mask image of slice 7 for reusability
         self.mask_image = self.get_mask_image(self.images[6])
 
     def sort_images(self):
