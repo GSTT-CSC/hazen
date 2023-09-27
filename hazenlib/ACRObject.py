@@ -9,7 +9,7 @@ class ACRObject:
         self.dcm_list = dcm_list
         self.images, self.dcms = self.sort_images()
         self.slice7_dcm = self.dcms[6]
-        self.pixel_spacing = self.dcms[0].PixelSpacing
+        self.pixel_spacing = self.dcms[0].PixelSpacing  # affected by whether input is single or enhanced DICOM
         self.orientation_checks()
         self.rot_angle = self.determine_rotation()
         self.centre, self.radius = self.find_phantom_center()
@@ -26,12 +26,12 @@ class ACRObject:
         dcm_stack : pyd
             A sorted stack of dicoms
         """
-
+        # affected by whether input is single or enhanced DICOM
         z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
-        dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
-        img_stack = [dicom.pixel_array for dicom in dicom_stack]
+        sorted_dcm_list = [self.dcm_list[i] for i in np.argsort(z)]
+        img_stack = [dcm.pixel_array for dcm in sorted_dcm_list]
 
-        return img_stack, dicom_stack
+        return img_stack, sorted_dcm_list
 
     def orientation_checks(self):
         """
@@ -114,7 +114,8 @@ class ACRObject:
             The rotated images.
         """
 
-        return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
+        return skimage.transform.rotate(self.images, self.rot_angle,
+                                        resize=False, preserve_range=True)
 
     def find_phantom_center(self):
         """

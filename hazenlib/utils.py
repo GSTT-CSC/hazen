@@ -11,11 +11,9 @@ matplotlib.use("Agg")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
+    file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
     if sort:
-        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
         file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
-    else:
-        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
     return file_list
 
 
@@ -29,13 +27,12 @@ def is_dicom_file(filename):
         :type filename: str
         :returns: True if it is a dicom file
         """
-    file_stream = open(filename, 'rb')
-    file_stream.seek(128)
-    data = file_stream.read(4)
-    file_stream.close()
-    if data == b'DICM':
+    try:
+        dcm = pydicom.dcmread(filename)
+        img = dcm.pixel_array
         return True
-    else:
+    except:
+        print(f"{filename} does not contain image data")
         return False
 
 
@@ -53,7 +50,7 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     Raises
     ------
     Exception
-     Unrecognised SOPClassUID
+    Unrecognised SOPClassUID
 
     """
 
@@ -126,7 +123,7 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
         except AttributeError:
             slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].Private_2005_140f[0].SliceThickness
         except Exception:
-            raise Exception('Unrecognised metadata Field for Slice Thickness')
+            raise Exception('Unrecognised metadata Field for Slice ThicKkness')
     else:
         slice_thickness = dcm.SliceThickness
 
