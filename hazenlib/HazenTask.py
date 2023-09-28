@@ -10,13 +10,9 @@ import os
 
 class HazenTask:
 
-    def __init__(self, input_data, report: bool = False, report_dir=None):
-        # Check if input data is a single or list of files, load accordingly
-        if isinstance(input_data, list):
-            data_paths = sorted(input_data)
-            self.dcm_list = [dcmread(dicom)for dicom in data_paths]
-        else:
-            self.single_dcm = dcmread(input_data)
+    def __init__(self, input_data: list, report: bool = False, report_dir=None):
+        data_paths = sorted(input_data)
+        self.dcm_list = [dcmread(dicom)for dicom in data_paths]
         self.report: bool = report
         if report_dir is not None:
             self.report_path = os.path.join(str(report_dir), type(self).__name__)

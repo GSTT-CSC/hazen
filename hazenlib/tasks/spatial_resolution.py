@@ -27,6 +27,7 @@ class SpatialResolution(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
         results = self.init_result_dict()

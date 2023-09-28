@@ -209,7 +209,7 @@ def main():
         selected_task = arguments['<task>']
         if selected_task in single_image_tasks:
             for file in files:
-                task = init_task(selected_task, file, report, report_dir)
+                task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
                 result_string = json.dumps(result, indent=2)
                 print(result_string)

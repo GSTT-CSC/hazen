@@ -25,6 +25,7 @@ class SliceWidth(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.single_dcm = self.dcm_list[0]
         self.pixel_size = self.single_dcm.PixelSpacing[0]
 
     def run(self):

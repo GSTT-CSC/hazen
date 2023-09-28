@@ -76,7 +76,8 @@ class TestSliceWidth(unittest.TestCase):
         # self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
         # self.dcm = pydicom.read_file(self.file)
         self.slice_width = SliceWidth(
-            input_data=os.path.join(self.SLICE_WIDTH_DATA, 'SLICEWIDTH', 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA'),
+            input_data=[os.path.join(self.SLICE_WIDTH_DATA, 'SLICEWIDTH',
+                            'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')],
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_rods(self):
@@ -324,7 +325,7 @@ class Test512Matrix(TestSliceWidth):
 
     def setUp(self):
         self.slice_width = SliceWidth(
-            input_data=os.path.join(self.SLICE_WIDTH_DATA, '512_matrix', '512_matrix'),
+            input_data=[os.path.join(self.SLICE_WIDTH_DATA, '512_matrix', '512_matrix')],
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
         # self.dcm = pydicom.read_file(self.file)

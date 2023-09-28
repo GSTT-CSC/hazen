@@ -80,7 +80,6 @@ class SNR(HazenTask):
         return True
 
     def get_normalised_snr_factor(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
-
         """
         Calculates SNR normalisation factor. Method matches MATLAB script.
         Utilises user provided slice_width if provided. Else finds from dcm.
