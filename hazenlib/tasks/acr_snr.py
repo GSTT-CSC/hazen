@@ -36,25 +36,27 @@ class ACRSNR(HazenTask):
         super().__init__(**kwargs)
         self.ACR_obj = None
 
-        self.data2 = []
-
     def run(self, measured_slice_width=None, subtract=None) -> dict:
         
         if measured_slice_width is not None:
             measured_slice_width = float(measured_slice_width)
         
-        snr_results = {}
-        self.ACR_obj = [ACRObject(self.data)]
-        snr_dcm = self.ACR_obj[0].dcm[6]
+        self.ACR_obj = ACRObject(self.dcm_list)
+        snr_dcm = self.ACR_obj.dcms[6]
+        # Initialise results dictionary
+        results = self.init_result_dict()
 
         # SINGLE METHOD (SMOOTHING)
         if subtract is None:
             try:
+                results['file'] = self.img_desc(snr_dcm)
                 snr, normalised_snr = self.snr_by_smoothing(snr_dcm, measured_slice_width)
-                snr_results[f"snr_smoothing_measured_{self.key(snr_dcm)}"] = round(snr, 2)
-                snr_results[f"snr_smoothing_normalised_{self.key(snr_dcm)}"] = round(normalised_snr, 2)
+                results['measurement']['snr by smoothing'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
-                print(f"Could not calculate the SNR for {self.key(snr_dcm)} because of : {e}")
+                print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
         # SUBTRACTION METHOD
         else:
@@ -62,23 +64,22 @@ class ACRSNR(HazenTask):
             filenames = [f'{subtract}/{file}' for file in temp]
 
             self.data2 = [pydicom.dcmread(dicom) for dicom in filenames]
-            self.ACR_obj.append(ACRObject(self.data2))
-            snr_dcm2 = self.ACR_obj[1].dcm[6]
+            snr_dcm2 = ACRObject(self.data2).dcms[6]
+            results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
-                snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2)
-                snr_results[f"snr_subtraction_measured_{self.key(snr_dcm)}"] = round(snr, 2)
-                snr_results[f"snr_subtraction_normalised_{self.key(snr_dcm)}"] = round(normalised_snr, 2)
+                snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2, measured_slice_width)
+                results['measurement']['snr by subtraction'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
-                print(f"Could not calculate the SNR for {self.key(snr_dcm)} and "
-                      f"{self.key(snr_dcm2)} because of : {e}")
+                print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} and "
+                      f"{self.img_desc(snr_dcm2)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
-
-
-        results = {self.key(snr_dcm): snr_results}
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -187,7 +188,7 @@ class ACRSNR(HazenTask):
         normalised_snr: float
 
         """
-        centre = self.ACR_obj[0].centre
+        centre = self.ACR_obj.centre
         col, row = centre
         noise_img = self.get_noise_image(dcm)
 
@@ -217,7 +218,7 @@ class ACRSNR(HazenTask):
             axes[1].imshow(noise_img, cmap='gray')
             self.get_roi_samples(axes[1], dcm, int(col), int(row))
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.img_desc(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -236,7 +237,7 @@ class ACRSNR(HazenTask):
         -------
 
         """
-        centre = self.ACR_obj[0].centre
+        centre = self.ACR_obj.centre
         col, row = centre
 
         difference = np.subtract(dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int'))
@@ -267,7 +268,7 @@ class ACRSNR(HazenTask):
             self.get_roi_samples(axes[1], dcm1, int(col), int(row))
             axes[1].axis('off')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.img_desc(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

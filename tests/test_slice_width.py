@@ -76,11 +76,13 @@ class TestSliceWidth(unittest.TestCase):
         # self.file = str(self.SLICE_WIDTH_DATA / 'SLICEWIDTH' / 'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')
         # self.dcm = pydicom.read_file(self.file)
         self.slice_width = SliceWidth(
-            data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'slicewidth', 'SLICEWIDTH'), sort=True),
+            input_data=[os.path.join(self.SLICE_WIDTH_DATA, 'SLICEWIDTH',
+                            'ANNUALQA.MR.HEAD_GENERAL.tra.slice_width.IMA')],
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_rods(self):
-        rods, _ = self.slice_width.get_rods(self.slice_width.data[0])
+        arr = self.slice_width.single_dcm.pixel_array
+        rods, _ = self.slice_width.get_rods(arr)
         # print("rods")
         # print(rods)
         for n in range(len(rods)):
@@ -89,28 +91,30 @@ class TestSliceWidth(unittest.TestCase):
     def test_get_rod_distances(self):
         # From MATLAB Rods
         distances = self.slice_width.get_rod_distances(self.matlab_rods)
-        # print("distances")
-        # print(distances)
-        assert distances == self.DISTANCES
+        np.testing.assert_almost_equal(distances, self.DISTANCES, 3)
 
     def test_get_rod_distortion_correction_coefficients(self):
         distances = self.slice_width.get_rod_distances(self.matlab_rods)
         # print("rod distortion correction coefficient")
         # print(hazen_slice_width.get_rod_distortion_correction_coefficients(distances[0], self.dcm.PixelSpacing[0]))
-        assert self.slice_width.get_rod_distortion_correction_coefficients(distances[0],
-                                                                           self.slice_width.data[0].PixelSpacing[
-                                                                               0]) == self.DIST_CORR_COEFF
+        dist_corr_coeff = self.slice_width.get_rod_distortion_correction_coefficients(
+            distances[0])
+
+        np.testing.assert_almost_equal(
+            dist_corr_coeff['top'], self.DIST_CORR_COEFF['top'], 3)
+        np.testing.assert_almost_equal(
+            dist_corr_coeff['bottom'], self.DIST_CORR_COEFF['bottom'], 3)
 
     def test_rod_distortions(self):
-        horizontal_distortion, vertical_distortion = self.slice_width.get_rod_distortions(self.matlab_rods,
-                                                                                          self.slice_width.data[0])
+        horz_dist, vert_dist = self.slice_width.get_rod_distances(self.matlab_rods)
+        horizontal_distortion, vertical_distortion = self.slice_width.get_rod_distortions(horz_dist, vert_dist)
         # print("rod distortion")
         # print(horizontal_distortion, vertical_distortion)
         assert (round(horizontal_distortion, 2), round(vertical_distortion, 2)) == self.ROD_DIST
 
     def test_get_ramp_profiles(self):
-        ramp_profiles = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods,
-                                                           self.slice_width.data[0].PixelSpacing[0])
+        ramp_profiles = self.slice_width.get_ramp_profiles(
+            self.slice_width.single_dcm.pixel_array, self.matlab_rods)
         bottom_profiles = ramp_profiles["bottom"]
         mean_bottom_profile = np.mean(bottom_profiles, axis=0).tolist()
         # print("bottom centre ramp profile")
@@ -127,8 +131,8 @@ class TestSliceWidth(unittest.TestCase):
         # matlab top 0.0215   -2.9668  602.4568
         # matlab bottom [0.0239, -2.9349,  694.9520]
 
-        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods,
-                                                   self.slice_width.data[0].PixelSpacing[0])
+        ramps = self.slice_width.get_ramp_profiles(
+            self.slice_width.single_dcm.pixel_array, self.matlab_rods)
 
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         top_coefficients = list(self.slice_width.baseline_correction(top_mean_ramp, sample_spacing=0.25)["f"])
@@ -162,9 +166,9 @@ class TestSliceWidth(unittest.TestCase):
 
         """
         sample_spacing = 0.25
-        slice_thickness = self.slice_width.data[0].SliceThickness
-        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods,
-                                                   self.slice_width.data[0].PixelSpacing[0])
+        slice_thickness = self.slice_width.single_dcm.SliceThickness
+        ramps = self.slice_width.get_ramp_profiles(
+            self.slice_width.single_dcm.pixel_array, self.matlab_rods)
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
         ramps_baseline_corrected = {
@@ -186,10 +190,10 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_fit_trapezoid(self):
         sample_spacing = 0.25
-        slice_thickness = self.slice_width.data[0].SliceThickness
+        slice_thickness = self.slice_width.single_dcm.SliceThickness
 
-        ramps = self.slice_width.get_ramp_profiles(self.slice_width.data[0].pixel_array, self.matlab_rods,
-                                                   self.slice_width.data[0].PixelSpacing[0])
+        ramps = self.slice_width.get_ramp_profiles(
+            self.slice_width.single_dcm.pixel_array, self.matlab_rods)
 
         top_mean_ramp = np.mean(ramps["top"], axis=0)
         bottom_mean_ramp = np.mean(ramps["bottom"], axis=0)
@@ -234,9 +238,8 @@ class TestSliceWidth(unittest.TestCase):
             assert abs(value - matlab_baseline_fit_coefficients[idx]) <= 5
 
     def test_slice_width(self):
-        results = self.slice_width.run()
-        key = self.slice_width.key(self.slice_width.data[0])
-        slice_width_mm = results[key]['slice_width_mm']
+        result = self.slice_width.run()
+        slice_width_mm = result['measurement']['slice width mm']
 
         print("\ntest_slice_width.py::TestSliceWidth::test_slice_width")
         print("new_release_value:", slice_width_mm)
@@ -322,7 +325,7 @@ class Test512Matrix(TestSliceWidth):
 
     def setUp(self):
         self.slice_width = SliceWidth(
-            data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'slicewidth', '512_matrix'), sort=True),
+            input_data=[os.path.join(self.SLICE_WIDTH_DATA, '512_matrix', '512_matrix')],
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
         # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
         # self.dcm = pydicom.read_file(self.file)

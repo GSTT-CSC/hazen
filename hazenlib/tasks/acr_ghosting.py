@@ -28,23 +28,28 @@ class ACRGhosting(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ACR_obj = None
 
     def run(self) -> dict:
-        results = {}
-        self.ACR_obj = ACRObject(self.data)
-        ghosting_dcm = self.ACR_obj.dcm[6]
+        # Initialise ACR object
+        self.ACR_obj = ACRObject(self.dcm_list)
+        ghosting_dcm = self.ACR_obj.dcms[6]
+
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(ghosting_dcm)
 
         try:
             result = self.get_signal_ghosting(ghosting_dcm)
-            results[self.key(ghosting_dcm)] = result
+            results['measurement'] = {
+                "signal ghosting %": round(result, 3)
+                }
         except Exception as e:
-            print(f"Could not calculate the percent-signal ghosting for {self.key(ghosting_dcm)} because of : {e}")
+            print(f"Could not calculate the percent-signal ghosting for {self.img_desc(ghosting_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -54,7 +59,7 @@ class ACRGhosting(HazenTask):
         r_large = np.ceil(80 / res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
         dims = img.shape
 
-        mask = self.ACR_obj.mask_image(img)
+        mask = self.ACR_obj.mask_image
         cxy = self.ACR_obj.centre
 
         nx = np.linspace(1, dims[0], dims[0])
@@ -139,8 +144,6 @@ class ACRGhosting(HazenTask):
         psg = 100 * np.absolute(
             ((n_ellipse_val + s_ellipse_val) - (w_ellipse_val + e_ellipse_val)) / (2 * large_roi_val))
 
-        psg = np.round(psg, 3)
-
         if self.report:
             import matplotlib.pyplot as plt
             fig, axes = plt.subplots(2, 1)
@@ -181,7 +184,8 @@ class ACRGhosting(HazenTask):
 
             axes[1].axis('off')
             axes[1].set_title('Percent Signal Ghosting = ' + str(np.round(psg, 3)) + '%')
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

@@ -29,24 +29,30 @@ class ACRUniformity(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ACR_obj = None
 
     def run(self) -> dict:
-        results = {}
-        self.ACR_obj = ACRObject(self.data)
-        uniformity_dcm = self.ACR_obj.dcm[6]
+        # Initialise ACR object
+        self.ACR_obj = ACRObject(self.dcm_list)
+        uniformity_dcm = self.ACR_obj.dcms[6]
+
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(uniformity_dcm)
 
         try:
             result = self.get_integral_uniformity(uniformity_dcm)
-            results[self.key(uniformity_dcm)] = result
+            results['measurement'] = {
+                "integral uniformity %": round(result, 2)
+                }
         except Exception as e:
             print(
-                f"Could not calculate the percent integral uniformity for {self.key(uniformity_dcm)} because of : {e}")
+                f"Could not calculate the percent integral uniformity for"
+                f"{self.img_desc(uniformity_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -103,7 +109,6 @@ class ACRUniformity(HazenTask):
 
         piu = 100 * (1 - (sig_max - sig_min) / (sig_max + sig_min))
 
-        piu = np.round(piu, 2)
         if self.report:
             import matplotlib.pyplot as plt
             fig, axes = plt.subplots(2, 1)
@@ -128,7 +133,8 @@ class ACRUniformity(HazenTask):
             axes[1].axis('off')
             axes[1].set_title('Percent Integral Uniformity = ' + str(np.round(piu, 2)) + '%')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

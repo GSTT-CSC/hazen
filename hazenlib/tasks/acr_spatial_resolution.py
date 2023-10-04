@@ -52,33 +52,36 @@ class ACRSpatialResolution(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ACR_obj = None
 
     def run(self) -> dict:
-        mtf_results = {}
-        self.ACR_obj = ACRObject(self.data)
-        rot_ang = self.ACR_obj.rot_angle
+        # Initialise ACR object
+        self.ACR_obj = ACRObject(self.dcm_list)
 
-        if np.round(np.abs(rot_ang), 2) < 3:
+        rot_ang = self.ACR_obj.rot_angle
+        if np.abs(rot_ang) < 3:
             logger.warning(f'The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which '
                            f'is less than the recommended 3 degrees. Results will be unreliable!')
 
-        mtf_dcm = self.ACR_obj.dcm[0]
+        mtf_dcm = self.ACR_obj.dcms[0]
+
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(mtf_dcm)
 
         try:
             raw_res, fitted_res = self.get_mtf50(mtf_dcm)
-            mtf_results[f"estimated_rotation_angle_{self.key(mtf_dcm)}"] = rot_ang
-            mtf_results[f"raw_mtf50_{self.key(mtf_dcm)}"] = raw_res
-            mtf_results[f"fitted_mtf50_{self.key(mtf_dcm)}"] = fitted_res
+            results['measurement'] = {
+                "estimated rotation angle": round(rot_ang, 2),
+                "raw mtf50": round(raw_res, 2),
+                "fitted mtf50": round(fitted_res, 2)
+            }
         except Exception as e:
-            print(f"Could not calculate the spatial resolution for {self.key(mtf_dcm)} because of : {e}")
+            print(f"Could not calculate the spatial resolution for {self.img_desc(mtf_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
-
-        results = {self.key(self.data[0]): mtf_results}
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -268,8 +271,8 @@ class ACRSpatialResolution(HazenTask):
         freq, lsf_raw, MTF_raw = self.calculate_MTF(erf, res)
         _, lsf_fit, MTF_fit = self.calculate_MTF(erf_fit, res)
 
-        eff_raw_res = round(self.identify_MTF50(freq, MTF_raw), 2)
-        eff_fit_res = round(self.identify_MTF50(freq, MTF_fit), 2)
+        eff_raw_res = self.identify_MTF50(freq, MTF_raw)
+        eff_fit_res = self.identify_MTF50(freq, MTF_fit)
 
         if self.report:
             edge_loc = self.edge_location_for_plot(crop_img, edge_type)
@@ -321,7 +324,8 @@ class ACRSpatialResolution(HazenTask):
             axes[4].legend(fancybox='true')
             axes[4].set_title('MTF', fontsize=14)
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

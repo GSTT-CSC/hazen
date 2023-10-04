@@ -214,7 +214,7 @@ class Relaxometry(HazenTask):
         relax_str = calc.lower()
 
         if calc in ['T1', 't1']:
-            image_stack = T1ImageStack(self.data)
+            image_stack = T1ImageStack(self.dcm_list)
             try:
                 template_dcm = pydicom.read_file(
                     TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -223,7 +223,7 @@ class Relaxometry(HazenTask):
                     f' Please pass plate number as arg.')
                 exit()
         elif calc in ['T2', 't2']:
-            image_stack = T2ImageStack(self.data)
+            image_stack = T2ImageStack(self.dcm_list)
             try:
                 template_dcm = pydicom.read_file(
                     TEMPLATE_VALUES[f'plate{plate_number}'][relax_str]['filename'])
@@ -254,12 +254,15 @@ class Relaxometry(HazenTask):
         frac_time = frac_time_diff[:-1]
         RMS_frac_error = np.sqrt(np.mean(np.square(frac_time)))
 
-        # Generate output dict
-        index_im = image_stack.images[0]
-        output_key = f"{index_im.SeriesDescription}_{index_im.SeriesNumber}_{index_im.InstanceNumber}_" \
-                    f"P{plate_number}_{relax_str}"
+        # Generate results dict
+        index_im = self.dcm_list[0]
+        results = self.init_result_dict()
+        output_key = '_'.join([self.img_desc(index_im), str(plate_number), relax_str])
+        results['file'] = output_key
 
-        relax_result = {'rms_frac_time_difference' : RMS_frac_error}
+        results['measurement'] = {
+            'rms_frac_time_difference' : round(RMS_frac_error, 3)
+        }
 
         if self.report:
             img_path = os.path.join(self.report_path, output_key)
@@ -326,7 +329,7 @@ class Relaxometry(HazenTask):
                 calc_times=image_stack.relax_times,
                 frac_time_difference=frac_time_diff.tolist())
             # , output_graphics=output_files_path
-            relax_result.update(metadata)
+            results['metadata'] = metadata
 
             detailed_output['measurement details'] = {
                 'Echo Time': [im.EchoTime for im in image_stack.images],
@@ -346,12 +349,11 @@ class Relaxometry(HazenTask):
             self.report_files.append(
                 ('further_details', detailed_outpath))
 
-        result = {output_key: relax_result}
         if self.report:
-            result['images'] = self.report_files
+            results['report_image'] = self.report_files
 
         # plt.show()
-        return result
+        return results
 
 
 def outline_mask(im):
