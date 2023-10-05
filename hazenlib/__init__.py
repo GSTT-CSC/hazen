@@ -95,7 +95,7 @@ Usage:
 General Options: available for all Tasks
     --report                     Whether to generate visualisation of the measurement steps.
     --output=<path>              Provide a folder where report images are to be saved.
-    --verbose                    Whether to provide additional metadata about the calculation in the result
+    --verbose                    Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
 
 acr_snr & snr Task options:
@@ -206,11 +206,10 @@ def main():
         result = task.run()
     elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
         selected_task = 'relaxometry'
-        task = init_task(selected_task, files, report, report_dir,
-                    calc = arguments['--calc'],
+        task = init_task(selected_task, files, report, report_dir)
+        result = task.run(calc = arguments['--calc'],
                     plate_number = arguments['--plate_number'], 
                     verbose = arguments['--verbose'])
-        result = task.run()
     else:
         selected_task = arguments['<task>']
         if selected_task in single_image_tasks:

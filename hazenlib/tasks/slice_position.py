@@ -42,7 +42,7 @@ class SlicePosition(HazenTask):
             position_errors = self.slice_position_error(truncated_data)
             if self.verbose:
                 rounded_positions = [round(pos, 3) for pos in position_errors]
-                results['additional values'] = {
+                results['additional data'] = {
                     "slice positions": rounded_positions
                 }
 
