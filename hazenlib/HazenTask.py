@@ -10,7 +10,7 @@ import os
 
 class HazenTask:
 
-    def __init__(self, input_data: list, report: bool = False, report_dir=None):
+    def __init__(self, input_data: list, report: bool = False, report_dir=None, **kwargs):
         data_paths = sorted(input_data)
         self.dcm_list = [dcmread(dicom)for dicom in data_paths]
         self.report: bool = report
