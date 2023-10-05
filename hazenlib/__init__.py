@@ -214,6 +214,7 @@ def main():
     else:
         selected_task = arguments['<task>']
         if selected_task in single_image_tasks:
+            # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             for file in files:
                 task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
@@ -221,7 +222,9 @@ def main():
                 print(result_string)
             return
         else:
-            task = init_task(selected_task, files, report, report_dir, verbose)
+            # Slice Position task, all ACR tasks except SNR
+            task = init_task(selected_task, files, report, report_dir,
+                    verbose=verbose)
             result = task.run()
 
     result_string = json.dumps(result, indent=2)

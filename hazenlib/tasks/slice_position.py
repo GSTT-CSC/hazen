@@ -22,6 +22,10 @@ class SlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if "verbose" in kwargs.keys():
+            self.verbose = kwargs["verbose"]
+        else:
+            self.verbose = False
 
     def run(self) -> dict:
         if len(self.dcm_list) != 60:
@@ -36,6 +40,11 @@ class SlicePosition(HazenTask):
 
         try:
             position_errors = self.slice_position_error(truncated_data)
+            if self.verbose:
+                rounded_positions = [round(pos, 3) for pos in position_errors]
+                results['additional values'] = {
+                    "slice positions": rounded_positions
+                }
 
             # Round calculated values to the appropriate decimal places
             max_pos = round(np.max(position_errors), 2)
