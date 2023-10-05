@@ -38,8 +38,8 @@ class TestCliParser(unittest.TestCase):
     def test_snr_measured_slice_width(self):
         path = str(TEST_DATA_DIR / 'snr' / 'GE')
         files = get_dicom_files(path)
-        snr_task = SNR(input_data=files, report=False)
-        result = snr_task.run(measured_slice_width=5)
+        snr_task = SNR(input_data=files, report=False, measured_slice_width=5)
+        result = snr_task.run()
 
         dict1 = {
             "task": "SNR",
