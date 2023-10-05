@@ -8,7 +8,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestSnrMap(unittest.TestCase):
-    siemens_1 = os.path.join(TEST_DATA_DIR, 'snr', 'Siemens', 'tra_250_2meas_1.IMA')
+    siemens_1 = [os.path.join(TEST_DATA_DIR, 'snr', 'Siemens', 'tra_250_2meas_1.IMA')]
 
     ROI_CORNERS_TEST = [np.array([114, 121]), np.array([74, 81]), np.array([154, 81]),
                         np.array([74, 161]), np.array([154, 161])]

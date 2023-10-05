@@ -46,6 +46,7 @@ class SNRMap(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.single_dcm = self.dcm_list[0]
         # Initialise variables
         self.kernel_len = 9
         self.roi_size = 20
