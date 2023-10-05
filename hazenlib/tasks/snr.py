@@ -28,10 +28,10 @@ class SNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        if "measured_slice_width" in kwargs.keys():
-            if kwargs["measured_slice_width"] is not None:
-                self.measured_slice_width = float(kwargs["measured_slice_width"])
-        else:
+        # measured slice width is expected to be a floating point number
+        try:
+            self.measured_slice_width = float(kwargs["measured_slice_width"])
+        except:
             self.measured_slice_width = None
 
     def run(self) -> dict:
