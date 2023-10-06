@@ -44,17 +44,8 @@ import skimage.morphology
 import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
-
-
-def find_n_peaks(data, n, height=1):
-    peaks = scipy.signal.find_peaks(data, height)
-    pk_heights = peaks[1]['peak_heights']
-    pk_ind = peaks[0]
-
-    peak_heights = pk_heights[(-pk_heights).argsort()[:n]]
-    peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peaks
-
-    return np.sort(peak_locs), np.sort(peak_heights)
+from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRSpatialResolution(HazenTask):
@@ -63,61 +54,36 @@ class ACRSpatialResolution(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        mtf_results = {}
-        z = []
-        for dcm in self.data:
-            z.append(dcm.ImagePositionPatient[2])
+        # Initialise ACR object
+        self.ACR_obj = ACRObject(self.dcm_list)
 
-        idx_sort = np.argsort(z)
+        rot_ang = self.ACR_obj.rot_angle
+        if np.abs(rot_ang) < 3:
+            logger.warning(f'The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which '
+                           f'is less than the recommended 3 degrees. Results will be unreliable!')
 
-        for dcm in self.data:
-            if dcm.ImagePositionPatient[2] == z[idx_sort[0]]:
-                try:
-                    raw_res, fitted_res = self.get_mtf50(dcm)
-                    mtf_results[f"raw_mtf50_{self.key(self.data[0])}"] = raw_res
-                    mtf_results[f"fitted_mtf50_{self.key(self.data[0])}"] = fitted_res
-                except Exception as e:
-                    print(f"Could not calculate the spatial resolution for {self.key(dcm)} because of : {e}")
-                    traceback.print_exc(file=sys.stdout)
-                    continue
+        mtf_dcm = self.ACR_obj.dcms[0]
 
-        results = {self.key(self.data[0]): mtf_results, 'reports': {'images': self.report_files}}
-
-        return results
-
-    def centroid_com(self, dcm):
-        # Calculate centroid of object using a centre-of-mass calculation
-        thresh_img = dcm > 0.25 * np.max(dcm)
-        open_img = skimage.morphology.area_opening(thresh_img, area_threshold=500)
-        bhull = skimage.morphology.convex_hull_image(open_img)
-        coords = np.nonzero(bhull)  # row major - first array is columns
-
-        sum_x = np.sum(coords[1])
-        sum_y = np.sum(coords[0])
-        cx, cy = sum_x / coords[0].shape[0], sum_y / coords[1].shape[0]
-        cxy = (round(cx), round(cy))
-
-        return bhull, cxy
-
-    def find_rotation(self, dcm):
-        thresh = dcm * (dcm > 0.2 * np.max(dcm))
-
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-        dilate = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
-        diff = cv2.absdiff(dilate, thresh)
-
-        edges = (diff >= 200) * 1
-
-        h, theta, d = skimage.transform.hough_line(edges)
-        accum, angles, dists = skimage.transform.hough_line_peaks(h, theta, d)
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(mtf_dcm)
 
         try:
-            angle = np.rad2deg(scipy.stats.mode(angles)[0][0])
-            rot_angle = angle + 90 if angle < 0 else angle - 90
-        except IndexError:
-            rot_angle = 0
+            raw_res, fitted_res = self.get_mtf50(mtf_dcm)
+            results['measurement'] = {
+                "estimated rotation angle": round(rot_ang, 2),
+                "raw mtf50": round(raw_res, 2),
+                "fitted mtf50": round(fitted_res, 2)
+            }
+        except Exception as e:
+            print(f"Could not calculate the spatial resolution for {self.img_desc(mtf_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
-        return rot_angle
+        # only return reports if requested
+        if self.report:
+            results['report_image'] = self.report_files
+
+        return results
 
     def y_position_for_ramp(self, res, img, cxy):
         investigate_region = int(np.ceil(5.5 / res[1]).item())
@@ -152,8 +118,8 @@ class ACRSpatialResolution(HazenTask):
         edge_sum_rows = np.sum(crop_img, axis=1).astype(np.int_)
         edge_sum_cols = np.sum(crop_img, axis=0).astype(np.int_)
 
-        _, pk_rows_height = find_n_peaks(np.abs(np.diff(edge_sum_rows)), 1)
-        _, pk_cols_height = find_n_peaks(np.abs(np.diff(edge_sum_cols)), 1)
+        _, pk_rows_height = self.ACR_obj.find_n_highest_peaks(np.abs(np.diff(edge_sum_rows)), 1)
+        _, pk_cols_height = self.ACR_obj.find_n_highest_peaks(np.abs(np.diff(edge_sum_cols)), 1)
 
         edge_type = 'vertical' if pk_rows_height > pk_cols_height else 'horizontal'
 
@@ -258,7 +224,7 @@ class ACRSpatialResolution(HazenTask):
 
             return sigmoid
 
-        popt, pcov = scipy.optimize.curve_fit(func, np.arange(1, len(erf) + 1), erf, sigma=np.diag(1 / weights),
+        popt, pcov = scipy.optimize.curve_fit(func, np.arange(1, len(erf) + 1), erf, sigma=(1 / weights),
                                               p0=[np.min(erf), np.max(erf), 0, sum(turning_points) / 2, 1], maxfev=5000)
         erf_fit = func(np.arange(1, len(erf) + 1), popt[0], popt[1], popt[2], popt[3], popt[4])
 
@@ -292,14 +258,7 @@ class ACRSpatialResolution(HazenTask):
     def get_mtf50(self, dcm):
         img = dcm.pixel_array
         res = dcm.PixelSpacing
-        _, cxy = self.centroid_com(img)
-        rot_ang = self.find_rotation(img)
-
-        if np.round(np.abs(rot_ang), 2) < 3:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}, which has an absolute is less than 3 '
-                  f'degree. Results will be unreliable!')
-        else:
-            print(f'Rotation angle of the ACR phantom is {np.round(rot_ang, 3)}')
+        cxy = self.ACR_obj.centre
 
         ramp_x, ramp_y = int(cxy[0]), self.y_position_for_ramp(res, img, cxy)
         width = int(13 * img.shape[0] / 256)
@@ -312,64 +271,61 @@ class ACRSpatialResolution(HazenTask):
         freq, lsf_raw, MTF_raw = self.calculate_MTF(erf, res)
         _, lsf_fit, MTF_fit = self.calculate_MTF(erf_fit, res)
 
-        eff_raw_res = round(self.identify_MTF50(freq, MTF_raw), 2)
-        eff_fit_res = round(self.identify_MTF50(freq, MTF_fit), 2)
+        eff_raw_res = self.identify_MTF50(freq, MTF_raw)
+        eff_fit_res = self.identify_MTF50(freq, MTF_fit)
 
         if self.report:
             edge_loc = self.edge_location_for_plot(crop_img, edge_type)
             import matplotlib.pyplot as plt
             import matplotlib.patches as patches
 
-            fig = plt.figure(figsize=(8, 8))
+            fig, axes = plt.subplots(5, 1)
+            fig.set_size_inches(8, 40)
+            fig.tight_layout(pad=4)
 
-            gs = fig.add_gridspec(3, 2)
-            ax0 = fig.add_subplot(gs[:2, 0])
-            ax2 = fig.add_subplot(gs[2:, 0])
-            ax3 = fig.add_subplot(gs[0, 1])
-            ax4 = fig.add_subplot(gs[1, 1])
-            ax5 = fig.add_subplot(gs[2, 1])
-
-            ax0.imshow(img, interpolation='none')
+            axes[0].imshow(img, interpolation='none')
             rect = patches.Rectangle((ramp_x - width // 2 - 1, ramp_y - width // 2 - 1), width, width, linewidth=1,
                                      edgecolor='w', facecolor='none')
-            ax0.add_patch(rect)
-            ax0.axis('off')
+            axes[0].add_patch(rect)
+            axes[0].axis('off')
+            axes[0].set_title('Segmented Edge')
 
-            ax2.imshow(crop_img)
+            axes[1].imshow(crop_img)
             if edge_type == 'vertical':
-                ax2.plot(np.arange(0, width - 1), np.mean(edge_loc) - slope * np.arange(0, width - 1), color='r')
+                axes[1].plot(np.arange(0, width - 1), np.mean(edge_loc) - slope * np.arange(0, width - 1), color='r')
             else:
-                ax2.plot(np.mean(edge_loc) + slope * np.arange(0, width - 1), np.arange(0, width - 1), color='r')
-            ax2.axis('off')
-            ax2.set_title('Cropped Edge', fontsize=14)
+                axes[1].plot(np.mean(edge_loc) + slope * np.arange(0, width - 1), np.arange(0, width - 1), color='r')
+            axes[1].axis('off')
+            axes[1].set_title('Cropped Edge', fontsize=14)
 
-            ax3.plot(erf, 'rx', ms=5)
-            ax3.plot(erf_fit, 'k', lw=3)
-            ax3.set_ylabel('Signal Intensity')
-            ax3.set_xlabel('Pixel')
-            ax3.grid()
-            ax3.set_title('ERF', fontsize=14)
+            axes[2].plot(erf, 'rx', ms=5, label='Raw Data')
+            axes[2].plot(erf_fit, 'k', lw=3, label='Fitted Data')
+            axes[2].set_ylabel('Signal Intensity')
+            axes[2].set_xlabel('Pixel')
+            axes[2].grid()
+            axes[2].legend(fancybox='true')
+            axes[2].set_title('ERF', fontsize=14)
 
-            ax4.plot(lsf_raw, 'rx', ms=5)
-            ax4.plot(lsf_fit, 'k', lw=3)
-            ax4.set_ylabel(r'$\Delta$' + ' Signal Intensity')
-            ax4.set_xlabel('Pixel')
-            ax4.grid()
-            ax4.set_title('LSF', fontsize=14)
+            axes[3].plot(lsf_raw, 'rx', ms=5, label='Raw Data')
+            axes[3].plot(lsf_fit, 'k', lw=3, label='Fitted Data')
+            axes[3].set_ylabel(r'$\Delta$' + ' Signal Intensity')
+            axes[3].set_xlabel('Pixel')
+            axes[3].grid()
+            axes[3].legend(fancybox='true')
+            axes[3].set_title('LSF', fontsize=14)
 
-            ax5.plot(freq, MTF_raw, 'rx', ms=8, label=f'Raw Data - {round(eff_raw_res, 2)}mm @ 50%')
-            ax5.plot(freq, MTF_fit, 'k', lw=3, label=f'Weighted Sigmoid Fit of ERF - {round(eff_fit_res, 2)}mm @ 50%')
-            ax5.set_xlabel('Spatial Frequency (lp/mm)')
-            ax5.set_ylabel('Modulation Transfer Ratio')
-            ax5.set_xlim([-0.05, 1])
-            ax5.set_ylim([0, 1.05])
-            ax5.grid()
-            ax5.legend(fancybox='true', bbox_to_anchor=[1.05, -0.25, 0, 0])
-            ax5.set_title('MTF', fontsize=14)
+            axes[4].plot(freq, MTF_raw, 'rx', ms=8, label=f'Raw Data - {round(eff_raw_res, 2)}mm @ 50%')
+            axes[4].plot(freq, MTF_fit, 'k', lw=3, label=f'Weighted Sigmoid Fit of ERF - {round(eff_fit_res, 2)}mm @ 50%')
+            axes[4].set_xlabel('Spatial Frequency (lp/mm)')
+            axes[4].set_ylabel('Modulation Transfer Ratio')
+            axes[4].set_xlim([-0.05, 1])
+            axes[4].set_ylim([0, 1.05])
+            axes[4].grid()
+            axes[4].legend(fancybox='true')
+            axes[4].set_title('MTF', fontsize=14)
 
-            plt.tight_layout()
-
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

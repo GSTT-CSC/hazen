@@ -13,25 +13,25 @@ class Ghosting(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
+        img_desc = self.img_desc(self.single_dcm,
+                        properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
+        results['file'] = img_desc
 
-        for dcm in self.data:
-            key = self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])
-            try:
-                fig, ghosting = self.get_ghosting(dcm)
+        try:
+            ghosting_value = self.get_ghosting(self.single_dcm)
+            results['measurement'] = {"ghosting %": round(ghosting_value, 3)}
 
-            except Exception as e:
-                print(f"Could not calculate the ghosting for {key} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
-
-            results[self.key(dcm)] = ghosting
+        except Exception as e:
+            print(f"Could not calculate the ghosting for {img_desc} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -194,7 +194,7 @@ class Ghosting(HazenTask):
         )
         return ghost_slice
 
-    def get_ghosting(self, dcm) -> dict:
+    def get_ghosting(self, dcm) -> float:
 
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
 
@@ -250,11 +250,10 @@ class Ghosting(HazenTask):
 
             ax.imshow(img)
             # fig.savefig(f'{self.report_path}.png')
-            img_path = os.path.realpath(os.path.join(self.report_path,
-                                                     f"{self.key(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])}.png"))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path,
+                f"{self.img_desc(dcm, properties=['SeriesDescription', 'EchoTime', 'NumberOfAverages'])}.png"))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-            return fig, ghosting
-
-        return None, ghosting
+        return ghosting

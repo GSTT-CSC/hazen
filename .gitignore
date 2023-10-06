@@ -26,10 +26,8 @@ dist
 # data
 uploads
 *.png
-report
+report*
 # TODO: Remove the following if no longer needed
-tests/data/slicepos/results
-tests/data/uniformity/results
 hazenlib/data
 
 # docs
@@ -37,10 +35,5 @@ docs/_build
 docs/build
 build
 
-# mischellaneous
-# TODO: Remove the following if no longer needed
-hazen_getting_started.pdf
-/junit.xml
-.scannerwork
-nodeids
-htmlcov
+# miscellaneous
+.vscode

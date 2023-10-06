@@ -16,82 +16,83 @@ Created by Neil Heraghty (Adapted by Yassine Azma)
 import sys
 import traceback
 import os
+
 import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 from scipy import ndimage
+
 import numpy as np
 import skimage.morphology
 import pydicom
+from scipy import ndimage
+
+from hazenlib.HazenTask import HazenTask
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRSNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.data2 = []
+        # measured slice width is expected to be a floating point number
+        try:
+            self.measured_slice_width = float(kwargs["measured_slice_width"])
+        except:
+            self.measured_slice_width = None
 
-    def run(self, measured_slice_width=None, subtract=None) -> dict:
-        results = {}
-        snr_results = {}
+        # subtract is expected to be a path to a folder
+        try:
+            if os.path.isdir(kwargs["subtract"]):
+                self.subtract = kwargs["subtract"]
+        except:
+            self.subtract = None
+
+    def run(self) -> dict:
+        self.ACR_obj = ACRObject(self.dcm_list)
+        snr_dcm = self.ACR_obj.dcms[6]
+        # Initialise results dictionary
+        results = self.init_result_dict()
+
         # SINGLE METHOD (SMOOTHING)
-        if subtract is None:
-            z = [dcm.ImagePositionPatient[2] for dcm in self.data]
-
-            idx_sort = np.argsort(z)
-            ind = idx_sort[6]
+        if self.subtract is None:
             try:
-                snr, normalised_snr = self.snr_by_smoothing(self.data[ind], measured_slice_width)
-                snr_results[f"snr_smoothing_measured_{self.key(self.data[0])}"] = round(snr, 2)
-                snr_results[f"snr_smoothing_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+                results['file'] = self.img_desc(snr_dcm)
+                snr, normalised_snr = self.snr_by_smoothing(snr_dcm, self.measured_slice_width)
+                results['measurement']['snr by smoothing'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
-                print(f"Could not calculate the SNR for {self.key(self.data)} because of : {e}")
+                print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
 
             results[self.key(self.data[0])] = snr_results
 
         # SUBTRACTION METHOD
         else:
-            temp = [f for f in os.listdir(subtract) if os.path.isfile(os.path.join(subtract, f))]
-            filenames = [f'{subtract}/{file}' for file in temp]
-
-            self.data2 = [pydicom.dcmread(dicom) for dicom in filenames]
-
-            z = [dcm.ImagePositionPatient[2] for dcm in self.data]
-            z2 = [dcm.ImagePositionPatient[2] for dcm in self.data2]
-
-            idx_sort, idx_sort2 = np.argsort(z), np.argsort(z2)
-            ind, ind2 = idx_sort[6], idx_sort2[6]
+            # Get the absolute path to all FILES found in the directory provided
+            filepaths = [os.path.join(self.subtract, f) for f in os.listdir(self.subtract) \
+                        if os.path.isfile(os.path.join(self.subtract, f))]
+            self.data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            snr_dcm2 = ACRObject(self.data2).dcms[6]
+            results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
-                snr, normalised_snr = self.snr_by_subtraction(self.data[ind], self.data2[ind2])
-                snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-                snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
+                snr, normalised_snr = self.snr_by_subtraction(
+                                snr_dcm, snr_dcm2, self.measured_slice_width)
+                results['measurement']['snr by subtraction'] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
             except Exception as e:
-                print(f"Could not calculate the SNR for {self.key(self.data)} and "
-                      f"{self.key(self.data2)} because of : {e}")
+                print(f"Could not calculate the SNR for {self.img_desc(snr_dcm)} and "
+                      f"{self.img_desc(snr_dcm2)} because of : {e}")
                 traceback.print_exc(file=sys.stdout)
-
-            results[self.key(self.data[0])] = snr_results
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
-
-    def centroid(self, dcm):
-        img = dcm.pixel_array
-        mask = img > 0.25 * np.max(img)
-        open_img = skimage.morphology.area_opening(mask, area_threshold=500)
-        mask = skimage.morphology.convex_hull_image(open_img)
-
-        coords = np.nonzero(mask)  # row major - first array is columns
-
-        sum_x = np.sum(coords[1])
-        sum_y = np.sum(coords[0])
-        cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
-
-        cxy = [cxy[0].astype(int), cxy[1].astype(int)]
-        return mask, cxy
 
     def get_normalised_snr_factor(self, dcm, measured_slice_width=None) -> float:
         dx, dy = hazenlib.utils.get_pixel_size(dcm)
@@ -198,7 +199,8 @@ class ACRSNR(HazenTask):
         normalised_snr: float
 
         """
-        _, (col, row) = self.centroid(dcm)
+        centre = self.ACR_obj.centre
+        col, row = centre
         noise_img = self.get_noise_image(dcm)
 
         signal = [np.mean(roi) for roi in self.get_roi_samples(
@@ -208,7 +210,8 @@ class ACRSNR(HazenTask):
         noise = [np.std(roi, ddof=1) for roi in self.get_roi_samples(
                     ax=None, dcm=noise_img, centre_col=col, centre_row=row)
                 ]
-        # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and McCann 2013
+        # note no root_2 factor in noise for smoothed subtraction (one image) method,
+        # replicating Matlab approach and McCann 2013
 
         snr = np.mean(np.divide(signal, noise))
 
@@ -217,18 +220,20 @@ class ACRSNR(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
-            fig, axes = plt.subplots(1, 1)
-            fig.set_size_inches(5, 5)
-            fig.tight_layout(pad=1)
+            fig, axes = plt.subplots(2, 1)
+            fig.set_size_inches(8, 16)
+            fig.tight_layout(pad=4)
 
-            axes.set_title('smoothed noise image')
-            axes.imshow(noise_img, cmap='gray', label='smoothed noise image')
-            axes.scatter(col, row, 10, marker="+", label='centre')
-            self.get_roi_samples(axes, dcm, int(col), int(row))
-            axes.legend()
+            axes[0].imshow(dcm.pixel_array)
+            axes[0].scatter(centre[0], centre[1], c='red')
+            axes[0].set_title('Centroid Location')
+
+            axes[1].set_title('Smoothed Noise Image')
+            axes[1].imshow(noise_img, cmap='gray')
+            self.get_roi_samples(axes[1], dcm, int(col), int(row))
 
             img_path = os.path.realpath(os.path.join(self.report_path,
-                            f'{self.key(dcm)}_smoothing.png'))
+                            f'{self.img_desc(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -248,7 +253,8 @@ class ACRSNR(HazenTask):
         -------
 
         """
-        _, (col, row) = self.centroid(dcm1)
+        centre = self.ACR_obj.centre
+        col, row = centre
 
         difference = np.subtract(
             dcm1.pixel_array.astype('int'), dcm2.pixel_array.astype('int')
@@ -268,18 +274,22 @@ class ACRSNR(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
-            fig, axes = plt.subplots(1, 1)
-            fig.set_size_inches(5, 5)
-            fig.tight_layout(pad=1)
+            fig, axes = plt.subplots(2, 1)
+            fig.set_size_inches(8, 16)
+            fig.tight_layout(pad=4)
 
-            axes.set_title('difference image')
-            axes.imshow(difference, cmap='gray', label='difference image')
-            axes.scatter(col, row, 10, marker="+", label='centre')
-            self.get_roi_samples(axes, dcm1, int(col), int(row))
-            axes.legend()
+            axes[0].imshow(dcm1.pixel_array)
+            axes[0].scatter(centre[0], centre[1], c='red')
+            axes[0].axis('off')
+            axes[0].set_title('Centroid Location')
+
+            axes[1].set_title('Difference Image')
+            axes[1].imshow(difference, cmap='gray',)
+            self.get_roi_samples(axes[1], dcm1, int(col), int(row))
+            axes[1].axis('off')
 
             img_path = os.path.realpath(os.path.join(self.report_path,
-                            f'{self.key(dcm1)}_snr_subtraction.png'))
+                            f'{self.img_desc(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

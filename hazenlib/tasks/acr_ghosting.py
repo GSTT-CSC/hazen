@@ -3,7 +3,7 @@ ACR Ghosting
 
 https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
 
-Calculates percent-signal ghosting for slice 7 of the ACR phantom.
+Calculates the percent-signal ghosting for slice 7 of the ACR phantom.
 
 This script calculates the percentage signal ghosting in accordance with the ACR Guidance.
 This is done by first defining a large 200cm2 ROI before placing 10cm2 elliptical ROIs outside the phantom along the
@@ -19,9 +19,9 @@ import sys
 import traceback
 import os
 import numpy as np
-import skimage.morphology
 
 from hazenlib.HazenTask import HazenTask
+from hazenlib.ACRObject import ACRObject
 
 
 class ACRGhosting(HazenTask):
@@ -30,48 +30,37 @@ class ACRGhosting(HazenTask):
         super().__init__(**kwargs)
 
     def run(self) -> dict:
-        results = {}
-        z = []
-        for dcm in self.data:
-            z.append(dcm.ImagePositionPatient[2])
+        # Initialise ACR object
+        self.ACR_obj = ACRObject(self.dcm_list)
+        ghosting_dcm = self.ACR_obj.dcms[6]
 
-        idx_sort = np.argsort(z)
+        # Initialise results dictionary
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(ghosting_dcm)
 
-        for dcm in self.data:
-            if dcm.ImagePositionPatient[2] == z[idx_sort[6]]:
-                try:
-                    result = self.get_signal_ghosting(dcm)
-                except Exception as e:
-                    print(f"Could not calculate the percent-signal ghosting for {self.key(dcm)} because of : {e}")
-                    traceback.print_exc(file=sys.stdout)
-                    continue
+        try:
+            result = self.get_signal_ghosting(ghosting_dcm)
+            results['measurement'] = {
+                "signal ghosting %": round(result, 3)
+                }
+        except Exception as e:
+            print(f"Could not calculate the percent-signal ghosting for {self.img_desc(ghosting_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
-                results[self.key(dcm)] = result
-
-        results['reports'] = {'images': self.report_files}
+        # only return reports if requested
+        if self.report:
+            results['report_image'] = self.report_files
 
         return results
-
-    def centroid_com(self, dcm):
-        # Calculate centroid of object using a centre-of-mass calculation
-        thresh_img = dcm > 0.25 * np.max(dcm)
-        open_img = skimage.morphology.area_opening(thresh_img, area_threshold=500)
-        bhull = skimage.morphology.convex_hull_image(open_img)
-        coords = np.nonzero(bhull)  # row major - first array is columns
-
-        sum_x = np.sum(coords[1])
-        sum_y = np.sum(coords[0])
-        cxy = sum_x / coords[0].shape, sum_y / coords[1].shape
-
-        cxy = [cxy[0].astype(int), cxy[1].astype(int)]
-        return bhull, cxy
 
     def get_signal_ghosting(self, dcm):
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
         r_large = np.ceil(80 / res[0]).astype(int)  # Required pixel radius to produce ~200cm2 ROI
         dims = img.shape
-        mask, cxy = self.centroid_com(img)
+
+        mask = self.ACR_obj.mask_image
+        cxy = self.ACR_obj.centre
 
         nx = np.linspace(1, dims[0], dims[0])
         ny = np.linspace(1, dims[1], dims[1])
@@ -94,15 +83,15 @@ class ACRGhosting(HazenTask):
         else:
             w_factor = 1
 
-        w_ellipse = np.square((y - w_centre[0]) / (4 * w_factor)) + np.square(
-            (x - w_centre[1]) * w_factor) <= np.square(
-            10 / res[0])  # generate ellipse mask
+        w_ellipse = np.square((y - w_centre[0]) / (4 * w_factor)) + np.square((x - w_centre[1]) * w_factor) <= \
+                    np.square(10 / res[0])  # generate ellipse mask
 
         # EAST ELLIPSE
         e_point = np.argwhere(np.sum(mask, 0) > 0)[-1]  # find last column in mask
         e_centre = [cxy[1], e_point + np.ceil((dims[1] - e_point) / 2)]  # initialise centre of ellipse
         right_fov_to_centre = e_centre[1] + sad / 2 + 5  # edge of ellipse towards right FoV (+ tolerance)
-        centre_to_right_phantom = e_centre[1] - sad/2 - 5  # edge of ellipse towards right side of phantom (+ tolerance)
+        centre_to_right_phantom = e_centre[
+                                      1] - sad / 2 - 5  # edge of ellipse towards right side of phantom (+ tolerance)
         if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
             diffs = [dims[1] - 1 - right_fov_to_centre, centre_to_right_phantom - e_point]
             ind = diffs.index(max(diffs, key=abs))
@@ -155,41 +144,48 @@ class ACRGhosting(HazenTask):
         psg = 100 * np.absolute(
             ((n_ellipse_val + s_ellipse_val) - (w_ellipse_val + e_ellipse_val)) / (2 * large_roi_val))
 
-        psg = np.round(psg,3)
-
         if self.report:
             import matplotlib.pyplot as plt
+            fig, axes = plt.subplots(2, 1)
+            fig.set_size_inches(8, 16)
+            fig.tight_layout(pad=4)
+
             theta = np.linspace(0, 2 * np.pi, 360)
-            fig = plt.figure()
-            fig.set_size_inches(8, 8)
-            plt.imshow(img)
 
-            plt.plot(r_large * np.cos(theta) + cxy[0], r_large * np.sin(theta) + cxy[1] + 5 / res[1], c='black')
-            plt.text(cxy[0] - 3 * np.floor(10 / res[0]), cxy[1] + np.floor(10 / res[1]),
-                     "Mean = " + str(np.round(large_roi_val, 2)), c='white')
+            axes[0].imshow(img)
+            axes[0].scatter(cxy[0], cxy[1], c='red')
+            axes[0].axis('off')
+            axes[0].set_title('Centroid Location')
 
-            plt.plot(10. / res[0] * np.cos(theta) / w_factor + w_centre[1],
-                     10. / res[0] * np.sin(theta) * 4 * w_factor + w_centre[0], c='red')
-            plt.text(w_centre[1] - np.floor(10 / res[0]), w_centre[0], "Mean = " + str(np.round(w_ellipse_val, 2)),
-                     c='white')
+            axes[1].imshow(img)
+            axes[1].plot(r_large * np.cos(theta) + cxy[0], r_large * np.sin(theta) + cxy[1] + 5 / res[1], c='black')
+            axes[1].text(cxy[0] - 3 * np.floor(10 / res[0]), cxy[1] + np.floor(10 / res[1]),
+                         "Mean = " + str(np.round(large_roi_val, 2)), c='white')
 
-            plt.plot(10. / res[0] * np.cos(theta) / e_factor + e_centre[1],
-                     10. / res[0] * np.sin(theta) * 4 * e_factor + e_centre[0], c='red')
-            plt.text(e_centre[1] - np.floor(30 / res[0]), e_centre[0], "Mean = " + str(np.round(e_ellipse_val, 2)),
-                     c='white')
+            axes[1].plot(10. / res[0] * np.cos(theta) / w_factor + w_centre[1],
+                         10. / res[0] * np.sin(theta) * 4 * w_factor + w_centre[0], c='red')
+            axes[1].text(w_centre[1] - np.floor(10 / res[0]), w_centre[0], "Mean = " + str(np.round(w_ellipse_val, 2)),
+                         c='white')
 
-            plt.plot(10. / res[0] * np.cos(theta) * 4 * n_factor + n_centre[1],
-                     10. / res[0] * np.sin(theta) / n_factor + n_centre[0], c='red')
-            plt.text(n_centre[1] - 5 * np.floor(10 / res[0]), n_centre[0], "Mean = " + str(np.round(n_ellipse_val, 2)),
-                     c='white')
+            axes[1].plot(10. / res[0] * np.cos(theta) / e_factor + e_centre[1],
+                         10. / res[0] * np.sin(theta) * 4 * e_factor + e_centre[0], c='red')
+            axes[1].text(e_centre[1] - np.floor(30 / res[0]), e_centre[0], "Mean = " + str(np.round(e_ellipse_val, 2)),
+                         c='white')
 
-            plt.plot(10. / res[0] * np.cos(theta) * 4 * s_factor + s_centre[1],
-                     10. / res[0] * np.sin(theta) / s_factor + s_centre[0], c='red')
-            plt.text(s_centre[1], s_centre[0], "Mean = " + str(np.round(s_ellipse_val, 2)), c='white')
+            axes[1].plot(10. / res[0] * np.cos(theta) * 4 * n_factor + n_centre[1],
+                         10. / res[0] * np.sin(theta) / n_factor + n_centre[0], c='red')
+            axes[1].text(n_centre[1] - 5 * np.floor(10 / res[0]), n_centre[0],
+                         "Mean = " + str(np.round(n_ellipse_val, 2)),
+                         c='white')
 
-            plt.axis('off')
-            plt.title('Percent Signal Ghosting = ' + str(np.round(psg, 3)) + '%')
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            axes[1].plot(10. / res[0] * np.cos(theta) * 4 * s_factor + s_centre[1],
+                         10. / res[0] * np.sin(theta) / s_factor + s_centre[0], c='red')
+            axes[1].text(s_centre[1], s_centre[0], "Mean = " + str(np.round(s_ellipse_val, 2)), c='white')
+
+            axes[1].axis('off')
+            axes[1].set_title('Percent Signal Ghosting = ' + str(np.round(psg, 3)) + '%')
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

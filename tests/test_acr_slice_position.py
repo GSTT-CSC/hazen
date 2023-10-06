@@ -3,42 +3,48 @@ import unittest
 import pathlib
 import pydicom
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_slice_position import ACRSlicePosition
+from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 
 class TestACRSlicePositionSiemens(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
-    centre = [128, 129]
     x_pts = [(123, 129), (123, 129)]
-    y_pts = [(40, 83), (44, 82)]
+    y_pts = [(40, 82), (44, 82)]
     dL = -0.59, -1.56
 
     def setUp(self):
-        self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '0.dcm'))
-        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', '10.dcm'))
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
-    def test_object_centre(self):
-        assert self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)[1] == self.centre
+        self.acr_slice_position_task = ACRSlicePosition(input_data=siemens_files)
+        self.acr_slice_position_task.ACR_obj = ACRObject(
+            [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
+             os.listdir(ACR_DATA_SIEMENS)])
+
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
 
     def test_wedge_find(self):
         # IMAGE 1
+        img = self.dcm_1.pixel_array
         res = self.dcm_1.PixelSpacing
-        mask, _ = self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_1.pixel_array, mask, res)[0] ==
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[0]).all() == True
 
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_1.pixel_array, mask, res)[1] ==
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[1] ==
                 self.y_pts[0]).all() == True
 
         # IMAGE 11
+        img = self.dcm_11.pixel_array
         res = self.dcm_11.PixelSpacing
-        mask, _ = self.acr_slice_position_task.centroid_com(self.dcm_11.pixel_array)
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_11.pixel_array, mask, res)[0] ==
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[1]).all() == True
 
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_11.pixel_array, mask, res)[1] ==
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[1] ==
                 self.y_pts[1]).all() == True
 
     def test_slice_position(self):
@@ -54,37 +60,41 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
 
 class TestACRSlicePositionGE(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
-    centre = [253, 257]
     x_pts = [(246, 257), (246, 257)]
-    y_pts = [(82, 163), (85, 165)]
-    dL = 0.3, 0.41
+    y_pts = [(77, 164), (89, 162)]
+    dL = 0.41, 0.3
 
     def setUp(self):
-        self.acr_slice_position_task = ACRSlicePosition(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.dcm_1 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '0.dcm'))
-        self.dcm_11 = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', '10.dcm'))
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
 
-    def test_object_centre(self):
-        assert self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)[1] == self.centre
+        self.acr_slice_position_task = ACRSlicePosition(input_data=ge_files)
+        self.acr_slice_position_task.ACR_obj = ACRObject(
+            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
+             os.listdir(ACR_DATA_GE)])
+
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
 
     def test_wedge_find(self):
         # IMAGE 1
+        img = self.dcm_1.pixel_array
         res = self.dcm_1.PixelSpacing
-        mask, _ = self.acr_slice_position_task.centroid_com(self.dcm_1.pixel_array)
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_1.pixel_array, mask, res)[0] ==
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[0]).all() == True
 
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_1.pixel_array, mask, res)[1] ==
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[1] ==
                 self.y_pts[0]).all() == True
 
         # IMAGE 11
+        img = self.dcm_11.pixel_array
         res = self.dcm_11.PixelSpacing
-        mask, _ = self.acr_slice_position_task.centroid_com(self.dcm_11.pixel_array)
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_11.pixel_array, mask, res)[0] ==
+        mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[0] ==
                 self.x_pts[1]).all() == True
 
-        assert (self.acr_slice_position_task.find_wedges(self.dcm_11.pixel_array, mask, res)[1] ==
+        assert (self.acr_slice_position_task.find_wedges(img, mask, res)[1] ==
                 self.y_pts[1]).all() == True
 
     def test_slice_position(self):
