@@ -34,22 +34,29 @@ class ACRSNR(HazenTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
+        # measured slice width is expected to be a floating point number
+        try:
+            self.measured_slice_width = float(kwargs["measured_slice_width"])
+        except:
+            self.measured_slice_width = None
 
-    def run(self, measured_slice_width=None, subtract=None) -> dict:
-        
-        if measured_slice_width is not None:
-            measured_slice_width = float(measured_slice_width)
-        
-        self.ACR_obj = ACRObject(self.dcm_list)
+        # subtract is expected to be a path to a folder
+        try:
+            if os.path.isdir(kwargs["subtract"]):
+                self.subtract = kwargs["subtract"]
+        except:
+            self.subtract = None
+
+    def run(self) -> dict:
         snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
 
         # SINGLE METHOD (SMOOTHING)
-        if subtract is None:
+        if self.subtract is None:
             try:
                 results['file'] = self.img_desc(snr_dcm)
-                snr, normalised_snr = self.snr_by_smoothing(snr_dcm, measured_slice_width)
+                snr, normalised_snr = self.snr_by_smoothing(snr_dcm, self.measured_slice_width)
                 results['measurement']['snr by smoothing'] = {
                     "measured": round(snr, 2),
                     "normalised": round(normalised_snr, 2)
@@ -59,14 +66,16 @@ class ACRSNR(HazenTask):
                 traceback.print_exc(file=sys.stdout)
         # SUBTRACTION METHOD
         else:
-            temp = [f for f in os.listdir(subtract) if os.path.isfile(os.path.join(subtract, f))]
-            filenames = [f'{subtract}/{file}' for file in temp]
-            data2 = [pydicom.dcmread(dicom) for dicom in filenames]
+            # Get the absolute path to all FILES found in the directory provided
+            filepaths = [os.path.join(self.subtract, f) for f in os.listdir(self.subtract) \
+                        if os.path.isfile(os.path.join(self.subtract, f))]
+            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice7_dcm
-
+            results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
-                results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
-                snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2, measured_slice_width)
+                snr, normalised_snr = self.snr_by_subtraction(
+                                snr_dcm, snr_dcm2, self.measured_slice_width)
+
                 results['measurement']['snr by subtraction'] = {
                     "measured": round(snr, 2),
                     "normalised": round(normalised_snr, 2)

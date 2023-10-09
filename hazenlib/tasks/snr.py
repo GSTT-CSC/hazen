@@ -28,10 +28,13 @@ class SNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # measured slice width is expected to be a floating point number
+        try:
+            self.measured_slice_width = float(kwargs["measured_slice_width"])
+        except:
+            self.measured_slice_width = None
 
-    def run(self, measured_slice_width=None) -> dict:
-        if measured_slice_width is not None:
-            measured_slice_width = float(measured_slice_width)
+    def run(self) -> dict:
         
         results = self.init_result_dict()
         results['file'] = [self.img_desc(img) for img in self.dcm_list]
@@ -39,7 +42,7 @@ class SNR(HazenTask):
 
         if len(self.dcm_list) == 2:
             snr, normalised_snr = self.snr_by_subtraction(
-                self.dcm_list[0], self.dcm_list[1], measured_slice_width
+                self.dcm_list[0], self.dcm_list[1], self.measured_slice_width
                 )
             results['measurement']["snr by subtraction"] = {
                     "measured": round(snr, 2),
@@ -47,7 +50,7 @@ class SNR(HazenTask):
                 }
 
         for idx, dcm in enumerate(self.dcm_list):
-            snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
+            snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
             results['measurement']["snr by smoothing"][self.img_desc(dcm)] = {
                     "measured": round(snr, 2),
                     "normalised": round(normalised_snr, 2)
