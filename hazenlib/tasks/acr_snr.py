@@ -22,7 +22,6 @@ from hazenlib.HazenTask import HazenTask
 from scipy import ndimage
 
 import numpy as np
-import skimage.morphology
 import pydicom
 from scipy import ndimage
 
@@ -34,7 +33,7 @@ class ACRSNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.ACR_obj = None
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
         
@@ -42,7 +41,7 @@ class ACRSNR(HazenTask):
             measured_slice_width = float(measured_slice_width)
         
         self.ACR_obj = ACRObject(self.dcm_list)
-        snr_dcm = self.ACR_obj.dcms[6]
+        snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
 
@@ -62,11 +61,11 @@ class ACRSNR(HazenTask):
         else:
             temp = [f for f in os.listdir(subtract) if os.path.isfile(os.path.join(subtract, f))]
             filenames = [f'{subtract}/{file}' for file in temp]
+            data2 = [pydicom.dcmread(dicom) for dicom in filenames]
+            snr_dcm2 = ACRObject(data2).slice7_dcm
 
-            self.data2 = [pydicom.dcmread(dicom) for dicom in filenames]
-            snr_dcm2 = ACRObject(self.data2).dcms[6]
-            results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
+                results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
                 snr, normalised_snr = self.snr_by_subtraction(snr_dcm, snr_dcm2, measured_slice_width)
                 results['measurement']['snr by subtraction'] = {
                     "measured": round(snr, 2),

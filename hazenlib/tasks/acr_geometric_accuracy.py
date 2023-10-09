@@ -35,10 +35,10 @@ class ACRGeometricAccuracy(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
+        # Identify relevant slices
         slice1_dcm = self.ACR_obj.dcms[0]
         slice5_dcm = self.ACR_obj.dcms[4]
 
