@@ -52,16 +52,16 @@ class ACRSpatialResolution(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
 
         rot_ang = self.ACR_obj.rot_angle
         if np.abs(rot_ang) < 3:
             logger.warning(f'The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which '
                            f'is less than the recommended 3 degrees. Results will be unreliable!')
 
+        # Identify relevant slices
         mtf_dcm = self.ACR_obj.dcms[0]
 
         # Initialise results dictionary

@@ -22,7 +22,6 @@ from hazenlib.HazenTask import HazenTask
 from scipy import ndimage
 
 import numpy as np
-import skimage.morphology
 import pydicom
 from scipy import ndimage
 
@@ -49,7 +48,7 @@ class ACRSNR(HazenTask):
 
     def run(self) -> dict:
         self.ACR_obj = ACRObject(self.dcm_list)
-        snr_dcm = self.ACR_obj.dcms[6]
+        snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
 
@@ -70,12 +69,13 @@ class ACRSNR(HazenTask):
             # Get the absolute path to all FILES found in the directory provided
             filepaths = [os.path.join(self.subtract, f) for f in os.listdir(self.subtract) \
                         if os.path.isfile(os.path.join(self.subtract, f))]
-            self.data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
-            snr_dcm2 = ACRObject(self.data2).dcms[6]
+            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            snr_dcm2 = ACRObject(data2).slice7_dcm
             results['file'] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
                                 snr_dcm, snr_dcm2, self.measured_slice_width)
+
                 results['measurement']['snr by subtraction'] = {
                     "measured": round(snr, 2),
                     "normalised": round(normalised_snr, 2)

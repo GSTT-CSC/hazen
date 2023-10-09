@@ -10,6 +10,8 @@ class ACRObject:
         self.dcm_list = dcm_list
         # Load files as DICOM and their pixel arrays into 'images'
         self.images, self.dcms = self.sort_images()
+        # Store the DCM object of slice 7 as it is used often
+        self.slice7_dcm = self.dcms[6]
         # Store the pixel spacing value from the first image (expected to be the same for all)
         self.pixel_spacing = self.dcms[0].PixelSpacing
         # Check whether images of the phantom are the correct orientation

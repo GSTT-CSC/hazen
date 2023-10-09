@@ -28,10 +28,9 @@ from hazenlib.ACRObject import ACRObject
 class ACRSliceThickness(HazenTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
         slice_thickness_dcm = self.ACR_obj.dcms[0]
 
         # Initialise results dictionary

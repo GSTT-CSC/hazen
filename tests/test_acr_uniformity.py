@@ -20,14 +20,10 @@ class TestACRUniformitySiemens(unittest.TestCase):
             input_data=siemens_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
-        self.acr_uniformity_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(ACR_DATA_SIEMENS, f'{i}')) for i in
-             os.listdir(ACR_DATA_SIEMENS)])
-
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcms[6]
 
     def test_uniformity(self):
-        results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
+        results = self.acr_uniformity_task.get_integral_uniformity(
+            self.acr_uniformity_task.ACR_obj.slice7_dcm)
         rounded_results = round(results, 2)
 
         print("\ntest_uniformity.py::TestUniformity::test_uniformity")
@@ -39,7 +35,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
 # TODO: Add unit tests for Philips datasets.
 
-class TestACRUniformityGE(unittest.TestCase):
+class TestACRUniformityGE(TestACRUniformitySiemens):
     piu = 85.17
 
     def setUp(self):
@@ -49,12 +45,4 @@ class TestACRUniformityGE(unittest.TestCase):
         self.acr_uniformity_task = ACRUniformity(
             input_data=ge_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_uniformity_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(ACR_DATA_GE, f'{i}')) for i in
-             os.listdir(ACR_DATA_GE)])
 
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcms[6]
-
-    def test_uniformity(self):
-        results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
-        assert round(results, 2) == self.piu
