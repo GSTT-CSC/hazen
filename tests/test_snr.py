@@ -31,21 +31,27 @@ class TestSnr(unittest.TestCase):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Siemens'), sort=True),
+        self.snr = SNR(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Siemens'), sort=True),
                        report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_get_object_centre(self):
-        assert self.snr.get_object_centre(self.snr.data[0]) == self.OBJECT_CENTRE
+        object_centre = self.snr.get_object_centre(self.snr.dcm_list[0])
+        assert object_centre == self.OBJECT_CENTRE
 
     def test_image_snr(self):
         val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
+        img_desc = self.snr.img_desc(self.snr.dcm_list[0])
+        smoothing_snr = val['measurement']['snr by smoothing'][img_desc]['normalised']
+        self.assertTrue(
+            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR
+            )
+        subtract_snr = val['measurement']['snr by subtraction']['normalised']
+        self.assertTrue(
+            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR
+            )
 
     def test_SNR_factor(self):
-        SNR_factor = self.snr.get_normalised_snr_factor(self.snr.data[0])
+        SNR_factor = self.snr.get_normalised_snr_factor(self.snr.dcm_list[0])
         assert (SNR_factor) == self.SNR_NORM_FACTOR
 
 
@@ -72,15 +78,8 @@ class TestSnrPhilips(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Philips'), sort=True),
+        self.snr = SNR(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'Philips'), sort=True),
                        report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-
-    def test_image_snr(self):
-        val = self.snr.run()
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
 
 class TestSnrGE(TestSnr):
@@ -106,18 +105,8 @@ class TestSnrGE(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'GE'), sort=True),
+        self.snr = SNR(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr', 'GE'), sort=True),
                        report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-
-    def test_image_snr(self):
-        # val = self.snr.run(data=[self.test_file, self.test_file_2])
-        val = self.snr.run()
-        self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
-                f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
-                f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
 
 
 class TestSnrThreshold(TestSnr):
@@ -142,18 +131,5 @@ class TestSnrThreshold(TestSnr):
     def setUp(self):
         # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
         # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
-        self.snr = SNR(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr_threshold', 'VIDA'), sort=True),
+        self.snr = SNR(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'snr_threshold', 'VIDA'), sort=True),
                        report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-
-    def test_get_object_centre(self):
-        assert self.snr.get_object_centre(self.snr.data[0]) == self.OBJECT_CENTRE
-
-    def test_image_snr(self):
-        val = self.snr.run()
-        print("\ntest_snr.py::TestSnrThreshold::test_image_snr")
-        print("set values:", val)
-        print("new_release_values", self.snr.run())
-        self.assertTrue(self.LOWER_SMOOTHED_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_smoothing_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SMOOTHED_SNR)
-        self.assertTrue(self.LOWER_SUBTRACT_SNR <= val[self.snr.key(self.snr.data[0])][
-            f"snr_subtraction_normalised_{self.snr.key(self.snr.data[0])}"] <= self.UPPER_SUBTRACT_SNR)
