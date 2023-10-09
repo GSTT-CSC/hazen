@@ -28,11 +28,11 @@ class TestGhosting(unittest.TestCase):
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
-    GHOSTING = (None, 0.11803264099090763)
+    GHOSTING = 0.11803264099090763
 
     def setUp(self):
         self.dcm = pydicom.read_file(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING', 'IM_0001.dcm'))
-        self.ghosting = Ghosting(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')),
+        self.ghosting = Ghosting(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')),
                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
     def test_calculate_ghost_intensity(self):
@@ -100,13 +100,13 @@ class TestCOLPEGhosting(TestGhosting):
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
     PE = "COL"
-    GHOSTING = (None, 0.015138960417776908)
+    GHOSTING = 0.015138960417776908
 
     def setUp(self):
         self.dcm = pydicom.read_file(
             os.path.join(TEST_DATA_DIR, 'ghosting', 'PE_COL_PHANTOM_BOTTOM_RIGHT', 'PE_COL_PHANTOM_BOTTOM_RIGHT.IMA'))
         self.ghosting = Ghosting(
-            data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'PE_COL_PHANTOM_BOTTOM_RIGHT')),
+            input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'PE_COL_PHANTOM_BOTTOM_RIGHT')),
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
 
@@ -126,10 +126,10 @@ class TestAxialPhilipsGhosting(TestGhosting):
         range(min(ELIGIBLE_GHOST_AREA[1]), max(ELIGIBLE_GHOST_AREA[1])), dtype=np.intp)[:, np.newaxis], np.array(
         range(min(ELIGIBLE_GHOST_AREA[0]), max(ELIGIBLE_GHOST_AREA[0])))
 
-    GHOSTING = (None, 0.007246960909896829)
+    GHOSTING = 0.007246960909896829
 
     def setUp(self):
         self.dcm = pydicom.read_file(
             os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING', 'axial_philips_ghosting.dcm'))
-        self.ghosting = Ghosting(data_paths=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')),
+        self.ghosting = Ghosting(input_data=get_dicom_files(os.path.join(TEST_DATA_DIR, 'ghosting', 'GHOSTING')),
                                  report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))

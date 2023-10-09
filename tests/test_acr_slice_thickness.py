@@ -3,24 +3,24 @@ import unittest
 import pathlib
 import pydicom
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 
 class TestACRSliceThicknessSiemens(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     x_pts = [71, 181]
     y_pts = [132, 126]
     dz = 4.91
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_thickness_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=siemens_files)
+
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
 
     def test_ramp_find(self):
         res = self.dcm.PixelSpacing
@@ -41,27 +41,15 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
         assert slice_thickness_val == self.dz
 
 
-class TestACRSliceThicknessGE(unittest.TestCase):
-    ACR_SLICE_POSITION_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
+class TestACRSliceThicknessGE(TestACRSliceThicknessSiemens):
     x_pts = [146, 356]
     y_pts = [262, 250]
     dz = 5.02
 
     def setUp(self):
-        self.acr_slice_thickness_task = ACRSliceThickness(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')])
-        self.acr_slice_thickness_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcm[0]
+        self.acr_slice_thickness_task = ACRSliceThickness(input_data=ge_files)
 
-    def test_ramp_find(self):
-        res = self.dcm.PixelSpacing
-        centre = self.acr_slice_thickness_task.ACR_obj.centre
-        assert (self.acr_slice_thickness_task.find_ramps(self.dcm.pixel_array, centre, res)[0] ==
-                self.x_pts).all() == True
-        assert (self.acr_slice_thickness_task.find_ramps(self.dcm.pixel_array, centre, res)[1] ==
-                self.y_pts).all() == True
-
-    def test_slice_thickness(self):
-        assert round(self.acr_slice_thickness_task.get_slice_thickness(self.dcm), 2) == self.dz
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
