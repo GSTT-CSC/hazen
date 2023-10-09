@@ -3,27 +3,27 @@ import unittest
 import pathlib
 import pydicom
 
+from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_uniformity import ACRUniformity
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRUniformitySiemens(unittest.TestCase):
-    ACR_UNIFORMITY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
     piu = 67.95
 
     def setUp(self):
-        self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
-        self.acr_uniformity_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens'))])
+        self.acr_uniformity_task = ACRUniformity(
+            input_data=siemens_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcm[6]
 
     def test_uniformity(self):
-        results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
+        results = self.acr_uniformity_task.get_integral_uniformity(
+            self.acr_uniformity_task.ACR_obj.slice7_dcm)
         rounded_results = round(results, 2)
 
         print("\ntest_uniformity.py::TestUniformity::test_uniformity")
@@ -35,19 +35,14 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
 # TODO: Add unit tests for Philips datasets.
 
-class TestACRUniformityGE(unittest.TestCase):
-    ACR_UNIFORMITY_DATA = pathlib.Path(TEST_DATA_DIR / 'acr')
+class TestACRUniformityGE(TestACRUniformitySiemens):
     piu = 85.17
 
     def setUp(self):
-        self.acr_uniformity_task = ACRUniformity(data_paths=[os.path.join(TEST_DATA_DIR, 'acr')],
-                                                 report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
-        self.acr_uniformity_task.ACR_obj = ACRObject(
-            [pydicom.read_file(os.path.join(TEST_DATA_DIR, 'acr', 'GE', f'{i}')) for i in
-             os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'GE'))])
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ge_files = get_dicom_files(ACR_DATA_GE)
 
-        self.dcm = self.acr_uniformity_task.ACR_obj.dcm[6]
+        self.acr_uniformity_task = ACRUniformity(
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
 
-    def test_uniformity(self):
-        results = self.acr_uniformity_task.get_integral_uniformity(self.dcm)
-        assert round(results, 2) == self.piu

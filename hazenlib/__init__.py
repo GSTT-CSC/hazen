@@ -111,15 +111,28 @@ relaxometry Task options:
 import importlib
 import inspect
 import logging
-import sys
 import json
-import os
+import sys
 
 from docopt import docopt
-import pydicom
 from hazenlib.logger import logger
-from hazenlib.utils import is_dicom_file, get_dicom_files
+from hazenlib.utils import get_dicom_files
 from hazenlib._version import __version__
+
+"""
+Hazen is designed to measure the same parameters from multiple images.
+While some tasks require a set of multiple images (within the same folder),
+such as slice position, SNR and all ACR tasks,
+the majority of the calculations are performed on a single image at a time,
+and bulk processing all images in the input folder with the same task.
+
+In Sep 2023 a design decision was made to pass the minimum number of files
+to the task.run() functions.
+Below is a list of the single image tasks where the task.run() will be called
+on each image in the folder, while other tasks are being passed ALL image files.
+"""
+single_image_tasks = ["ghosting", "uniformity", "spatial_resolution",
+                      "slice_width", "snr_map"]
 
 
 def init_task(selected_task, files, report, report_dir):
@@ -127,7 +140,7 @@ def init_task(selected_task, files, report, report_dir):
     
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            data_paths=files, report=report, report_dir=report_dir)
+            input_data=files, report=report, report_dir=report_dir)
     except:
         class_list = [cls.__name__ for _, cls in inspect.getmembers(
             sys.modules[task_module.__name__],
@@ -135,7 +148,7 @@ def init_task(selected_task, files, report, report_dir):
             )]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                data_paths=files, report=report, report_dir=report_dir)
+                input_data=files, report=report, report_dir=report_dir)
         else:
             raise Exception(
                 f'Task {task_module} has multiple class definitions: {class_list}')
@@ -163,8 +176,7 @@ def main():
         logging.getLogger().setLevel(logging.INFO)
 
     report = arguments['--report']
-    report_dir = arguments['--output'] if arguments['--output'] else os.path.join(
-                os.getcwd(), 'report')
+    report_dir = arguments['--output'] if arguments['--output'] else None
 
     # Parse the task and optional arguments:
     if arguments['snr'] or arguments['<task>'] == 'snr':
@@ -195,8 +207,16 @@ def main():
                     verbose = arguments['--verbose'])
     else:
         selected_task = arguments['<task>']
-        task = init_task(selected_task, files, report, report_dir)
-        result = task.run()
+        if selected_task in single_image_tasks:
+            for file in files:
+                task = init_task(selected_task, [file], report, report_dir)
+                result = task.run()
+                result_string = json.dumps(result, indent=2)
+                print(result_string)
+            return
+        else:
+            task = init_task(selected_task, files, report, report_dir)
+            result = task.run()
 
     result_string = json.dumps(result, indent=2)
     print(result_string)

@@ -32,23 +32,25 @@ class Uniformity(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
-        results = {}
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(self.single_dcm)
 
-        for dcm in self.data:
-            try:
-                result = self.get_fractional_uniformity(dcm)
-            except Exception as e:
-                print(f"Could test not calculate the uniformity for {self.key(dcm)} because of : {e}")
-                traceback.print_exc(file=sys.stdout)
-                continue
-
-            results[self.key(dcm)] = result
+        try:
+            horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(self.single_dcm)
+            results['measurement'] = {
+                "horizontal %": round(horizontal_uniformity, 2),
+                "vertical %": round(vertical_uniformity, 2),
+                }
+        except Exception as e:
+            print(f"Could test not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}")
+            traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -144,9 +146,9 @@ class Uniformity(HazenTask):
             ax.add_collection(pc)
             ax.scatter(x, y, 5)
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}.png'))
+            img_path = os.path.realpath(os.path.join(self.report_path,
+                                            f'{self.img_desc(dcm)}.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
-        return {'horizontal': fractional_uniformity_horizontal,
-                'vertical': fractional_uniformity_vertical}
+        return fractional_uniformity_horizontal, fractional_uniformity_vertical
