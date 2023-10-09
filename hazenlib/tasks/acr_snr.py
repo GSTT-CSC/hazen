@@ -33,6 +33,7 @@ class ACRSNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.ACR_obj = ACRObject(self.dcm_list)
         # measured slice width is expected to be a floating point number
         try:
             self.measured_slice_width = float(kwargs["measured_slice_width"])
@@ -47,7 +48,6 @@ class ACRSNR(HazenTask):
             self.subtract = None
 
     def run(self) -> dict:
-        self.ACR_obj = ACRObject(self.dcm_list)
         snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
