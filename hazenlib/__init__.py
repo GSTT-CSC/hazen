@@ -196,20 +196,20 @@ def main():
     if arguments['snr'] or arguments['<task>'] == 'snr':
         selected_task = 'snr'
         task = init_task(selected_task, files, report, report_dir,
-                    measured_slice_width=arguments['--measured_slice_width'])
+                         measured_slice_width=arguments['--measured_slice_width'])
         result = task.run()
     elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
         selected_task = 'acr_snr'
         task = init_task(selected_task, files, report, report_dir,
-                    subtract=arguments['--subtract'],
-                    measured_slice_width=arguments['--measured_slice_width'])
+                         subtract=arguments['--subtract'],
+                         measured_slice_width=arguments['--measured_slice_width'])
         result = task.run()
     elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
         selected_task = 'relaxometry'
         task = init_task(selected_task, files, report, report_dir)
-        result = task.run(calc = arguments['--calc'],
-                    plate_number = arguments['--plate_number'], 
-                    verbose = arguments['--verbose'])
+        result = task.run(calc=arguments['--calc'],
+                          plate_number=arguments['--plate_number'],
+                          verbose=arguments['--verbose'])
     else:
         selected_task = arguments['<task>']
         if selected_task in single_image_tasks:
@@ -223,7 +223,7 @@ def main():
         else:
             # Slice Position task, all ACR tasks except SNR
             task = init_task(selected_task, files, report, report_dir,
-                    verbose=verbose)
+                             verbose=verbose)
             result = task.run()
 
     result_string = json.dumps(result, indent=2)
