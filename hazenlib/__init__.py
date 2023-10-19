@@ -85,7 +85,7 @@ Options section below. The 'acr_snr' and 'snr' Tasks have additional optional fl
 
 Usage:
     hazen <task> <folder> [options]
-    hazen snr <folder> [--measured_slice_width=<mm>] [options]
+    hazen snr <folder> [--measured_slice_width=<mm>] [--coil=<head or body>] [options]
     hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
     hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [--verbose] [options]
 
@@ -171,7 +171,8 @@ def main():
         selected_task = 'snr'
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
-                measured_slice_width = arguments['--measured_slice_width'])
+                measured_slice_width = arguments['--measured_slice_width'],
+                coil = arguments['--coil'])
     elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
         selected_task = 'acr_snr'
         task = init_task(selected_task, files, report, report_dir)
