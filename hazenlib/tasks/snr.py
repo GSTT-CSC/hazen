@@ -29,9 +29,18 @@ class SNR(HazenTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def run(self, measured_slice_width=None) -> dict:
+    def run(self, measured_slice_width=None, coil=None) -> dict:
         if measured_slice_width is not None:
             measured_slice_width = float(measured_slice_width)
+
+        # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.
+        if coil is None:
+            kernel_size = int(9)
+        elif coil.lower() in ["bc", "body"]:
+            kernel_size = int(25)
+        elif coil.lower() in ["hc", "head"]:
+            kernel_size = int(9)
+
         snr_results = {}
 
         if len(self.data) == 2:
@@ -40,7 +49,7 @@ class SNR(HazenTask):
             snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
 
         for idx, dcm in enumerate(self.data):
-            snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width)
+            snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width, kernel_size)
             snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
             snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
 
@@ -109,7 +118,7 @@ class SNR(HazenTask):
 
         return normalised_snr_factor
 
-    def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
+    def filtered_image(self, dcm: pydicom.Dataset, kernel_size) -> np.array:
         """
         Performs a 2D convolution (for filtering images)
         uses uniform_filter SciPy function
@@ -123,15 +132,15 @@ class SNR(HazenTask):
         filtered numpy array
         """
         a = dcm.pixel_array.astype('int')
-
+        filter_size=kernel_size
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
-        filter_size = 9
+
         # 9 for head coil, 25 for body coil
         # TODO make kernel size optional
         filtered_array = ndimage.uniform_filter(a, filter_size, mode='constant')
         return filtered_array
 
-    def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
+    def get_noise_image(self, dcm: pydicom.Dataset, kernel_size) -> np.array:
         """
         Separates the image noise by smoothing the image and subtracting the smoothed image
         from the original.
@@ -147,7 +156,7 @@ class SNR(HazenTask):
         a = dcm.pixel_array.astype('int')
 
         # Convolve image with boxcar/uniform kernel
-        imsmoothed = self.filtered_image(dcm)
+        imsmoothed = self.filtered_image(dcm,kernel_size)
 
         # Subtract smoothed array from original
         imnoise = a - imsmoothed
@@ -293,7 +302,7 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
+    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None, kernel_size=9) -> float:
         """
 
         Parameters
@@ -308,7 +317,7 @@ class SNR(HazenTask):
 
         """
         col, row = self.get_object_centre(dcm=dcm)
-        noise_img = self.get_noise_image(dcm=dcm)
+        noise_img = self.get_noise_image(dcm=dcm, kernel_size=kernel_size)
 
         signal = [np.mean(roi) for roi in self.get_roi_samples(ax=None, dcm=dcm, centre_col=col, centre_row=row)]
 
