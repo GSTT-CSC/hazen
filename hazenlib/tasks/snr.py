@@ -29,35 +29,46 @@ class SNR(HazenTask):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def run(self, measured_slice_width=None, coil=None) -> dict:
-        if measured_slice_width is not None:
-            measured_slice_width = float(measured_slice_width)
+        # measured slice width is expected to be a floating point number
+        try:
+            self.measured_slice_width = float(kwargs["measured_slice_width"])
+        except:
+            self.measured_slice_width = None
+        # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.            
+        try:
+            coil = kwargs["coil"]
+            if coil is None or coil.lower() in ["hc", "head"]:
+                self.kernel_size = 9
+            elif coil.lower() in ["bc", "body"]:
+                self.kernel_size = 25
+        except: 
+            self.kernel_size=9
 
-        # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.
-        if coil is None:
-            kernel_size = int(9)
-        elif coil.lower() in ["bc", "body"]:
-            kernel_size = int(25)
-        elif coil.lower() in ["hc", "head"]:
-            kernel_size = int(9)
+    def run(self) -> dict:
+        
+        results = self.init_result_dict()
+        results['file'] = [self.img_desc(img) for img in self.dcm_list]
+        results['measurement']["snr by smoothing"] = {}
 
-        snr_results = {}
+        if len(self.dcm_list) == 2:
+            snr, normalised_snr = self.snr_by_subtraction(
+                self.dcm_list[0], self.dcm_list[1], self.measured_slice_width
+                )
+            results['measurement']["snr by subtraction"] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
 
-        if len(self.data) == 2:
-            snr, normalised_snr = self.snr_by_subtraction(self.data[0], self.data[1], measured_slice_width)
-            snr_results[f"snr_subtraction_measured_{self.key(self.data[0])}"] = round(snr, 2)
-            snr_results[f"snr_subtraction_normalised_{self.key(self.data[0])}"] = round(normalised_snr, 2)
-
-        for idx, dcm in enumerate(self.data):
-            snr, normalised_snr = self.snr_by_smoothing(dcm, measured_slice_width, kernel_size)
-            snr_results[f"snr_smoothing_measured_{self.key(dcm)}"] = round(snr, 2)
-            snr_results[f"snr_smoothing_normalised_{self.key(dcm)}"] = round(normalised_snr, 2)
-
-        results = {self.key(self.data[0]): snr_results}
+        for idx, dcm in enumerate(self.dcm_list):
+            snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
+            results['measurement']["snr by smoothing"][self.img_desc(dcm)] = {
+                    "measured": round(snr, 2),
+                    "normalised": round(normalised_snr, 2)
+                }
 
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -82,7 +93,6 @@ class SNR(HazenTask):
         return True
 
     def get_normalised_snr_factor(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
-
         """
         Calculates SNR normalisation factor. Method matches MATLAB script.
         Utilises user provided slice_width if provided. Else finds from dcm.
@@ -118,7 +128,7 @@ class SNR(HazenTask):
 
         return normalised_snr_factor
 
-    def filtered_image(self, dcm: pydicom.Dataset, kernel_size) -> np.array:
+    def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
         """
         Performs a 2D convolution (for filtering images)
         uses uniform_filter SciPy function
@@ -132,15 +142,15 @@ class SNR(HazenTask):
         filtered numpy array
         """
         a = dcm.pixel_array.astype('int')
-        filter_size=kernel_size
+       
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
 
         # 9 for head coil, 25 for body coil
         # TODO make kernel size optional
-        filtered_array = ndimage.uniform_filter(a, filter_size, mode='constant')
+        filtered_array = ndimage.uniform_filter(a, self.kernel_size, mode='constant')
         return filtered_array
 
-    def get_noise_image(self, dcm: pydicom.Dataset, kernel_size) -> np.array:
+    def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
         """
         Separates the image noise by smoothing the image and subtracting the smoothed image
         from the original.
@@ -156,7 +166,7 @@ class SNR(HazenTask):
         a = dcm.pixel_array.astype('int')
 
         # Convolve image with boxcar/uniform kernel
-        imsmoothed = self.filtered_image(dcm,kernel_size)
+        imsmoothed = self.filtered_image(dcm)
 
         # Subtract smoothed array from original
         imnoise = a - imsmoothed
@@ -302,7 +312,7 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None, kernel_size=9) -> float:
+    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None) -> float:
         """
 
         Parameters
@@ -317,7 +327,7 @@ class SNR(HazenTask):
 
         """
         col, row = self.get_object_centre(dcm=dcm)
-        noise_img = self.get_noise_image(dcm=dcm, kernel_size=kernel_size)
+        noise_img = self.get_noise_image(dcm=dcm)
 
         signal = [np.mean(roi) for roi in self.get_roi_samples(ax=None, dcm=dcm, centre_col=col, centre_row=row)]
 
@@ -340,7 +350,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm)}_smoothing.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm)}_smoothing.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
@@ -395,7 +406,8 @@ class SNR(HazenTask):
             self.get_roi_samples(axes, dcm1, col, row)
             axes.legend()
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(dcm1)}_snr_subtraction.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(dcm1)}_snr_subtraction.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 

@@ -22,31 +22,42 @@ class SlicePosition(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if "verbose" in kwargs.keys():
+            self.verbose = kwargs["verbose"]
+        else:
+            self.verbose = False
 
     def run(self) -> dict:
-        if len(self.data) != 60:
+        if len(self.dcm_list) != 60:
             raise Exception('Need 60 DICOM')
 
-        slice_data = copy.deepcopy(self.data)
+        slice_data = copy.deepcopy(self.dcm_list)
         slice_data.sort(key=lambda x: x.SliceLocation)  # sort by slice location
-
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
 
+        results = self.init_result_dict()
+        results['file'] = self.img_desc(truncated_data[18])
+
         try:
-            result = self.slice_position_error(truncated_data)
+            position_errors = self.slice_position_error(truncated_data)
+            if self.verbose:
+                rounded_positions = [round(pos, 3) for pos in position_errors]
+                results['additional data'] = {
+                    "slice positions": rounded_positions
+                }
+
+            # Round calculated values to the appropriate decimal places
+            max_pos = round(np.max(position_errors), 2)
+            avg_pos = round(np.mean(position_errors), 2)
+
+            results['measurement'] = {
+                'maximum mm': max_pos, 'average mm': avg_pos}
         except Exception as e:
             raise
 
-        import decimal
-        decimal.getcontext().prec = 3
-        result = [str(abs(decimal.Decimal(i) * 1)) for i in result]
-        del decimal
-
-        results = {self.key(self.data[0]): {'slice_positions': result}}
-
         # only return reports if requested
         if self.report:
-            results['reports'] = {'images': self.report_files}
+            results['report_image'] = self.report_files
 
         return results
 
@@ -211,7 +222,8 @@ class SlicePosition(HazenTask):
 
         # Correct for zero offset
         nominal_positions = [x - nominal_positions[18] + z_length_mm[18] for x in nominal_positions]
-        results = np.subtract(z_length_mm, nominal_positions)
+        positions = np.subtract(z_length_mm, nominal_positions)
+        distances = [abs(x) for x in positions]
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -224,26 +236,27 @@ class SlicePosition(HazenTask):
                 rods_y = [left_rod["y_pos"][idx], right_rod['y_pos'][idx]]
                 ax[0].scatter(rods_x, rods_y, 20, c='green', marker='+')
 
-            ax[1].scatter(range(10, 50), results, marker='x')
+            ax[1].scatter(range(10, 50), positions, marker='x')
             ax[1].set_yticks(np.arange(-2.5, 2.5, 0.5))
             plt.xlabel('slice position [slice number]')
             plt.ylabel('Slice position error [mm]')
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_slice_position.png'))
+            img_path = os.path.realpath(os.path.join(
+                self.report_path, f'{self.img_desc(self.dcm_list[0])}_slice_position.png'))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
             # fig, ax = plt.subplots(1, 1)
             # for i, pos in enumerate(nominal_positions):
             #     ax.cla()
-            #     dcm = self.data[i+10]
+            #     dcm = self.dcm_list[i+10]
             #     ax.imshow(dcm.pixel_array, cmap='gray')
             #     rods_x = [left_rod["x_pos"][i], right_rod['x_pos'][i]]
             #     rods_y = [left_rod["y_pos"][i], right_rod['y_pos'][i]]
             #     ax.scatter(rods_x, rods_y, 20, c='green', marker='+')
             #
-            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.data[0])}_{i}_slice_position.png'))
+            #     img_path = os.path.realpath(os.path.join(self.report_path, f'{self.key(self.dcm_listdcm_list[0])}_{i}_slice_position.png'))
             #     plt.savefig(img_path)
             #     self.report_files.append(img_path)
 
-        return results
+        return distances
