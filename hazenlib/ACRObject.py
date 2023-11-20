@@ -6,7 +6,9 @@ import skimage
 
 class ACRObject:
     def __init__(self, dcm_list):
-        self.dcm_list = dcm_list
+        # First, need to determine if input DICOMs are
+        # enhanced or normal, single or multi-frame
+        self.dcm_list = dcm_list # may be 11 in 1 or 11 separate DCM objects
         self.images, self.dcms = self.sort_images()
         self.slice7_dcm = self.dcms[6]
         self.pixel_spacing = self.dcms[0].PixelSpacing  # affected by whether input is single or enhanced DICOM

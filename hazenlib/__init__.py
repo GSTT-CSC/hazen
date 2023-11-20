@@ -118,7 +118,7 @@ import os
 from docopt import docopt
 import pydicom
 from hazenlib.logger import logger
-from hazenlib.utils import is_dicom_file, get_dicom_files
+from hazenlib.utils import get_dicom_files
 from hazenlib._version import __version__
 
 
@@ -182,14 +182,6 @@ def main():
                 subtract = arguments['--subtract'],
                 measured_slice_width = arguments['--measured_slice_width'])
     elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
-        # TODO: Refactor Relaxometry task into HazenTask object
-        #  - Relaxometry not currently converted to HazenTask object
-        #  - Relaxometry task accessible via CLI using the old syntax until it can be refactored
-        # relax_task = importlib.import_module(f"hazenlib.relaxometry")
-        # dicom_objects = [pydicom.read_file(x, force=True) for x in files if is_dicom_file(x)]
-        # relaxometry_args = parse_relaxometry_args(arguments)
-        # result = relax_task.main(dicom_objects, **relaxometry_args,
-        #                         report=report, report_dir=report_dir)
         selected_task = 'relaxometry'
         task = init_task(selected_task, files, report, report_dir)
         result = task.run(
@@ -199,6 +191,7 @@ def main():
     else:
         selected_task = arguments['<task>']
         if selected_task in single_image_tasks:
+            # for now these are most likely not enhanced, single-frame
             for file in files:
                 task = init_task(selected_task, file, report, report_dir)
                 result = task.run()
@@ -206,6 +199,8 @@ def main():
                 print(result_string)
             return
         else:
+            # may be enhanced, may be multi-frame
+            print("Processing", files)
             task = init_task(selected_task, files, report, report_dir)
             result = task.run()
 

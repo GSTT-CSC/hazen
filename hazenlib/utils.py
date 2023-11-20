@@ -10,23 +10,33 @@ import hazenlib.exceptions as exc
 matplotlib.use("Agg")
 
 
-def get_dicom_files(folder: str, sort=False) -> list:
-    file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
-    if sort:
-        file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
+def get_dicom_files(folder: str) -> list:
+    """Collect files with pixel_array into a list
+
+    Args:
+        folder (str): path to folder to check
+
+    Returns:
+        list: paths to DICOM image files (may be multi-framed)
+    """
+    file_list = []
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        if has_pixel_array(file_path):
+            file_list.append(file_path)
     return file_list
 
 
-def is_dicom_file(filename):
-    """
-        Util function to check if file is a dicom file
-        the first 128 bytes are preamble
-        the next 4 bytes should contain DICM otherwise it is not a dicom
+def has_pixel_array(filename) -> bool:
+    """Check whether DICOM object has pixel_array that can be used for calc
 
-        :param filename: file to check for the DICM header block
-        :type filename: str
-        :returns: True if it is a dicom file
-        """
+    Args:
+        filename (str): path to file to be checked
+
+    Returns:
+        bool: True/False whether pixel_array is available
+    """
+
     try:
         dcm = pydicom.dcmread(filename)
         img = dcm.pixel_array
@@ -34,6 +44,23 @@ def is_dicom_file(filename):
     except:
         print(f"{filename} does not contain image data")
         return False
+
+
+def get_z_position(dcm_list):
+    """Get the ImagePositionPatient tag value from a DICOM
+
+    Args:
+        dcm_list (list): list of pydicom objects with pixel arrays
+    """
+    for dcm in dcm_list:
+        try:
+            image_position_patient = dcm.ImagePositionPatient
+        except:
+            image_position_patient = dcm.PerFrameFunctionalGroupsSequence[0
+                                    ].PlaneOrientationSequence[0
+                                    ].ImagePositionPatient
+        z_position = image_position_patient[2]
+
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -50,11 +77,11 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     Raises
     ------
     Exception
-    Unrecognised SOPClassUID
+        Unrecognised SOPClassUID
 
     """
 
-    if dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4.1':
+    if dcm.SOPClassUID in ['1.2.840.10008.5.1.4.1.1.4.1', 'EnhancedMRImageStorage']:
         return True
     elif dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4':
         return False
@@ -227,7 +254,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif 'toshiba' in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError('Manufacturer not ge, siemens, toshiba or philips so FOV cannot be calculated.')
 
     return fov
 
