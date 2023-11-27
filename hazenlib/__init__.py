@@ -107,7 +107,6 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
-
 import importlib
 import inspect
 import logging
@@ -197,7 +196,7 @@ def main():
         selected_task = 'snr'
         task = init_task(selected_task, files, report, report_dir,
                          measured_slice_width=arguments['--measured_slice_width'],
-                         coil = arguments['--coil'])
+                         coil=arguments['--coil'])
         result = task.run()
     elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
         selected_task = 'acr_snr'

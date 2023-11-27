@@ -34,6 +34,7 @@ class SNR(HazenTask):
             self.measured_slice_width = float(kwargs["measured_slice_width"])
         except:
             self.measured_slice_width = None
+
         # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.            
         try:
             coil = kwargs["coil"]
@@ -142,7 +143,7 @@ class SNR(HazenTask):
         filtered numpy array
         """
         a = dcm.pixel_array.astype('int')
-       
+
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
 
         # 9 for head coil, 25 for body coil
