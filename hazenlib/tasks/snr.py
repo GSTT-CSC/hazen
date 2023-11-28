@@ -28,11 +28,22 @@ class SNR(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         # measured slice width is expected to be a floating point number
         try:
             self.measured_slice_width = float(kwargs["measured_slice_width"])
         except:
             self.measured_slice_width = None
+
+        # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.            
+        try:
+            coil = kwargs["coil"]
+            if coil is None or coil.lower() in ["hc", "head"]:
+                self.kernel_size = 9
+            elif coil.lower() in ["bc", "body"]:
+                self.kernel_size = 25
+        except: 
+            self.kernel_size=9
 
     def run(self) -> dict:
         
@@ -134,10 +145,10 @@ class SNR(HazenTask):
         a = dcm.pixel_array.astype('int')
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
-        filter_size = 9
+
         # 9 for head coil, 25 for body coil
         # TODO make kernel size optional
-        filtered_array = ndimage.uniform_filter(a, filter_size, mode='constant')
+        filtered_array = ndimage.uniform_filter(a, self.kernel_size, mode='constant')
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
