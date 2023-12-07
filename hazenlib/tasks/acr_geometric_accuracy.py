@@ -88,7 +88,7 @@ class ACRGeometricAccuracy(HazenTask):
     def get_geometric_accuracy_slice1(self, dcm):
         img = dcm.pixel_array
 
-        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
+        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[0])
         cxy = self.ACR_obj.centre
         length_dict = self.ACR_obj.measure_orthogonal_lengths(mask)
 
@@ -124,7 +124,7 @@ class ACRGeometricAccuracy(HazenTask):
 
     def get_geometric_accuracy_slice5(self, dcm):
         img = dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
+        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[4])
         cxy = self.ACR_obj.centre
 
         length_dict = self.ACR_obj.measure_orthogonal_lengths(mask)
