@@ -15,7 +15,6 @@ class TestUniformity(unittest.TestCase):
     def setUp(self):
         self.uniformity_task = Uniformity(
             input_data=[os.path.join(self.UNIFORMITY_DATA, "axial_oil.IMA")],
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
     def test_uniformity(self):
@@ -38,7 +37,6 @@ class TestSagUniformity(TestUniformity):
     def setUp(self):
         self.uniformity_task = Uniformity(
             input_data=[os.path.join(self.UNIFORMITY_DATA, "sag.dcm")],
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
 
@@ -49,5 +47,12 @@ class TestCorUniformity(TestUniformity):
     def setUp(self):
         self.uniformity_task = Uniformity(
             input_data=[os.path.join(self.UNIFORMITY_DATA, "cor.dcm")],
+            report=True,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
+
+    def test_report_made(self):
+        report_path = os.path.join(
+            TEST_REPORT_DIR, "Uniformity", "uniformity_cor_36_1.png"
+        )
+        assert os.path.isfile(report_path) == True
