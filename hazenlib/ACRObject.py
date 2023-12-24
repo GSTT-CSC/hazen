@@ -10,9 +10,9 @@ class ACRObject:
         # enhanced or normal, single or multi-frame
         self.dcm_list = dcm_list # may be 11 in 1 or 11 separate DCM objects
         self.images, self.dcms = self.sort_images()
-        self.slice7_dcm = self.dcms[6]
         self.pixel_spacing = self.dcms[0].PixelSpacing  # affected by whether input is single or enhanced DICOM
         self.orientation_checks()
+        self.slice7_dcm = self.dcms[6]
         self.rot_angle = self.determine_rotation()
         self.centre, self.radius = self.find_phantom_center()
         self.mask_image = self.get_mask_image(self.images[6])
@@ -85,6 +85,7 @@ class ACRObject:
     def determine_rotation(self):
         """
         Determine the rotation angle of the phantom using edge detection and the Hough transform.
+        only relevant for MTF-based spatial resolution - need to convince David Price!!!!!
 
         Returns
         ------
@@ -158,6 +159,7 @@ class ACRObject:
         """
         test_mask = self.circular_mask(self.centre, (80 // self.pixel_spacing[0]), image.shape)
         test_image = image * test_mask
+        # get range of values in the mask
         test_vals = test_image[np.nonzero(test_image)]
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(image):
             print('Large intensity variations detected in image. Using local thresholding!')
@@ -165,7 +167,9 @@ class ACRObject:
         else:
             initial_mask = image > mag_threshold * np.max(image)
 
+        # unconnected region of pixels, to remove noise
         opened_mask = skimage.morphology.area_opening(initial_mask, area_threshold=open_threshold)
+        # remove air bubbles from image area
         final_mask = skimage.morphology.convex_hull_image(opened_mask)
 
         return final_mask
