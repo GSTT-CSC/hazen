@@ -36,11 +36,10 @@ class ACRSNR(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self, measured_slice_width=None, subtract=None) -> dict:
-        
+
         if measured_slice_width is not None:
             measured_slice_width = float(measured_slice_width)
-        
-        self.ACR_obj = ACRObject(self.dcm_list)
+
         snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
