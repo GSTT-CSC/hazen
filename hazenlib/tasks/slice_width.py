@@ -95,9 +95,7 @@ class SliceWidth(HazenTask):
                 np.min(arr_inv)
             )  # ensure voxel values positive for maximisation
 
-        """
-        Initial Center-of-mass Rod Locator
-        """
+        """ Initial Center-of-mass Rod Locator """
 
         # threshold and binaries the image in order to locate the rods.
         img_max = np.max(arr)  # maximum number of img intensity
@@ -132,11 +130,11 @@ class SliceWidth(HazenTask):
         rods = self.sort_rods(rods)
         rods_initial = deepcopy(rods)  # save for later
 
-        """
-        Gaussian 2D Rod Locator
-        """
+        """ Gaussian 2D Rod Locator """
 
         # setup bounding box dict
+        # TODO: make these into Rod class properties and functions
+        # rather than loop over 9 each time
         bbox = {
             "x_start": [],
             "x_end": [],
@@ -167,7 +165,7 @@ class SliceWidth(HazenTask):
 
         x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
 
-        for idx in range(len(rods)):
+        for idx in range(9):
             cropped_data = arr_inv[
                 bbox["x_start"][idx] : bbox["x_end"][idx],
                 bbox["y_start"][idx] : bbox["y_end"][idx],
@@ -194,17 +192,17 @@ class SliceWidth(HazenTask):
             # center-of-mass (original method)
             axes[0].set_title("Initial Estimate")
             axes[0].imshow(arr, cmap="gray")
-            for idx in range(len(rods)):
+            for idx in range(9):
                 axes[0].plot(rods_initial[idx].x, rods_initial[idx].y, "y.")
             # gauss 2D
             axes[1].set_title("2D Gaussian Fit")
             axes[1].imshow(arr, cmap="gray")
-            for idx in range(len(rods)):
+            for idx in range(9):
                 axes[1].plot(rods[idx].x, rods[idx].y, "r.")
             # combined
             axes[2].set_title("Initial Estimate vs. 2D Gaussian Fit")
             axes[2].imshow(arr, cmap="gray")
-            for idx in range(len(rods)):
+            for idx in range(9):
                 axes[2].plot(rods_initial[idx].x, rods_initial[idx].y, "y.")
                 axes[2].plot(rods[idx].x, rods[idx].y, "r.")
             img_path = os.path.realpath(
@@ -219,26 +217,25 @@ class SliceWidth(HazenTask):
         return rods, rods_initial
 
     def plot_rods(self, ax, arr, rods, rods_initial):  # pragma: no cover
-        """_summary_
+        """Plot rods and curve fit graphs
 
         Args:
-            ax (_type_): _description_
-            arr (_type_): _description_
+            ax (matplotlib.pyplot.axis): image axis
+            arr (dcm.pixelarray): pixel array (image of phantom)
             rods (_type_): _description_
             rods_initial (_type_): _description_
 
         Returns:
-            _type_: _description_
+            matplotlib.pyplot.axis: _description_
         """
         ax.imshow(arr, cmap="gray")
-        mark = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-        for idx, i in enumerate(rods):
+        for idx, rod in enumerate(rods):
             # ax.plot(rods_initial[idx].x, rods_initial[idx].y, 'y.', markersize=2)  # center-of-mass method
-            ax.plot(rods[idx].x, rods[idx].y, "r.", markersize=2)  # gauss 2D
+            ax.plot(rod.x, rod.y, "r.", markersize=2)  # gauss 2D
             ax.scatter(
-                x=i.x + 5,
-                y=i.y - 5,
-                marker=f"${mark[idx]}$",
+                x=rod.x + 5,
+                y=rod.y - 5,
+                marker=f"${idx+1}$",
                 s=30,
                 linewidths=0.4,
                 c="w",
@@ -262,6 +259,7 @@ class SliceWidth(HazenTask):
             horizontal and vertical distances between rods in pixels
 
         """
+        # TODO: move to be a function of the Rod class
         horz_dist = [
             np.sqrt(
                 np.square((rods[2].y - rods[0].y)) + np.square(rods[2].x - rods[0].x)
@@ -293,16 +291,13 @@ class SliceWidth(HazenTask):
         Removes the effect of geometric distortion from the slice width measurement. Assumes that rod separation is
         120 mm.
 
-        Parameters
-        ----------
-        horizontal_distances : list
-            horizontal distances between rods, in pixels
+        Args:
+            horizontal_distances (list): horizontal distances between rods, in pixels
 
-        Returns
-        -------
-        coefficients : dict
-            dictionary containing top and bottom distortion corrections, in mm
+        Returns:
+            dict: dictionary containing top and bottom distortion coefficients, in mm
         """
+        # TODO: move to be a function of the Rod class
 
         coefficients = {
             "top": np.mean(horizontal_distances[1:3]) * self.pixel_size / 120,
@@ -314,16 +309,14 @@ class SliceWidth(HazenTask):
     def get_rod_distortions(self, horz_dist, vert_dist):
         """
 
-        Parameters
-        ----------
-        horizontal distances
-        vertical distances
+        Args:
+            horz_dist (list): horizontal distances
+            vert_dist (list): vertical distances
 
-        Returns
-        -------
-        horz_distortion, vert_distortion : float
-            horizontal and vertical distortion values, in mm
+        Returns:
+            tuple of float: horizontal and vertical distortion values, in mm
         """
+        # TODO: move to be a function of the Rod class
 
         # calculate the horizontal and vertical distances
         horz_dist_mm = np.multiply(self.pixel_size, horz_dist)
@@ -336,16 +329,16 @@ class SliceWidth(HazenTask):
         return horz_distortion, vert_distortion
 
     def baseline_correction(self, profile, sample_spacing):
-        """
-        Calculates quadratic fit of the baseline and subtracts from profile
+        """Calculates quadratic fit of the baseline and subtracts from profile
 
-        Parameters
-        ----------
-        profile
-        sample_spacing
+        Args:
+            profile (list)
+            sample_spacing (int)
 
-        Returns
-        -------
+        Returns:
+            dict: of polynomial_coefficients, x_interpolated,
+                baseline/polynomial_fit, baseline, baseline_interpolated,
+                profile_interpolated, profile_corrected_interpolated
 
         """
         profile_width = len(profile)
@@ -444,18 +437,17 @@ class SliceWidth(HazenTask):
         --- This is a maximisation function, hence the rods should have higher signal than the surrounding region
         Based on code by Siân Culley, UCL/KCL
 
-        Parameters
-        ----------
-        cropped_data : 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
-        gauss_amp : initial estimate of amplitude of 2D Gaussian
-        gauss_radius : initial estimate of centre of 2D Gaussian
-        box_radius : 'radius' of box around rod
-        x_start / y_start : coordinates of bounding box in original non-cropped data
+        Args:
+            cropped_data (np.array): 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
+            gauss_amp (float/int): initial estimate of amplitude of 2D Gaussian
+            gauss_radius (int): initial estimate of centre of 2D Gaussian
+            box_radius (int): 'radius' of box around rod
+            x_start / y_start (int, int): coordinates of bounding box in original non-cropped data
 
-        Returns
-        -------
-        x0_im / y0_im : rod centroid coordinates in dimensions of original image
-        x0 / y0 : rod centroid coordinates in dimensions of cropped image
+        Returns:
+            tuple of 4 values corresponding to:
+                x0_im / y0_im : rod centroid coordinates in dimensions of original image
+                x0 / y0 : rod centroid coordinates in dimensions of cropped image
         """
 
         # get (x,y) coordinates for fitting
@@ -513,16 +505,15 @@ class SliceWidth(HazenTask):
     ):
         """
 
-        Parameters
-        ----------
-        n_ramp
-        n_plateau
-        n_left_baseline
-        n_right_baseline
-        plateau_amplitude
+        Args:
+            n_ramp
+            n_plateau
+            n_left_baseline
+            n_right_baseline
+            plateau_amplitude
 
-        Returns
-        -------
+        Returns:
+            tuple: trapezoid and fwmh
         """
 
         if n_left_baseline < 1:
@@ -555,17 +546,15 @@ class SliceWidth(HazenTask):
         return trap, fwhm
 
     def get_ramp_profiles(self, image_array, rods) -> dict:
-        """
-        Find the central y-axis point for the top and bottom profiles
+        """Find the central y-axis point for the top and bottom profiles
         done by finding the distance between the mid-distances of the central rods
 
-        Parameters
-        ----------
-        image_array
-        rods
+        Args:
+            image_array (dcm.pixelarray): pixel array from a DICOM image
+            rods (list of Rods): list of rods with x,y coordinates
 
-        Returns
-        -------
+        Returns:
+            dict: top and bottom ramp profiles
         """
 
         top_profile_vertical_centre = np.round(
@@ -600,15 +589,12 @@ class SliceWidth(HazenTask):
     def get_initial_trapezoid_fit_and_coefficients(self, profile, slice_thickness):
         """
 
-        Parameters
-        ----------
-        profile
-        slice_thickness
+        Args:
+            profile
+            slice_thickness (int)
 
-        Returns
-        -------
-        trapezoid_fit_initial
-        trapezoid_fit_coefficients
+        Returns:
+            tuple: of trapezoid_fit_initial and  trapezoid_fit_coefficients
         """
 
         n_plateau, n_ramp = None, None
@@ -648,15 +634,12 @@ class SliceWidth(HazenTask):
     def fit_trapezoid(self, profiles, slice_thickness):
         """
 
-        Parameters
-        ----------
-        profiles
-        slice_thickness
+        Args:
+            profile
+            slice_thickness (int)
 
-        Returns
-        -------
-        trapezoid_fit_coefficients
-        baseline_fit_coefficients
+        Returns:
+            tuple: of trapezoid_fit_initial and  trapezoid_fit_coefficients
 
         """
         (
@@ -817,24 +800,19 @@ class SliceWidth(HazenTask):
         return trapezoid_fit_coefficients, baseline_fit_coefficients
 
     def get_slice_width(self, dcm):
-        """
-        Calculates slice width using double wedge image
+        """Calculates slice width using double wedge image
 
-        Parameters
-        ----------
+        Args:
             dcm (pydicom.FileDataset): DICOM image object
-        report_path
 
-        Returns
-        -------
-        slice_width_mm : dict
-            calculated slice width (top, bottom, combined; various methods) in mm
-
-        horizontal_linearity_mm, vertical_linearity_mm : float
-            calculated average rod distance in mm
-
-        horz_distortion_mm, vert_distortion_mm : float
-            calculated rod distance distortion in mm
+        Returns:
+            dict: including
+            - slice_width_mm: float
+                calculated slice width (top, bottom, combined; various methods) in mm
+            - horizontal_linearity_mm, vertical_linearity_mm : float
+                calculated average rod distance in mm
+            - horz_distortion_mm, vert_distortion_mm : float
+                calculated rod distance distortion in mm
 
         """
         slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
