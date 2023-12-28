@@ -55,6 +55,14 @@ class SliceWidth(HazenTask):
         return results
 
     def sort_rods(self, rods):
+        """Separate matrix of rods into sorted per row
+
+        Args:
+            rods (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         lower_row = sorted(rods, key=lambda rod: rod.y)[-3:]
         lower_row = sorted(lower_row, key=lambda rod: rod.x)
         middle_row = sorted(rods, key=lambda rod: rod.y)[3:6]
@@ -64,21 +72,20 @@ class SliceWidth(HazenTask):
         return lower_row + middle_row + upper_row
 
     def get_rods(self, arr):
-        """
-        Parameters
-        ----------
-        arr : DICOM pixel array
-        Returns
-        -------
-        rods : array_like – centroid coordinates of rods
-        rods_initial : array_like  – initial guess at rods (center-of mass)
+        """Locate rods in the pixel array
 
-        Notes
-        -------
-        The rod indices are ordered as:
-            789
-            456
-            123
+        Args:
+            arr (np.array): DICOM pixel array
+
+        Returns:
+            rods : array_like – centroid coordinates of rods
+            rods_initial : array_like  – initial guess at rods (center-of mass)
+
+        Notes:
+            The rod indices are ordered as:
+                789
+                456
+                123
         """
 
         # inverted image for fitting (maximisation)
@@ -109,7 +116,7 @@ class SliceWidth(HazenTask):
 
         thres_ind = np.median(index).astype(int)
 
-        # Generate the labeled array with the threshold chosen
+        # Generate the labelled array with the threshold chosen
         img_threshold = img_tmp <= thres_ind
 
         labeled_array, num_features = ndimage.label(img_threshold.astype(int))
@@ -118,9 +125,10 @@ class SliceWidth(HazenTask):
         if num_features != 10:
             sys.exit("Did not find the 9 rods")
 
-        rods = ndimage.measurements.center_of_mass(arr, labeled_array, range(2, 11))
+        # list of tuples of x,y coordinates for the centres
+        rod_centres = ndimage.center_of_mass(arr, labeled_array, range(2, 11))
 
-        rods = [Rod(x=x[1], y=x[0]) for x in rods]
+        rods = [Rod(x=x[1], y=x[0]) for x in rod_centres]
         rods = self.sort_rods(rods)
         rods_initial = deepcopy(rods)  # save for later
 
@@ -134,41 +142,32 @@ class SliceWidth(HazenTask):
             "x_end": [],
             "y_start": [],
             "y_end": [],
-            "intensity_max": [],
-            "rod_dia": [],
-            "radius": [],
         }
 
-        # get relevant label properties
-        rod_radius = []
-        rod_inv_intensity = []
-
+        # Get average radius and inverse intensity of rods
         rprops = regionprops(labeled_array, arr_inv)[1:]  # ignore first label
-        for idx, i in enumerate(rprops):
-            rod_radius.append(rprops[idx].feret_diameter_max)  # 'radius' of each label
-            rod_inv_intensity.append(rprops[idx].intensity_max)
 
-        rod_radius_mean = int(np.mean(rod_radius))
-        rod_inv_intensity_mean = int(np.mean(rod_inv_intensity))
-        bbox["radius"] = int(np.ceil((rod_radius_mean * 2) / 2))
+        # get relevant label properties: radius and intensity
+        bbox["rod_dia"] = [prop.feret_diameter_max for prop in rprops]
+        bbox["intensity_max"] = [prop.intensity_max for prop in rprops]
 
-        # array bounding box regions around rods
-        ext = bbox["radius"]  # no. pixels to extend bounding box
+        # Calculate mean
+        radius_of_rods_mean = int(np.mean(bbox["rod_dia"]))
+        # inv_intensity_of_rods_mean = int(np.mean(inv_intensity_of_rods))
+        bbox["radius"] = int(np.ceil((radius_of_rods_mean * 2) / 2))
 
-        for idx, i in enumerate(rprops):
-            bbox["x_start"].append(rprops[idx].bbox[0] - ext)
-            bbox["x_end"].append(rprops[idx].bbox[2] + ext)
-            bbox["y_start"].append(rprops[idx].bbox[1] - ext)
-            bbox["y_end"].append(rprops[idx].bbox[3] + ext)
-            bbox["intensity_max"].append(rprops[idx].intensity_max)
-            bbox["rod_dia"].append(rprops[idx].feret_diameter_max)
+        # array extend bounding box regions around rods by radius no. pixels
+        for rprop in rprops:
+            bbox["x_start"].append(rprop.bbox[0] - bbox["radius"])
+            bbox["x_end"].append(rprop.bbox[2] + bbox["radius"])
+            bbox["y_start"].append(rprop.bbox[1] - bbox["radius"])
+            bbox["y_end"].append(rprop.bbox[3] + bbox["radius"])
 
             # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
 
         x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
 
         for idx in range(len(rods)):
-            cropped_data = []
             cropped_data = arr_inv[
                 bbox["x_start"][idx] : bbox["x_end"][idx],
                 bbox["y_start"][idx] : bbox["y_end"][idx],
@@ -220,6 +219,17 @@ class SliceWidth(HazenTask):
         return rods, rods_initial
 
     def plot_rods(self, ax, arr, rods, rods_initial):  # pragma: no cover
+        """_summary_
+
+        Args:
+            ax (_type_): _description_
+            arr (_type_): _description_
+            rods (_type_): _description_
+            rods_initial (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         ax.imshow(arr, cmap="gray")
         mark = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
         for idx, i in enumerate(rods):
@@ -812,7 +822,7 @@ class SliceWidth(HazenTask):
 
         Parameters
         ----------
-        dcm
+            dcm (pydicom.FileDataset): DICOM image object
         report_path
 
         Returns
