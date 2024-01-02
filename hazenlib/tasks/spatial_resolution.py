@@ -60,6 +60,15 @@ class SpatialResolution(HazenTask):
         return results
 
     def get_circles(self, image):
+        """Locate Hugh Circles in a DICOM pixel array
+
+        Args:
+            image (array): DICOM pixel array rescaled to byte
+
+        Returns:
+            np.array: pixel array of the located circle
+        """
+        # TODO: use shape functions from utils
         v = np.median(image)
         upper = int(min(255, (1.0 + 5) * v))
         i = 40
@@ -89,11 +98,21 @@ class SpatialResolution(HazenTask):
         return circles
 
     def thresh_image(self, img, bound=150):
+        """Create a threshold image
+
+        Args:
+            img (np.array): pixel array
+            bound (int, optional): _description_. Defaults to 150.
+
+        Returns:
+            np.array: thresholded pixel array
+        """
         blurred = cv.GaussianBlur(img, (5, 5), 0)
         thresh = cv.threshold(blurred, bound, 255, cv.THRESH_TOZERO_INV)[1]
         return thresh
 
     def find_square(self, img):
+        # TODO: use shape functions from utils
         cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
 
         for c in cnts:
@@ -136,11 +155,31 @@ class SpatialResolution(HazenTask):
         return top_corners + bottom_corners, box
 
     def get_roi(self, pixels, centre, size=20):
+        """Get coordinates of the region of interest
+
+        Args:
+            pixels (np.array): _description_
+            centre (tuple): x,y (int) coordinates
+            size (int, optional): diameter of the region of interest. Defaults to 20.
+
+        Returns:
+            np.array: subset of the pixel array
+        """
         y, x = centre
         arr = pixels[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
         return arr
 
     def get_void_roi(self, pixels, circle, size=20):
+        """Create an 'empty' region of interest - same size filles with 0
+
+        Args:
+            pixels (np.array): _description_
+            centre (tuple): x,y (int) coordinates
+            size (int, optional): diameter of the region of interest. Defaults to 20.
+
+        Returns:
+            np.array: subset of the pixel array
+        """
         centre_x = circle[0][0][0]
         centre_y = circle[0][0][1]
         return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
@@ -151,7 +190,7 @@ class SpatialResolution(HazenTask):
         )
 
     def edge_is_vertical(self, edge_roi, mean) -> bool:
-        """
+        """Determine whether edge is vertical
             control_parameter_01=0  ;a control parameter that will be equal to 1 if the edge is vertical and 0 if it is horizontal
 
         for column=0, event.MTF_roi_size-2 do begin
@@ -159,8 +198,12 @@ class SpatialResolution(HazenTask):
         if (MTF_Data(column, 0) LT mean_value) AND (MTF_Data(column+1, 0) GT mean_value) then control_parameter_01=1
         if (MTF_Data(column, 0) GT mean_value) AND (MTF_Data(column+1, 0) LT mean_value) then control_parameter_01=1
         end
-            Returns:
+        Args:
+            edge_roi (np.array): pixel array in ROI
+            mean (np.array): array of mean pixel values
 
+        Returns:
+            bool: True or false whether edge is vertical
         """
         for col in range(edge_roi.shape[0] - 1):
             if edge_roi[col, 0] == mean:
@@ -209,8 +252,20 @@ class SpatialResolution(HazenTask):
         }
         return right_edge_profile_vector, right_edge_profile_roi_centre
 
-    def get_signal_roi(self, pixels, edge, edge_centre, circle, size=20):
-        circle_r = circle[0][0][2]
+    def get_signal_roi(self, pixels, edge, edge_centre, circle_r, size=20):
+        """Get pixel array from the image within ROI
+
+        Args:
+            pixels (np.array): _description_
+            edge (_type_): _description_
+            edge_centre (_type_): _description_
+            circle_r (float/int): circle radius
+            size (int, optional): diameter of the region of interest. Defaults to 20.
+
+        Returns:
+            np.array: subset of the pixel array
+        """
+
         if edge == "right":
             x = edge_centre["x"] + circle_r // 2
             y = edge_centre["y"]
@@ -221,6 +276,7 @@ class SpatialResolution(HazenTask):
         return self.get_roi(pixels=pixels, centre=(x, y), size=size)
 
     def get_edge(self, edge_arr, mean_value, spacing):
+        # TODO: simplify this function
         if self.edge_is_vertical(edge_arr, mean_value):
             edge_arr = np.rot90(edge_arr)
 
@@ -249,6 +305,15 @@ class SpatialResolution(HazenTask):
         return x_edge, y_edge, edge_arr
 
     def get_edge_angle_and_intercept(self, x_edge, y_edge):
+        """Get edge (slope) angle and intercept value
+
+        Args:
+            x_edge (np.ndarray): _description_
+            y_edge (np.ndarray): _description_
+
+        Returns:
+            tuple: angle and intercept values
+        """
         # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # ;Apply least squares method for the edge
         # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -264,9 +329,16 @@ class SpatialResolution(HazenTask):
         return angle, intercept
 
     def get_edge_profile_coords(self, angle, intercept, spacing):
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # ; translate and rotate the data's coordinates according to the slope and intercept
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        """translate and rotate the data's coordinates according to the slope and intercept
+
+        Args:
+            angle (ndarray or scalar): angle of slope
+            intercept (ndarray or scalar): intercept of slope
+            spacing (tuple/list): spacing value in x and y directions
+
+        Returns:
+            tuple: of np.ndarrays of the rotated MTF positions in x and y directions
+        """
 
         original_mtf_x_position = np.array([x * spacing[0] for x in range(20)])
         original_mtf_x_positions = copy.copy(original_mtf_x_position)
@@ -294,11 +366,17 @@ class SpatialResolution(HazenTask):
         return rotated_mtf_x_positions, rotated_mtf_y_positions
 
     def get_esf(self, edge_arr, y):
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # ;extract the edge response function
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        """Extract the edge response function
 
-        # ;extract the distance from the edge and the corresponding data as vectors
+        Args:
+            edge_arr (np.ndarray): _description_
+            y (np.ndarray): _description_
+
+        Returns:
+            tuple: u and esf - 'normal' and interpolated edge response function (ESF)
+        """
+
+        # extract the distance from the edge and the corresponding data as vectors
 
         edge_distance = copy.copy(y[0, :])
 
@@ -339,6 +417,7 @@ class SpatialResolution(HazenTask):
         img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
         thresh = self.thresh_image(img)
         circle = self.get_circles(img)
+        circle_radius = circle[0][0][2]
         square, box = self.find_square(thresh)
         if edge == "right":
             _, centre = self.get_right_edge_vector_and_centre(square)
@@ -347,7 +426,7 @@ class SpatialResolution(HazenTask):
 
         edge_arr = self.get_edge_roi(pixels, centre)
         void_arr = self.get_void_roi(pixels, circle)
-        signal_arr = self.get_signal_roi(pixels, edge, centre, circle)
+        signal_arr = self.get_signal_roi(pixels, edge, centre, circle_radius)
         spacing = hazenlib.utils.get_pixel_size(dicom)
         mean = np.mean([void_arr, signal_arr])
         x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
