@@ -18,8 +18,8 @@ class ACRObject:
         self.orientation_checks()
         # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
-        # Find the centre coordinates of the phantom (circle)
-        self.centre, self.radius = self.find_phantom_center()
+        # Find the centre coordinates of the phantom (circle) on slice 7 only:
+        self.centre, self.radius = self.find_phantom_center(self.images[6])
         # Store a mask image of slice 7 for reusability
         self.mask_image = self.get_mask_image(self.images[6])
 
@@ -124,7 +124,7 @@ class ACRObject:
 
         return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
 
-    def find_phantom_center(self):
+    def find_phantom_center(self, img):
         """
         Find the center of the ACR phantom by filtering the uniformity slice and using the Hough circle detector.
 
@@ -134,7 +134,6 @@ class ACRObject:
         centre  : tuple
             Tuple of ints representing the (x, y) center of the image.
         """
-        img = self.images[6]
         dx, dy = self.pixel_spacing
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
@@ -203,7 +202,7 @@ class ACRObject:
 
         return mask
 
-    def measure_orthogonal_lengths(self, mask):
+    def measure_orthogonal_lengths(self, mask, slice_index):
         """
         Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
@@ -227,16 +226,19 @@ class ACRObject:
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
+        [centre, radius] = self.find_phantom_center(self.images[slice_index])
+        horizontal = centre[1]
+        vertical = centre[0]
 
-        horizontal_start = (self.centre[1], 0)
-        horizontal_end = (self.centre[1], dims[0] - 1)
+        horizontal_start = (horizontal, 0)
+        horizontal_end = (horizontal, dims[0] - 1)
         horizontal_line_profile = skimage.measure.profile_line(
                             mask, horizontal_start, horizontal_end)
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
         horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
 
-        vertical_start = (0, self.centre[0])
-        vertical_end = (dims[1] - 1, self.centre[0])
+        vertical_start = (0, vertical)
+        vertical_end = (dims[1] - 1, vertical)
         vertical_line_profile = skimage.measure.profile_line(
                             mask, vertical_start, vertical_end)
         vertical_extent = np.nonzero(vertical_line_profile)[0]
