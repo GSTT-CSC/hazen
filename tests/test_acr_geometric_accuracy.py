@@ -27,7 +27,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
 
     def test_geometric_accuracy_slice_1(self):
-        slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy_slice1(self.dcm_1)
+        slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(0)
         slice1_vals = np.round(slice1_vals, 2)
 
         print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice1")
@@ -37,7 +37,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         assert (slice1_vals == self.L1).all() == True
 
     def test_geometric_accuracy_slice_5(self):
-        slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy_slice5(self.dcm_5))
+        slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy(4))
         slice5_vals = np.round(slice5_vals, 2)
 
         print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice5")
