@@ -156,10 +156,7 @@ class ACRObject:
         """
         img = self.images[6]
         dx, dy = self.pixel_spacing
-        print(dy)
 
-        print(f"minRadius {180 / (2 * dy)}")
-        # print(f"maxRadius {200 / (2 * dx)}")
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
@@ -170,13 +167,11 @@ class ACRObject:
             param1=50,
             param2=30,
             minDist=int(180 / dy),
-            minRadius=80,  # int(180 / (2 * dy)),
-            maxRadius=200,  # int(200 / (2 * dx)),
+            minRadius=int(180 / (2 * dy)),
+            maxRadius=int(200 / (2 * dx)),
         ).flatten()
         centre = [int(i) for i in detected_circles[:2]]
         radius = int(detected_circles[2])
-        print(f"actual radius {radius}")
-        print(detected_circles)
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
