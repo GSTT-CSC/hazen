@@ -1,5 +1,4 @@
 """
-
 Local Otsu thresholding
 http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
@@ -19,14 +18,28 @@ from hazenlib.logger import logger
 
 
 class SlicePosition(HazenTask):
+    """Slice position measurement class for DICOM images of the MagNet phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Whether the position of each of the 40 slices to be included in the results
         if "verbose" in kwargs.keys():
             self.verbose = kwargs["verbose"]
         else:
             self.verbose = False
 
     def run(self) -> dict:
+        """Main function for performing slice position measurement
+
+        Notes:
+            expects an input of 60 images (as a list), of which first and last 10 are discarded
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         if len(self.dcm_list) != 60:
             raise Exception("Need 60 DICOM")
 
@@ -70,17 +83,12 @@ class SlicePosition(HazenTask):
         set y to be the y-position the fit isn't very good because the x-position hardly varies ), X is the two column
         design matrix, the first  column is a constant and the second column are the y-positions.
 
-        Parameters
-        ----------
-        x_pos: int
-            x co-ordinate of a rod
-        y_pos: int
-            y co-ordinate of a rod
+        Args:
+            x_pos (int): x co-ordinate of a rod
+            y_pos (int): y co-ordinate of a rod
 
-        Returns
-        -------
-        theta: float
-            angle of rotation in degrees
+        Returns:
+            float: angle of rotation in degrees
 
         """
         X = np.array([[i, 1] for i in y_pos])
@@ -91,6 +99,17 @@ class SlicePosition(HazenTask):
         return theta
 
     def get_rods_coords(self, dcm: pydicom.Dataset):
+        """Determine the coordinates of the rods
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Raises:
+            Exception: hazenlib.exceptions.ShapeError
+
+        Returns:
+            tuple of int: corresponding to rod coordinates of the left and right rods
+        """
         shape_detector = hazenlib.utils.ShapeDetector(arr=dcm.pixel_array)
         try:
             x, y, r = shape_detector.get_shape("circle")
@@ -151,9 +170,23 @@ class SlicePosition(HazenTask):
         return lx, ly, rx, ry
 
     def get_rods(self, data: list):
+        """For the whole dataset of 40 DICOMS, record the list of coordinates and
+        nominal positions for the left and right rods
+
+        Args:
+            data (list): list of pydicom.Dataset image objects
+
+        Returns:
+            tuple:
+                left_rod and right_rod are a dictionary of lists for y and x coords
+                nominal positions is a list calculated from SpacingBetweenSlices
+        """
+        # TODO: split function so there is no looping
+        # TODO: combine this with the function above so rod coords are not recorded again
         left_rod, right_rod = {"x_pos": [], "y_pos": []}, {"x_pos": [], "y_pos": []}
         nominal_positions = []
         for i, dcm in enumerate(data):
+            # print(dcm.SpacingBetweenSlices) # constant
             nominal_positions.append((i + 10) * dcm.SpacingBetweenSlices)
 
             lx, ly, rx, ry = self.get_rods_coords(dcm)
@@ -174,16 +207,14 @@ class SlicePosition(HazenTask):
     def correct_rods_for_rotation(
         self, left_rod: dict, right_rod: dict
     ) -> (dict, dict):
-        """
+        """Update rod coordinates corrected for rotational angle
 
-        Parameters
-        ----------
-        left_rod
-        right_rod
+        Args:
+            left_rod (dict): dict of lists for x and y coordinates across 40 slices
+            right_rod (dict): dict of lists for x and y coordinates across 40 slices
 
-        Returns
-        -------
-
+        Returns:
+            tuple of dict: updated lists for x and y coordinates across 40 slices
         """
         r_theta = self.get_rod_rotation(
             x_pos=right_rod["x_pos"], y_pos=right_rod["y_pos"]
@@ -216,6 +247,14 @@ class SlicePosition(HazenTask):
         return left_rod, right_rod
 
     def slice_position_error(self, data: list):
+        """Calculate slice position error
+
+        Args:
+            data (list): list of pydicom.Dataset image objects
+
+        Returns:
+            list: absolute value of difference between nominal and actual positions
+        """
         # get rod positions and nominal positions
         left_rod, right_rod, nominal_positions = self.get_rods(data)
         # Correct for phantom rotation
