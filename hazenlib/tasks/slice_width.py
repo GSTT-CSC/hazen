@@ -3,11 +3,10 @@ Assumptions:
 Square voxels, no multi-frame support
 """
 
-import sys
 import os
+import sys
 import traceback
-from copy import copy
-from copy import deepcopy
+from copy import copy, deepcopy
 from math import pi
 
 import numpy as np
@@ -178,6 +177,13 @@ class SliceWidth(HazenTask):
                 bbox["x_start"][idx],
                 bbox["y_start"][idx],
             )
+                cropped_data,
+                bbox["intensity_max"][idx],
+                bbox["rod_dia"][idx],
+                bbox["radius"],
+                bbox["x_start"][idx],
+                bbox["y_start"][idx],
+            )
 
             # note: flipped x/y
             rods[idx].x = y0_im[idx]
@@ -271,8 +277,27 @@ class SliceWidth(HazenTask):
                 np.square((rods[8].y - rods[6].y)) + np.square(rods[8].x - rods[6].x)
             ),
         ]
+            np.sqrt(
+                np.square((rods[2].y - rods[0].y)) + np.square(rods[2].x - rods[0].x)
+            ),
+            np.sqrt(
+                np.square((rods[5].y - rods[3].y)) + np.square(rods[5].x - rods[3].x)
+            ),
+            np.sqrt(
+                np.square((rods[8].y - rods[6].y)) + np.square(rods[8].x - rods[6].x)
+            ),
+        ]
 
         vert_dist = [
+            np.sqrt(
+                np.square((rods[0].y - rods[6].y)) + np.square(rods[0].x - rods[6].x)
+            ),
+            np.sqrt(
+                np.square((rods[1].y - rods[7].y)) + np.square(rods[1].x - rods[7].x)
+            ),
+            np.sqrt(
+                np.square((rods[2].y - rods[8].y)) + np.square(rods[2].x - rods[8].x)
+            ),
             np.sqrt(
                 np.square((rods[0].y - rods[6].y)) + np.square(rods[0].x - rods[6].x)
             ),
@@ -303,6 +328,10 @@ class SliceWidth(HazenTask):
             "top": np.mean(horizontal_distances[1:3]) * self.pixel_size / 120,
             "bottom": np.mean(horizontal_distances[0:2]) * self.pixel_size / 120,
         }
+        coefficients = {
+            "top": np.mean(horizontal_distances[1:3]) * self.pixel_size / 120,
+            "bottom": np.mean(horizontal_distances[0:2]) * self.pixel_size / 120,
+        }
 
         return coefficients
 
@@ -322,6 +351,9 @@ class SliceWidth(HazenTask):
         horz_dist_mm = np.multiply(self.pixel_size, horz_dist)
         vert_dist_mm = np.multiply(self.pixel_size, vert_dist)
 
+        horz_distortion = (
+            100 * np.std(horz_dist_mm, ddof=1) / np.mean(horz_dist_mm)
+        )  # ddof to match MATLAB std
         horz_distortion = (
             100 * np.std(horz_dist_mm, ddof=1) / np.mean(horz_dist_mm)
         )  # ddof to match MATLAB std
@@ -375,6 +407,15 @@ class SliceWidth(HazenTask):
             "profile_interpolated": profile_interp,
             "profile_corrected_interpolated": profile_corrected_interp,
         }
+        return {
+            "f": polynomial_coefficients,
+            "x_interpolated": x_interp,
+            "baseline_fit": polynomial_fit,
+            "baseline": baseline,
+            "baseline_interpolated": baseline_interp,
+            "profile_interpolated": profile_interp,
+            "profile_corrected_interpolated": profile_corrected_interp,
+        }
 
     def gauss_2d(self, xy_tuple, A, x_0, y_0, sigma_x, sigma_y, theta, C):
         """
@@ -407,6 +448,8 @@ class SliceWidth(HazenTask):
 
         sigma_x_2 = sigma_x**2
         sigma_y_2 = sigma_y**2
+        sigma_x_2 = sigma_x**2
+        sigma_y_2 = sigma_y**2
 
         a = cos_theta_2 / (2 * sigma_x_2) + sin_theta_2 / (2 * sigma_y_2)
         b = -sin_2_theta / (4 * sigma_x_2) + sin_2_theta / (4 * sigma_y_2)
@@ -423,9 +466,23 @@ class SliceWidth(HazenTask):
             )
             + C
         )
+        gauss = (
+            A
+            * np.exp(
+                -(
+                    a * (x - x_0) ** 2
+                    + 2 * b * (x - x_0) * (y - y_0)
+                    + c * (y - y_0) ** 2
+                )
+            )
+            + C
+        )
 
         return gauss.ravel()
 
+    def fit_gauss_2d_to_rods(
+        self, cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start
+    ):
     def fit_gauss_2d_to_rods(
         self, cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start
     ):
@@ -460,6 +517,14 @@ class SliceWidth(HazenTask):
 
         A = gauss_amp  # np.max() # amp of Gaussian
         sigma = gauss_radius / 2  # radius of 2D Gaussian
+        C = np.mean(
+            [
+                cropped_data[0, 0],
+                cropped_data[h_crop - 1, 0],
+                cropped_data[0, w_crop - 1],
+                cropped_data[h_crop - 1, w_crop - 1],
+            ]
+        )  # background – np.min(outside of rod within cropped_data)
         C = np.mean(
             [
                 cropped_data[0, 0],
@@ -503,6 +568,9 @@ class SliceWidth(HazenTask):
     def trapezoid(
         self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
     ):
+    def trapezoid(
+        self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
+    ):
         """
 
         Args:
@@ -541,6 +609,9 @@ class SliceWidth(HazenTask):
             trap = np.concatenate(
                 [left_baseline, left_ramp, plateau, right_ramp, right_baseline]
             )
+            trap = np.concatenate(
+                [left_baseline, left_ramp, plateau, right_ramp, right_baseline]
+            )
             fwhm = n_plateau + n_ramp
 
         return trap, fwhm
@@ -563,9 +634,20 @@ class SliceWidth(HazenTask):
         bottom_profile_vertical_centre = np.round(
             ((rods[0].y - rods[3].y) / 2) + rods[3].y
         ).astype(int)
+        top_profile_vertical_centre = np.round(
+            ((rods[3].y - rods[6].y) / 2) + rods[6].y
+        ).astype(int)
+        bottom_profile_vertical_centre = np.round(
+            ((rods[0].y - rods[3].y) / 2) + rods[3].y
+        ).astype(int)
 
         # Selected 20mm around the mid-distances and take the average to find the line profiles
         top_profile = image_array[
+            (top_profile_vertical_centre - round(10 / self.pixel_size)) : (
+                top_profile_vertical_centre + round(10 / self.pixel_size)
+            ),
+            int(rods[3].x) : int(rods[5].x),
+        ]
             (top_profile_vertical_centre - round(10 / self.pixel_size)) : (
                 top_profile_vertical_centre + round(10 / self.pixel_size)
             ),

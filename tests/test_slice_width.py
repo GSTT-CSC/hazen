@@ -725,7 +725,6 @@ class Test512Matrix(TestSliceWidth):
             input_data=[
                 os.path.join(self.SLICE_WIDTH_DATA, "512_matrix", "512_matrix")
             ],
-            report=True,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
         # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')

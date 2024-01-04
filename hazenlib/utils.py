@@ -1,39 +1,50 @@
 import os
-from collections import defaultdict
-from skimage import filters
 import cv2 as cv
+import pydicom
 import imutils
 import matplotlib
 import numpy as np
-import pydicom
+
+from collections import defaultdict
+from skimage import filters
+
 import hazenlib.exceptions as exc
+
 matplotlib.use("Agg")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
     if sort:
-        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+        file_list = [
+            os.path.join(folder, x)
+            for x in os.listdir(folder)
+            if is_dicom_file(os.path.join(folder, x))
+        ]
         file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
     else:
-        file_list = [os.path.join(folder, x) for x in os.listdir(folder) if is_dicom_file(os.path.join(folder, x))]
+        file_list = [
+            os.path.join(folder, x)
+            for x in os.listdir(folder)
+            if is_dicom_file(os.path.join(folder, x))
+        ]
     return file_list
 
 
 def is_dicom_file(filename):
     """
-        Util function to check if file is a dicom file
-        the first 128 bytes are preamble
-        the next 4 bytes should contain DICM otherwise it is not a dicom
+    Util function to check if file is a dicom file
+    the first 128 bytes are preamble
+    the next 4 bytes should contain DICM otherwise it is not a dicom
 
-        :param filename: file to check for the DICM header block
-        :type filename: str
-        :returns: True if it is a dicom file
-        """
-    file_stream = open(filename, 'rb')
+    :param filename: file to check for the DICM header block
+    :type filename: str
+    :returns: True if it is a dicom file
+    """
+    file_stream = open(filename, "rb")
     file_stream.seek(128)
     data = file_stream.read(4)
     file_stream.close()
-    if data == b'DICM':
+    if data == b"DICM":
         return True
     else:
         return False
@@ -57,27 +68,29 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
     """
 
-    if dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4.1':
+    if dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4.1":
         return True
-    elif dcm.SOPClassUID == '1.2.840.10008.5.1.4.1.1.4':
+    elif dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4":
         return False
     else:
-        raise Exception('Unrecognised SOPClassUID')
+        raise Exception("Unrecognised SOPClassUID")
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
-    supported = ['ge', 'siemens', 'philips', 'toshiba', 'canon']
+    supported = ["ge", "siemens", "philips", "toshiba", "canon"]
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
         if item in manufacturer:
             return item
 
-    raise Exception(f'{manufacturer} not recognised manufacturer')
+    raise Exception(f"{manufacturer} not recognised manufacturer")
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
     if is_enhanced_dicom(dcm):
-        averages = dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
+        averages = (
+            dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
+        )
     else:
         averages = dcm.NumberOfAverages
 
@@ -122,11 +135,19 @@ def get_num_of_frames(dcm: pydicom.Dataset) -> int:
 def get_slice_thickness(dcm: pydicom.Dataset) -> float:
     if is_enhanced_dicom(dcm):
         try:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].SliceThickness
+            slice_thickness = (
+                dcm.PerFrameFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .SliceThickness
+            )
         except AttributeError:
-            slice_thickness = dcm.PerFrameFunctionalGroupsSequence[0].Private_2005_140f[0].SliceThickness
+            slice_thickness = (
+                dcm.PerFrameFunctionalGroupsSequence[0]
+                .Private_2005_140f[0]
+                .SliceThickness
+            )
         except Exception:
-            raise Exception('Unrecognised metadata Field for Slice Thickness')
+            raise Exception("Unrecognised metadata Field for Slice Thickness")
     else:
         slice_thickness = dcm.SliceThickness
 
@@ -137,22 +158,26 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
-            dx, dy = dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing
+            dx, dy = (
+                dcm.PerFrameFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing
+            )
         else:
             dx, dy = dcm.PixelSpacing
     except:
-        print('Warning: Could not find PixelSpacing..')
-        if 'ge' in manufacturer:
+        print("Warning: Could not find PixelSpacing..")
+        if "ge" in manufacturer:
             fov = get_field_of_view(dcm)
             dx = fov / dcm.Columns
             dy = fov / dcm.Rows
         else:
-            raise Exception('Manufacturer not recognised')
+            raise Exception("Manufacturer not recognised")
 
     return dx, dy
 
 
-def get_TR(dcm: pydicom.Dataset) -> (float):
+def get_TR(dcm: pydicom.Dataset) -> float:
     """
     Returns Repetition Time (TR)
 
@@ -168,12 +193,12 @@ def get_TR(dcm: pydicom.Dataset) -> (float):
     try:
         TR = dcm.RepetitionTime
     except:
-        print('Warning: Could not find Repetition Time. Using default value of 1000 ms')
+        print("Warning: Could not find Repetition Time. Using default value of 1000 ms")
         TR = 1000
     return TR
 
 
-def get_rows(dcm: pydicom.Dataset) -> (float):
+def get_rows(dcm: pydicom.Dataset) -> float:
     """
     Returns number of image rows (rows)
 
@@ -188,13 +213,15 @@ def get_rows(dcm: pydicom.Dataset) -> (float):
     try:
         rows = dcm.Rows
     except:
-        print('Warning: Could not find Number of matrix rows. Using default value of 256')
+        print(
+            "Warning: Could not find Number of matrix rows. Using default value of 256"
+        )
         rows = 256
 
     return rows
 
 
-def get_columns(dcm: pydicom.Dataset) -> (float):
+def get_columns(dcm: pydicom.Dataset) -> float:
     """
     Returns number of image columns (columns)
 
@@ -209,7 +236,9 @@ def get_columns(dcm: pydicom.Dataset) -> (float):
     try:
         columns = dcm.Columns
     except:
-        print('Warning: Could not find matrix size (columns). Using default value of 256.')
+        print(
+            "Warning: Could not find matrix size (columns). Using default value of 256."
+        )
         columns = 256
     return columns
 
@@ -218,19 +247,26 @@ def get_field_of_view(dcm: pydicom.Dataset):
     # assumes square pixels
     manufacturer = get_manufacturer(dcm)
 
-    if 'ge' in manufacturer:
-        fov = dcm[0x19, 0x101e].value
-    elif 'siemens' in manufacturer:
+    if "ge" in manufacturer:
+        fov = dcm[0x19, 0x101E].value
+    elif "siemens" in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
-    elif 'philips' in manufacturer:
+    elif "philips" in manufacturer:
         if is_enhanced_dicom(dcm):
-            fov = dcm.Columns * dcm.PerFrameFunctionalGroupsSequence[0].PixelMeasuresSequence[0].PixelSpacing[0]
+            fov = (
+                dcm.Columns
+                * dcm.PerFrameFunctionalGroupsSequence[0]
+                .PixelMeasuresSequence[0]
+                .PixelSpacing[0]
+            )
         else:
             fov = dcm.Columns * dcm.PixelSpacing[0]
-    elif 'toshiba' in manufacturer:
+    elif "toshiba" in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
-        raise NotImplementedError('Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated.')
+        raise NotImplementedError(
+            "Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated."
+        )
 
     return fov
 
@@ -271,20 +307,19 @@ def rescale_to_byte(array):
     # use linear interpolation of cdf to find new pixel values
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
 
-    return image_equalized.reshape(array.shape).astype('uint8')
+    return image_equalized.reshape(array.shape).astype("uint8")
 
 
 class Rod:
-
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
     def __repr__(self):
-        return f'Rod: {self.x}, {self.y}'
+        return f"Rod: {self.x}, {self.y}"
 
     def __str__(self):
-        return f'Rod: {self.x}, {self.y}'
+        return f"Rod: {self.x}, {self.y}"
 
     @property
     def centroid(self):
@@ -320,8 +355,12 @@ class ShapeDetector:
         # convert the resized image to grayscale, blur it slightly, and threshold it
         self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)  # magic numbers
 
-        optimal_threshold = filters.threshold_li(self.blurred, initial_guess=np.quantile(self.blurred, 0.50))
-        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(np.uint8)
+        optimal_threshold = filters.threshold_li(
+            self.blurred, initial_guess=np.quantile(self.blurred, 0.50)
+        )
+        self.thresh = np.where(self.blurred > optimal_threshold, 255, 0).astype(
+            np.uint8
+        )
 
         # have to convert type for find contours
         contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
@@ -362,7 +401,6 @@ class ShapeDetector:
             self.shapes[shape].append(c)
 
     def get_shape(self, shape):
-
         self.find_contours()
         self.detect()
 
@@ -375,7 +413,7 @@ class ShapeDetector:
             raise exc.MultipleShapesError(shapes)
 
         contour = self.shapes[shape][0]
-        if shape == 'circle':
+        if shape == "circle":
             # (x,y) is centre of circle, in x, y coordinates. x=column, y=row.
             (x, y), r = cv.minEnclosingCircle(contour)
             return x, y, r
@@ -384,7 +422,7 @@ class ShapeDetector:
         # https://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_imgproc/py_contours/py_contour_features/py_contour_features.html#b-rotated-rectangle
         # (x,y) is top-left of rectangle, in x, y coordinates. x=column, y=row.
 
-        if shape == 'rectangle' or shape == 'square':
+        if shape == "rectangle" or shape == "square":
             (x, y), size, angle = cv.minAreaRect(contour)
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4

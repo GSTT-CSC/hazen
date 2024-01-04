@@ -1,7 +1,7 @@
-import numpy as np
 import cv2
 import scipy
 import skimage
+import numpy as np
 
 
 class ACRObject:
@@ -68,7 +68,7 @@ class ACRObject:
                 norm_type=cv2.NORM_MINMAX,
                 dtype=cv2.CV_8U,
             )
-            for image in self.images
+            for image in test_images
         ]
 
         # search for circle in first slice of ACR phantom dataset with radius of ~11mm
@@ -193,7 +193,6 @@ class ACRObject:
             np.array:
                 The masked image.
         """
-
         test_mask = self.circular_mask(
             self.centre, (80 // self.pixel_spacing[0]), image.shape
         )

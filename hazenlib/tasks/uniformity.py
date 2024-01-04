@@ -18,9 +18,9 @@ neil.heraghty@nhs.net
 
 """
 
+import os
 import sys
 import traceback
-import os
 import numpy as np
 
 import hazenlib.utils

@@ -9,11 +9,10 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
     Replace shape finding functions with hazenlib.utils equivalents
     
 """
-import copy
 import os
 import sys
+import copy
 import traceback
-from hazenlib.logger import logger
 
 import cv2 as cv
 import numpy as np
@@ -21,6 +20,7 @@ from numpy.fft import fftfreq
 
 import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
 
 
 class SpatialResolution(HazenTask):
@@ -185,6 +185,9 @@ class SpatialResolution(HazenTask):
         return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
 
     def get_edge_roi(self, pixels, edge_centre, size=20):
+        return self.get_roi(
+            pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
+        )
         return self.get_roi(
             pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
         )
