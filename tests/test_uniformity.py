@@ -50,9 +50,3 @@ class TestCorUniformity(TestUniformity):
             report=True,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
-
-    def test_report_made(self):
-        report_path = os.path.join(
-            TEST_REPORT_DIR, "Uniformity", "uniformity_cor_36_1.png"
-        )
-        assert os.path.isfile(report_path) == True

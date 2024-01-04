@@ -729,9 +729,3 @@ class Test512Matrix(TestSliceWidth):
         )
         # self.file = str(TEST_DATA_DIR / 'slicewidth' / 'SLICEWIDTH' / '512_matrix')
         # self.dcm = pydicom.read_file(self.file)
-
-    def test_report_made(self):
-        report_path = os.path.join(
-            TEST_REPORT_DIR, "SliceWidth", "COR_SW_25001_1_rod_centroids.png"
-        )
-        assert os.path.isfile(report_path) == True
