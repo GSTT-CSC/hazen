@@ -107,11 +107,11 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
-import importlib
+import sys
+import json
 import inspect
 import logging
-import json
-import sys
+import importlib
 
 from docopt import docopt
 from hazenlib.utils import get_dicom_files
@@ -129,8 +129,13 @@ to the task.run() functions.
 Below is a list of the single image tasks where the task.run() will be called
 on each image in the folder, while other tasks are being passed ALL image files.
 """
-single_image_tasks = ["ghosting", "uniformity", "spatial_resolution",
-                      "slice_width", "snr_map"]
+single_image_tasks = [
+    "ghosting",
+    "uniformity",
+    "spatial_resolution",
+    "slice_width",
+    "snr_map",
+]
 
 
 def init_task(selected_task, files, report, report_dir, **kwargs):
@@ -150,27 +155,31 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 
     try:
         task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir,
-            **kwargs)
+            input_data=files, report=report, report_dir=report_dir, **kwargs
+        )
     except:
-        class_list = [cls.__name__ for _, cls in inspect.getmembers(
-            sys.modules[task_module.__name__],
-            lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__)
-            )]
+        class_list = [
+            cls.__name__
+            for _, cls in inspect.getmembers(
+                sys.modules[task_module.__name__],
+                lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__),
+            )
+        ]
         if len(class_list) == 1:
             task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir,
-                **kwargs)
+                input_data=files, report=report, report_dir=report_dir, **kwargs
+            )
         else:
             raise Exception(
-                f'Task {task_module} has multiple class definitions: {class_list}')
+                f"Task {task_module} has multiple class definitions: {class_list}"
+            )
 
     return task
 
 
 def main():
     arguments = docopt(__doc__, version=__version__)
-    files = get_dicom_files(arguments['<folder>'])
+    files = get_dicom_files(arguments["<folder>"])
 
     # Set common options
     log_levels = {
@@ -178,40 +187,52 @@ def main():
         "debug": logging.DEBUG,
         "info": logging.INFO,
         "warning": logging.WARNING,
-        "error": logging.ERROR
+        "error": logging.ERROR,
     }
-    if arguments['--log'] in log_levels.keys():
-        level = log_levels[arguments['--log']]
+    if arguments["--log"] in log_levels.keys():
+        level = log_levels[arguments["--log"]]
         logging.getLogger().setLevel(level)
     else:
         # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
-    report = arguments['--report']
-    report_dir = arguments['--output'] if arguments['--output'] else None
-    verbose = arguments['--verbose']
+    report = arguments["--report"]
+    report_dir = arguments["--output"] if arguments["--output"] else None
+    verbose = arguments["--verbose"]
 
     # Parse the task and optional arguments:
-    if arguments['snr'] or arguments['<task>'] == 'snr':
-        selected_task = 'snr'
-        task = init_task(selected_task, files, report, report_dir,
-                         measured_slice_width=arguments['--measured_slice_width'],
-                         coil=arguments['--coil'])
+    if arguments["snr"] or arguments["<task>"] == "snr":
+        selected_task = "snr"
+        task = init_task(
+            selected_task,
+            files,
+            report,
+            report_dir,
+            measured_slice_width=arguments["--measured_slice_width"],
+            coil=arguments["--coil"],
+        )
         result = task.run()
-    elif arguments['acr_snr'] or arguments['<task>'] == 'acr_snr':
-        selected_task = 'acr_snr'
-        task = init_task(selected_task, files, report, report_dir,
-                         subtract=arguments['--subtract'],
-                         measured_slice_width=arguments['--measured_slice_width'])
+    elif arguments["acr_snr"] or arguments["<task>"] == "acr_snr":
+        selected_task = "acr_snr"
+        task = init_task(
+            selected_task,
+            files,
+            report,
+            report_dir,
+            subtract=arguments["--subtract"],
+            measured_slice_width=arguments["--measured_slice_width"],
+        )
         result = task.run()
-    elif arguments['relaxometry'] or arguments['<task>'] == 'relaxometry':
-        selected_task = 'relaxometry'
+    elif arguments["relaxometry"] or arguments["<task>"] == "relaxometry":
+        selected_task = "relaxometry"
         task = init_task(selected_task, files, report, report_dir)
-        result = task.run(calc=arguments['--calc'],
-                          plate_number=arguments['--plate_number'],
-                          verbose=arguments['--verbose'])
+        result = task.run(
+            calc=arguments["--calc"],
+            plate_number=arguments["--plate_number"],
+            verbose=arguments["--verbose"],
+        )
     else:
-        selected_task = arguments['<task>']
+        selected_task = arguments["<task>"]
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             for file in files:
@@ -222,8 +243,7 @@ def main():
             return
         else:
             # Slice Position task, all ACR tasks except SNR
-            task = init_task(selected_task, files, report, report_dir,
-                             verbose=verbose)
+            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 
     result_string = json.dumps(result, indent=2)
