@@ -14,12 +14,12 @@ class TestACRSNRGE(unittest.TestCase):
     snr = 40.19
 
     def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
         ge_files = get_dicom_files(ACR_DATA_GE)
 
         self.acr_snr_task = ACRSNR(
-            input_data=ge_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
+        )
 
         self.snr_dcm = self.acr_snr_task.ACR_obj.dcms[6]
 
@@ -38,25 +38,31 @@ class TestACRSNRSiemens(TestACRSNRGE):
     sub_snr = 75.94
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
         siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
         self.acr_snr_task = ACRSNR(
             input_data=siemens_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
+        )
 
         self.snr_dcm = self.acr_snr_task.ACR_obj.dcms[6]
         self.snr_dcm2 = ACRObject(
-            [pydicom.read_file(
-                os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2', f'{i}')) for i in
-                os.listdir(os.path.join(TEST_DATA_DIR, 'acr', 'Siemens2'))
-            ]).dcms[6]
+            [
+                pydicom.read_file(
+                    os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}")
+                )
+                for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens2"))
+            ]
+        ).dcms[6]
 
     def test_snr_by_subtraction(self):
         snr, _ = self.acr_snr_task.snr_by_subtraction(self.snr_dcm, self.snr_dcm2)
         rounded_snr = round(snr, 2)
 
-        print("\ntest_snr_by_subtraction.py::TestSnrBySubtraction::test_snr_by_subtraction")
+        print(
+            "\ntest_snr_by_subtraction.py::TestSnrBySubtraction::test_snr_by_subtraction"
+        )
         print("new_release_value:", rounded_snr)
         print("fixed_value:", self.sub_snr)
 
