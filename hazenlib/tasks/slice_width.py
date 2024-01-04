@@ -177,14 +177,6 @@ class SliceWidth(HazenTask):
                 bbox["x_start"][idx],
                 bbox["y_start"][idx],
             )
-                cropped_data,
-                bbox["intensity_max"][idx],
-                bbox["rod_dia"][idx],
-                bbox["radius"],
-                bbox["x_start"][idx],
-                bbox["y_start"][idx],
-            )
-
             # note: flipped x/y
             rods[idx].x = y0_im[idx]
             rods[idx].y = x0_im[idx]
@@ -277,27 +269,8 @@ class SliceWidth(HazenTask):
                 np.square((rods[8].y - rods[6].y)) + np.square(rods[8].x - rods[6].x)
             ),
         ]
-            np.sqrt(
-                np.square((rods[2].y - rods[0].y)) + np.square(rods[2].x - rods[0].x)
-            ),
-            np.sqrt(
-                np.square((rods[5].y - rods[3].y)) + np.square(rods[5].x - rods[3].x)
-            ),
-            np.sqrt(
-                np.square((rods[8].y - rods[6].y)) + np.square(rods[8].x - rods[6].x)
-            ),
-        ]
 
         vert_dist = [
-            np.sqrt(
-                np.square((rods[0].y - rods[6].y)) + np.square(rods[0].x - rods[6].x)
-            ),
-            np.sqrt(
-                np.square((rods[1].y - rods[7].y)) + np.square(rods[1].x - rods[7].x)
-            ),
-            np.sqrt(
-                np.square((rods[2].y - rods[8].y)) + np.square(rods[2].x - rods[8].x)
-            ),
             np.sqrt(
                 np.square((rods[0].y - rods[6].y)) + np.square(rods[0].x - rods[6].x)
             ),
@@ -483,9 +456,6 @@ class SliceWidth(HazenTask):
     def fit_gauss_2d_to_rods(
         self, cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start
     ):
-    def fit_gauss_2d_to_rods(
-        self, cropped_data, gauss_amp, gauss_radius, box_radius, x_start, y_start
-    ):
         """
         Fit 2D Gaussian to Rods
         - Important:
@@ -568,9 +538,6 @@ class SliceWidth(HazenTask):
     def trapezoid(
         self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
     ):
-    def trapezoid(
-        self, n_ramp, n_plateau, n_left_baseline, n_right_baseline, plateau_amplitude
-    ):
         """
 
         Args:
@@ -643,11 +610,6 @@ class SliceWidth(HazenTask):
 
         # Selected 20mm around the mid-distances and take the average to find the line profiles
         top_profile = image_array[
-            (top_profile_vertical_centre - round(10 / self.pixel_size)) : (
-                top_profile_vertical_centre + round(10 / self.pixel_size)
-            ),
-            int(rods[3].x) : int(rods[5].x),
-        ]
             (top_profile_vertical_centre - round(10 / self.pixel_size)) : (
                 top_profile_vertical_centre + round(10 / self.pixel_size)
             ),
