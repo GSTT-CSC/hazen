@@ -10,14 +10,14 @@ class ACRObject:
         self.dcm_list = dcm_list
         # Load files as DICOM and their pixel arrays into 'images'
         self.images, self.dcms = self.sort_images()
-        # Store the DCM object of slice 7 as it is used often
-        self.slice7_dcm = self.dcms[6]
         # Store the pixel spacing value from the first image (expected to be the same for all)
         self.pixel_spacing = self.dcms[0].PixelSpacing
         # Check whether images of the phantom are the correct orientation
         self.orientation_checks()
         # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
+        # Store the DCM object of slice 7 as it is used often
+        self.slice7_dcm = self.dcms[6]
         # Find the centre coordinates of the phantom (circle)
         self.centre, self.radius = self.find_phantom_center()
         # Store a mask image of slice 7 for reusability
@@ -35,7 +35,12 @@ class ACRObject:
             A sorted stack of dicoms
         """
 
+        # x = np.array([dcm.ImagePositionPatient[0] for dcm in self.dcm_list])
+        # print(x)
+        # y = np.array([dcm.ImagePositionPatient[1] for dcm in self.dcm_list])
+        # print(y)
         z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
+        # print(z)
         dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
 
@@ -54,19 +59,32 @@ class ACRObject:
         test_images = (self.images[0], self.images[-1])
         dx = self.pixel_spacing[0]
 
-        normalised_images = [cv2.normalize(
-                                src=image, dst=None, alpha=0, beta=255,
-                                norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
-                            ) for image in test_images]
+        normalised_images = [
+            cv2.normalize(
+                src=image,
+                dst=None,
+                alpha=0,
+                beta=255,
+                norm_type=cv2.NORM_MINMAX,
+                dtype=cv2.CV_8U,
+            )
+            for image in self.images
+        ]
 
         # search for circle in first slice of ACR phantom dataset with radius of ~11mm
-        detected_circles = [cv2.HoughCircles(
-                                norm_image, cv2.HOUGH_GRADIENT, 1,
-                                param1=50, param2=30,
-                                minDist=int(180 / dx),
-                                minRadius=int(5 / dx),
-                                maxRadius=int(16 / dx)
-                            ) for norm_image in normalised_images]
+        detected_circles = [
+            cv2.HoughCircles(
+                norm_image,
+                cv2.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dx),
+                minRadius=int(5 / dx),
+                maxRadius=int(16 / dx),
+            )
+            for norm_image in normalised_images
+        ]
 
         if detected_circles[0] is not None:
             true_circle = detected_circles[0].flatten()
@@ -74,19 +92,19 @@ class ACRObject:
             true_circle = detected_circles[1].flatten()
 
         if detected_circles[0] is None and detected_circles[1] is not None:
-            print('Performing slice order inversion to restore correct slice order.')
+            print("Performing slice order inversion to restore correct slice order.")
             self.images.reverse()
             self.dcms.reverse()
         else:
-            print('Slice order inversion not required.')
+            print("Slice order inversion not required.")
 
         if true_circle[0] > self.images[0].shape[0] // 2:
-            print('Performing LR orientation swap to restore correct view.')
+            print("Performing LR orientation swap to restore correct view.")
             flipped_images = [np.fliplr(image) for image in self.images]
             for index, dcm in enumerate(self.dcms):
                 dcm.PixelData = flipped_images[index].tobytes()
         else:
-            print('LR orientation swap not required.')
+            print("LR orientation swap not required.")
 
     def determine_rotation(self):
         """
@@ -122,7 +140,9 @@ class ACRObject:
             The rotated images.
         """
 
-        return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
+        return skimage.transform.rotate(
+            self.images, self.rot_angle, resize=False, preserve_range=True
+        )
 
     def find_phantom_center(self):
         """
@@ -136,41 +156,64 @@ class ACRObject:
         """
         img = self.images[6]
         dx, dy = self.pixel_spacing
+        print(dy)
+
+        print(f"minRadius {180 / (2 * dy)}")
+        # print(f"maxRadius {200 / (2 * dx)}")
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
         detected_circles = cv2.HoughCircles(
-                                img_grad, cv2.HOUGH_GRADIENT, 1,
-                                param1=50, param2=30,
-                                minDist=int(180 / dy),
-                                minRadius=int(180 / (2 * dy)),
-                                maxRadius=int(200 / (2 * dx))
-                            ).flatten()
-
+            img_grad,
+            cv2.HOUGH_GRADIENT,
+            1,
+            param1=50,
+            param2=30,
+            minDist=int(180 / dy),
+            minRadius=80,  # int(180 / (2 * dy)),
+            maxRadius=200,  # int(200 / (2 * dx)),
+        ).flatten()
         centre = [int(i) for i in detected_circles[:2]]
         radius = int(detected_circles[2])
+        print(f"actual radius {radius}")
+        print(detected_circles)
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
-        """
+        """Create a masked pixel array
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
-        Returns
-        -------
-        np.array:
-            The masked image.
+        Args:
+            image (_type_): _description_
+            mag_threshold (float, optional): magnitude threshold. Defaults to 0.05.
+            open_threshold (int, optional): open threshold. Defaults to 500.
+
+        Returns:
+            np.array:
+                The masked image.
         """
-        test_mask = self.circular_mask(self.centre, (80 // self.pixel_spacing[0]), image.shape)
+
+        test_mask = self.circular_mask(
+            self.centre, (80 // self.pixel_spacing[0]), image.shape
+        )
         test_image = image * test_mask
         test_vals = test_image[np.nonzero(test_image)]
-        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(image):
-            print('Large intensity variations detected in image. Using local thresholding!')
-            initial_mask = skimage.filters.threshold_sauvola(image, window_size=3, k=0.95)
+        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
+            image
+        ):
+            print(
+                "Large intensity variations detected in image. Using local thresholding!"
+            )
+            initial_mask = skimage.filters.threshold_sauvola(
+                image, window_size=3, k=0.95
+            )
         else:
             initial_mask = image > mag_threshold * np.max(image)
 
-        opened_mask = skimage.morphology.area_opening(initial_mask, area_threshold=open_threshold)
+        opened_mask = skimage.morphology.area_opening(
+            initial_mask, area_threshold=open_threshold
+        )
         final_mask = skimage.morphology.convex_hull_image(opened_mask)
 
         return final_mask
@@ -199,7 +242,7 @@ class ACRObject:
         y = np.linspace(1, dims[1], dims[1])
 
         X, Y = np.meshgrid(x, y)
-        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius ** 2
+        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius**2
 
         return mask
 
@@ -231,26 +274,28 @@ class ACRObject:
         horizontal_start = (self.centre[1], 0)
         horizontal_end = (self.centre[1], dims[0] - 1)
         horizontal_line_profile = skimage.measure.profile_line(
-                            mask, horizontal_start, horizontal_end)
+            mask, horizontal_start, horizontal_end
+        )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
         horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
 
         vertical_start = (0, self.centre[0])
         vertical_end = (dims[1] - 1, self.centre[0])
         vertical_line_profile = skimage.measure.profile_line(
-                            mask, vertical_start, vertical_end)
+            mask, vertical_start, vertical_end
+        )
         vertical_extent = np.nonzero(vertical_line_profile)[0]
         vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * dy
 
         length_dict = {
-            'Horizontal Start': horizontal_start,
-            'Horizontal End': horizontal_end,
-            'Horizontal Extent': horizontal_extent,
-            'Horizontal Distance': horizontal_distance,
-            'Vertical Start': vertical_start,
-            'Vertical End': vertical_end,
-            'Vertical Extent': vertical_extent,
-            'Vertical Distance': vertical_distance
+            "Horizontal Start": horizontal_start,
+            "Horizontal End": horizontal_end,
+            "Horizontal Extent": horizontal_extent,
+            "Horizontal Distance": horizontal_distance,
+            "Vertical Start": vertical_start,
+            "Vertical End": vertical_end,
+            "Vertical Extent": vertical_extent,
+            "Vertical Distance": vertical_distance,
         }
 
         return length_dict
@@ -305,10 +350,12 @@ class ACRObject:
             A numpy array containing the amplitudes of the N highest peaks identified.
         """
         peaks = scipy.signal.find_peaks(data, height)
-        pk_heights = peaks[1]['peak_heights']
+        pk_heights = peaks[1]["peak_heights"]
         pk_ind = peaks[0]
 
-        peak_heights = pk_heights[(-pk_heights).argsort()[:n]]  # find n highest peak amplitudes
+        peak_heights = pk_heights[
+            (-pk_heights).argsort()[:n]
+        ]  # find n highest peak amplitudes
         peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peak locations
 
         return np.sort(peak_locs), np.sort(peak_heights)
