@@ -3082,7 +3082,7 @@ class TestSpatialResolution(unittest.TestCase):
     def test_get_signal_roi(self):
         pixels = self.hazen_spatial_resolution.dcm_list[0].pixel_array
         signal_roi = self.hazen_spatial_resolution.get_signal_roi(
-            pixels, "right", self.CENTRE, self.CIRCLE
+            pixels, "right", self.CENTRE, self.CIRCLE[0][0][2]
         )
         assert np.mean(signal_roi) == self.SIGNAL_MEAN
 
