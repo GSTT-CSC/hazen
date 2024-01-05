@@ -21,7 +21,7 @@ from hazenlib.utils import Rod
 
 
 class SliceWidth(HazenTask):
-    """Uniformity measurement class for DICOM images of the MagNet phantom
+    """Slice width measurement class for DICOM images of the MagNet phantom
 
     Inherits from HazenTask class
     """
