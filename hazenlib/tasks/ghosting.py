@@ -10,11 +10,21 @@ from hazenlib.HazenTask import HazenTask
 
 
 class Ghosting(HazenTask):
+    """Ghosting measurement class for DICOM images of the MagNet phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
+        """Main function for performing ghosting measurement
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM SeriesDescription + EchoTime + NumberOfAverages, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         results = self.init_result_dict()
         img_desc = self.img_desc(
             self.single_dcm,
@@ -36,26 +46,26 @@ class Ghosting(HazenTask):
 
         return results
 
-    def calculate_ghost_intensity(self, ghost, phantom, noise) -> float:
-        """
-        Calculates the ghost intensity using the formula from IPEM Report 112
-        Ghosting = (Sg-Sn)/(Sp-Sn) x 100%
-
-        Returns:    :float
+    def calculate_ghost_intensity(
+        self, ghost: np.ndarray, phantom: np.ndarray, noise: np.ndarray
+    ) -> float:
+        """Calculates the ghost intensity
 
         References: IPEM Report 112 - Small Bottle Method
-                    MagNET
+                    MagNET, Ghosting = (Sg-Sn)/(Sp-Sn) x 100%
 
+        Args:
+            ghost (np.ndarray):
+            phantom (np.ndarray):
+            noise (np.ndarray):
+
+        Returns:
+            float
         """
 
         if ghost is None or phantom is None or noise is None:
             raise Exception(
                 f"At least one of ghost, phantom and noise ROIs is empty or null"
-            )
-
-        if type(ghost) is not np.ndarray:
-            raise Exception(
-                f"Ghost, phantom and noise ROIs must be of type numpy.ndarray"
             )
 
         ghost_mean = np.mean(ghost)
@@ -67,9 +77,17 @@ class Ghosting(HazenTask):
                 f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
             )
 
-        return 100 * abs((ghost_mean - noise_mean)) / phantom_mean
+        return 100 * abs(ghost_mean - noise_mean) / phantom_mean
 
     def get_signal_bounding_box(self, array: np.ndarray):
+        """_summary_
+
+        Args:
+            array (np.ndarray): _description_
+
+        Returns:
+            tuple: positions of left_column, right_column, upper_row, lower_row
+        """
         max_signal = np.max(array)
 
         signal_limit = np.percentile(max_signal, 0.95) * 0.4
@@ -93,6 +111,15 @@ class Ghosting(HazenTask):
         )
 
     def get_signal_slice(self, bounding_box, slice_radius=5):
+        """_summary_
+
+        Args:
+            bounding_box (_type_): _description_
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            _type_: _description_
+        """
         left_column, right_column, upper_row, lower_row = bounding_box
         centre_row = (upper_row + lower_row) // 2
         centre_column = (left_column + right_column) // 2
@@ -112,6 +139,15 @@ class Ghosting(HazenTask):
         return dcm.InPlanePhaseEncodingDirection
 
     def get_background_rois(self, dcm, signal_centre):
+        """_summary_
+
+        Args:
+            dcm (_type_): _description_
+            signal_centre (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         background_rois = []
 
         if (
@@ -166,6 +202,15 @@ class Ghosting(HazenTask):
         return background_rois
 
     def get_background_slices(self, background_rois, slice_radius=5):
+        """_summary_
+
+        Args:
+            background_rois (_type_): _description_
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            _type_: _description_
+        """
         slices = [
             (
                 np.array(
@@ -181,6 +226,16 @@ class Ghosting(HazenTask):
         return slices
 
     def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
+        """Get pixel array within ROI from image
+
+        Args:
+            signal_bounding_box (_type_): _description_
+            dcm (_type_): _description_
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            _type_: _description_
+        """
         left_column, right_column, upper_row, lower_row = signal_bounding_box
 
         # take into account when phantom is off edge of image
@@ -232,6 +287,16 @@ class Ghosting(HazenTask):
         return eligible_columns, eligible_rows
 
     def get_ghost_slice(self, signal_bounding_box, dcm, slice_radius=5):
+        """_summary_
+
+        Args:
+            signal_bounding_box (tuple or list): _description_
+            dcm (_type_): _description_
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            _type_: _description_
+        """
         eligible_area = self.get_eligible_area(
             signal_bounding_box, dcm, slice_radius=slice_radius
         )
@@ -241,6 +306,14 @@ class Ghosting(HazenTask):
         return ghost_slice
 
     def get_ghosting(self, dcm) -> float:
+        """_summary_
+
+        Args:
+            dcm (_type_): _description_
+
+        Returns:
+            float: _description_
+        """
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
 
         x, y = hazenlib.utils.get_pixel_size(dcm)  # assume square pixels i.e. x=y
