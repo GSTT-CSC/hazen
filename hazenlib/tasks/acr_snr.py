@@ -27,6 +27,11 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSNR(HazenTask):
+    """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
@@ -44,6 +49,16 @@ class ACRSNR(HazenTask):
             self.subtract = None
 
     def run(self) -> dict:
+        """Main function for performing SNR measurement
+        using slice 7 from the ACR phantom image set
+
+        Notes:
+            using the smoothing method by default or the subtraction method if a second set of images are provided (in a separate folder)
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
+        # Identify relevant slice
         snr_dcm = self.ACR_obj.slice7_dcm
         # Initialise results dictionary
         results = self.init_result_dict()
@@ -98,6 +113,15 @@ class ACRSNR(HazenTask):
         return results
 
     def get_normalised_snr_factor(self, dcm, measured_slice_width=None) -> float:
+        """Calculate the normalisation factor to be applied
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+            measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
+
+        Returns:
+            float: normalisation factor
+        """
         dx, dy = hazenlib.utils.get_pixel_size(dcm)
         bandwidth = hazenlib.utils.get_bandwidth(dcm)
         TR = hazenlib.utils.get_TR(dcm)
@@ -121,17 +145,17 @@ class ACRSNR(HazenTask):
         return normalised_snr_factor
 
     def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
-        """
-        Performs a 2D convolution (for filtering images)
-        uses uniform_filter SciPy function
+        """Apply filtering to a pixel array (image)
 
-        parameters:
-        ---------------
-        a: array to be filtered
+        Notes:
+            Performs a 2D convolution (for filtering images)
+            uses uniform_filter SciPy function
 
-        returns:
-        ---------------
-        filtered numpy array
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            np.array: pixel array of the filtered image
         """
         a = dcm.pixel_array.astype("int")
 
@@ -141,17 +165,16 @@ class ACRSNR(HazenTask):
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
-        """
-        Separates the image noise by smoothing the image and subtracting the smoothed image
-        from the original.
+        """Get noise image by subtracting the filtered image from the original pixel array
 
-        parameters:
-        ---------------
-        a: image array from dcmread and .pixelarray
+        Notes:
+            Separates the image noise by smoothing the image and subtracting the smoothed image from the original.
 
-        returns:
-        ---------------
-        Imnoise: image representing the image noise
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            np.array: pixel array representing the image noise
         """
         a = dcm.pixel_array.astype("int")
 
@@ -166,6 +189,17 @@ class ACRSNR(HazenTask):
     def get_roi_samples(
         self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
     ) -> list:
+        """Identify regions of interest
+
+        Args:
+            ax (matplotlib.pyplot.subplots): matplotlib axis for visualisation
+            dcm (pydicom.Dataset or np.ndarray): DICOM image object, or its pixel array
+            centre_col (int): x coordinate of the centre
+            centre_row (int): y coordinate of the centre
+
+        Returns:
+            list of np.array: subsets of the original pixel array
+        """
         if type(dcm) == np.ndarray:
             data = dcm
         else:
@@ -212,17 +246,14 @@ class ACRSNR(HazenTask):
     def snr_by_smoothing(
         self, dcm: pydicom.Dataset, measured_slice_width=None
     ) -> float:
-        """
+        """Calculate signal to noise ratio based on smoothing method
 
-        Parameters
-        ----------
-        dcm
-        measured_slice_width
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+            measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
 
-        Returns
-        -------
-        normalised_snr: float
-
+        Returns:
+            float: normalised_snr
         """
         centre = self.ACR_obj.centre
         col, row = centre
@@ -274,18 +305,17 @@ class ACRSNR(HazenTask):
     def snr_by_subtraction(
         self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None
     ) -> float:
+        """Calculate signal to noise ratio based on subtraction method
+
+        Args:
+            dcm1 (pydicom.Dataset): DICOM image object to calculate signal
+            dcm2 (pydicom.Dataset): DICOM image object to calculate noise
+            measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
+
+        Returns:
+            float: normalised_snr
         """
 
-        Parameters
-        ----------
-        dcm1
-        dcm2
-        measured_slice_width
-
-        Returns
-        -------
-
-        """
         centre = self.ACR_obj.centre
         col, row = centre
 
