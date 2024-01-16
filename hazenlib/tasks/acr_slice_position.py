@@ -38,11 +38,23 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
+    """Slice position measurement class for DICOM images of the ACR phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
+        """Main function for performing slice position measurement
+        using the first and last slices from the ACR phantom image set
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         # Identify relevant slices
         dcms = [self.ACR_obj.dcms[0], self.ACR_obj.dcms[-1]]
 
@@ -63,6 +75,7 @@ class ACRSlicePosition(HazenTask):
                 )
                 traceback.print_exc(file=sys.stdout)
                 continue
+
         # only return reports if requested
         if self.report:
             results["report_image"] = self.report_files
@@ -70,6 +83,16 @@ class ACRSlicePosition(HazenTask):
         return results
 
     def find_wedges(self, img, mask, res):
+        """Find wedges in the pixel array
+
+        Args:
+            img (np.array): dcm.pixel_array
+            mask (np.array): dcm.pixel_array of the image mask
+            res (float): dcm.PixelSpacing
+
+        Returns:
+            tuple: arrays of x and y coordinates of wedges
+        """
         # X COORDINATES
         x_investigate_region = np.ceil(35 / res[0]).astype(
             int
@@ -177,6 +200,14 @@ class ACRSlicePosition(HazenTask):
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
+        """Measure slice position
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            float: bar length difference
+        """
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
         mask = self.ACR_obj.mask_image
@@ -195,20 +226,21 @@ class ACRSlicePosition(HazenTask):
             1, len(line_prof_L) + (1 / interp_factor), (1 / interp_factor)
         )
 
-        interp_line_prof_L = scipy.interpolate.interp1d(x, line_prof_L)(
-            new_x
-        )  # interpolate left line profile
-        interp_line_prof_R = scipy.interpolate.interp1d(x, line_prof_R)(
-            new_x
-        )  # interpolate right line profile
+        # interpolate left line profile
+        interp_line_prof_L = scipy.interpolate.interp1d(x, line_prof_L)(new_x)
 
-        delta = interp_line_prof_L - interp_line_prof_R  # difference of line profiles
+        # interpolate right line profile
+        interp_line_prof_R = scipy.interpolate.interp1d(x, line_prof_R)(new_x)
+
+        # difference of line profiles
+        delta = interp_line_prof_L - interp_line_prof_R
         peaks, _ = ACRObject.find_n_highest_peaks(
             abs(delta), 2, 0.5 * np.max(abs(delta))
         )  # find two highest peaks
 
+        # if only one peak, set dummy range
         if len(peaks) == 1:
-            peaks = [peaks[0] - 50, peaks[0] + 50]  # if only one peak, set dummy range
+            peaks = [peaks[0] - 50, peaks[0] + 50]
 
         # set multiplier for right or left shift based on sign of peak
         pos = (
@@ -221,8 +253,11 @@ class ACRSlicePosition(HazenTask):
         static_line_L = interp_line_prof_L[peaks[0] : peaks[1]]
         static_line_R = interp_line_prof_R[peaks[0] : peaks[1]]
 
-        lag = np.linspace(-50, 50, 101, dtype=int)  # create array of lag values
-        err = np.zeros(len(lag))  # initialise array of errors
+        # create array of lag values
+        lag = np.linspace(-50, 50, 101, dtype=int)
+
+        # initialise array of errors
+        err = np.zeros(len(lag))
 
         for k, lag_val in enumerate(lag):
             difference = static_line_R - np.roll(
@@ -238,16 +273,14 @@ class ACRSlicePosition(HazenTask):
             # calculate difference
             err[k] = 1e10 if np.isnan(difference).all() else np.nanmean(difference)
 
-        temp = np.argwhere(err == np.min(err[err > 0]))[
-            0
-        ]  # find minimum non-zero error
-        shift = (
-            -lag[temp][0] if pos == 1 else lag[temp][0]
-        )  # find shift corresponding to above error
+        # find minimum non-zero error
+        temp = np.argwhere(err == np.min(err[err > 0]))[0]
 
-        dL = (
-            pos * np.abs(shift) * (1 / interp_factor) * res[1]
-        )  # calculate bar length difference
+        # find shift corresponding to above error
+        shift = -lag[temp][0] if pos == 1 else lag[temp][0]
+
+        # calculate bar length difference
+        dL = pos * np.abs(shift) * (1 / interp_factor) * res[1]
 
         if self.report:
             import matplotlib.pyplot as plt

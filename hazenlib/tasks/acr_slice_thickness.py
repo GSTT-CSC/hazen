@@ -44,6 +44,7 @@ class ACRSliceThickness(HazenTask):
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
+        # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.dcms[0]
 
         # Initialise results dictionary
