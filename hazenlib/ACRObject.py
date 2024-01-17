@@ -150,7 +150,7 @@ class ACRObject:
         radius = int(detected_circles[2])
         return centre, radius
 
-    def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
+    def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
         """
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
