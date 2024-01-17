@@ -33,11 +33,23 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRGeometricAccuracy(HazenTask):
+    """Geometric accuracy measurement class for DICOM images of the ACR phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
+        """Main function for performing geometric accuracy measurement
+        using the first and fifth slices from the ACR phantom image set
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
+
         # Identify relevant slices
         slice1_dcm = self.ACR_obj.dcms[0]
         slice5_dcm = self.ACR_obj.dcms[4]
@@ -89,6 +101,14 @@ class ACRGeometricAccuracy(HazenTask):
         return results
 
     def get_geometric_accuracy_slice1(self, dcm):
+        """Measure geometric accuracy for slice 1
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            tuple of float: horizontal and vertical distances
+        """
         img = dcm.pixel_array
 
         mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
@@ -147,6 +167,14 @@ class ACRGeometricAccuracy(HazenTask):
         return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
 
     def get_geometric_accuracy_slice5(self, dcm):
+        """Measure geometric accuracy for slice 5
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            tuple of floats: horizontal and vertical distances, as well as diagonals (SW, SE)
+        """
         img = dcm.pixel_array
         mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
         cxy = self.ACR_obj.centre
@@ -234,6 +262,15 @@ class ACRGeometricAccuracy(HazenTask):
         )
 
     def diagonal_lengths(self, img, cxy):
+        """Measure diagonal lengths
+
+        Args:
+            img (np.array): dcm.pixel_array
+            cxy (list): x,y coordinates and radius of the circle
+
+        Returns:
+            tuple of dictionaries: _description_
+        """
         res = self.ACR_obj.pixel_spacing
         eff_res = np.sqrt(np.mean(np.square(res)))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
@@ -280,6 +317,14 @@ class ACRGeometricAccuracy(HazenTask):
 
     @staticmethod
     def distortion_metric(L):
+        """Calculate the distortion metric based on length
+
+        Args:
+            L (tuple): horizontal and vertical distances from slices 1 and 5
+
+        Returns:
+            tuple of floats: mean_err, max_err, cov_l
+        """
         err = [x - 190 for x in L]
         mean_err = np.mean(err)
 

@@ -10,14 +10,14 @@ class ACRObject:
         self.dcm_list = dcm_list
         # Load files as DICOM and their pixel arrays into 'images'
         self.images, self.dcms = self.sort_images()
-        # Store the DCM object of slice 7 as it is used often
-        self.slice7_dcm = self.dcms[6]
         # Store the pixel spacing value from the first image (expected to be the same for all)
         self.pixel_spacing = self.dcms[0].PixelSpacing
         # Check whether images of the phantom are the correct orientation
         self.orientation_checks()
         # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
+        # Store the DCM object of slice 7 as it is used often
+        self.slice7_dcm = self.dcms[6]
         # Find the centre coordinates of the phantom (circle)
         self.centre, self.radius = self.find_phantom_center()
         # Store a mask image of slice 7 for reusability
@@ -35,6 +35,11 @@ class ACRObject:
             A sorted stack of dicoms
         """
 
+        # TODO: implement a check if phantom was placed in other than axial position
+        # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
+
+        # x = np.array([dcm.ImagePositionPatient[0] for dcm in self.dcm_list])
+        # y = np.array([dcm.ImagePositionPatient[1] for dcm in self.dcm_list])
         z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
         dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
@@ -151,6 +156,7 @@ class ACRObject:
         """
         img = self.images[6]
         dx, dy = self.pixel_spacing
+
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
@@ -164,20 +170,23 @@ class ACRObject:
             minRadius=int(180 / (2 * dy)),
             maxRadius=int(200 / (2 * dx)),
         ).flatten()
-
         centre = [int(i) for i in detected_circles[:2]]
         radius = int(detected_circles[2])
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
-        """
+        """Create a masked pixel array
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
-        Returns
-        -------
-        np.array:
-            The masked image.
+        Args:
+            image (_type_): _description_
+            mag_threshold (float, optional): magnitude threshold. Defaults to 0.05.
+            open_threshold (int, optional): open threshold. Defaults to 500.
+
+        Returns:
+            np.array:
+                The masked image.
         """
         test_mask = self.circular_mask(
             self.centre, (80 // self.pixel_spacing[0]), image.shape

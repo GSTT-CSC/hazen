@@ -43,28 +43,33 @@ from hazenlib.logger import logger
 
 
 class SNRMap(HazenTask):
+    """Signal-to-noise ratio mapping class for DICOM images of the MagNet phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
         # Initialise variables
-        self.kernel_len = 9
+        self.kernel_size = 9
         self.roi_size = 20
         self.roi_distance = 40
         # ----
         # * Scale ROI distance to account for different image sizes.
-        # * Pass kernel_len and roi_size parameters from command line.
+        # * Pass kernel_size and roi_size parameters from command line.
 
     def run(self):
-        """
+        """Main function for performing signal-to-noise ratio mapping
         Returns SNR parametric map on flood phantom DICOM file.
 
-        Five square ROIs are created, one at the image centre, and four peripheral
-        ROIs with their centres displaced at 45, 135, 225 and 315 degrees from the
-        centre. Displays and saves a parametric map.
+        Notes:
+            Five square ROIs are created, one at the image centre, and four peripheral
+            ROIs with their centres displaced at 45, 135, 225 and 315 degrees from the
+            centre. Displays and saves a parametric map.
 
-        Returns
-        -------
-        results : dict
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
         img_desc = self.img_desc(self.single_dcm)
@@ -73,7 +78,7 @@ class SNRMap(HazenTask):
         #  Create original, smoothed and noise images
         #  ==========================================
         original, smoothed, noise = self.smooth(
-            dcm=self.single_dcm, kernel=self.kernel_len
+            dcm=self.single_dcm, kernel=self.kernel_size
         )
 
         """
@@ -135,17 +140,14 @@ class SNRMap(HazenTask):
         return results
 
     def smooth(self, dcm, kernel: int = 9):
-        """
-        Create noise and smoothed images from original_image.
+        """Create noise and smoothed images from original_image.
 
-        Parameters
-        ----------
-        kernel : int
-            Kernel used for smoothing. Default is 9x9 boxcar.
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+            kernel (int): Kernel used for smoothing. Default is 9x9 boxcar.
 
-        Returns
-        -------
-        original, smoothed and noise images
+        Returns:
+            tuple of np.ndarray: original, smoothed and noise images (pixel array)
         """
         original_image = dcm.pixel_array.astype(float)
 
@@ -165,10 +167,10 @@ class SNRMap(HazenTask):
         smooth_image = ndimage.filters.convolve(original_image, normalised_kernel)
 
         #  Alternative method 1: OpenCV.
-        # smooth_image = cv2.blur(original_image, (kernel_len, kernel_len))
+        # smooth_image = cv2.blur(original_image, (kernel_size, kernel_size))
 
         #  Alternative method 2: scipy.ndimage.
-        # kernel = np.ones([kernel_len, kernel_len], float)
+        # kernel = np.ones([kernel_size, kernel_size], float)
         # kernel = kernel / kernel.sum() # normalise kernel
         # smooth_image = ndimage.filters.convolve(original_image, kernel)
         #  Note: filters.convolve and filters.correlate produce identical output
@@ -179,11 +181,13 @@ class SNRMap(HazenTask):
         return original_image, smooth_image, noise_image
 
     def get_rois(self, smooth_image):
-        """
-        Identify phantom and generate ROI locations.
+        """Identify phantom and generate ROI locations.
+
+        Args:
+            smooth_image (np.ndarray): pixel array of the smoothed image
 
         Returns:
-        image_centre, roi_corners
+            tuple of image_centre (tuple), roi_corners (list of int)
         """
 
         # Threshold from smooth_image to reduce noise effects
@@ -207,8 +211,15 @@ class SNRMap(HazenTask):
         return image_centre, roi_corners
 
     def calc_snr(self, original_image, noise_image, roi_corners):
-        """
-        Calculate SNR from original_image and noise_image.
+        """Calculate SNR from original_image and noise_image.
+
+        Args:
+            original_image (np.ndarray): original pixel array
+            noise_image (np.ndarray): pixel array of the image noise
+            roi_corners (list): list of tuples corresponding to coordinates of the ROI corners
+
+        Returns:
+            float: signal to noise ratio value
         """
         roi_signal = []
         roi_noise = []
@@ -232,11 +243,14 @@ class SNRMap(HazenTask):
         return snr
 
     def calc_snr_map(self, original_image, noise_image):
-        """
-        Calculate SNR map from original_image and noise_image.
+        """Calculate SNR map from original_image and noise_image.
+
+        Args:
+            original_image (np.ndarray): original pixel array
+            noise_image (np.ndarray): pixel array of the image noise
 
         Returns:
-        snr_map
+            snr_map
         """
         #  If you need a faster (less transparent) implementation, see:
         #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
@@ -250,18 +264,15 @@ class SNRMap(HazenTask):
         return snr_map
 
     def draw_roi_rectangles(self, roi_corners, ax):
-        """
-        Add ROI rectangle overlays to plot.
+        """Add ROI rectangle overlays to plot.
 
-        Parameters
-        ----------
-        ax : matplotlib.axes
-            Add the ROIs to the axes.
+        Args:
+            roi_corners (list): list of coordinates (col, row) of ROI corners
+            ax (matplotlib.axes): diagram axes to visualise rectangles on
 
-
-        Returns
-        -------
-        None
+        Returns:
+            None
+                adds rectangle overlay to matplotlib axes
 
         """
         for corner in roi_corners:
@@ -276,18 +287,16 @@ class SNRMap(HazenTask):
             ax.add_patch(rect)
 
     def plot_snr_map(self, snr_map, fig, ax):
-        """
-        Add SNR map to a figure axis.
+        """Add SNR map to a figure axis.
 
-        Parameters
-        ----------
-        fig : figure handle
-
-        ax : axes handle within figure
+        Args:
+            snr_map (__type__): SNR map diagram to visualise
+            fig (matplotlib.pyplot.fig): figure handle
+            ax (matplotlib.axes): diagram axes to visualise rectangles on
 
         Returns
-        -------
-        None
+            None
+                adds SNR map overlay to matplotlib axes on figure
         """
         para_im = ax.imshow(snr_map, cmap="viridis", vmin=0)
         cax = fig.add_axes(
@@ -311,13 +320,19 @@ class SNRMap(HazenTask):
         image_centre,
         roi_corners,
     ):
-        """
-        Create 4-image detailed SNR map plots
+        """Create 4-image detailed SNR map plots
 
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            Handle to plot
+        Args:
+            original_image (np.ndarray): original image pixel array
+            smooth_image (np.ndarray): smoothed pixel array
+            noise_image (np.ndarray): noise image pixel array
+            snr (float): SNR value to add to the plot title
+            snr_map (np.ndarray): _description_
+            image_centre (tuple or list): coordinates of the image centre
+            roi_corners (list of list): coordinates (col, row) of ROI corners
+
+        Returns:
+            matplotlib.figure.Figure: figure handle with plots
         """
         fig, axs = plt.subplots(1, 4, sharex=True, sharey=True, figsize=(8, 2.8))
         fig.suptitle(
@@ -343,18 +358,15 @@ class SNRMap(HazenTask):
         return fig
 
     def plot_summary(self, snr_map, original_image, roi_corners):
-        """
-        Create 2-image summary SNR map plot.
+        """Create 2-image summary SNR map plot.
 
-        Parameters
-        ----------
-        original_image
+        Args:
+            original_image (np.ndarray): original image pixel array
+            snr_map (np.ndarray): _description_
+            roi_corners (list of list): coordinates (col, row) of ROI corners
 
-        Returns
-        -------
-        fig : matplotlib.figure.Figure
-            Handle to plot
-
+        Returns:
+            matplotlib.figure.Figure: figure handle with plots
         """
         fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(6, 2.8))
         axs[0].imshow(original_image, cmap="gray")

@@ -25,6 +25,11 @@ from hazenlib.logger import logger
 
 
 class SNR(HazenTask):
+    """Signal-to-noise ratio measurement class for DICOM images of the MagNet phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -45,10 +50,21 @@ class SNR(HazenTask):
             self.kernel_size = 9
 
     def run(self) -> dict:
+        """Main function for performing signal-to-noise ratio measurement
+
+        Notes:
+            Five square ROIs are created, one at the image centre, and four peripheral
+            ROIs with their centres displaced at 45, 135, 225 and 315 degrees from the
+            centre.
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         results = self.init_result_dict()
         results["file"] = [self.img_desc(img) for img in self.dcm_list]
         results["measurement"]["snr by smoothing"] = {}
 
+        # SUBTRACTION METHOD with a pair of input files
         if len(self.dcm_list) == 2:
             snr, normalised_snr = self.snr_by_subtraction(
                 self.dcm_list[0], self.dcm_list[1], self.measured_slice_width
@@ -58,6 +74,7 @@ class SNR(HazenTask):
                 "normalised": round(normalised_snr, 2),
             }
 
+        # SINGLE METHOD (SMOOTHING) for every input file
         for idx, dcm in enumerate(self.dcm_list):
             snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
             results["measurement"]["snr by smoothing"][self.img_desc(dcm)] = {
@@ -72,18 +89,17 @@ class SNR(HazenTask):
         return results
 
     def two_inputs_match(self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset) -> bool:
+        """Check if two DICOMs are sufficiently similar, based on the following fields
+            "StudyInstanceUID", "RepetitionTime", "EchoTime", "FlipAngle"
+
+        Args:
+            dcm1 (pydicom.Dataset): DICOM object to compare
+            dcm2 (pydicom.Dataset): _description_
+
+        Returns:
+            bool: _description_
         """
-        Checks if two DICOMs are sufficiently similar
 
-        Parameters
-        ----------
-        dcm1
-        dcm2
-
-        Returns
-        -------
-
-        """
         fields_to_match = [
             "StudyInstanceUID",
             "RepetitionTime",
@@ -99,20 +115,20 @@ class SNR(HazenTask):
     def get_normalised_snr_factor(
         self, dcm: pydicom.Dataset, measured_slice_width=None
     ) -> float:
-        """
-        Calculates SNR normalisation factor. Method matches MATLAB script.
-        Utilises user provided slice_width if provided. Else finds from dcm.
-        Finds dx, dy and bandwidth from dcm.
-        Seeks to find TR, image columns and rows from dcm. Else uses default values.
+        """Calculates SNR normalisation factor.
 
-        Parameters
-        ----------
-        dcm, measured_slice_width
+        Notes:
+            Method matches MATLAB script.
+            Utilises user provided slice_width if provided. Else finds from dcm.
+            Finds dx, dy and bandwidth from dcm.
+            Seeks to find TR, image columns and rows from dcm. Else uses default values.
 
-        Returns
-        -------
-        normalised snr factor: float
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+            measured_slice_width (float or None): slice width from user input
 
+        Returns:
+            float: normalised snr factor
         """
 
         dx, dy = hazenlib.utils.get_pixel_size(dcm)
@@ -139,39 +155,32 @@ class SNR(HazenTask):
         return normalised_snr_factor
 
     def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
-        """
-        Performs a 2D convolution (for filtering images)
-        uses uniform_filter SciPy function
+        """Performs a 2D convolution (for filtering images)
+        using uniform_filter SciPy function and a kernel size based on user input coil
 
-        parameters:
-        ---------------
-        a: array to be filtered
+        Args:
+            dcm (pydicom.Dataset): DICOM image to be filtered
 
-        returns:
-        ---------------
-        filtered numpy array
+        Returns:
+            np.array: filtered image pixel values
         """
         a = dcm.pixel_array.astype("int")
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013 recommends 25x25 for body coil.
 
         # 9 for head coil, 25 for body coil
-        # TODO make kernel size optional
         filtered_array = ndimage.uniform_filter(a, self.kernel_size, mode="constant")
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
-        """
-        Separates the image noise by smoothing the image and subtracting the smoothed image
-        from the original.
+        """Separates the image noise
+        by smoothing the image and subtracting the smoothed image from the original.
 
-        parameters:
-        ---------------
-        a: image array from dcmread and .pixelarray
+        Args:
+            dcm (pydicom.Dataset): DICOM image to get noise from
 
-        returns:
-        ---------------
-        Imnoise: image representing the image noise
+        Returns:
+            np.array: pixel array representing the image noise
         """
         a = dcm.pixel_array.astype("int")
 
@@ -184,23 +193,20 @@ class SNR(HazenTask):
         return imnoise
 
     def threshold_image(self, dcm: pydicom.Dataset):
-        """
-        Threshold images
+        """Determine threshold and mask based on image
 
-        parameters:
-        ---------------
-        a: image array from dcmread and .pixelarray
+        Args:
+            dcm (pydicom.Dataset): DICOM image to get noise from
 
-        returns:
-        ---------------
-        imthresholded: thresholded image
-        mask: threshold mask
+        Returns:
+            tuple of np.array: (imthresholded, mask)
+                pixel array representing the image above threshold
+                and a corresponding mask
         """
         a = dcm.pixel_array.astype("int")
 
-        threshold_value = skimage.filters.threshold_li(
-            a
-        )  # threshold_li: Pixels > this value are assumed foreground
+        # threshold_li: Pixels > this value are assumed foreground
+        threshold_value = skimage.filters.threshold_li(a)
         # print('threshold_value =', threshold_value)
         mask = a > threshold_value
         imthresholded = np.zeros_like(a)
@@ -219,16 +225,13 @@ class SNR(HazenTask):
         return imthresholded, mask
 
     def get_binary_mask_centre(self, binary_mask) -> (int, int):
-        """
-        Return centroid coordinates of binary polygonal shape
+        """Determine coordinates of binary polygonal shape's centre
 
-        parameters:
-        ---------------
-        binary_mask: mask of a shape
+        Args:
+            binary_mask: mask of a shape
 
-        returns:
-        ---------------
-        centroid_coords: (col:int, row:int)
+        Returns:
+            tuple of int corresponding to centroid_coords: (col:int, row:int)
         """
 
         from skimage import util
@@ -246,6 +249,17 @@ class SNR(HazenTask):
     def get_roi_samples(
         self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
     ) -> list:
+        """Determine region of interest from a pixel array
+
+        Args:
+            ax (matplotlib axes): diagram axis for visualisation with matplotlib
+            dcm (pydicom.Dataset or np.ndarray): image pixel array
+            centre_col (int): center coordinate column
+            centre_row (int): center coordinate row
+
+        Returns:
+            list of np.ndarray: corresponding to pixel array subsets at predefined ROI
+        """
         if type(dcm) == np.ndarray:
             data = dcm
         else:
@@ -290,15 +304,14 @@ class SNR(HazenTask):
         return sample
 
     def get_object_centre(self, dcm) -> (int, int):
-        """
-        Find the phantom object within the image and returns its centre col and row value. Note first element in output = col, second = row.
+        """Find the phantom object within the image and return its centre col and row value.
+        Note first element in output = col, second = row.
 
         Args:
-            dcm:
+            dcm (pydicom.Dataset): DICOM image to get noise from
 
         Returns:
-            centre: (col:int, row:int)
-
+            tuple of int corresponding to centroid_coords: (col:int, row:int)
         """
 
         # Shape Detection
@@ -349,20 +362,15 @@ class SNR(HazenTask):
 
         return int(col), int(row)
 
-    def snr_by_smoothing(
-        self, dcm: pydicom.Dataset, measured_slice_width=None
-    ) -> float:
-        """
+    def snr_by_smoothing(self, dcm: pydicom.Dataset, measured_slice_width=None):
+        """Calculate signal to noise ratio by smoothing
 
-        Parameters
-        ----------
-        dcm
-        measured_slice_width
-        report_path
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+            measured_slice_width (float or None): slice width from user input
 
-        Returns
-        -------
-        normalised_snr: float
+        Returns:
+            tuple of float: SNR and normalised SNR values
 
         """
         col, row = self.get_object_centre(dcm=dcm)
@@ -409,31 +417,34 @@ class SNR(HazenTask):
         return snr, normalised_snr
 
     def get_largest_circle(self, circles):
-        largest_r = 0
-        largest_col, largest_row = 0, 0
+        """Determine circle with largest radius from list of detected circles
+
+        Args:
+            circles (_type_): _description_
+
+        Returns:
+            tuple: of centre coordinates (col, row) and radius (float)
+        """
+        largest_col, largest_row, largest_r = 0, 0, 0
         for circle in circles:
             (col, row), r = cv.minEnclosingCircle(circle)
             if r > largest_r:
-                largest_r = r
-                largest_col, largest_row = col, row
+                largest_col, largest_row, largest_r = col, row, r
 
         return largest_col, largest_row, largest_r
 
     def snr_by_subtraction(
         self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None
-    ) -> float:
-        """
+    ):
+        """Calculate signal to noise ratio by smoothing
 
-        Parameters
-        ----------
-        dcm1
-        dcm2
-        measured_slice_width
-        report_path
+        Args:
+            dcm1 (pydicom.Dataset): DICOM image object for signal
+            dcm2 (pydicom.Dataset): DICOM image object for noise calculation
+            measured_slice_width (float or None): slice width from user input
 
-        Returns
-        -------
-
+        Returns:
+            tuple of float: SNR and normalised SNR values
         """
         col, row = self.get_object_centre(dcm=dcm1)
 

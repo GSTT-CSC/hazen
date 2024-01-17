@@ -26,7 +26,7 @@ class TestSnrMap(unittest.TestCase):
         self.snr_map_task = SNRMap(input_data=self.siemens_1, report=True)
         self.results = self.snr_map_task.run()
         self.original, self.smoothed, self.noise = self.snr_map_task.smooth(
-            dcm=self.snr_map_task.single_dcm, kernel=self.snr_map_task.kernel_len
+            dcm=self.snr_map_task.single_dcm, kernel=self.snr_map_task.kernel_size
         )
         self.image_centre, self.roi_corners = self.snr_map_task.get_rois(self.smoothed)
         self.snr = self.snr_map_task.calc_snr(

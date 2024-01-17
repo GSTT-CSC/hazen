@@ -29,11 +29,22 @@ from hazenlib.HazenTask import HazenTask
 
 
 class Uniformity(HazenTask):
+    """Uniformity measurement class for DICOM images of the MagNet phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Set the single DICOM input to be the first in the list
         self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
+        """Main function for performing uniformity measurement
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         results = self.init_result_dict()
         results["file"] = self.img_desc(self.single_dcm)
 
@@ -47,7 +58,7 @@ class Uniformity(HazenTask):
             }
         except Exception as e:
             print(
-                f"Could test not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}"
+                f"Could not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}"
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -58,17 +69,15 @@ class Uniformity(HazenTask):
         return results
 
     def mode(self, a, axis=0):
-        """
-        Finds the modal value of an array. From scipy.stats.mode
+        """Finds the modal value of an array. From scipy.stats.mode
 
-        Parameters:
-        ---------------
-        a: array
+        Args:
+            a (np.array): _description_
+            axis (int, optional): Axis to calculate mode along. Defaults to 0.
 
         Returns:
-        ---------------
-        most_frequent: the modal value
-        old_counts: the number of times this value was counted (check this)
+            most_frequent: the modal value
+            old_counts: the number of times this value was counted (check this)
         """
         scores = np.unique(np.ravel(a))  # get ALL unique values
         test_shape = list(a.shape)
@@ -87,6 +96,17 @@ class Uniformity(HazenTask):
         return most_frequent, old_counts
 
     def get_object_centre(self, dcm):
+        """Locate centre coordinates
+
+        Args:
+            dcm (pydicom.FileDataset): DICOM image object
+
+        Raises:
+            Exception: _description_
+
+        Returns:
+            tuple: x and y coordinates
+        """
         arr = dcm.pixel_array
         shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
         orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
@@ -108,7 +128,16 @@ class Uniformity(HazenTask):
         return int(x), int(y)
 
     def get_fractional_uniformity(self, dcm):
+        """Get fractional uniformity
+
+        Args:
+            dcm (pydicom.FileDataset): DICOM image object
+
+        Returns:
+            tuple: values of horizontal and vertical fractional uniformity
+        """
         arr = dcm.pixel_array
+        print(type(dcm))
         x, y = self.get_object_centre(dcm)
 
         central_roi = arr[(y - 5) : (y + 5), (x - 5) : (x + 5)].flatten()

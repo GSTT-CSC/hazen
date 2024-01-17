@@ -50,11 +50,22 @@ from hazenlib.logger import logger
 
 
 class ACRSpatialResolution(HazenTask):
+    """Spatial resolution measurement class for DICOM images of the ACR phantom
+
+    Inherits from HazenTask class
+    """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
+        """Main function for performing spatial resolution measurement
+        using slice 1 from the ACR phantom image set
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
         rot_ang = self.ACR_obj.rot_angle
         if np.abs(rot_ang) < 3:
             logger.warning(
@@ -89,6 +100,16 @@ class ACRSpatialResolution(HazenTask):
         return results
 
     def y_position_for_ramp(self, res, img, cxy):
+        """Identify the y coordinate of the ramp
+
+        Args:
+            res (int or float): dcm.PixelSpacing
+            img (np.ndarray): dcm.pixelarray
+            cxy (tuple): x,y coordinates of the object centre
+
+        Returns:
+            float: y coordinate of the ramp min
+        """
         investigate_region = int(np.ceil(5.5 / res[1]).item())
 
         if np.mod(investigate_region, 2) == 0:
@@ -115,6 +136,17 @@ class ACRSpatialResolution(HazenTask):
         return y
 
     def crop_image(self, img, x, y, width):
+        """Return a rectangular subset of a pixel array
+
+        Args:
+            img (np.ndarray): dcm.pixelarray
+            x (int): x coordinate of centre
+            y (int): y coordinate of centre
+            width (int): size of the array top subset
+
+        Returns:
+            np.ndarray: subset of a pixel array with given width
+        """
         crop_x, crop_y = (x - width // 2, x + width // 2), (
             y - width // 2,
             y + width // 2,
@@ -124,6 +156,14 @@ class ACRSpatialResolution(HazenTask):
         return crop_img
 
     def get_edge_type(self, crop_img):
+        """Determine direction of ramp edge
+
+        Args:
+            crop_img (np.ndarray): cropped pixel array ~ subset of the image
+
+        Returns:
+            tuple of string: vertical/horizontal and up/down or left/rigtward
+        """
         edge_sum_rows = np.sum(crop_img, axis=1).astype(np.int_)
         edge_sum_cols = np.sum(crop_img, axis=0).astype(np.int_)
 
@@ -150,6 +190,15 @@ class ACRSpatialResolution(HazenTask):
         return edge_type, direction
 
     def edge_location_for_plot(self, crop_img, edge_type):
+        """Determine the location of the edge so it can be visualised
+
+        Args:
+            crop_img (np.array): cropped pixel array ~ subset of the image
+            edge_type (tuple): vertical/horizontal and up/down or left/rigtward
+
+        Returns:
+            np.array: mask array for edge location
+        """
         thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
 
         naive_lsf = (
@@ -166,6 +215,16 @@ class ACRSpatialResolution(HazenTask):
         return edge_loc
 
     def fit_normcdf_surface(self, crop_img, edge_type, direction):
+        """Fit normalised CDF? to surface
+
+        Args:
+            crop_img (np.array): cropped pixel array ~ subset of the image
+            edge_type (string): vertical/horizontal
+            direction (string): up/down or left/rigtward
+
+        Returns:
+            tuple of floats: slope, surface
+        """
         thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
         temp_x = np.linspace(1, thresh_roi_crop.shape[1], thresh_roi_crop.shape[1])
         temp_y = np.linspace(1, thresh_roi_crop.shape[0], thresh_roi_crop.shape[0])
@@ -175,6 +234,18 @@ class ACRSpatialResolution(HazenTask):
         dark = 20 + np.min(crop_img[~thresh_roi_crop])
 
         def func(x, slope, mu, bright, dark):
+            """Maths function
+
+            Args:
+                x (_type_): _description_
+                slope (_type_): _description_
+                mu (_type_): _description_
+                bright (_type_): _description_
+                dark (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             norm_cdf = (bright - dark) * scipy.stats.norm.cdf(
                 x[0], mu + slope * x[1], 0.5
             ) + dark
@@ -200,6 +271,16 @@ class ACRSpatialResolution(HazenTask):
         return slope, surface
 
     def sample_erf(self, crop_img, slope, edge_type):
+        """_summary_
+
+        Args:
+            crop_img (np.array): cropped pixel array ~ subset of the image
+            slope (float): value of slope of edge
+            edge_type (string): vertical/horizontal
+
+        Returns:
+            np.array: _description_
+        """
         resamp_factor = 8
         if edge_type == "horizontal":
             resample_crop_img = cv2.resize(
@@ -253,12 +334,33 @@ class ACRSpatialResolution(HazenTask):
         return erf
 
     def fit_erf(self, erf):
+        """Fit ERF
+
+        Args:
+            erf (np.array): _description_
+
+        Returns:
+            _type_: _description_
+        """
         true_erf = np.diff(erf) > 0.2 * np.max(np.diff(erf))
         turning_points = np.where(true_erf)[0][0], np.where(true_erf)[0][-1]
         weights = 0.5 * np.ones((len(true_erf) + 1))
         weights[turning_points[0] : turning_points[1]] = 1
 
         def func(x, a, b, c, d, e):
+            """Maths function for sigmoid curve equation
+
+            Args:
+                x (_type_): _description_
+                a (_type_): _description_
+                b (_type_): _description_
+                c (_type_): _description_
+                d (_type_): _description_
+                e (_type_): _description_
+
+            Returns:
+                _type_: _description_
+            """
             sigmoid = a + b / (1 + np.exp(c * (x - d))) ** e
 
             return sigmoid
@@ -278,6 +380,15 @@ class ACRSpatialResolution(HazenTask):
         return erf_fit
 
     def calculate_MTF(self, erf, res):
+        """Calculate MTF
+
+        Args:
+            erf (np.array): array of ?
+            res (float): dcm.PixelSpacing
+
+        Returns:
+            tuple: freq, lsf, MTF
+        """
         lsf = np.diff(erf)
         N = len(lsf)
         n = (
@@ -299,6 +410,15 @@ class ACRSpatialResolution(HazenTask):
         return freq, lsf, MTF
 
     def identify_MTF50(self, freq, MTF):
+        """Calculate effective resolution
+
+        Args:
+            freq (float or int): _description_
+            MTF (float or int): _description_
+
+        Returns:
+            float: _description_
+        """
         freq_interp = np.arange(0, 1.005, 0.005)
         MTF_interp = np.interp(
             freq_interp, freq, MTF, left=None, right=None, period=None
@@ -309,11 +429,20 @@ class ACRSpatialResolution(HazenTask):
         return eff_res
 
     def get_mtf50(self, dcm):
+        """_summary_
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            tuple: _description_
+        """
         img = dcm.pixel_array
         res = dcm.PixelSpacing
         cxy = self.ACR_obj.centre
 
-        ramp_x, ramp_y = int(cxy[0]), self.y_position_for_ramp(res, img, cxy)
+        ramp_x = int(cxy[0])
+        ramp_y = self.y_position_for_ramp(res, img, cxy)
         width = int(13 * img.shape[0] / 256)
         crop_img = self.crop_image(img, ramp_x, ramp_y, width)
         edge_type, direction = self.get_edge_type(crop_img)

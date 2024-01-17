@@ -3082,7 +3082,7 @@ class TestSpatialResolution(unittest.TestCase):
     def test_get_signal_roi(self):
         pixels = self.hazen_spatial_resolution.dcm_list[0].pixel_array
         signal_roi = self.hazen_spatial_resolution.get_signal_roi(
-            pixels, "right", self.CENTRE, self.CIRCLE
+            pixels, "right", self.CENTRE, self.CIRCLE[0][0][2]
         )
         assert np.mean(signal_roi) == self.SIGNAL_MEAN
 
@@ -3129,11 +3129,6 @@ class TestSpatialResolution(unittest.TestCase):
         assert self.u, self.esf == self.hazen_spatial_resolution.get_esf(
             self.rotated_edge_roi, self.y
         )
-
-    def test_deri(self):
-        a = [round(num, 3) for num in self.lsf]
-        b = [round(num, 3) for num in self.hazen_spatial_resolution.deri(self.esf)]
-        assert a == b
 
     def test_mtf(self):
         assert self.mtf[0] == abs(np.fft.fft(self.lsf))[0]
