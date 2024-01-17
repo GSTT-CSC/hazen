@@ -49,18 +49,12 @@ class TestGhosting(unittest.TestCase):
         )
 
     def test_calculate_ghost_intensity(self):
-        # with pytest.raises(Exception):
-        #     _ = self.ghosting.calculate_ghost_intensity([], [], [])
-
-        # with pytest.raises(Exception):
-        #     self.ghosting.calculate_ghost_intensity(-1, 100, 5)
-
-        # with pytest.raises(Exception):
-        #     self.ghosting.calculate_ghost_intensity(
-        #         ghost=np.asarray([-10]),
-        #         phantom=np.asarray([-100]),
-        #         noise=np.asarray([-5]),
-        #     )
+        with pytest.raises(Exception):
+            self.ghosting.calculate_ghost_intensity(
+                ghost=np.asarray([-10]),
+                phantom=np.asarray([-100]),
+                noise=np.asarray([-5]),
+            )
 
         assert 5.0 == self.ghosting.calculate_ghost_intensity(
             ghost=np.asarray([10]), phantom=np.asarray([100]), noise=np.asarray([5])
