@@ -60,7 +60,7 @@ class SpatialResolution(HazenTask):
         return results
 
     def get_circles(self, image):
-        """Locate Hugh Circles in a DICOM pixel array
+        """Locate Hough Circles in a DICOM pixel array
 
         Args:
             image (array): DICOM pixel array rescaled to byte

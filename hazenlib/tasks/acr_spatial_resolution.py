@@ -334,7 +334,7 @@ class ACRSpatialResolution(HazenTask):
         return erf
 
     def fit_erf(self, erf):
-        """Fit sigmoid function to erf?
+        """Fit ERF
 
         Args:
             erf (np.array): _description_
@@ -348,7 +348,7 @@ class ACRSpatialResolution(HazenTask):
         weights[turning_points[0] : turning_points[1]] = 1
 
         def func(x, a, b, c, d, e):
-            """Some more magic maths
+            """Maths function for sigmoid curve equation
 
             Args:
                 x (_type_): _description_

@@ -35,12 +35,12 @@ class ACRObject:
             A sorted stack of dicoms
         """
 
+        # TODO: implement a check if phantom was placed in other than axial position
+        # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
+
         # x = np.array([dcm.ImagePositionPatient[0] for dcm in self.dcm_list])
-        # print(x)
         # y = np.array([dcm.ImagePositionPatient[1] for dcm in self.dcm_list])
-        # print(y)
         z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
-        # print(z)
         dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
 
