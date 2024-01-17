@@ -432,10 +432,10 @@ class ACRSpatialResolution(HazenTask):
         """_summary_
 
         Args:
-            dcm (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
 
         Returns:
-            _type_: _description_
+            tuple: _description_
         """
         img = dcm.pixel_array
         res = dcm.PixelSpacing
