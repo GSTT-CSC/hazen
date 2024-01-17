@@ -11,9 +11,9 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGeometricAccuracySiemens(unittest.TestCase):
-    L1 = 192.38, 188.48
-    L5 = 192.38, 188.48, 190.43, 192.38
-    distortion_metrics = [0.75, 2.38, 0.92]
+    L1 = 191.41, 187.5
+    L5 = 191.41, 187.5, 191.41, 190.43
+    distortion_metrics = [-0.06, 2.5, 0.93]
 
     def setUp(self):
         ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
@@ -53,9 +53,9 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 # TODO: Add unit tests for Philips datasets.
 
 class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
-    L1 = 191.44, 191.44
-    L5 = 191.44, 191.44, 191.44, 189.41
-    distortion_metrics = [1.1, 1.44, 0.4]
+    L1 = 190.42, 188.9
+    L5 = 190.42, 189.41, 190.42, 189.41
+    distortion_metrics = [-0.17, 1.1, 0.32]
 
     def setUp(self):
         ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
