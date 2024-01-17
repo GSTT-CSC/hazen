@@ -35,11 +35,9 @@ class ACRObject:
     def sort_images(self):
         """Sort a stack of images based on slice position.
 
-
         Returns:
-            tuple of lists:
-                img_stack - list of np.array of dcm.pixel_array
-                    A sorted stack of images, where each image is represented as a 2D numpy array.
+            tuple of lists: img_stack and dcm_stack
+                img_stack - list of np.array of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
                 dcm_stack - list of pydicom.Dataset objects
         """
         # TODO: implement a check if phantom was placed in other than axial position
@@ -55,11 +53,10 @@ class ACRObject:
 
     def orientation_checks(self):
         """Perform orientation checks on a set of images to determine if slice order inversion
-        or an LR orientation swap is required.
+        or an LR orientation swap is required. \n
 
-        Note:
-            This function analyzes the given set of images and their associated DICOM objects to determine if any
-            adjustments are needed to restore the correct slice order and view orientation.
+        This function analyzes the given set of images and their associated DICOM objects to determine if any
+        adjustments are needed to restore the correct slice order and view orientation.
         """
         test_images = (self.images[0], self.images[-1])
         dx = self.pixel_spacing[0]
@@ -149,7 +146,7 @@ class ACRObject:
 
 
         Returns:
-            tuple of ints: representing the (x, y) center of the image.
+            tuple of ints: representing the (x, y) coordinates of the center of the image
         """
         img = self.images[6]
         dx, dy = self.pixel_spacing
@@ -172,7 +169,7 @@ class ACRObject:
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
-        """Create a masked pixel array
+        """Create a masked pixel array \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
@@ -182,8 +179,7 @@ class ACRObject:
             open_threshold (int, optional): open threshold. Defaults to 500.
 
         Returns:
-            np.array:
-                The masked image.
+            np.array: the masked image
         """
         test_mask = self.circular_mask(
             self.centre, (80 // self.pixel_spacing[0]), image.shape
@@ -237,7 +233,7 @@ class ACRObject:
             mask (np.array): Boolean array of the image where pixel values meet threshold
 
         Returns:
-            dict: A dictionary containing the following information for both horizontal and vertical line profiles:
+            dict: a dictionary with the following
                 'Horizontal Start'      | 'Vertical Start' : tuple of int
                     Horizontal/vertical starting point of the object.
                 'Horizontal End'        | 'Vertical End' : tuple of int
@@ -289,8 +285,9 @@ class ACRObject:
             angle (int): Angle in degrees.
 
         Returns:
-            tuple of float: x_prime and y_prime - A float representing the x and y
-                coordinates of the desired point after being rotated around an origin.
+            tuple of float: x_prime and y_prime
+                Floats representing the x and y coordinates of the input point
+                after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -310,7 +307,7 @@ class ACRObject:
 
         Returns:
             tuple of np.array: peak_locs and peak_heights
-                peak_locs: A numpy array containing the indices of the N highest peaks identified.
+                peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
                 peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 
         """
