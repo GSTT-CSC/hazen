@@ -47,14 +47,12 @@ class ACRObject:
         return img_stack, dicom_stack
 
     def orientation_checks(self):
-        """
-        Perform orientation checks on a set of images to determine if slice order inversion or an
+        """Perform orientation checks on a set of images to determine if slice order inversion or an
         LR orientation swap is required.
 
-        Description
-        -----------
-        This function analyzes the given set of images and their associated DICOM objects to determine if any
-        adjustments are needed to restore the correct slice order and view orientation.
+        Note:
+            This function analyzes the given set of images and their associated DICOM objects to determine if any
+            adjustments are needed to restore the correct slice order and view orientation.
         """
         test_images = (self.images[0], self.images[-1])
         dx = self.pixel_spacing[0]
@@ -241,26 +239,21 @@ class ACRObject:
         return mask
 
     def measure_orthogonal_lengths(self, mask):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        mask    : ndarray of bool
-            Boolean array of the image.
+        Args:
+            mask (np.array): Boolean array of the image where pixel values meet threshold
 
         Returns:
-        ----------
-        length_dict : dict
-            A dictionary containing the following information for both horizontal and vertical line profiles:
-            'Horizontal Start'      | 'Vertical Start' : tuple of int
-                Horizontal/vertical starting point of the object.
-            'Horizontal End'        | 'Vertical End' : tuple of int
-                Horizontal/vertical ending point of the object.
-            'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
-                Indices of the non-zero elements of the horizontal/vertical line profile.
-            'Horizontal Distance'   | 'Vertical Distance' : float
-                The horizontal/vertical length of the object.
+            dict: A dictionary containing the following information for both horizontal and vertical line profiles:
+                'Horizontal Start'      | 'Vertical Start' : tuple of int
+                    Horizontal/vertical starting point of the object.
+                'Horizontal End'        | 'Vertical End' : tuple of int
+                    Horizontal/vertical ending point of the object.
+                'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
+                    Indices of the non-zero elements of the horizontal/vertical line profile.
+                'Horizontal Distance'   | 'Vertical Distance' : float
+                    The horizontal/vertical length of the object.
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
@@ -296,24 +289,16 @@ class ACRObject:
 
     @staticmethod
     def rotate_point(origin, point, angle):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        origin : tuple
-            The coordinates of the point around which the rotation is performed.
-        point  : tuple
-            The coordinates of the point to rotate.
-        angle  : int
-            Angle in degrees.
+        Args:
+            origin (tuple): The coordinates of the point around which the rotation is performed.
+            point (tuple): The coordinates of the point to rotate.
+            angle (int): Angle in degrees.
 
         Returns:
-        ----------
-        x_prime : float
-            A float representing the x coordinate of the desired point after being rotated around an origin.
-        y_prime : float
-            A float representing the y coordinate of the desired point after being rotated around an origin.
+            tuple of float: x_prime and y_prime - A float representing the x and y
+                coordinates of the desired point after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -324,24 +309,18 @@ class ACRObject:
 
     @staticmethod
     def find_n_highest_peaks(data, n, height=1):
-        """
-        Find the indices and amplitudes of the N highest peaks within a 1D array.
+        """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
-        Parameters:
-        ----------
-        data    : np.array
-            The array containing the data to perform peak extraction on.
-        n       : int
-            The coordinates of the point to rotate.
-        height  : int or float
-            The amplitude threshold for peak identification.
+        Args:
+            data (np.array): pixel array containing the data to perform peak extraction on
+            n (int): The coordinates of the point to rotate
+            height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-        ----------
-        peak_locs       : np.array
-            A numpy array containing the indices of the N highest peaks identified.
-        peak_heights    : np.array
-            A numpy array containing the amplitudes of the N highest peaks identified.
+            tuple of np.array: peak_locs and peak_heights
+                peak_locs: A numpy array containing the indices of the N highest peaks identified.
+                peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
+
         """
         peaks = scipy.signal.find_peaks(data, height)
         pk_heights = peaks[1]["peak_heights"]
