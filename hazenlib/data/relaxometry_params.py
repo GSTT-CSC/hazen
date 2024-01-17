@@ -1,9 +1,7 @@
 import os.path
 import numpy as np
 
-TEMPLATE_DIR = os.path.join(
-    os.path.dirname(os.path.realpath(__file__)), "data", "relaxometry"
-)
+TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "relaxometry")
 TEMPLATE_VALUES = {
     "plate3": {
         "sphere_centres_row_col": (),
