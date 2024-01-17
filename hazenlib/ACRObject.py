@@ -5,7 +5,16 @@ import numpy as np
 
 
 class ACRObject:
+    """Base class for performing tasks on image sets of the ACR phantom.
+    acquired following the ACR Large phantom guidelines
+    """
+
     def __init__(self, dcm_list):
+        """Initialise an ACR object instance
+
+        Args:
+            dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
+        """
         # Initialise an ACR object from a stack of images of the ACR phantom
         self.dcm_list = dcm_list
         # Load files as DICOM and their pixel arrays into 'images'
@@ -24,17 +33,15 @@ class ACRObject:
         self.mask_image = self.get_mask_image(self.images[6])
 
     def sort_images(self):
-        """
-        Sort a stack of images based on slice position.
+        """Sort a stack of images based on slice position.
 
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
-        dcm_stack : pyd
-            A sorted stack of dicoms
-        """
 
+        Returns:
+            tuple of lists:
+                img_stack - list of np.array of dcm.pixel_array
+                    A sorted stack of images, where each image is represented as a 2D numpy array.
+                dcm_stack - list of pydicom.Dataset objects
+        """
         # TODO: implement a check if phantom was placed in other than axial position
         # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
 
@@ -47,8 +54,8 @@ class ACRObject:
         return img_stack, dicom_stack
 
     def orientation_checks(self):
-        """Perform orientation checks on a set of images to determine if slice order inversion or an
-        LR orientation swap is required.
+        """Perform orientation checks on a set of images to determine if slice order inversion
+        or an LR orientation swap is required.
 
         Note:
             This function analyzes the given set of images and their associated DICOM objects to determine if any
@@ -105,13 +112,10 @@ class ACRObject:
             print("LR orientation swap not required.")
 
     def determine_rotation(self):
-        """
-        Determine the rotation angle of the phantom using edge detection and the Hough transform.
+        """Determine the rotation angle of the phantom using edge detection and the Hough transform.
 
-        Returns
-        ------
-        rot_angle : float
-            The rotation angle in degrees.
+        Returns:
+            float: The rotation angle in degrees.
         """
 
         thresh = cv2.threshold(self.images[0], 127, 255, cv2.THRESH_BINARY)[1]
@@ -129,13 +133,10 @@ class ACRObject:
         return rot_angle
 
     def rotate_images(self):
-        """
-        Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
+        """Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
 
-        Returns
-        -------
-        np.array:
-            The rotated images.
+        Returns:
+            np.array: The rotated images.
         """
 
         return skimage.transform.rotate(
@@ -147,10 +148,8 @@ class ACRObject:
         Find the center of the ACR phantom by filtering the uniformity slice and using the Hough circle detector.
 
 
-        Returns
-        -------
-        centre  : tuple
-            Tuple of ints representing the (x, y) center of the image.
+        Returns:
+            tuple of ints: representing the (x, y) center of the image.
         """
         img = self.images[6]
         dx, dy = self.pixel_spacing
@@ -212,22 +211,15 @@ class ACRObject:
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """
-        Sort a stack of images based on slice position.
+        """Sort a stack of images based on slice position.
 
-        Parameters
-        ----------
-        centre : tuple
-            The centre coordinates of the circular mask.
-        radius : int
-            The radius of the circular mask.
-        dims   : tuple
-            The dimensions of the circular mask.
+        Args:
+            centre (tuple): centre coordinates of the circular mask.
+            radius (int): radius of the circular mask.
+            dims (tuple): dimensions of the circular mask.
 
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
+        Returns:
+            np.array: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # Define a circular logical mask
         x = np.linspace(1, dims[0], dims[0])
