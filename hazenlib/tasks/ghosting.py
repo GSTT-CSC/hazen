@@ -287,15 +287,15 @@ class Ghosting(HazenTask):
         return eligible_columns, eligible_rows
 
     def get_ghost_slice(self, signal_bounding_box, dcm, slice_radius=5):
-        """_summary_
+        """Get array of pixel values wihtin bounding box of the ghost slice
 
         Args:
             signal_bounding_box (tuple or list): _description_
-            dcm (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            _type_: _description_
+            tuple of np.array: _description_
         """
         eligible_area = self.get_eligible_area(
             signal_bounding_box, dcm, slice_radius=slice_radius
@@ -306,13 +306,13 @@ class Ghosting(HazenTask):
         return ghost_slice
 
     def get_ghosting(self, dcm) -> float:
-        """_summary_
+        """Calculate ghosting percentage
 
         Args:
-            dcm (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
 
         Returns:
-            float: _description_
+            float: percentage ghosting across eligible area
         """
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
 
