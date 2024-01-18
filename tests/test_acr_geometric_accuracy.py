@@ -16,18 +16,21 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     distortion_metrics = [-0.06, 2.5, 0.93]
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
         siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
 
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
             input_data=siemens_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
+        )
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
 
     def test_geometric_accuracy_slice_1(self):
+
         slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(0)
+
         slice1_vals = np.round(slice1_vals, 2)
 
         print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice1")
@@ -38,6 +41,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
     def test_geometric_accuracy_slice_5(self):
         slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy(4))
+
         slice5_vals = np.round(slice5_vals, 2)
 
         print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice5")
@@ -46,11 +50,15 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         assert (slice5_vals == self.L5).all() == True
 
     def test_distortion_metrics(self):
-        metrics = np.array(self.acr_geometric_accuracy_task.distortion_metric(self.L1 + self.L5))
+        metrics = np.array(
+            self.acr_geometric_accuracy_task.distortion_metric(self.L1 + self.L5)
+        )
         metrics = np.round(metrics, 2)
         assert (metrics == self.distortion_metrics).all() == True
 
+
 # TODO: Add unit tests for Philips datasets.
+
 
 class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     L1 = 190.42, 188.9
@@ -58,13 +66,12 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     distortion_metrics = [-0.17, 1.1, 0.32]
 
     def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
         ge_files = get_dicom_files(ACR_DATA_GE)
 
         self.acr_geometric_accuracy_task = ACRGeometricAccuracy(
-            input_data=ge_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
+        )
 
         self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
         self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
-

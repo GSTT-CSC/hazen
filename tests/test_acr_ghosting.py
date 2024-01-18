@@ -14,15 +14,20 @@ class TestACRGhostingSiemens(unittest.TestCase):
     psg = 0.035
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / 'acr' / 'Siemens')
+        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
         siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
         self.acr_ghosting_task = ACRGhosting(
             input_data=siemens_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
+        )
 
     def test_ghosting(self):
-        ghosting_val = round(self.acr_ghosting_task.get_signal_ghosting(
-            self.acr_ghosting_task.ACR_obj.slice7_dcm), 3)
+        ghosting_val = round(
+            self.acr_ghosting_task.get_signal_ghosting(
+                self.acr_ghosting_task.ACR_obj.slice7_dcm
+            ),
+            3,
+        )
 
         print("\ntest_ghosting.py::TestGhosting::test_ghosting")
         print("new_release_value:", ghosting_val)
@@ -36,9 +41,9 @@ class TestACRGhostingGE(TestACRGhostingSiemens):
     psg = 0.482
 
     def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
+        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
         ge_files = get_dicom_files(ACR_DATA_GE)
 
         self.acr_ghosting_task = ACRGhosting(
-            input_data=ge_files,
-            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR))
+            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
+        )

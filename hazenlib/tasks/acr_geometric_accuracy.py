@@ -22,25 +22,36 @@ yassine.azma@rmh.nhs.uk
 18/11/2022
 """
 
+import os
 import sys
 import traceback
-import os
 import numpy as np
-import skimage.morphology
+
 import skimage.measure
 import skimage.transform
+import skimage.morphology
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 
 
 class ACRGeometricAccuracy(HazenTask):
+    """Geometric accuracy measurement class for DICOM images of the ACR phantom
+
+    Inherits from HazenTask class
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
+        """Main function for performing geometric accuracy measurement
+        using the first and fifth slices from the ACR phantom image set
+
+        Returns:
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
 
         # Initialise results dictionary
         results = self.init_result_dict()
@@ -66,26 +77,35 @@ class ACRGeometricAccuracy(HazenTask):
             }
         except Exception as e:
             print(f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.dcms[4])} because of : {e}")
+
             traceback.print_exc(file=sys.stdout)
 
         L = lengths_1 + lengths_5
 
         mean_err, max_err, cov_l = self.distortion_metric(L)
 
-        results['measurement']['distortion'] = {
+        results["measurement"]["distortion"] = {
             "Mean relative measurement error": round(mean_err, 2),
             "Max absolute measurement error": round(max_err, 2),
-            "Coefficient of variation %": round(cov_l, 2)
+            "Coefficient of variation %": round(cov_l, 2),
         }
 
         # only return reports if requested
         if self.report:
-            results['report_image'] = self.report_files
+            results["report_image"] = self.report_files
 
         return results
 
 
     def get_geometric_accuracy(self, slice_index):
+        """Measure geometric accuracy for input slice
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            tuple of float: horizontal and vertical distances
+        """
         img_dcm = self.ACR_obj.dcms[slice_index]
         img = img_dcm.pixel_array
         mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[slice_index])
@@ -97,6 +117,7 @@ class ACRGeometricAccuracy(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
+
             fig, axes = plt.subplots(3, 1)
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
@@ -165,6 +186,16 @@ class ACRGeometricAccuracy(HazenTask):
             return length_dict['Horizontal Distance'], length_dict['Vertical Distance']
 
     def diagonal_lengths(self, img, cxy, slice_index):
+        """Measure diagonal lengths
+
+        Args:
+            img (np.array): dcm.pixel_array
+            cxy (list): x,y coordinates and radius of the circle
+            slice_index (int): index of the slice number
+
+        Returns:
+            tuple of dictionaries: _description_
+        """
         res = self.ACR_obj.pixel_spacing
         eff_res = np.sqrt(np.mean(np.square(res)))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
@@ -178,33 +209,47 @@ class ACRGeometricAccuracy(HazenTask):
         se_x_start, se_y_start = ACRObject.rotate_point(origin, start, 45)
         se_x_end, se_y_end = ACRObject.rotate_point(origin, end, 45)
 
-        dist_se = np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start]))) * eff_res
+        dist_se = (
+            np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start])))
+            * eff_res
+        )
         se_dict = {
-            'Start': (se_x_start, se_y_start),
-            'End': (se_x_end, se_y_end),
-            'Extent': (se_x_end - se_x_start, se_y_end - se_y_start),
-            'Distance': dist_se
+            "Start": (se_x_start, se_y_start),
+            "End": (se_x_end, se_y_end),
+            "Extent": (se_x_end - se_x_start, se_y_end - se_y_start),
+            "Distance": dist_se,
         }
 
-        extent_v = length_dict['Vertical Extent']
+        extent_v = length_dict["Vertical Extent"]
 
         start = (cxy[0], extent_v[0])
         end = (cxy[0], extent_v[-1])
         sw_x_start, sw_y_start = ACRObject.rotate_point(origin, start, 45)
         sw_x_end, sw_y_end = ACRObject.rotate_point(origin, end, 45)
 
-        dist_sw = np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start]))) * eff_res
+        dist_sw = (
+            np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start])))
+            * eff_res
+        )
         sw_dict = {
-            'Start': (sw_x_start, sw_y_start),
-            'End': (sw_x_end, sw_y_end),
-            'Extent': (sw_x_end - sw_x_start, sw_y_end - sw_y_start),
-            'Distance': dist_sw
+            "Start": (sw_x_start, sw_y_start),
+            "End": (sw_x_end, sw_y_end),
+            "Extent": (sw_x_end - sw_x_start, sw_y_end - sw_y_start),
+            "Distance": dist_sw,
         }
 
         return sw_dict, se_dict
 
     @staticmethod
     def distortion_metric(L):
+        """Calculate the distortion metric based on length
+
+        Args:
+            L (tuple): horizontal and vertical distances from slices 1 and 5
+
+        Returns:
+            tuple of floats: mean_err, max_err, cov_l
+        """
         err = [x - 190 for x in L]
         mean_err = np.mean(err)
 
