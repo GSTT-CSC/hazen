@@ -262,9 +262,7 @@ class ACRObject:
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
-        [centre, radius] = self.find_phantom_center(self.images[slice_index])
-        horizontal = centre[1]
-        vertical = centre[0]
+        [(vertical, horizontal), radius] = self.find_phantom_center(self.images[slice_index])
 
         horizontal_start = (horizontal, 0)
         horizontal_end = (horizontal, dims[0] - 1)
