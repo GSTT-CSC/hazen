@@ -19,7 +19,7 @@ class ACRObject:
         # Find the centre coordinates of the phantom (circle) on slice 7 only:
         self.centre, self.radius = self.find_phantom_center(self.images[6])
         # Store the DCM object of slice 7 as it is used often
-        # self.slice7_dcm = self.dcms[6]
+        self.slice7_dcm = self.dcms[6]
         # Store a mask image of slice 7 for reusability
         self.mask_image = self.get_mask_image(self.images[6])
 
