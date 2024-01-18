@@ -16,10 +16,10 @@ class ACRObject:
         self.orientation_checks()
         # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
+        # Find the centre coordinates of the phantom (circle) on slice 7 only:
+        self.centre, self.radius = self.find_phantom_center(self.images[6])
         # Store the DCM object of slice 7 as it is used often
         self.slice7_dcm = self.dcms[6]
-        # Find the centre coordinates of the phantom (circle)
-        self.centre, self.radius = self.find_phantom_center()
         # Store a mask image of slice 7 for reusability
         self.mask_image = self.get_mask_image(self.images[6])
 
@@ -144,17 +144,15 @@ class ACRObject:
             self.images, self.rot_angle, resize=False, preserve_range=True
         )
 
-    def find_phantom_center(self):
+    def find_phantom_center(self, img):
         """
-        Find the center of the ACR phantom by filtering the uniformity slice and using the Hough circle detector.
+        Find the center of the ACR phantom by filtering the input slice and using the Hough circle detector.
+        Args:
+            img (np.array): pixel array of the dicom
 
-
-        Returns
-        -------
-        centre  : tuple
-            Tuple of ints representing the (x, y) center of the image.
+        Returns:
+            tuple: Tuple of ints representing the (x, y) center of the image.
         """
-        img = self.images[6]
         dx, dy = self.pixel_spacing
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
@@ -174,14 +172,14 @@ class ACRObject:
         radius = int(detected_circles[2])
         return centre, radius
 
-    def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
+    def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
         """Create a masked pixel array
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
         Args:
-            image (_type_): _description_
-            mag_threshold (float, optional): magnitude threshold. Defaults to 0.05.
+            image (np.array): pixel array of the dicom
+            mag_threshold (float, optional): magnitude threshold. Defaults to 0.07.
             open_threshold (int, optional): open threshold. Defaults to 500.
 
         Returns:
@@ -240,7 +238,7 @@ class ACRObject:
 
         return mask
 
-    def measure_orthogonal_lengths(self, mask):
+    def measure_orthogonal_lengths(self, mask, slice_index):
         """
         Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
@@ -264,17 +262,18 @@ class ACRObject:
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
+        [(vertical, horizontal), radius] = self.find_phantom_center(self.images[slice_index])
 
-        horizontal_start = (self.centre[1], 0)
-        horizontal_end = (self.centre[1], dims[0] - 1)
+        horizontal_start = (horizontal, 0)
+        horizontal_end = (horizontal, dims[0] - 1)
         horizontal_line_profile = skimage.measure.profile_line(
             mask, horizontal_start, horizontal_end
         )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
         horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
 
-        vertical_start = (0, self.centre[0])
-        vertical_end = (dims[1] - 1, self.centre[0])
+        vertical_start = (0, vertical)
+        vertical_end = (dims[1] - 1, vertical)
         vertical_line_profile = skimage.measure.profile_line(
             mask, vertical_start, vertical_end
         )
