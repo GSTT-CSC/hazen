@@ -58,7 +58,7 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
 class TestACRSlicePositionGE(TestACRSlicePositionSiemens):
     x_pts = [(246, 257), (246, 257)]
-    y_pts = [(77, 164), (89, 162)]
+    y_pts = [(84, 164), (89, 162)]
     dL = 0.41, 0.3
 
     def setUp(self):

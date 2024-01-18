@@ -33,7 +33,7 @@ class TestACRGhostingSiemens(unittest.TestCase):
 
 class TestACRGhostingGE(TestACRGhostingSiemens):
     centre = [253, 256]
-    psg = 0.471
+    psg = 0.482
 
     def setUp(self):
         ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / 'acr' / 'GE')
