@@ -1,34 +1,43 @@
 hazenlib package
 ================
 
-Subpackages
------------
+Core functions
+-----------------
+
+.. automodule:: hazenlib
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+Task-specific functions
+------------------------
 
 .. toctree::
    :maxdepth: 4
 
-   hazenlib.tasks
+   hazenlib.tasks.acr
+   hazenlib.tasks.magnet
 
-Submodules
-----------
+Utility functions:
+-------------------
 
-hazenlib.ACRObject module
--------------------------
+hazenlib.ACRObject
+-------------------
 
 .. automodule:: hazenlib.ACRObject
    :members:
    :undoc-members:
    :show-inheritance:
 
-hazenlib.HazenTask module
--------------------------
+hazenlib.HazenTask
+-------------------
 
 .. automodule:: hazenlib.HazenTask
    :members:
    :undoc-members:
    :show-inheritance:
 
-hazenlib.exceptions module
+hazenlib.exceptions
 --------------------------
 
 .. automodule:: hazenlib.exceptions
@@ -36,7 +45,7 @@ hazenlib.exceptions module
    :undoc-members:
    :show-inheritance:
 
-hazenlib.logger module
+hazenlib.logger
 ----------------------
 
 .. automodule:: hazenlib.logger
@@ -44,26 +53,10 @@ hazenlib.logger module
    :undoc-members:
    :show-inheritance:
 
-.. hazenlib.relaxometry\_params module
-.. -----------------------------------
-
-.. .. automodule:: hazenlib.relaxometry_params
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
-
-hazenlib.utils module
+hazenlib.utils
 ---------------------
 
 .. automodule:: hazenlib.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Module contents
----------------
-
-.. automodule:: hazenlib
    :members:
    :undoc-members:
    :show-inheritance:
