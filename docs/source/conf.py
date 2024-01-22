@@ -12,7 +12,7 @@
 #
 import os
 import sys
-from hazenlib import __version__
+from hazenlib._version import __version__
 
 sys.path.insert(0, os.path.abspath("../.."))
 
@@ -50,6 +50,7 @@ napoleon_use_ivar = True
 napoleon_use_rtype = True
 napoleon_use_keyword = True
 napoleon_custom_sections = None
+autodoc_member_order = "bysource"
 
 bibtex_bibfiles = ["references.bib"]
 
