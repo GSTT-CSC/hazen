@@ -32,7 +32,7 @@ We have also built an interactive web-based implementation of *hazen*, which is 
 
    gettingstarted
    tasks
-   modules
+   hazenlib
    getinvolved
    contributors
 
