@@ -5,10 +5,13 @@ https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largepha
 
 Calculates geometric accuracy for slices 1 and 5 of the ACR phantom.
 
-This script calculates the horizontal and vertical lengths of the ACR phantom in Slice 1 in accordance with the ACR Guidance.
-This script calculates the horizontal, vertical and diagonal lengths of the ACR phantom in Slice 5 in accordance with the ACR Guidance.
+This script calculates the horizontal and vertical lengths of the ACR phantom in Slice 1 in accordance with the ACR
+Guidance.
+This script calculates the horizontal, vertical and diagonal lengths of the ACR phantom in Slice 5 in accordance with
+the ACR Guidance.
 The average distance measurement error, maximum distance measurement error and coefficient of variation of all distance
-measurements is reported as recommended by IPEM Report 112, "Quality Control and Artefacts in Magnetic Resonance Imaging".
+measurements is reported as recommended by IPEM Report 112, "Quality Control and Artefacts in Magnetic Resonance
+Imaging".
 
 This is done by first producing a binary mask for each respective slice. Line profiles are drawn with aid of rotation
 matrices around the centre of the test object to determine each respective length. The results are also visualised.
@@ -50,38 +53,31 @@ class ACRGeometricAccuracy(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
 
-        # Identify relevant slices
-        slice1_dcm = self.ACR_obj.dcms[0]
-        slice5_dcm = self.ACR_obj.dcms[4]
-
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = [self.img_desc(slice1_dcm), self.img_desc(slice5_dcm)]
+        results['file'] = [self.img_desc(self.ACR_obj.dcms[0]), self.img_desc(self.ACR_obj.dcms[4])]
 
         try:
-            lengths_1 = self.get_geometric_accuracy_slice1(slice1_dcm)
-            results["measurement"][self.img_desc(slice1_dcm)] = {
+            lengths_1 = self.get_geometric_accuracy(0)
+            results['measurement'][self.img_desc(self.ACR_obj.dcms[0])] = {
                 "Horizontal distance": round(lengths_1[0], 2),
-                "Vertical distance": round(lengths_1[1], 2),
+                "Vertical distance": round(lengths_1[1], 2)
             }
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(slice1_dcm)} because of : {e}"
-            )
+            print(f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.dcms[0])} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         try:
-            lengths_5 = self.get_geometric_accuracy_slice5(slice5_dcm)
-            results["measurement"][self.img_desc(slice5_dcm)] = {
+            lengths_5 = self.get_geometric_accuracy(4)
+            results['measurement'][self.img_desc(self.ACR_obj.dcms[4])] = {
                 "Horizontal distance": round(lengths_5[0], 2),
                 "Vertical distance": round(lengths_5[1], 2),
                 "Diagonal distance SW": round(lengths_5[2], 2),
-                "Diagonal distance SE": round(lengths_5[3], 2),
+                "Diagonal distance SE": round(lengths_5[3], 2)
             }
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(slice5_dcm)} because of : {e}"
-            )
+            print(f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.dcms[4])} because of : {e}")
+
             traceback.print_exc(file=sys.stdout)
 
         L = lengths_1 + lengths_5
@@ -100,8 +96,9 @@ class ACRGeometricAccuracy(HazenTask):
 
         return results
 
-    def get_geometric_accuracy_slice1(self, dcm):
-        """Measure geometric accuracy for slice 1
+
+    def get_geometric_accuracy(self, slice_index):
+        """Measure geometric accuracy for input slice
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
@@ -109,78 +106,14 @@ class ACRGeometricAccuracy(HazenTask):
         Returns:
             tuple of float: horizontal and vertical distances
         """
-        img = dcm.pixel_array
+        img_dcm = self.ACR_obj.dcms[slice_index]
+        img = img_dcm.pixel_array
+        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[slice_index])
+        [cxy, r] = self.ACR_obj.find_phantom_center(img)
 
-        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
-        cxy = self.ACR_obj.centre
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask)
-
-        if self.report:
-            import matplotlib.pyplot as plt
-
-            fig, axes = plt.subplots(3, 1)
-            fig.set_size_inches(8, 24)
-            fig.tight_layout(pad=4)
-
-            axes[0].imshow(img)
-            axes[0].scatter(cxy[0], cxy[1], c="red")
-            axes[0].set_title("Centroid Location")
-
-            axes[1].imshow(mask)
-            axes[1].set_title("Thresholding Result")
-
-            axes[2].imshow(img)
-            axes[2].arrow(
-                length_dict["Horizontal Extent"][0],
-                cxy[1],
-                length_dict["Horizontal Extent"][-1]
-                - length_dict["Horizontal Extent"][0],
-                1,
-                color="blue",
-                length_includes_head=True,
-                head_width=5,
-            )
-            axes[2].arrow(
-                cxy[0],
-                length_dict["Vertical Extent"][0],
-                1,
-                length_dict["Vertical Extent"][-1] - length_dict["Vertical Extent"][0],
-                color="orange",
-                length_includes_head=True,
-                head_width=5,
-            )
-            axes[2].legend(
-                [
-                    str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                    str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
-                ]
-            )
-            axes[2].axis("off")
-            axes[2].set_title("Geometric Accuracy for Slice 1")
-
-            img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
-            )
-            fig.savefig(img_path)
-            self.report_files.append(img_path)
-
-        return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
-
-    def get_geometric_accuracy_slice5(self, dcm):
-        """Measure geometric accuracy for slice 5
-
-        Args:
-            dcm (pydicom.Dataset): DICOM image object
-
-        Returns:
-            tuple of floats: horizontal and vertical distances, as well as diagonals (SW, SE)
-        """
-        img = dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[6])
-        cxy = self.ACR_obj.centre
-
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask)
-        sw_dict, se_dict = self.diagonal_lengths(mask, cxy)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, slice_index)
+        if slice_index == 4:
+            sw_dict, se_dict = self.diagonal_lengths(mask, cxy, 4)
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -189,84 +122,76 @@ class ACRGeometricAccuracy(HazenTask):
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
 
-            axes[0].imshow(img)
-            axes[0].scatter(cxy[0], cxy[1], c="red")
-            axes[0].axis("off")
-            axes[0].set_title("Centroid Location")
+            if slice_index == 0:
+                axes[0].imshow(img)
+                axes[0].scatter(cxy[0], cxy[1], c='red')
+                axes[0].set_title('Centroid Location')
 
-            axes[1].imshow(mask)
-            axes[1].axis("off")
-            axes[1].set_title("Thresholding Result")
+                axes[1].imshow(mask)
+                axes[1].set_title('Thresholding Result')
 
-            axes[2].imshow(img)
-            axes[2].arrow(
-                length_dict["Horizontal Extent"][0],
-                cxy[1],
-                length_dict["Horizontal Extent"][-1]
-                - length_dict["Horizontal Extent"][0],
-                1,
-                color="blue",
-                length_includes_head=True,
-                head_width=5,
-            )
-            axes[2].arrow(
-                cxy[0],
-                length_dict["Vertical Extent"][0],
-                1,
-                length_dict["Vertical Extent"][-1] - length_dict["Vertical Extent"][0],
-                color="orange",
-                length_includes_head=True,
-                head_width=5,
-            )
-            axes[2].arrow(
-                se_dict["Start"][0],
-                se_dict["Start"][1],
-                se_dict["Extent"][0],
-                se_dict["Extent"][1],
-                color="purple",
-                length_includes_head=True,
-                head_width=5,
-            )
-            axes[2].arrow(
-                sw_dict["Start"][0],
-                sw_dict["Start"][1],
-                sw_dict["Extent"][0],
-                sw_dict["Extent"][1],
-                color="yellow",
-                length_includes_head=True,
-                head_width=5,
-            )
+                axes[2].imshow(img)
+                axes[2].arrow(length_dict['Horizontal Extent'][0], cxy[1],
+                              length_dict['Horizontal Extent'][-1] - length_dict['Horizontal Extent'][0], 1,
+                              color='blue',
+                              length_includes_head=True, head_width=5)
+                axes[2].arrow(cxy[0], length_dict['Vertical Extent'][0], 1, length_dict['Vertical Extent'][-1] -
+                              length_dict['Vertical Extent'][0], color='orange', length_includes_head=True,
+                              head_width=5)
+                axes[2].legend([str(np.round(length_dict['Horizontal Distance'], 2)) + 'mm',
+                                str(np.round(length_dict['Vertical Distance'], 2)) + 'mm'])
+                axes[2].axis('off')
+                axes[2].set_title('Geometric Accuracy for Slice 1')
 
-            axes[2].legend(
-                [
-                    str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                    str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
-                    str(np.round(sw_dict["Distance"], 2)) + "mm",
-                    str(np.round(se_dict["Distance"], 2)) + "mm",
-                ]
-            )
-            axes[2].axis("off")
-            axes[2].set_title("Geometric Accuracy for Slice 5")
+                img_path = os.path.realpath(os.path.join(self.report_path, f'{self.img_desc(img_dcm)}.png'))
+                fig.savefig(img_path)
+                self.report_files.append(img_path)
 
-            img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
-            )
-            fig.savefig(img_path)
-            self.report_files.append(img_path)
+            if slice_index == 4:
+                axes[0].imshow(img)
+                axes[0].scatter(cxy[0], cxy[1], c='red')
+                axes[0].axis('off')
+                axes[0].set_title('Centroid Location')
 
-        return (
-            length_dict["Horizontal Distance"],
-            length_dict["Vertical Distance"],
-            sw_dict["Distance"],
-            se_dict["Distance"],
-        )
+                axes[1].imshow(mask)
+                axes[1].axis('off')
+                axes[1].set_title('Thresholding Result')
 
-    def diagonal_lengths(self, img, cxy):
+                axes[2].imshow(img)
+                axes[2].arrow(length_dict['Horizontal Extent'][0], cxy[1], length_dict['Horizontal Extent'][-1]
+                              - length_dict['Horizontal Extent'][0], 1, color='blue', length_includes_head=True,
+                              head_width=5)
+                axes[2].arrow(cxy[0], length_dict['Vertical Extent'][0], 1, length_dict['Vertical Extent'][-1] -
+                              length_dict['Vertical Extent'][0], color='orange', length_includes_head=True, head_width=5)
+                axes[2].arrow(se_dict['Start'][0], se_dict['Start'][1], se_dict['Extent'][0], se_dict['Extent'][1],
+                              color='purple', length_includes_head=True, head_width=5)
+                axes[2].arrow(sw_dict['Start'][0], sw_dict['Start'][1], sw_dict['Extent'][0], sw_dict['Extent'][1],
+                              color='yellow', length_includes_head=True, head_width=5)
+
+                axes[2].legend([str(np.round(length_dict['Horizontal Distance'], 2)) + 'mm',
+                                str(np.round(length_dict['Vertical Distance'], 2)) + 'mm',
+                                str(np.round(sw_dict['Distance'], 2)) + 'mm',
+                                str(np.round(se_dict['Distance'], 2)) + 'mm'])
+                axes[2].axis('off')
+                axes[2].set_title('Geometric Accuracy for Slice 5')
+
+                img_path = os.path.realpath(os.path.join(self.report_path, f'{self.img_desc(img_dcm)}.png'))
+                fig.savefig(img_path)
+                self.report_files.append(img_path)
+
+        if slice_index == 4:
+            return length_dict['Horizontal Distance'], length_dict['Vertical Distance'], \
+                    sw_dict['Distance'], se_dict['Distance']
+        else:
+            return length_dict['Horizontal Distance'], length_dict['Vertical Distance']
+
+    def diagonal_lengths(self, img, cxy, slice_index):
         """Measure diagonal lengths
 
         Args:
             img (np.array): dcm.pixel_array
             cxy (list): x,y coordinates and radius of the circle
+            slice_index (int): index of the slice number
 
         Returns:
             tuple of dictionaries: _description_
@@ -275,8 +200,8 @@ class ACRGeometricAccuracy(HazenTask):
         eff_res = np.sqrt(np.mean(np.square(res)))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate)
-        extent_h = length_dict["Horizontal Extent"]
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, slice_index)
+        extent_h = length_dict['Horizontal Extent']
 
         origin = (cxy[0], cxy[1])
         start = (extent_h[0], cxy[1])
