@@ -46,39 +46,6 @@ class Ghosting(HazenTask):
 
         return results
 
-    def calculate_ghost_intensity(
-        self, ghost: np.ndarray, phantom: np.ndarray, noise: np.ndarray
-    ) -> float:
-        """Calculates the ghost intensity
-
-        References: IPEM Report 112 - Small Bottle Method
-                    MagNET, Ghosting = (Sg-Sn)/(Sp-Sn) x 100%
-
-        Args:
-            ghost (np.ndarray):
-            phantom (np.ndarray):
-            noise (np.ndarray):
-
-        Returns:
-            float
-        """
-
-        if ghost is None or phantom is None or noise is None:
-            raise Exception(
-                f"At least one of ghost, phantom and noise ROIs is empty or null"
-            )
-
-        ghost_mean = np.mean(ghost)
-        phantom_mean = np.mean(phantom)
-        noise_mean = np.mean(noise)
-
-        if phantom_mean < ghost_mean or phantom_mean < noise_mean:
-            raise Exception(
-                f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
-            )
-
-        return 100 * abs(ghost_mean - noise_mean) / phantom_mean
-
     def get_signal_bounding_box(self, array: np.ndarray):
         """Define coordinates of bounding box around area with top 25% signal strength (25% highest pixel values)
 
@@ -119,31 +86,6 @@ class Ghosting(HazenTask):
             upper_row,
             lower_row,
         )
-
-    def get_signal_slice(self, bounding_box, slice_radius=5):
-        """_summary_
-
-        Args:
-            bounding_box (tuple): left_column, right_column, upper_row, lower_row
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of np.array: _description_
-        """
-        left_column, right_column, upper_row, lower_row = bounding_box
-        centre_row = (upper_row + lower_row) // 2
-        centre_column = (left_column + right_column) // 2
-        idxs = (
-            np.array(
-                range(centre_column - slice_radius, centre_column + slice_radius),
-                dtype=np.intp,
-            )[:, np.newaxis],
-            np.array(
-                range(centre_row - slice_radius, centre_row + slice_radius),
-                dtype=np.intp,
-            ),
-        )
-        return idxs
 
     def get_pe_direction(self, dcm):
         return dcm.InPlanePhaseEncodingDirection
@@ -227,6 +169,50 @@ class Ghosting(HazenTask):
                 ]
 
         return background_rois
+
+    def get_ghost_slice(self, signal_bounding_box, dcm, slice_radius=5):
+        """Get array of pixel values wihtin bounding box of the ghost slice
+
+        Args:
+            signal_bounding_box (tuple or list): _description_
+            dcm (pydicom.Dataset): DICOM image object
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            tuple of np.array: _description_
+        """
+        eligible_area = self.get_eligible_area(
+            signal_bounding_box, dcm, slice_radius=slice_radius
+        )
+        ghost_slice = np.array(
+            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
+        )[:, np.newaxis], np.array(range(min(eligible_area[0]), max(eligible_area[0])))
+        return ghost_slice
+
+    def get_signal_slice(self, bounding_box, slice_radius=5):
+        """_summary_
+
+        Args:
+            bounding_box (tuple): left_column, right_column, upper_row, lower_row
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            tuple of np.array: _description_
+        """
+        left_column, right_column, upper_row, lower_row = bounding_box
+        centre_row = (upper_row + lower_row) // 2
+        centre_column = (left_column + right_column) // 2
+        idxs = (
+            np.array(
+                range(centre_column - slice_radius, centre_column + slice_radius),
+                dtype=np.intp,
+            )[:, np.newaxis],
+            np.array(
+                range(centre_row - slice_radius, centre_row + slice_radius),
+                dtype=np.intp,
+            ),
+        )
+        return idxs
 
     def get_background_slices(self, background_rois, slice_radius=5):
         """_summary_
@@ -313,24 +299,38 @@ class Ghosting(HazenTask):
 
         return eligible_columns, eligible_rows
 
-    def get_ghost_slice(self, signal_bounding_box, dcm, slice_radius=5):
-        """Get array of pixel values wihtin bounding box of the ghost slice
+    def calculate_ghost_intensity(
+        self, ghost: np.ndarray, phantom: np.ndarray, noise: np.ndarray
+    ) -> float:
+        """Calculates the ghost intensity
+
+        References: IPEM Report 112 - Small Bottle Method
+                    MagNET, Ghosting = (Sg-Sn)/(Sp-Sn) x 100%
 
         Args:
-            signal_bounding_box (tuple or list): _description_
-            dcm (pydicom.Dataset): DICOM image object
-            slice_radius (int, optional): _description_. Defaults to 5.
+            ghost (np.ndarray):
+            phantom (np.ndarray):
+            noise (np.ndarray):
 
         Returns:
-            tuple of np.array: _description_
+            float
         """
-        eligible_area = self.get_eligible_area(
-            signal_bounding_box, dcm, slice_radius=slice_radius
-        )
-        ghost_slice = np.array(
-            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
-        )[:, np.newaxis], np.array(range(min(eligible_area[0]), max(eligible_area[0])))
-        return ghost_slice
+
+        if ghost is None or phantom is None or noise is None:
+            raise Exception(
+                f"At least one of ghost, phantom and noise ROIs is empty or null"
+            )
+
+        ghost_mean = np.mean(ghost)
+        phantom_mean = np.mean(phantom)
+        noise_mean = np.mean(noise)
+
+        if phantom_mean < ghost_mean or phantom_mean < noise_mean:
+            raise Exception(
+                f"The mean phantom signal is lower than the ghost or the noise signal. This can't be the case "
+            )
+
+        return 100 * abs(ghost_mean - noise_mean) / phantom_mean
 
     def get_ghosting(self, dcm) -> float:
         """Calculate ghosting percentage
