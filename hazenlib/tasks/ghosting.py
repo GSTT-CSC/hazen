@@ -170,74 +170,6 @@ class Ghosting(HazenTask):
 
         return background_rois
 
-    def get_ghost_slice(self, signal_bounding_box, dcm, slice_radius=5):
-        """Get array of pixel values wihtin bounding box of the ghost slice
-
-        Args:
-            signal_bounding_box (tuple or list): _description_
-            dcm (pydicom.Dataset): DICOM image object
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of np.array: _description_
-        """
-        eligible_area = self.get_eligible_area(
-            signal_bounding_box, dcm, slice_radius=slice_radius
-        )
-        ghost_slice = np.array(
-            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
-        )[:, np.newaxis], np.array(range(min(eligible_area[0]), max(eligible_area[0])))
-        return ghost_slice
-
-    def get_signal_slice(self, bounding_box, slice_radius=5):
-        """_summary_
-
-        Args:
-            bounding_box (tuple): left_column, right_column, upper_row, lower_row
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of np.array: _description_
-        """
-        left_column, right_column, upper_row, lower_row = bounding_box
-        centre_row = (upper_row + lower_row) // 2
-        centre_column = (left_column + right_column) // 2
-        idxs = (
-            np.array(
-                range(centre_column - slice_radius, centre_column + slice_radius),
-                dtype=np.intp,
-            )[:, np.newaxis],
-            np.array(
-                range(centre_row - slice_radius, centre_row + slice_radius),
-                dtype=np.intp,
-            ),
-        )
-        return idxs
-
-    def get_background_slices(self, background_rois, slice_radius=5):
-        """_summary_
-
-        Args:
-            background_rois (list): list of pixel arrays (np.array)
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            list: _description_
-        """
-        slices = [
-            (
-                np.array(
-                    range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp
-                )[:, np.newaxis],
-                np.array(
-                    range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp
-                ),
-            )
-            for roi in background_rois
-        ]
-
-        return slices
-
     def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
         """Get pixel array within ROI from image
 
@@ -299,6 +231,73 @@ class Ghosting(HazenTask):
 
         return eligible_columns, eligible_rows
 
+    def get_ghost_slice(self, eligible_area):
+        """Get array of pixel values wihtin bounding box of the ghost slice
+
+        Args:
+            eligible_area ():
+            # signal_bounding_box (tuple or list): _description_
+            # dcm (pydicom.Dataset): DICOM image object
+            # slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            tuple of np.array: ghost_col and ghost_row
+        """
+        ghost_col = np.array(
+            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
+        )[:, np.newaxis]
+        ghost_row = np.array(range(min(eligible_area[0]), max(eligible_area[0])))
+        return ghost_col, ghost_row
+
+    def get_signal_slice(self, signal_centre, slice_radius=5):
+        """Get coordinates of pixels where the signal + slice_radius is
+
+        Args:
+            signal_centre (tuple): left_column, right_column
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            tuple of np.array: indeces corresponding to the signal region
+        """
+        idxs = (
+            np.array(
+                range(signal_centre[0] - slice_radius, signal_centre[0] + slice_radius),
+                dtype=np.intp,
+            )[:, np.newaxis],
+            np.array(
+                range(signal_centre[1] - slice_radius, signal_centre[1] + slice_radius),
+                dtype=np.intp,
+            ),
+        )
+        print("idxs")
+        print(type(idxs))
+        print(idxs)
+        return idxs
+
+    def get_background_slices(self, background_rois, slice_radius=5):
+        """_summary_
+
+        Args:
+            background_rois (list): list of pixel arrays (np.array)
+            slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            list: _description_
+        """
+        slices = [
+            (
+                np.array(
+                    range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp
+                )[:, np.newaxis],
+                np.array(
+                    range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp
+                ),
+            )
+            for roi in background_rois
+        ]
+
+        return slices
+
     def calculate_ghost_intensity(
         self, ghost: np.ndarray, phantom: np.ndarray, noise: np.ndarray
     ) -> float:
@@ -352,15 +351,10 @@ class Ghosting(HazenTask):
             (left_column + right_column) // 2,
             (upper_row + lower_row) // 2,
         ]
-        background_roi_centres = self.get_background_roi_centres(dcm, signal_centre)
-        print(background_roi_centres)
-        ghost_col, ghost_row = self.get_ghost_slice(
-            bbox, dcm, slice_radius=slice_radius
-        )
-        ghost = dcm.pixel_array[(ghost_col, ghost_row)]
-        signal_col, signal_row = self.get_signal_slice(bbox, slice_radius=slice_radius)
-        phantom = dcm.pixel_array[(signal_row, signal_col)]
 
+        # noise masks
+        background_roi_centres = self.get_background_roi_centres(dcm, signal_centre)
+        # noise pixel values
         noise = np.concatenate(
             [
                 dcm.pixel_array[(row, col)]
@@ -370,7 +364,22 @@ class Ghosting(HazenTask):
             ]
         )
 
+        # ghost mask
         eligible_area = self.get_eligible_area(bbox, dcm, slice_radius=slice_radius)
+        ghost_col, ghost_row = self.get_ghost_slice(eligible_area)
+        print(type(ghost_col))
+        print(type(ghost_row))
+        # ghost pixel values
+        ghost = dcm.pixel_array[(ghost_col, ghost_row)]
+        print(type(ghost))
+        print(ghost.shape)
+
+        # signal mask
+        signal_col, signal_row = self.get_signal_slice(
+            signal_centre, slice_radius=slice_radius
+        )
+        # signal pixel values
+        phantom = dcm.pixel_array[(signal_row, signal_col)]
 
         ghosting = self.calculate_ghost_intensity(ghost, phantom, noise)
 
