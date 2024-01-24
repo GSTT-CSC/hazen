@@ -90,15 +90,15 @@ class Ghosting(HazenTask):
     def get_pe_direction(self, dcm):
         return dcm.InPlanePhaseEncodingDirection
 
-    def get_background_rois(self, dcm, signal_centre):
-        """Create pixel arrays of the selected regions of interest from the background
+    def get_background_roi_centres(self, dcm, signal_centre):
+        """Determine the background ROI centre coordinates with respect to the signal and PE direction
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
             signal_centre (list): x, y coordinates of the centre
 
         Returns:
-            list: pixel arrays of the background regions of interest
+            list of tuple of int: x, y coordinates of the centre of background regions of interest
         """
         print(self.get_pe_direction(dcm))
         print(signal_centre)
@@ -352,7 +352,8 @@ class Ghosting(HazenTask):
             (left_column + right_column) // 2,
             (upper_row + lower_row) // 2,
         ]
-        background_rois = self.get_background_rois(dcm, signal_centre)
+        background_roi_centres = self.get_background_roi_centres(dcm, signal_centre)
+        print(background_roi_centres)
         ghost_col, ghost_row = self.get_ghost_slice(
             bbox, dcm, slice_radius=slice_radius
         )
@@ -364,7 +365,7 @@ class Ghosting(HazenTask):
             [
                 dcm.pixel_array[(row, col)]
                 for col, row in self.get_background_slices(
-                    background_rois, slice_radius=slice_radius
+                    background_roi_centres, slice_radius=slice_radius
                 )
             ]
         )
@@ -386,12 +387,12 @@ class Ghosting(HazenTask):
             img = hazenlib.utils.rescale_to_byte(dcm.pixel_array)
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
-            for roi in background_rois:
+            for x, y in background_roi_centres:
                 #  slice_size = 10
-                x1 = roi[0] - 5
-                y1 = roi[1] - 5
-                x2 = roi[0] + 5
-                y2 = roi[1] + 5
+                x1 = x - 5
+                y1 = y - 5
+                x2 = x + 5
+                y2 = y + 5
                 img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
             x1 = ghost_row.min()
