@@ -80,17 +80,19 @@ class Ghosting(HazenTask):
         return 100 * abs(ghost_mean - noise_mean) / phantom_mean
 
     def get_signal_bounding_box(self, array: np.ndarray):
-        """_summary_
+        """Define coordinates of bounding box around area with top 25% signal strength (25% highest pixel values)
 
         Args:
-            array (np.ndarray): _description_
+            array (np.ndarray): pixel array
 
         Returns:
-            tuple: positions of left_column, right_column, upper_row, lower_row
+            tuple of int: y_min, y_max, x_min, x_max
         """
+        # Find highest pixel value
         max_signal = np.max(array)
 
-        signal_limit = np.percentile(max_signal, 0.95) * 0.4
+        # Create threshold of top 25% signal strength
+        signal_limit = max_signal * 0.4
         signal = []
         for idx, voxel in np.ndenumerate(array):
             if voxel > signal_limit:
@@ -99,10 +101,18 @@ class Ghosting(HazenTask):
         signal_column = sorted([voxel[1] for voxel in signal])
         signal_row = sorted([voxel[0] for voxel in signal])
 
-        upper_row = min(signal_row)
-        lower_row = max(signal_row)
-        left_column = min(signal_column)
-        right_column = max(signal_column)
+        upper_row = min(signal_row)  #  11
+        lower_row = max(signal_row)  #  93
+        left_column = min(signal_column)  # 217
+        right_column = max(signal_column)  # 299
+
+        # Create array of pixel coordinates where their value is above threshold
+        threshold_array = np.argwhere(array >= signal_limit)
+
+        # Record coordinate of the
+        y_min, x_min = threshold_array.min(axis=0)
+        y_max, x_max = threshold_array.max(axis=0)
+
         return (
             left_column,
             right_column,
@@ -148,54 +158,71 @@ class Ghosting(HazenTask):
         Returns:
             list: pixel arrays of the background regions of interest
         """
-        background_rois = []
+        print(self.get_pe_direction(dcm))
+        print(signal_centre)
+        print(dcm.Rows)
+        print(dcm.Columns)
 
-        if (
-            self.get_pe_direction(dcm) == "ROW"
-        ):  # phase encoding is left -right i.e. increases with columns
-            if signal_centre[1] < dcm.Rows * 0.5:  # phantom is in top half of image
+        if self.get_pe_direction(dcm) == "ROW":
+            # phase encoding is left -right i.e. increases with columns
+
+            # Determine if phantom is in top or bottom half
+            if signal_centre[1] < dcm.Rows * 0.5:
+                # phantom is in top half of image
+                print("phantom is in top half of image")
                 background_rois_row = round(dcm.Rows * 0.75)  # in the bottom quadrant
-            else:  # phantom is bottom half of image
+            else:
+                # phantom is in bottom half of image
+                print("phantom is in bottom half of image")
                 background_rois_row = round(dcm.Rows * 0.25)  # in the top quadrant
-            background_rois.append((signal_centre[0], background_rois_row))
 
+            # Determine if phantom is in left or right half
             if signal_centre[0] > round(dcm.Columns / 2):
-                # phantom is right half of image need 4 ROIs evenly spaced from 0->background_roi[0]
-                gap = round(background_rois[0][0] / 4)
+                # phantom is in right half of image
+                print("phantom is in right half of image")
+                # need 4 ROIs evenly spaced from 0->background_roi[0]
+                gap = round(signal_centre[0] / 4)
                 background_rois = [
-                    (background_rois[0][0] - i * gap, background_rois_row)
-                    for i in range(4)
+                    (signal_centre[0] - i * gap, background_rois_row) for i in range(4)
                 ]
             else:
-                # phantom is left half of image need 4 ROIs evenly spaced from background_roi[0]->end
-                gap = round((dcm.Columns - background_rois[0][0]) / 4)
+                # phantom is in left half of image
+                print("phantom is in left half of image")
+                # need 4 ROIs evenly spaced from background_roi[0]->end
+                gap = round((dcm.Columns - signal_centre[0]) / 4)
                 background_rois = [
-                    (background_rois[0][0] + i * gap, background_rois_row)
-                    for i in range(4)
+                    (signal_centre[0] + i * gap, background_rois_row) for i in range(4)
                 ]
 
         else:  # phase encoding is top-down i.e. increases with rows (y-axis)
-            if signal_centre[0] < dcm.Columns * 0.5:  # phantom is in left half of image
-                background_rois_column = round(
-                    dcm.Columns * 0.75
-                )  # in the right quadrant
-            else:  # phantom is right half of image
-                background_rois_column = round(
-                    dcm.Columns * 0.25
-                )  # in the top quadrant
-            background_rois.append((background_rois_column, signal_centre[1]))
+            # Determine if phantom is in left or right half
+            if signal_centre[0] < dcm.Columns * 0.5:
+                # phantom is in left half of image
+                print("phantom is in left half of image")
+                background_rois_column = round(dcm.Columns * 0.75)
+                # in the right quadrant
+            else:
+                # phantom is right half of image
+                print("phantom is in right half of image")
+                background_rois_column = round(dcm.Columns * 0.25)
+                # in the top quadrant
 
             if signal_centre[1] >= round(dcm.Rows / 2):
-                # phantom is bottom half of image need 4 ROIs evenly spaced from 0->background_roi[0]
-                gap = round(background_rois[0][1] / 4)
+                # phantom is bottom half of image
+                print("phantom is bottom half of image")
+                # need 4 ROIs evenly spaced from 0->background_roi[0]
+                gap = round(signal_centre[1] / 4)
                 background_rois = [
-                    (background_rois_column, background_rois[0][1] - i * gap)
+                    (background_rois_column, signal_centre[1] - i * gap)
                     for i in range(4)
                 ]
-            else:  # phantom is top half of image need 3 ROIs evenly spaced from background_roi[0]->end
-                gap = round((dcm.Columns - background_rois[0][1]) / 4)
+            else:
+                # phantom is top half of image
+                print("phantom is top half of image")
+                # need 4 ROIs evenly spaced from background_roi[0]->end
+                gap = round((dcm.Columns - signal_centre[1]) / 4)
                 background_rois = [
-                    (background_rois_column, background_rois[0][1] + i * gap)
+                    (background_rois_column, signal_centre[1] + i * gap)
                     for i in range(4)
                 ]
 
@@ -315,12 +342,16 @@ class Ghosting(HazenTask):
             float: percentage ghosting across eligible area
         """
         bbox = self.get_signal_bounding_box(dcm.pixel_array)
+        left_column, right_column, upper_row, lower_row = bbox
 
         x, y = hazenlib.utils.get_pixel_size(dcm)  # assume square pixels i.e. x=y
         # ROIs need to be 10mmx10mm
         slice_radius = int(10 // (2 * x))
 
-        signal_centre = [(bbox[0] + bbox[1]) // 2, (bbox[2] + bbox[3]) // 2]
+        signal_centre = [
+            (left_column + right_column) // 2,
+            (upper_row + lower_row) // 2,
+        ]
         background_rois = self.get_background_rois(dcm, signal_centre)
         ghost_col, ghost_row = self.get_ghost_slice(
             bbox, dcm, slice_radius=slice_radius
