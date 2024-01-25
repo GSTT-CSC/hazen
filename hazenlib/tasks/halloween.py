@@ -5,12 +5,12 @@ import traceback
 import numpy as np
 import cv2 as cv
 
-import hazenlib.utils
+from hazenlib.utils import get_pe_direction, get_pixel_size
 from hazenlib.logger import logger
 from hazenlib.HazenTask import HazenTask
 
 
-class Ghosting(HazenTask):
+class Halloween(HazenTask):
     """Ghosting measurement class for DICOM images of the MagNet phantom
 
     Inherits from HazenTask class
@@ -50,56 +50,116 @@ class Ghosting(HazenTask):
         return results
 
     def get_signal_bounding_box(self, array: np.ndarray):
-        """Define coordinates of bounding box around area with top 25% signal strength (25% highest pixel values)
+        """Define corner coordinates of bounding box around area with top 25% signal strength (25% highest pixel values)
 
         Args:
             array (np.ndarray): pixel array
 
         Returns:
-            tuple of int: y_min, y_max, x_min, x_max
+            tuple of int: col_min, col_max, row_min, row_max
         """
         # Find highest pixel value
         max_signal = np.max(array)
 
         # Create threshold of top 25% signal strength
         signal_limit = max_signal * 0.4
-        signal = []
-        for idx, voxel in np.ndenumerate(array):
-            if voxel > signal_limit:
-                signal.append(idx)
-
-        signal_column = sorted([voxel[1] for voxel in signal])
-        signal_row = sorted([voxel[0] for voxel in signal])
-
-        upper_row = min(signal_row)  #  11 row_min 220 y
-        lower_row = max(signal_row)  #  93 row_max 177
-        left_column = min(signal_column)  # 217  col_min 25 x
-        right_column = max(signal_column)  # 299  col_max 69
 
         # Create array of pixel coordinates where their value is above threshold
-        threshold_array = np.argwhere(array >= signal_limit)
+        signal_array = np.argwhere(array >= signal_limit)
 
-        # Record coordinate of the
-        y_min, x_min = threshold_array.min(axis=0)  # row
-        y_max, x_max = threshold_array.max(axis=0)  # row, col
+        # Locate rectangle edges
+        row_min, col_min = signal_array.min(axis=0)
+        row_max, col_max = signal_array.max(axis=0)
 
-        print("x_min, x_max, y_min, y_max")
-        print(x_min, x_max, y_min, y_max)
+        logger.debug(f"width: {col_max-col_min}, height {row_max-row_min}")
 
-        print("left_column, right_column, upper_row, lower_row")
-        print(left_column, right_column, upper_row, lower_row)
+        return (col_min, col_max, row_min, row_max)
 
-        return (
-            left_column,
-            right_column,
-            upper_row,
-            lower_row,
-        )
+    def get_eligible_area(
+        self, dcm, pe, col_min, col_max, row_min, row_max, slice_radius=5
+    ):
+        """Get pixel array within ROI from image
 
-    def get_pe_direction(self, dcm):
-        return dcm.InPlanePhaseEncodingDirection
+        Args:
+            signal_bounding_box (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
+            slice_radius (int, optional): _description_. Defaults to 5.
 
-    def get_background_roi_centres(self, dcm, signal_centre):
+        Returns:
+            tuple of lists: corresponding to eligible_columns, eligible_rows
+        """
+        # take into account when phantom is off edge of image
+        # TODO: these only matter if signal box width and height are greater than slice radius
+        left_column = max(slice_radius, col_min)
+        right_column = min(dcm.Columns - slice_radius, col_max)
+        lower_row = min(dcm.Rows - slice_radius, row_min)
+        upper_row = max(slice_radius, row_max)
+
+        print("col_min, col_max, row_min, row_max")
+        print(col_min, col_max, row_min, row_max)
+        print("left_column, right_column, lower_row, upper_row")
+        print(left_column, right_column, lower_row, upper_row)
+        padding_from_box = 30  # pixels
+
+        if pe == "ROW":
+            if left_column < dcm.Columns / 2:
+                # signal is in left half
+                eligible_columns = range(
+                    right_column + padding_from_box, dcm.Columns - slice_radius
+                )
+                eligible_rows = range(upper_row, lower_row)
+                ghost_slice = np.array(
+                    range(right_column + padding_from_box, dcm.Columns - slice_radius),
+                    dtype=np.intp,
+                )[:, np.newaxis], np.array(range(upper_row, lower_row))
+            else:
+                # signal is in right half
+                eligible_columns = range(slice_radius, left_column - padding_from_box)
+                eligible_rows = range(upper_row, lower_row)
+                ghost_slice = np.array(
+                    range(slice_radius, left_column - padding_from_box), dtype=np.intp
+                )[:, np.newaxis], np.array(range(upper_row, lower_row))
+
+        else:
+            if upper_row < dcm.Rows / 2:
+                # signal is in top half
+                eligible_rows = range(
+                    lower_row + padding_from_box, dcm.Rows - slice_radius
+                )
+                eligible_columns = range(left_column, right_column)
+                ghost_slice = np.array(
+                    range(lower_row + padding_from_box, dcm.Rows - slice_radius),
+                    dtype=np.intp,
+                )[:, np.newaxis], np.array(range(left_column, right_column))
+            else:
+                # signal is in bottom half
+                eligible_rows = range(slice_radius, upper_row - padding_from_box)
+                eligible_columns = range(left_column, right_column)
+                ghost_slice = np.array(
+                    range(slice_radius, upper_row - padding_from_box), dtype=np.intp
+                )[:, np.newaxis], np.array(range(left_column, right_column))
+
+        return eligible_columns, eligible_rows
+
+    def get_ghost_slice(self, eligible_columns, eligible_rows):
+        """Get array of pixel values wihtin bounding box of the ghost slice
+
+        Args:
+            eligible_area ():
+            # signal_bounding_box (tuple or list): _description_
+            # dcm (pydicom.Dataset): DICOM image object
+            # slice_radius (int, optional): _description_. Defaults to 5.
+
+        Returns:
+            tuple of np.array: ghost_col and ghost_row
+        """
+        ghost_col = np.array(
+            range(min(eligible_rows), max(eligible_rows)), dtype=np.intp
+        )[:, np.newaxis]
+        ghost_row = np.array(range(min(eligible_columns), max(eligible_columns)))
+        return ghost_col, ghost_row
+
+    def get_background_roi_centres(self, dcm, pe, signal_centre):
         """Determine the background ROI centre coordinates with respect to the signal and PE direction
 
         Args:
@@ -109,8 +169,7 @@ class Ghosting(HazenTask):
         Returns:
             list of tuple of int: x, y coordinates of the centre of background regions of interest
         """
-
-        if self.get_pe_direction(dcm) == "ROW":
+        if pe == "ROW":
             # phase encoding is left -right i.e. increases with columns
 
             # Determine if phantom is in top or bottom half
@@ -175,116 +234,15 @@ class Ghosting(HazenTask):
 
         return background_rois
 
-    def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
-        """Get pixel array within ROI from image
-
-        Args:
-            signal_bounding_box (_type_): _description_
-            dcm (pydicom.Dataset): DICOM image object
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of lists: corresponding to eligible_columns, eligible_rows
-        """
-        left_column, right_column, upper_row, lower_row = signal_bounding_box
-
-        # take into account when phantom is off edge of image
-        lower_row = min(dcm.Rows - slice_radius, lower_row)
-        upper_row = max(slice_radius, upper_row)
-        right_column = min(dcm.Columns - slice_radius, right_column)
-        left_column = max(slice_radius, left_column)
-
-        padding_from_box = 30  # pixels
-
-        if self.get_pe_direction(dcm) == "ROW":
-            if left_column < dcm.Columns / 2:
-                # signal is in left half
-                eligible_columns = range(
-                    right_column + padding_from_box, dcm.Columns - slice_radius
-                )
-                eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(right_column + padding_from_box, dcm.Columns - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
-            else:
-                # signal is in right half
-                eligible_columns = range(slice_radius, left_column - padding_from_box)
-                eligible_rows = range(upper_row, lower_row)
-                ghost_slice = np.array(
-                    range(slice_radius, left_column - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(upper_row, lower_row))
-
-        else:
-            if upper_row < dcm.Rows / 2:
-                # signal is in top half
-                eligible_rows = range(
-                    lower_row + padding_from_box, dcm.Rows - slice_radius
-                )
-                eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(lower_row + padding_from_box, dcm.Rows - slice_radius),
-                    dtype=np.intp,
-                )[:, np.newaxis], np.array(range(left_column, right_column))
-            else:
-                # signal is in bottom half
-                eligible_rows = range(slice_radius, upper_row - padding_from_box)
-                eligible_columns = range(left_column, right_column)
-                ghost_slice = np.array(
-                    range(slice_radius, upper_row - padding_from_box), dtype=np.intp
-                )[:, np.newaxis], np.array(range(left_column, right_column))
-
-        return eligible_columns, eligible_rows
-
-    def get_ghost_slice(self, eligible_area):
-        """Get array of pixel values wihtin bounding box of the ghost slice
-
-        Args:
-            eligible_area ():
-            # signal_bounding_box (tuple or list): _description_
-            # dcm (pydicom.Dataset): DICOM image object
-            # slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of np.array: ghost_col and ghost_row
-        """
-        ghost_col = np.array(
-            range(min(eligible_area[1]), max(eligible_area[1])), dtype=np.intp
-        )[:, np.newaxis]
-        ghost_row = np.array(range(min(eligible_area[0]), max(eligible_area[0])))
-        return ghost_col, ghost_row
-
-    def get_signal_slice(self, signal_centre, slice_radius=5):
-        """Get coordinates of pixels where the signal + slice_radius is
-
-        Args:
-            signal_centre (tuple): left_column, right_column
-            slice_radius (int, optional): _description_. Defaults to 5.
-
-        Returns:
-            tuple of np.array: indeces corresponding to the signal region
-        """
-        idxs = (
-            np.array(
-                range(signal_centre[0] - slice_radius, signal_centre[0] + slice_radius),
-                dtype=np.intp,
-            )[:, np.newaxis],
-            np.array(
-                range(signal_centre[1] - slice_radius, signal_centre[1] + slice_radius),
-                dtype=np.intp,
-            ),
-        )
-        return idxs
-
     def get_background_slices(self, background_rois, slice_radius=5):
-        """_summary_
+        """Set location of background ROIs
 
         Args:
             background_rois (list): list of pixel arrays (np.array)
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            list: _description_
+            list of np.ndarray: _description_
         """
         slices = [
             (
@@ -297,6 +255,11 @@ class Ghosting(HazenTask):
             )
             for roi in background_rois
         ]
+        # print("Corner coordinates of the first ROI")
+        # print(background_rois[0][0] - slice_radius)
+        # print(background_rois[0][0] + slice_radius)
+        # print(background_rois[0][1] - slice_radius)
+        # print(background_rois[0][1] + slice_radius)
 
         return slices
 
@@ -334,7 +297,8 @@ class Ghosting(HazenTask):
         return 100 * abs(ghost_mean - noise_mean) / phantom_mean
 
     def get_ghosting(self, dcm) -> float:
-        """Calculate ghosting percentage
+        """Calculate ghosting percentage \n
+        First locate the signal
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
@@ -342,41 +306,80 @@ class Ghosting(HazenTask):
         Returns:
             float: percentage ghosting across eligible area
         """
-        x, y = hazenlib.utils.get_pixel_size(dcm)  # assume square pixels i.e. x=y
+        pe = get_pe_direction(dcm)
+        x, y = get_pixel_size(dcm)  # assume square pixels i.e. x=y
         # ROIs need to be 10mmx10mm
         slice_radius = int(10 // (2 * x))
         print(f"Slice radius is {slice_radius}")
 
         # locate signal (get coordinates of bounding box)
         logger.debug("get coordinates of signal bounding box")
-        bbox = self.get_signal_bounding_box(dcm.pixel_array)
-        left_column, right_column, upper_row, lower_row = bbox
-
-        signal_centre = [
-            (left_column + right_column) // 2,
-            (upper_row + lower_row) // 2,
-        ]
-        signal_centre_col, signal_centre_row = signal_centre
+        # get coordinates of bbox centre
+        col_min, col_max, row_min, row_max = self.get_signal_bounding_box(
+            dcm.pixel_array
+        )
+        # Record coordinate of centre
+        signal_centre_col = (col_min + col_max) // 2
+        signal_centre_row = (row_min + row_max) // 2
         # TODO: determine which quadrant the signal is
         logger.debug(
             f"Coordinate of the signal centre is {signal_centre_col, signal_centre_row}"
         )
-        # signal mask
-        signal_col, signal_row = self.get_signal_slice(
-            signal_centre, slice_radius=slice_radius
-        )
-        # signal pixel values
+        # get signal pixel values
         logger.debug("get pixel values in signal bounding box")
-        phantom = dcm.pixel_array[(signal_row, signal_col)]
-        phantom2 = dcm.pixel_array[
+        # print(signal_row, signal_col)
+        phantom = dcm.pixel_array[
             signal_centre_row - slice_radius : signal_centre_row + slice_radius,
             signal_centre_col - slice_radius : signal_centre_col + slice_radius,
         ]
-        # print(phantom == phantom2)
+
+        # TODO; based on signal centre and PE direction,
+        # determine which orientation the ghost and noise ROIs should be
+
+        # ghost mask
+        logger.debug("get coordinates of ghost bounding box")
+        eligible_columns, eligible_rows = self.get_eligible_area(
+            dcm, pe, col_min, col_max, row_min, row_max, slice_radius
+        )
+        print(eligible_columns)
+        print(eligible_rows)
+        ghost_col, ghost_row = self.get_ghost_slice(eligible_columns, eligible_rows)
+
+        # ghost_col = np.array(
+        #     range(min(eligible_rows), max(eligible_rows)), dtype=np.intp
+        # )[:, np.newaxis]
+        # ghost_row = np.array(range(min(eligible_columns), max(eligible_columns)))
+
+        # ghost pixel values
+        logger.debug("get pixel values in ghost bounding box")
+        ghost = dcm.pixel_array[(ghost_col, ghost_row)]
+        print("ghost.shape")
+        print(ghost.shape)
 
         # noise masks
-        background_roi_centres = self.get_background_roi_centres(dcm, signal_centre)
+        logger.debug("get centre coordinates of noise regions")
+        background_roi_centres = self.get_background_roi_centres(dcm, pe, signal_centre)
         # noise pixel values
+        logger.debug("get pixel values in noise regions")
+        noise_rois = self.get_background_slices(
+            background_roi_centres, slice_radius=slice_radius
+        )
+
+        c, r = noise_rois[0]
+        noise_pixels = dcm.pixel_array[(noise_rois[0][1], noise_rois[0][0])]
+
+        noise_pixels2 = dcm.pixel_array[
+            background_roi_centres[0][1]
+            - slice_radius : background_roi_centres[0][1]
+            + slice_radius,
+            background_roi_centres[0][0]
+            - slice_radius : background_roi_centres[0][0]
+            + slice_radius,
+        ]
+        print(noise_pixels.shape)
+        print(noise_pixels2.shape)
+        print(noise_pixels == noise_pixels2)
+
         noise = np.concatenate(
             [
                 dcm.pixel_array[(row, col)]
@@ -385,13 +388,6 @@ class Ghosting(HazenTask):
                 )
             ]
         )
-
-        # ghost mask
-        eligible_area = self.get_eligible_area(bbox, dcm, slice_radius=slice_radius)
-        ghost_col, ghost_row = self.get_ghost_slice(eligible_area)
-        # ghost pixel values
-        ghost = dcm.pixel_array[(ghost_col, ghost_row)]
-        print(ghost.shape)
 
         ghosting = self.calculate_ghost_intensity(ghost, phantom, noise)
 
