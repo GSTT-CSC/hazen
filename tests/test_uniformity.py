@@ -4,11 +4,15 @@ import unittest
 import pytest
 
 from hazenlib.tasks.uniformity import Uniformity
+from hazenlib.utils import ShapeDetector, get_image_orientation
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestUniformity(unittest.TestCase):
     UNIFORMITY_DATA = pathlib.Path(TEST_DATA_DIR / "uniformity")
+
+    # axial
+    CENTER = (127, 122)
     IPEM_HORIZONTAL = 1.0
     IPEM_VERTICAL = 0.98125
 
@@ -31,6 +35,8 @@ class TestUniformity(unittest.TestCase):
 
 
 class TestSagUniformity(TestUniformity):
+    # sagittal
+    CENTER = (130, 134)
     IPEM_HORIZONTAL = 0.46875
     IPEM_VERTICAL = 0.5125
 
@@ -41,6 +47,8 @@ class TestSagUniformity(TestUniformity):
 
 
 class TestCorUniformity(TestUniformity):
+    # coronal
+    CENTER = (128, 136)
     IPEM_HORIZONTAL = 0.35
     IPEM_VERTICAL = 0.45
 
@@ -50,6 +58,15 @@ class TestCorUniformity(TestUniformity):
             report=True,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
+        dcm = self.uniformity_task.single_dcm
+        self.arr = dcm.pixel_array
+        self.orientation = get_image_orientation(dcm.ImageOrientationPatient)
+
+    def test_get_object_centre(self):
+        x, y = self.uniformity_task.get_object_centre(self.arr, self.orientation)
+
+        assert x == self.CENTER[0]
+        assert y == self.CENTER[1]
 
     def test_report_made(self):
         report_path = pathlib.Path(
