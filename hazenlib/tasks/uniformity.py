@@ -35,6 +35,16 @@ class Uniformity(HazenTask):
         super().__init__(**kwargs)
         # Set the single DICOM input to be the first in the list
         self.single_dcm = self.dcm_list[0]
+        # Set up constants
+        self.ROI_size = 10
+        self.ROI_half_size = 5
+        self.profile_size = 160
+        self.profile_half_size = 80
+        # 1. Determine shape of phantom - depends on orientation
+        self.arr = self.single_dcm.pixel_array
+        self.orientation = get_image_orientation(
+            self.single_dcm.ImageOrientationPatient
+        )
 
     def run(self) -> dict:
         """Main function for performing uniformity measurement
@@ -123,22 +133,31 @@ class Uniformity(HazenTask):
         """
 
         # 1. Determine shape of phantom - depends on orientation
-        arr = dcm.pixel_array
-        orientation = get_image_orientation(dcm.ImageOrientationPatient)
+        # arr = dcm.pixel_array
+        # orientation = get_image_orientation(dcm.ImageOrientationPatient)
 
         # Locate phantom centre - based on shape detected
-        x, y = self.get_object_centre(arr, orientation)
+        x, y = self.get_object_centre(self.arr, self.orientation)
         logger.debug(f"Phantom centre coordinates are {x, y}")
 
         # Create central 10x10 ROI and get modal value
-        central_roi = arr[(y - 5) : (y + 5), (x - 5) : (x + 5)]
+        central_roi = self.arr[
+            (y - self.ROI_half_size) : (y + self.ROI_half_size),
+            (x - self.ROI_half_size) : (x + self.ROI_half_size),
+        ]
         mode_result = stats.mode(central_roi, axis=None, keepdims=False)
         central_roi_mode = mode_result.mode
         logger.debug(f"Modal value in central ROI is {central_roi_mode}")
 
         # Create 160x10 pixel profiles (horizontal and vertical, centred at x,y)
-        horizontal_roi = arr[(y - 5) : (y + 5), (x - 80) : (x + 80)]
-        vertical_roi = arr[(y - 80) : (y + 80), (x - 5) : (x + 5)]
+        horizontal_roi = self.arr[
+            (y - self.ROI_half_size) : (y + self.ROI_half_size),
+            (x - self.profile_half_size) : (x + self.profile_half_size),
+        ]
+        vertical_roi = self.arr[
+            (y - self.profile_half_size) : (y + self.profile_half_size),
+            (x - self.ROI_half_size) : (x + self.ROI_half_size),
+        ]
 
         # Count how many elements are within 0.9-1.1 times the modal value
         # Calculate fractional uniformity
@@ -158,22 +177,30 @@ class Uniformity(HazenTask):
             fig, ax = plt.subplots()
             rects = [
                 Rectangle(
-                    (x - 5, y - 5),
-                    10,
-                    10,
+                    (x - self.ROI_half_size, y - self.ROI_half_size),
+                    width=self.ROI_size,
+                    height=self.ROI_size,
                     facecolor="None",
                     edgecolor="red",
                     linewidth=3,
                 ),
                 Rectangle(
-                    (x - 80, y - 5), 160, 10, facecolor="None", edgecolor="green"
+                    (x - self.profile_half_size, y - self.ROI_half_size),
+                    self.profile_size,
+                    self.ROI_size,
+                    facecolor="None",
+                    edgecolor="green",
                 ),
                 Rectangle(
-                    (x - 5, y - 80), 10, 160, facecolor="None", edgecolor="yellow"
+                    (x - self.ROI_half_size, y - self.profile_half_size),
+                    self.ROI_size,
+                    self.profile_size,
+                    facecolor="None",
+                    edgecolor="yellow",
                 ),
             ]
             pc = PatchCollection(rects, match_original=True)
-            ax.imshow(arr, cmap="gray")
+            ax.imshow(self.arr, cmap="gray")
             ax.add_collection(pc)
             ax.scatter(x, y, 5)
 
