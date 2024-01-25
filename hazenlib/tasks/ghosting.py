@@ -190,13 +190,15 @@ class Ghosting(HazenTask):
         slices = [
             (
                 np.array(
-                    range(roi[0] - slice_radius, roi[0] + slice_radius), dtype=np.intp
+                    range(row - slice_radius, row + slice_radius),
+                    dtype=np.intp,
                 )[:, np.newaxis],
                 np.array(
-                    range(roi[1] - slice_radius, roi[1] + slice_radius), dtype=np.intp
+                    range(col - slice_radius, col + slice_radius),
+                    dtype=np.intp,
                 ),
             )
-            for roi in background_rois
+            for row, col in background_rois
         ]
         # print("Corner coordinates of the first ROI")
         # print(background_rois[0][0] - slice_radius)
@@ -218,6 +220,8 @@ class Ghosting(HazenTask):
             tuple of lists: corresponding to eligible_columns, eligible_rows
         """
         left_column, right_column, upper_row, lower_row = signal_bounding_box
+        print("left_column, right_column, upper_row, lower_row")
+        print(left_column, right_column, upper_row, lower_row)
 
         # take into account when phantom is off edge of image
         lower_row = min(dcm.Rows - slice_radius, lower_row)
@@ -353,7 +357,8 @@ class Ghosting(HazenTask):
         x, y = get_pixel_size(dcm)  # assume square pixels i.e. x=y
         # ROIs need to be 10mmx10mm
         slice_radius = int(10 // (2 * x))
-        print(f"Slice radius is {slice_radius}")
+        logger.debug(f"PE direction is {pe}")
+        logger.debug(f"Slice radius is {slice_radius}")
 
         # locate signal (get coordinates of bounding box)
         logger.debug("get coordinates of signal bounding box")
@@ -398,32 +403,35 @@ class Ghosting(HazenTask):
             ]
         )
 
-        # slices = self.get_background_slices(
-        #     background_roi_centres, slice_radius=slice_radius
-        # )
-        # noise_0 = dcm.pixel_array[(slices[0][1], slices[0][0])]
-        # print("slices[0]")
-        # print(slices[0][0])
-        # print(slices[0][1])
+        """
+            slices = self.get_background_slices(
+                background_roi_centres, slice_radius=slice_radius
+            )
+            noise_0 = dcm.pixel_array[(slices[0][1], slices[0][0])]
+            print("slices[0]")
+            print(slices[0][0])
+            print(slices[0][1])
 
-        # # for first one
-        # print(
-        #     background_roi_centres[0][0] - slice_radius,
-        #     background_roi_centres[0][0] + slice_radius,
-        #     background_roi_centres[0][1] - slice_radius,
-        #     background_roi_centres[0][1] + slice_radius,
-        # )
-        # slices0 = dcm.pixel_array[
-        #     background_roi_centres[0][1]
-        #     - slice_radius : background_roi_centres[0][1]
-        #     + slice_radius,
-        #     background_roi_centres[0][0]
-        #     - slice_radius : background_roi_centres[0][0]
-        #     + slice_radius,
-        # ]
-        # print(noise_0 == slices0)
+            # for first one
+            print(
+                background_roi_centres[0][0] - slice_radius,
+                background_roi_centres[0][0] + slice_radius,
+                background_roi_centres[0][1] - slice_radius,
+                background_roi_centres[0][1] + slice_radius,
+            )
+            slices0 = dcm.pixel_array[
+                background_roi_centres[0][1]
+                - slice_radius : background_roi_centres[0][1]
+                + slice_radius,
+                background_roi_centres[0][0]
+                - slice_radius : background_roi_centres[0][0]
+                + slice_radius,
+            ]
+            print(noise_0 == slices0)
+        """
 
-        # ghost mask
+        # ghost ROI
+        logger.debug("get coordinates of ghost bounding box")
         eligible_area = self.get_eligible_area(dcm, pe, bbox, slice_radius=slice_radius)
         ghost_col, ghost_row = self.get_ghost_slice(eligible_area)
         # ghost pixel values
