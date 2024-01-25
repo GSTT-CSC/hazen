@@ -176,6 +176,7 @@ class Uniformity(HazenTask):
 
             fig, ax = plt.subplots()
             rects = [
+                # Central ROI
                 Rectangle(
                     (x - self.ROI_half_size, y - self.ROI_half_size),
                     width=self.ROI_size,
@@ -184,6 +185,7 @@ class Uniformity(HazenTask):
                     edgecolor="red",
                     linewidth=3,
                 ),
+                # Horizontal ROI
                 Rectangle(
                     (x - self.profile_half_size, y - self.ROI_half_size),
                     self.profile_size,
@@ -191,6 +193,7 @@ class Uniformity(HazenTask):
                     facecolor="None",
                     edgecolor="green",
                 ),
+                # Vertical ROI
                 Rectangle(
                     (x - self.ROI_half_size, y - self.profile_half_size),
                     self.ROI_size,
@@ -202,7 +205,7 @@ class Uniformity(HazenTask):
             pc = PatchCollection(rects, match_original=True)
             ax.imshow(self.arr, cmap="gray")
             ax.add_collection(pc)
-            ax.scatter(x, y, 5)
+            ax.scatter(x, y, self.ROI_half_size)
 
             img_path = os.path.realpath(
                 os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
