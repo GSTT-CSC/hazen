@@ -44,14 +44,16 @@ class ACRGhosting(HazenTask):
         """
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice7_dcm)
+        img_desc = self.img_desc(self.ACR_obj.slice7_dcm)
+        results["file"] = img_desc
 
         try:
             result = self.get_signal_ghosting(self.ACR_obj.slice7_dcm)
             results["measurement"] = {"signal ghosting %": round(result, 3)}
+
         except Exception as e:
             print(
-                f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice7_dcm)} because of : {e}"
+                f"Could not calculate the percent-signal ghosting for {img_desc} because of : {e}"
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -62,7 +64,7 @@ class ACRGhosting(HazenTask):
         return results
 
     def get_signal_ghosting(self, dcm):
-        """Calculate signal ghosting
+        """Calculate signal ghosting percentage
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
@@ -71,10 +73,10 @@ class ACRGhosting(HazenTask):
             float: percentage ghosting value
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        r_large = np.ceil(80 / res[0]).astype(
-            int
-        )  # Required pixel radius to produce ~200cm2 ROI
+        # In-plane resolution from metadata
+        res = dcm.PixelSpacing
+        # Required pixel radius to produce ~200cm2 ROI
+        r_large = np.ceil(80 / res[0]).astype(int)
         dims = img.shape
 
         mask = self.ACR_obj.mask_image
