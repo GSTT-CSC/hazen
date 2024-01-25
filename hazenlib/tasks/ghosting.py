@@ -5,7 +5,7 @@ import traceback
 import numpy as np
 import cv2 as cv
 
-import hazenlib.utils
+from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
 from hazenlib.logger import logger
 from hazenlib.HazenTask import HazenTask
 
@@ -99,7 +99,7 @@ class Ghosting(HazenTask):
     def get_pe_direction(self, dcm):
         return dcm.InPlanePhaseEncodingDirection
 
-    def get_background_roi_centres(self, dcm, signal_centre):
+    def get_background_roi_centres(self, dcm, pe, signal_centre):
         """Determine the background ROI centre coordinates with respect to the signal and PE direction
 
         Args:
@@ -110,7 +110,7 @@ class Ghosting(HazenTask):
             list of tuple of int: x, y coordinates of the centre of background regions of interest
         """
 
-        if self.get_pe_direction(dcm) == "ROW":
+        if pe == "ROW":
             # phase encoding is left -right i.e. increases with columns
 
             # Determine if phantom is in top or bottom half
@@ -175,7 +175,7 @@ class Ghosting(HazenTask):
 
         return background_rois
 
-    def get_eligible_area(self, signal_bounding_box, dcm, slice_radius=5):
+    def get_eligible_area(self, dcm, pe, signal_bounding_box, slice_radius=5):
         """Get pixel array within ROI from image
 
         Args:
@@ -196,7 +196,7 @@ class Ghosting(HazenTask):
 
         padding_from_box = 30  # pixels
 
-        if self.get_pe_direction(dcm) == "ROW":
+        if pe == "ROW":
             if left_column < dcm.Columns / 2:
                 # signal is in left half
                 eligible_columns = range(
@@ -342,7 +342,8 @@ class Ghosting(HazenTask):
         Returns:
             float: percentage ghosting across eligible area
         """
-        x, y = hazenlib.utils.get_pixel_size(dcm)  # assume square pixels i.e. x=y
+        pe = get_pe_direction(dcm)
+        x, y = get_pixel_size(dcm)  # assume square pixels i.e. x=y
         # ROIs need to be 10mmx10mm
         slice_radius = int(10 // (2 * x))
         print(f"Slice radius is {slice_radius}")
@@ -375,7 +376,7 @@ class Ghosting(HazenTask):
         # print(phantom == phantom2)
 
         # noise masks
-        background_roi_centres = self.get_background_roi_centres(dcm, signal_centre)
+        background_roi_centres = self.get_background_roi_centres(dcm, pe, signal_centre)
         # noise pixel values
         noise = np.concatenate(
             [
@@ -387,7 +388,7 @@ class Ghosting(HazenTask):
         )
 
         # ghost mask
-        eligible_area = self.get_eligible_area(bbox, dcm, slice_radius=slice_radius)
+        eligible_area = self.get_eligible_area(dcm, pe, bbox, slice_radius=slice_radius)
         ghost_col, ghost_row = self.get_ghost_slice(eligible_area)
         # ghost pixel values
         ghost = dcm.pixel_array[(ghost_col, ghost_row)]
@@ -405,7 +406,7 @@ class Ghosting(HazenTask):
             img = img.astype("float64")
             # print('this is img',img)
             img *= 255.0 / img.max()
-            img = hazenlib.utils.rescale_to_byte(dcm.pixel_array)
+            img = rescale_to_byte(dcm.pixel_array)
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
             for x, y in background_roi_centres:
