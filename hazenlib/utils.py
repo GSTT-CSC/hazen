@@ -120,6 +120,18 @@ def get_average(dcm: pydicom.Dataset) -> float:
     return averages
 
 
+def get_pe_direction(dcm: pydicom.Dataset):
+    """Get Phase Encoding Direction field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        str: value of the Phase Encoding Direction field from the DICOM header
+    """
+    return dcm.InPlanePhaseEncodingDirection
+
+
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
     """Get the PixelBandwidth field from the DICOM header
 
