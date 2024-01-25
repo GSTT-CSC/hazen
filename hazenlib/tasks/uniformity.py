@@ -45,8 +45,8 @@ class Uniformity(HazenTask):
         results = self.init_result_dict()
         img_desc = self.img_desc(self.single_dcm)
         results["file"] = img_desc
-        print("------------------------------")
-        print(img_desc)
+        logger.debug("------------------------------")
+        logger.debug(img_desc)
 
         try:
             horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(
@@ -57,7 +57,9 @@ class Uniformity(HazenTask):
                 "vertical %": round(vertical_uniformity, 2),
             }
         except Exception as e:
-            print(f"Could not calculate the uniformity for {img_desc} because of : {e}")
+            logger.warning(
+                f"Could not calculate the uniformity for {img_desc} because of : {e}"
+            )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
@@ -132,16 +134,15 @@ class Uniformity(HazenTask):
         central_roi = arr[(y - 5) : (y + 5), (x - 5) : (x + 5)]
         mode_result = stats.mode(central_roi, axis=None, keepdims=False)
         central_roi_mode = mode_result.mode
-        # print(mode_result.mode)
-        # print(mode_result.count)
+        logger.debug(f"Modal value in central ROI is {central_roi_mode}")
 
         # Create 160x10 pixel profiles (horizontal and vertical, centred at x,y)
-        # Count how many elements are within 0.9-1.1 times the modal value
-        # Calculate fractional uniformity
-
         horizontal_roi = arr[(y - 5) : (y + 5), (x - 80) : (x + 80)]
         vertical_roi = arr[(y - 80) : (y + 80), (x - 5) : (x + 5)]
 
+        # Count how many elements are within 0.9-1.1 times the modal value
+        # Calculate fractional uniformity
+        logger.debug(f"Calculating fractional uniformity along profiles")
         fractional_uniformity_horizontal = self.get_profile_fraction(
             horizontal_roi, central_roi_mode, direction=0
         )
