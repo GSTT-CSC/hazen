@@ -28,44 +28,56 @@ class SpatialResolution(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+        # Obtain values from DICOM object
         self.single_dcm = self.dcm_list[0]
+        self.arr = self.single_dcm.pixel_array
+        # self.pe = self.single_dcm.InPlanePhaseEncodingDirection
+        # print(pe)
+        self.spacing = hazenlib.utils.get_pixel_size(self.single_dcm)
 
-    def run(self) -> dict:
-        """Main function for performing spatial resolution measurement
+        # 1. Detect phantom (circle) using ShapeDetector
+        shape_detector = hazenlib.utils.ShapeDetector(self.arr)
+        # Return centre coords, and radius
+        x, y, r = shape_detector.get_shape("circle")
+        circle_x, circle_y, circle_radius = round(x), round(y), round(r)
+        # visualise_shape()
 
-        Returns:
-            dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
-        """
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        # 2. Detect square within phantom using ShapeDetector
+        # Return centre coords, size and angle
+        (x, y), size, angle = shape_detector.get_shape("rectangle")
+        # print(x, y, size, angle)
+        # Get coordinates of the corners
+        detected_box = cv.boxPoints(((x, y), size, angle))
+        box_coords = detected_box.round().astype(int)
+        # visualise_shape()
 
-        pe = self.single_dcm.InPlanePhaseEncodingDirection
-        print(pe)
-        try:
-            horizontal, vertical = self.calculate_mtf(self.single_dcm)
-        except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}"
-            )
-            traceback.print_exc(file=sys.stdout)
+        # 3. Define regions to sample background (void),
+        #    signal and edges in horizontal and vertical directions
+        self.void_arr = self.get_roi(self.arr, (circle_x, circle_y))
+        (
+            horizontal_edge_centre,
+            horizontal_signal_centre,
+        ) = self.get_horizontal_roi_centres(box_coords, circle_radius)
+        (
+            vertical_edge_centre,
+            vertical_signal_centre,
+        ) = self.get_vertical_roi_centres(box_coords, circle_radius)
 
-        if pe == "COL":  # FE right, PE top
-            pe_result = horizontal
-            fe_result = vertical
-        elif pe == "ROW":  # PE right, FE top
-            pe_result = vertical  # self.calculate_mtf(dcm, "right")
-            fe_result = horizontal  # self.calculate_mtf(dcm, "top")
+        # Common functions
+        horizontal_mean = self.get_mean_signal(horizontal_signal_centre)
+        vertical_mean = self.get_mean_signal(vertical_signal_centre)
 
-        results["measurement"] = {
-            "phase encoding direction mm": round(pe_result, 10),
-            "frequency encoding direction mm": round(fe_result, 10),
-        }
+        horizontal_edge_roi = self.get_edge_roi(horizontal_edge_centre, horizontal_mean)
+        vertical_edge_roi = self.get_edge_roi(vertical_edge_centre, vertical_mean)
 
-        # only return reports if requested
-        if self.report:
-            results["report_image"] = self.report_files
+        self.horizontal_resolution = self.calculate_mtf(
+            horizontal_edge_roi, horizontal_mean
+        )
+        self.vertical_resolution = self.calculate_mtf(vertical_edge_roi, vertical_mean)
 
-        return results
+        print(f"horizontal resolution is {self.horizontal_resolution}")
+        print(f"vertical resolution is {self.vertical_resolution}")
 
     def get_roi(self, arr: np.ndarray, centre: tuple, half_size=10):
         """Get coordinates of the region of interest
@@ -82,7 +94,40 @@ class SpatialResolution(HazenTask):
         roi_arr = arr[x - half_size : x + half_size, y - half_size : y + half_size]
         return roi_arr
 
-    def edge_is_vertical(self, edge_roi: np.ndarray, mean) -> bool:
+    def get_horizontal_roi_centres(self, box_coords, circle_radius) -> tuple:
+        edge_centre = (
+            (box_coords[3][0] + box_coords[2][0]) // 2,
+            (box_coords[3][1] + box_coords[2][1]) // 2,
+        )
+
+        signal_centre = (edge_centre[0], edge_centre[1] - circle_radius // 2)
+
+        return edge_centre, signal_centre
+
+    def get_vertical_roi_centres(self, box_coords, circle_radius) -> tuple:
+        edge_centre = (
+            (box_coords[0][0] + box_coords[3][0]) // 2,
+            (box_coords[0][1] + box_coords[3][1]) // 2,
+        )
+
+        signal_centre = (edge_centre[0] + circle_radius // 2, edge_centre[1])
+
+        return edge_centre, signal_centre
+
+    def get_mean_signal(self, signal_centre: tuple) -> float:
+        """_summary_
+
+        Args:
+            signal_centre (tuple): _description_
+
+        Returns:
+            float: _description_
+        """
+        signal_arr = self.get_roi(self.arr, signal_centre)
+        mean = np.mean([self.void_arr, signal_arr])
+        return mean
+
+    def is_edge_vertical(self, edge_roi: np.ndarray, mean) -> bool:
         """Determine whether edge is vertical
             control_parameter_01=0  ;a control parameter that will be equal to 1 if the edge is vertical and 0 if it is horizontal
 
@@ -106,7 +151,28 @@ class SpatialResolution(HazenTask):
 
         return False
 
-    def get_edge(self, edge_arr, mean_value, spacing):
+    def get_edge_roi(self, edge_centre: tuple, mean: float):
+        """_summary_
+
+        Args:
+            edge_centre (tuple): _description_
+            mean (float): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        ##### Get edge ROI
+        edge_arr = self.get_roi(self.arr, edge_centre)
+
+        if self.is_edge_vertical(edge_arr, mean):
+            logger.info("RIGHT edge is vertical, rotating pixel array")
+            horizontal_edge_arr = np.rot90(edge_arr)
+        else:
+            horizontal_edge_arr = edge_arr
+
+        return horizontal_edge_arr
+
+    def get_edge(self, edge_arr, mean_value):
         """Obtain list of values corrseponding to????
 
         Args:
@@ -128,38 +194,31 @@ class SpatialResolution(HazenTask):
                 if (edge_arr[row, col] <= mean_value) and (
                     edge_arr[row, col + 1] >= mean_value
                 ):
-                    x_edge.append(row * spacing[0])
-                    y_edge.append(col * spacing[1])
+                    x_edge.append(row * self.spacing[0])
+                    y_edge.append(col * self.spacing[1])
                     break
 
                 elif (edge_arr[row, col] >= mean_value) and (
                     edge_arr[row, col + 1] <= mean_value
                 ):
-                    x_edge.append(row * spacing[0])
-                    y_edge.append(col * spacing[1])
+                    x_edge.append(row * self.spacing[0])
+                    y_edge.append(col * self.spacing[1])
                     break
                 else:
                     pass
 
-        # 0.0, 0.48828125, 0.9765625, 1.46484375, 1.953125, 2.44140625, 2.9296875, 3.41796875, 3.90625, 4.39453125, 4.8828125, 5.37109375, 5.859375, 6.34765625, 6.8359375, 7.32421875, 7.8125, 8.30078125, 8.7890625, 9.27734375]
-        # [5.859375, 5.37109375, 5.37109375, 5.37109375, 5.37109375, 5.37109375, 5.37109375, 5.37109375, 4.8828125, 4.8828125, 4.8828125, 4.8828125, 4.8828125, 4.8828125, 4.39453125, 4.39453125, 4.39453125, 4.39453125, 4.39453125, 4.39453125]
-
         return x_edge, y_edge
 
-    def get_edge_angle_and_intercept(self, x_edge, y_edge):
-        """Get edge (slope) angle and intercept value
+    def get_edge_angle_and_intercept(self, x_edge: list, y_edge: list) -> tuple(float):
+        """Get edge (slope) angle and intercept value, using least squares method for the edge
 
         Args:
-            x_edge (np.ndarray): _description_
-            y_edge (np.ndarray): _description_
+            x_edge (list): _description_
+            y_edge (list): _description_
 
         Returns:
-            tuple: angle and intercept values
+            tuple of float: angle and intercept values
         """
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # ;Apply least squares method for the edge
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
         mean_x = np.mean(x_edge)
         mean_y = np.mean(y_edge)
 
@@ -168,28 +227,29 @@ class SpatialResolution(HazenTask):
         slope = slope_up / slope_down
         angle = np.arctan(slope)
         intercept = mean_y - slope * mean_x
+
         return angle, intercept
 
-    def get_edge_profile_coords(self, angle, intercept, spacing):
+    def get_edge_profile_coords(self, angle, intercept):
         """translate and rotate the data's coordinates according to the slope and intercept
 
         Args:
-            angle (ndarray or scalar): angle of slope
-            intercept (ndarray or scalar): intercept of slope
+            angle (float): angle of slope
+            intercept (float): intercept of slope
             spacing (tuple/list): spacing value in x and y directions
 
         Returns:
             tuple: of np.ndarrays of the rotated MTF positions in x and y directions
         """
 
-        original_mtf_x_position = np.array([x * spacing[0] for x in range(20)])
+        original_mtf_x_position = np.array([x * self.spacing[0] for x in range(20)])
         original_mtf_x_positions = copy.copy(original_mtf_x_position)
         for row in range(19):
             original_mtf_x_positions = np.row_stack(
                 (original_mtf_x_positions, original_mtf_x_position)
             )
 
-        original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
+        original_mtf_y_position = np.array([x * self.spacing[1] for x in range(20)])
         original_mtf_y_positions = copy.copy(original_mtf_y_position)
         for row in range(19):
             original_mtf_y_positions = np.column_stack(
@@ -252,91 +312,29 @@ class SpatialResolution(HazenTask):
 
         return u, esf
 
-    def calculate_mtf(self, dcm) -> tuple:
+    def calculate_mtf(self, edge_arr, mean) -> tuple:
         """Calculate MTF in horizontal and verrtical directions
 
         Args:
-        dcm (pydicom.Dataset): DICOM image object
+            edge_arr (_type_): _description_
+            mean (_type_): _description_
 
         Returns:
             tuple: MTF in the horizontal and vertical direction
         """
-        arr = dcm.pixel_array
-        pe = dcm.InPlanePhaseEncodingDirection
-        spacing = hazenlib.utils.get_pixel_size(dcm)
-
-        """
-            # 1. Detect circle to locate phantom centre
-            # img = hazenlib.utils.rescale_to_byte(arr)  # rescale for OpenCV operations
-            # thresh = self.thresh_image(img)
-            # circle = self.get_circles(img)
-            # circle_radius = circle[2]
-            # print(circle_radius)
-
-            # [254 256 197]
-            # 255.67379760742188 256.6147155761719 196.54336547851562
-            # 256 257 197
-        """
-
-        # 1a. Using ShapeDetector
-        shape_detector = hazenlib.utils.ShapeDetector(arr)
-        x, y, r = shape_detector.get_shape("circle")
-        circle_x, circle_y, circle_radius = round(x), round(y), round(r)
-        void_arr = self.get_roi(arr=arr, centre=(circle_x, circle_y))
-
-        """
-            # 2. Detect square and return coordinates of corners
-            # square, box = self.find_square(thresh)
-            # # array of tuples, coordinates of the 4 corners
-            # print("square")
-            # print(square)
-            # # 2d array of coordinates of the 4 corners
-            # print("box")
-            # print(box)
-            # print(box.shape)
-        """
-
-        # 2a. Return centre coords, size and angle
-        (x, y), size, angle = shape_detector.get_shape("rectangle")
-        # print(x, y, size, angle)
-        # Get coordinates of the corners
-        detected_box = cv.boxPoints(((x, y), size, angle))
-        box_coords = detected_box.round().astype(int)
-        # =========================================================
-
-        # 3. Get edge ROI, signal ROI (void ROI - based on circle)
-        # a. Calculate centre coordinates of edges
-        top_edge_centre = (
-            (box_coords[3][0] + box_coords[2][0]) // 2,
-            (box_coords[3][1] + box_coords[2][1]) // 2,
-        )
-
-        top_signal_roi_x = top_edge_centre[0]
-        top_signal_roi_y = top_edge_centre[1] - circle_radius // 2
-
-        signal_arr = self.get_roi(arr=arr, centre=(top_signal_roi_x, top_signal_roi_y))
-
-        mean = np.mean([void_arr, signal_arr])
-
-        ##### Get edge ROI
-        edge_arr = self.get_roi(arr, top_edge_centre)
-
-        if self.edge_is_vertical(edge_arr, mean):
-            logger.info("TOP edge is vertical, rotating pixel array")
-            horizontal_edge_arr = np.rot90(edge_arr)
-        else:
-            horizontal_edge_arr = edge_arr
-
-        x_edge, y_edge = self.get_edge(horizontal_edge_arr, mean, spacing)
+        x_edge, y_edge = self.get_edge(edge_arr, mean)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
-        x, y = self.get_edge_profile_coords(angle, intercept, spacing)
-        u, esf = self.get_esf(horizontal_edge_arr, y)
+        x, y = self.get_edge_profile_coords(angle, intercept)
+        u, esf = self.get_esf(edge_arr, y)
         # This function calculated the LSF by taking the derivative of the ESF.
         # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
         lsf = np.gradient(esf)
+        print(type(lsf))
+        print(lsf.shape)
         lsf = np.array(lsf)
-        n = lsf.size
         mtf = abs(np.fft.fft(lsf))
+        print(type(mtf))
+        print(mtf.shape)
         norm_mtf = mtf / mtf[0]
         mtf_50 = min(
             [
@@ -345,61 +343,50 @@ class SpatialResolution(HazenTask):
                 if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]
             ]
         )
+        print("type(y)")
+        print(y.shape)
         profile_length = max(y.flatten()) - min(y.flatten())
-        freqs = fftfreq(n, profile_length / n)
+        print("profile_length mm")
+        print(profile_length)
+        freqs = fftfreq(lsf.size, profile_length / lsf.size)
         mask = freqs >= 0
         mtf_frequency = 10.0 * mtf_50 / profile_length
-        res1 = 10 / (2 * mtf_frequency)
-        print(f"TOP resolution is {res1}")
+        resolution = 10 / (2 * mtf_frequency)
 
-        # =========================================================
-        right_edge_centre = (
-            (box_coords[0][0] + box_coords[3][0]) // 2,
-            (box_coords[0][1] + box_coords[3][1]) // 2,
-        )
+        return resolution
 
-        right_signal_roi_x = right_edge_centre[0] + circle_radius // 2
-        right_signal_roi_y = right_edge_centre[1]
+    def run(self) -> dict:
+        """Main function for performing spatial resolution measurement
 
-        signal_arr = self.get_roi(
-            arr=arr, centre=(right_signal_roi_x, right_signal_roi_y)
-        )
-        mean = np.mean([void_arr, signal_arr])
+        Returns:
+            dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
+        results = self.init_result_dict()
+        results["file"] = self.img_desc(self.single_dcm)
 
-        ##### Get edge ROI
-        edge_arr = self.get_roi(arr, right_edge_centre)
+        pe = self.single_dcm.InPlanePhaseEncodingDirection
 
-        if self.edge_is_vertical(edge_arr, mean):
-            logger.info("RIGHT edge is vertical, rotating pixel array")
-            horizontal_edge_arr = np.rot90(edge_arr)
-        else:
-            horizontal_edge_arr = edge_arr
+        # try:
+        #     horizontal, vertical = self.calculate_mtf(self.single_dcm)
+        # except Exception as e:
+        #     print(
+        #         f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}"
+        #     )
+        #     traceback.print_exc(file=sys.stdout)
 
-        x_edge, y_edge = self.get_edge(horizontal_edge_arr, mean, spacing)
-        angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
-        x, y = self.get_edge_profile_coords(angle, intercept, spacing)
-        u, esf = self.get_esf(horizontal_edge_arr, y)
-        # This function calculated the LSF by taking the derivative of the ESF.
-        # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
-        lsf = np.gradient(esf)
-        lsf = np.array(lsf)
-        n = lsf.size
-        mtf = abs(np.fft.fft(lsf))
-        norm_mtf = mtf / mtf[0]
-        mtf_50 = min(
-            [
-                i
-                for i in range(len(norm_mtf) - 1)
-                if norm_mtf[i] >= 0.5 >= norm_mtf[i + 1]
-            ]
-        )
-        profile_length = max(y.flatten()) - min(y.flatten())
-        freqs = fftfreq(n, profile_length / n)
-        mask = freqs >= 0
-        mtf_frequency = 10.0 * mtf_50 / profile_length
-        res2 = 10 / (2 * mtf_frequency)
-        print(f"RIGHT resolution is {res2}")
+        if pe == "COL":  # FE right, PE top
+            pe_result = self.horizontal_resolution
+            fe_result = self.vertical_resolution
+        elif pe == "ROW":  # PE right, FE top
+            pe_result = self.vertical_resolution
+            fe_result = self.horizontal_resolution
 
+        results["measurement"] = {
+            "phase encoding direction mm": round(pe_result, 10),
+            "frequency encoding direction mm": round(fe_result, 10),
+        }
+
+        # only return reports if requested
         if self.report:
             import matplotlib.pyplot as plt
 
@@ -441,5 +428,6 @@ class SpatialResolution(HazenTask):
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
+            results["report_image"] = self.report_files
 
-        return res1, res2
+        return results
