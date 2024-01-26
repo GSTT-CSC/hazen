@@ -9,6 +9,8 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.tasks.spatial_resolution import SpatialResolution
 from hazenlib.utils import get_dicom_files, rescale_to_byte
 
+# TODO: rewrite all tests for refactored script
+
 
 class TestSpatialResolution(unittest.TestCase):
     files = get_dicom_files(os.path.join(TEST_DATA_DIR, "resolution", "RESOLUTION"))
