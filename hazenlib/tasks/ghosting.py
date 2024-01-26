@@ -118,7 +118,7 @@ class Ghosting(HazenTask):
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            tuple of np.array: _description_
+            tuple of np.ndarray: _description_
         """
         left_column, right_column, upper_row, lower_row = bounding_box
         centre_row = (upper_row + lower_row) // 2
@@ -205,7 +205,7 @@ class Ghosting(HazenTask):
         """_summary_
 
         Args:
-            background_rois (list): list of pixel arrays (np.array)
+            background_rois (list): list of pixel arrays (np.ndarray)
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
@@ -295,7 +295,7 @@ class Ghosting(HazenTask):
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            tuple of np.array: _description_
+            tuple of np.ndarray: _description_
         """
         eligible_area = self.get_eligible_area(
             signal_bounding_box, dcm, slice_radius=slice_radius

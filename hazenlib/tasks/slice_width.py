@@ -74,7 +74,7 @@ class SliceWidth(HazenTask):
         """Locate rods in the pixel array
 
         Args:
-            arr (np.array): DICOM pixel array
+            arr (np.ndarray): DICOM pixel array
 
         Returns:
             rods : array_like – centroid coordinates of rods
@@ -465,7 +465,7 @@ class SliceWidth(HazenTask):
         Based on code by Siân Culley, UCL/KCL
 
         Args:
-            cropped_data (np.array): 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
+            cropped_data (np.ndarray): 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
             gauss_amp (float/int): initial estimate of amplitude of 2D Gaussian
             gauss_radius (int): initial estimate of centre of 2D Gaussian
             box_radius (int): 'radius' of box around rod
