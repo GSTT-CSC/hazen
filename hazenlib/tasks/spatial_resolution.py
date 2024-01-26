@@ -396,21 +396,22 @@ class SpatialResolution(HazenTask):
 
         # only return reports if requested
         if self.report:
+            # TODO: separate plots and visualisation into their respective functions
             import matplotlib.pyplot as plt
 
             fig, axes = plt.subplots(11, 1)
             fig.set_size_inches(5, 36)
             fig.tight_layout(pad=4)
             axes[0].set_title("raw pixels")
-            axes[0].imshow(arr, cmap="gray")
+            axes[0].imshow(self.arr, cmap="gray")
             # axes[1].set_title("rescaled to byte")
             # axes[1].imshow(img, cmap="gray")
             # axes[2].set_title("thresholded")
             # axes[2].imshow(thresh, cmap="gray")
             axes[3].set_title("finding circle")
-            c = cv.circle(arr, (circle_x, circle_y), circle_radius, (255, 0, 0))
+            c = cv.circle(self.arr, (circle_x, circle_y), circle_radius, (255, 0, 0))
             axes[3].imshow(c)
-            box = cv.drawContours(arr, [box_coords], 0, (255, 0, 0), 1)
+            box = cv.drawContours(self.arr, [box_coords], 0, (255, 0, 0), 1)
             axes[4].set_title("finding MTF square")
             axes[4].imshow(box)
             axes[5].set_title("edge ROI")
@@ -432,7 +433,10 @@ class SpatialResolution(HazenTask):
             axes[10].set_xlabel("lp/mm")
             logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png")
+                os.path.join(
+                    self.report_path,
+                    f"{self.img_desc(self.single_dcm)}_{pe}_{edge}.png",
+                )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
