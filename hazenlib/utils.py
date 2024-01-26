@@ -492,9 +492,34 @@ class ShapeDetector:
 
         if shape == "rectangle" or shape == "square":
             (x, y), size, angle = cv.minAreaRect(contour)
+            rect = cv.minAreaRect(contour)
+
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4
             # - swap size order & rotate angle by -90
             size = (size[1], size[0])
             angle = angle - 90
+
+            # OpenCV 4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap rect[1] order & rotate rect[2] by -90
+            # – convert tuple>list>tuple to do this
+            rectAsList = list(rect)
+            rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
+            rectAsList[2] = rectAsList[2] - 90
+            rect = tuple(rectAsList)
+
+            box = cv.boxPoints(rect)
+            box = np.int0(box)
+            w, h = rect[1]
+            ar = w / float(h)
+
+            # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
+            if not 20 < w < 100:
+                logger.info("It's a rectangle")
+
+            # a square will have an aspect ratio that is approximately
+            # equal to one, otherwise, the shape is a rectangle
+            if 0.92 < ar < 1.08:
+                logger.info("It's a square")
             return (x, y), size, angle
