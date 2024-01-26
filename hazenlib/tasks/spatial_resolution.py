@@ -2,12 +2,13 @@
 Spatial Resolution
 
 Contributors:
-Haris Shuaib, haris.shuaib@gstt.nhs.uk
-Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
+Haris Shuaib, haris.shuaib@gstt.nhs.uk \n
+Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018 \n
+Sophie Ratkai , sophie.ratkai@nhs.net, 25/01/2024 \n
 
 .. todo::
     Replace shape finding functions with hazenlib.utils equivalents
-    
+
 """
 import os
 import sys
@@ -188,9 +189,6 @@ class SpatialResolution(HazenTask):
         return self.get_roi(
             pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
         )
-        return self.get_roi(
-            pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
-        )
 
     def edge_is_vertical(self, edge_roi, mean) -> bool:
         """Determine whether edge is vertical
@@ -209,11 +207,9 @@ class SpatialResolution(HazenTask):
             bool: True or false whether edge is vertical
         """
         for col in range(edge_roi.shape[0] - 1):
-            if edge_roi[col, 0] == mean:
+            if edge_roi[col, 0] <= mean < edge_roi[col + 1, 0]:
                 return True
-            if edge_roi[col, 0] < mean < edge_roi[col + 1, 0]:
-                return True
-            if edge_roi[col, 0] > mean > edge_roi[col + 1, 0]:
+            if edge_roi[col, 0] >= mean > edge_roi[col + 1, 0]:
                 return True
 
         return False
@@ -290,13 +286,11 @@ class SpatialResolution(HazenTask):
             for col in range(19):
                 control_parameter_02 = 0
 
-                if edge_arr[row, col] == mean_value:
-                    control_parameter_02 = 1
-                if (edge_arr[row, col] < mean_value) and (
+                if (edge_arr[row, col] <= mean_value) and (
                     edge_arr[row, col + 1] > mean_value
                 ):
                     control_parameter_02 = 1
-                if (edge_arr[row, col] > mean_value) and (
+                if (edge_arr[row, col] >= mean_value) and (
                     edge_arr[row, col + 1] < mean_value
                 ):
                     control_parameter_02 = 1
