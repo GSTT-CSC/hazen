@@ -2,15 +2,13 @@ import os
 import cv2 as cv
 import pydicom
 import imutils
-import matplotlib
 import numpy as np
 
 from collections import defaultdict
 from skimage import filters
 
 import hazenlib.exceptions as exc
-
-matplotlib.use("Agg")
+from hazenlib.logger import logger
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -338,10 +336,10 @@ def rescale_to_byte(array):
     WARNING: This function normalises/equalises the histogram. This might have unintended consequences.
 
     Args:
-        array (np.array): dcm.pixel_array
+        array (np.ndarray): dcm.pixel_array
 
     Returns:
-        np.array: normalised pixel values as 8-bit (byte) integer
+        np.ndarray: normalised pixel values as 8-bit (byte) integer
     """
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
@@ -389,16 +387,13 @@ class ShapeDetector:
     """
 
     def __init__(self, arr):
-        self.arr = arr
-        self.contours = None
-        self.shapes = defaultdict(list)
-        self.blurred = None
-        self.thresh = None
+        contours = self.find_contours(arr)
+        self.shapes = self.detect(contours)
 
-    def find_contours(self):
+    def find_contours(self, arr):
         """Find contours in pixel array"""
         # convert the resized image to grayscale, blur it slightly, and threshold it
-        self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)  # magic numbers
+        self.blurred = cv.GaussianBlur(arr.copy(), (5, 5), 0)  # magic numbers
 
         optimal_threshold = filters.threshold_li(
             self.blurred, initial_guess=np.quantile(self.blurred, 0.50)
@@ -408,15 +403,16 @@ class ShapeDetector:
         )
 
         # have to convert type for find contours
-        contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
-        self.contours = imutils.grab_contours(contours)
+        detected_contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
+        contours = imutils.grab_contours(detected_contours)
         # rep = cv.drawContours(self.arr.copy(), [self.contours[0]], -1, color=(0, 255, 0), thickness=5)
         # plt.imshow(rep)
         # plt.title("rep")
         # plt.colorbar()
         # plt.show()
+        return contours
 
-    def detect(self):
+    def detect(self, contours):
         """Detect specified shapes in pixel array
 
         Currently supported shapes:
@@ -425,7 +421,13 @@ class ShapeDetector:
             - rectangle
             - pentagon
         """
-        for c in self.contours:
+        detected_shapes = {
+            "triangle": [],
+            "rectangle": [],
+            "pentagon": [],
+            "circle": [],
+        }
+        for c in contours:
             # initialize the shape name and approximate the contour
             peri = cv.arcLength(c, True)
             if peri < 100:
@@ -451,26 +453,25 @@ class ShapeDetector:
                 shape = "circle"
 
             # return the name of the shape
-            self.shapes[shape].append(c)
+            detected_shapes[shape].append(c)
+
+        return detected_shapes
 
     def get_shape(self, shape):
-        """Identify shapes in pixel array
+        """Return contours for requested shape
 
         Args:
-            shape (_type_): _description_
+            shape (string): name of shape requested ("circle" or "rectangle")
 
         Raises:
             exc.ShapeDetectionError: ensure that only expected shapes are detected
             exc.MultipleShapesError: ensure that only 1 shape is detected
 
         Returns:
-            tuple: varies depending on shape detected
+            tuple: features of the requested shape
                 - circle: x, y, r - corresponding to x,y coords of centre and radius
                 - rectangle/square: (x, y), size, angle - corresponding to x,y coords of centre, size (tuple) and angle in degrees
         """
-        self.find_contours()
-        self.detect()
-
         if shape not in self.shapes.keys():
             # print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
