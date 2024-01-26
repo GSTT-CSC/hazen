@@ -60,23 +60,23 @@ class SpatialResolution(HazenTask):
 
         return results
 
-    def get_circles(self, image):
-        """Locate Hough Circles in a DICOM pixel array
+    def get_circles(self, img):
+        """Locate Hough Circles in a DICOM pixel array (rescaled to byte)
 
         Args:
-            image (array): DICOM pixel array rescaled to byte
+            img (np.array): DICOM pixel array rescaled to byte
 
         Returns:
-            np.array: pixel array of the located circle
+            list: pixel array of the located circle
         """
         # TODO: use shape functions from utils
-        v = np.median(image)
+        v = np.median(img)
         upper = int(min(255, (1.0 + 5) * v))
         i = 40
 
         while True:
             circles = cv.HoughCircles(
-                image,
+                img,
                 cv.HOUGH_GRADIENT,
                 1.2,
                 256,
@@ -93,7 +93,7 @@ class SpatialResolution(HazenTask):
                 circles = np.uint16(np.around(circles))
                 break
 
-        # img = cv.circle(image, (circles[0][0][0], circles[0][0][1]), circles[0][0][2], (255, 0, 0))
+        # img = cv.circle(img, (circles[0][0][0], circles[0][0][1]), circles[0][0][2], (255, 0, 0))
         # plt.imshow(img)
         # plt.show()
         return circles
@@ -102,7 +102,7 @@ class SpatialResolution(HazenTask):
         """Create a threshold image
 
         Args:
-            img (np.array): pixel array
+            img (np.array): pixel array rescaled to byte
             bound (int, optional): _description_. Defaults to 150.
 
         Returns:
@@ -155,11 +155,11 @@ class SpatialResolution(HazenTask):
         bottom_corners = sorted(bottom_corners, key=lambda x: x[0])
         return top_corners + bottom_corners, box
 
-    def get_roi(self, pixels, centre, size=20):
+    def get_roi(self, arr, centre, size=20):
         """Get coordinates of the region of interest
 
         Args:
-            pixels (np.array): _description_
+            arr (np.array): _description_
             centre (tuple): x,y (int) coordinates
             size (int, optional): diameter of the region of interest. Defaults to 20.
 
@@ -167,14 +167,14 @@ class SpatialResolution(HazenTask):
             np.array: subset of the pixel array
         """
         y, x = centre
-        arr = pixels[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
-        return arr
+        roi_arr = arr[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
+        return roi_arr
 
-    def get_void_roi(self, pixels, circle, size=20):
+    def get_void_roi(self, arr, circle, size=20):
         """Create an 'empty' region of interest - same size filles with 0
 
         Args:
-            pixels (np.array): _description_
+            arr (np.array): _description_
             centre (tuple): x,y (int) coordinates
             size (int, optional): diameter of the region of interest. Defaults to 20.
 
@@ -183,12 +183,10 @@ class SpatialResolution(HazenTask):
         """
         centre_x = circle[0][0][0]
         centre_y = circle[0][0][1]
-        return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
+        return self.get_roi(arr=arr, centre=(centre_x, centre_y), size=size)
 
-    def get_edge_roi(self, pixels, edge_centre, size=20):
-        return self.get_roi(
-            pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
-        )
+    def get_edge_roi(self, arr, edge_centre, size=20):
+        return self.get_roi(arr, centre=(edge_centre["x"], edge_centre["y"]), size=size)
 
     def edge_is_vertical(self, edge_roi, mean) -> bool:
         """Determine whether edge is vertical
@@ -251,11 +249,11 @@ class SpatialResolution(HazenTask):
         }
         return right_edge_profile_vector, right_edge_profile_roi_centre
 
-    def get_signal_roi(self, pixels, edge, edge_centre, circle_r, size=20):
+    def get_signal_roi(self, arr, edge, edge_centre, circle_r, size=20):
         """Get pixel array from the image within ROI
 
         Args:
-            pixels (np.array): _description_
+            arr (np.array): _description_
             edge (_type_): _description_
             edge_centre (_type_): _description_
             circle_r (float/int): circle radius
@@ -272,7 +270,7 @@ class SpatialResolution(HazenTask):
             x = edge_centre["x"]
             y = edge_centre["y"] - circle_r // 2
 
-        return self.get_roi(pixels=pixels, centre=(x, y), size=size)
+        return self.get_roi(arr=arr, centre=(x, y), size=size)
 
     def get_edge(self, edge_arr, mean_value, spacing):
         # TODO: simplify this function
@@ -407,24 +405,29 @@ class SpatialResolution(HazenTask):
 
         return u, esf
 
-    def calculate_mtf_for_edge(self, dicom, edge):
-        pixels = dicom.pixel_array
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf_for_edge(self, dcm, edge):
+        arr = dcm.pixel_array
+        pe = dcm.InPlanePhaseEncodingDirection
 
-        img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
+        # Detect circle to locate phantom centre
+        img = hazenlib.utils.rescale_to_byte(arr)  # rescale for OpenCV operations
         thresh = self.thresh_image(img)
         circle = self.get_circles(img)
         circle_radius = circle[0][0][2]
+
+        # Using ShapeDetector
+        shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
+
         square, box = self.find_square(thresh)
         if edge == "right":
             _, centre = self.get_right_edge_vector_and_centre(square)
         else:
             _, centre = self.get_top_edge_vector_and_centre(square)
 
-        edge_arr = self.get_edge_roi(pixels, centre)
-        void_arr = self.get_void_roi(pixels, circle)
-        signal_arr = self.get_signal_roi(pixels, edge, centre, circle_radius)
-        spacing = hazenlib.utils.get_pixel_size(dicom)
+        edge_arr = self.get_edge_roi(arr, centre)
+        void_arr = self.get_void_roi(arr, circle)
+        signal_arr = self.get_signal_roi(arr, edge, centre, circle_radius)
+        spacing = hazenlib.utils.get_pixel_size(dcm)
         mean = np.mean([void_arr, signal_arr])
         x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
@@ -457,7 +460,7 @@ class SpatialResolution(HazenTask):
             fig.set_size_inches(5, 36)
             fig.tight_layout(pad=4)
             axes[0].set_title("raw pixels")
-            axes[0].imshow(pixels, cmap="gray")
+            axes[0].imshow(arr, cmap="gray")
             axes[1].set_title("rescaled to byte")
             axes[1].imshow(img, cmap="gray")
             axes[2].set_title("thresholded")
@@ -489,24 +492,21 @@ class SpatialResolution(HazenTask):
             axes[10].set_xlabel("lp/mm")
             logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
             img_path = os.path.realpath(
-                os.path.join(
-                    self.report_path, f"{self.img_desc(dicom)}_{pe}_{edge}.png"
-                )
+                os.path.join(self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png")
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
         return res
 
-    def calculate_mtf(self, dicom) -> tuple:
-        pe = dicom.InPlanePhaseEncodingDirection
-        pe_result, fe_result = None, None
+    def calculate_mtf(self, dcm) -> tuple:
+        pe = dcm.InPlanePhaseEncodingDirection
 
         if pe == "COL":
-            pe_result = self.calculate_mtf_for_edge(dicom, "top")
-            fe_result = self.calculate_mtf_for_edge(dicom, "right")
+            pe_result = self.calculate_mtf_for_edge(dcm, "top")
+            fe_result = self.calculate_mtf_for_edge(dcm, "right")
         elif pe == "ROW":
-            pe_result = self.calculate_mtf_for_edge(dicom, "right")
-            fe_result = self.calculate_mtf_for_edge(dicom, "top")
+            pe_result = self.calculate_mtf_for_edge(dcm, "right")
+            fe_result = self.calculate_mtf_for_edge(dcm, "top")
 
         return pe_result, fe_result
