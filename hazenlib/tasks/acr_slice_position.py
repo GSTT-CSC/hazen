@@ -49,11 +49,13 @@ class ACRSlicePosition(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing slice position measurement
-        using the first and last slices from the ACR phantom image set
+        """Main function for performing slice position measurement using the first and last slices from the ACR phantom
+        image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM
+            Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
+            generated images for visualisation.
         """
         # Identify relevant slices
         dcms = [self.ACR_obj.dcms[0], self.ACR_obj.dcms[-1]]
@@ -83,15 +85,15 @@ class ACRSlicePosition(HazenTask):
         return results
 
     def find_wedges(self, img, mask, res):
-        """Find wedges in the pixel array
+        """Find wedges in the pixel array.
 
         Args:
-            img (np.array): dcm.pixel_array
-            mask (np.array): dcm.pixel_array of the image mask
-            res (float): dcm.PixelSpacing
+            img (np.array): dcm.pixel_array.
+            mask (np.array): dcm.pixel_array of the image mask.
+            res (float): dcm.PixelSpacing.
 
         Returns:
-            tuple: arrays of x and y coordinates of wedges
+            tuple: arrays of x and y coordinates of wedges.
         """
         # X COORDINATES
         x_investigate_region = np.ceil(35 / res[0]).astype(
@@ -200,13 +202,13 @@ class ACRSlicePosition(HazenTask):
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
-        """Measure slice position
+        """Measure slice position.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            float: bar length difference
+            float: bar length difference.
         """
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
