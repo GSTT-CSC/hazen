@@ -38,9 +38,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
-    """Slice position measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
+    """Slice position measurement class for DICOM images of the ACR phantom.
     """
 
     def __init__(self, **kwargs):
@@ -54,8 +52,8 @@ class ACRSlicePosition(HazenTask):
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM
-            Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
-            generated images for visualisation.
+                Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
+                generated images for visualisation.
         """
         # Identify relevant slices
         dcms = [self.ACR_obj.dcms[0], self.ACR_obj.dcms[-1]]
@@ -85,7 +83,8 @@ class ACRSlicePosition(HazenTask):
         return results
 
     def find_wedges(self, img, mask, res):
-        """Find wedges in the pixel array.
+        """Investigates the top half of the phantom to locate where the wedges pass through the slice, and calculates the
+        co-ordinates of these locations.
 
         Args:
             img (np.array): dcm.pixel_array.
@@ -104,13 +103,12 @@ class ACRSlicePosition(HazenTask):
             # we want an odd number to see -N to N points in the x direction
             x_investigate_region = x_investigate_region + 1
 
-        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()  # westmost point of object
-        e_point = np.argwhere(np.sum(mask, 0) > 0)[
-            -1
-        ].item()  # eastmost point of object
-        n_point = np.argwhere(np.sum(mask, 1) > 0)[
-            0
-        ].item()  # northmost point of object
+        # westmost point of object
+        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()
+        # eastmost point of object
+        e_point = np.argwhere(np.sum(mask, 0) > 0)[-1].item()
+        # northmost point of object
+        n_point = np.argwhere(np.sum(mask, 1) > 0)[0].item()
 
         invest_x = []
         for k in range(x_investigate_region):
@@ -126,19 +124,15 @@ class ACRSlicePosition(HazenTask):
             invest_x.append(t * line_prof_x)  # mask unwanted values out and append
 
         invest_x = np.array(invest_x).T  # transpose array
-        mean_x_profile = np.mean(
-            invest_x, 1
-        )  # mean of horizontal projections of phantom
-        abs_diff_x_profile = np.abs(
-            np.diff(mean_x_profile)
-        )  # absolute first derivative of mean
+        # mean of horizontal projections of phantom
+        mean_x_profile = np.mean(invest_x, 1)
+        # absolute first derivative of mean
+        abs_diff_x_profile = np.abs(np.diff(mean_x_profile))
 
-        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(
-            abs_diff_x_profile, 2
-        )  # find two highest peaks
-        x_locs = (
-            w_point + x_peaks
-        )  # x coordinates of these peaks in image coordinate system(before diff operation)
+        # find two highest peaks
+        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 2)
+        # x coordinates of these peaks in image coordinate system(before diff operation)
+        x_locs = (w_point + x_peaks)
 
         width_pts = [x_locs[0], x_locs[1]]  # width of wedges
         width = np.max(width_pts) - np.min(width_pts)  # width
@@ -202,7 +196,7 @@ class ACRSlicePosition(HazenTask):
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
-        """Measure slice position.
+        """Locates the two opposing wedges and calculates the height difference.
 
         Args:
             dcm (pydicom.Dataset): DICOM image object.
@@ -222,6 +216,7 @@ class ACRSlicePosition(HazenTask):
             img, (y_pts[0], x_pts[1]), (y_pts[1], x_pts[1]), mode="constant"
         ).flatten()  # line profile through right wedge
 
+        #interpolation
         interp_factor = 5
         x = np.arange(1, len(line_prof_L) + 1)
         new_x = np.arange(
