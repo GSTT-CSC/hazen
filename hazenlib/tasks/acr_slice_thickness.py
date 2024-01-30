@@ -27,9 +27,9 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSliceThickness(HazenTask):
-    """Slice width measurement class for DICOM images of the ACR phantom
+    """Slice width measurement class for DICOM images of the ACR phantom.
 
-    Inherits from HazenTask class
+    Inherits from HazenTask class.
     """
 
     def __init__(self, **kwargs):
@@ -38,11 +38,12 @@ class ACRSliceThickness(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing slice width measurement
-        using slice 1 from the ACR phantom image set
+        """Main function for performing slice width measurement using slice 1 from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM
+            Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
+            generated images for visualisation.
         """
         # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.dcms[0]
@@ -67,15 +68,15 @@ class ACRSliceThickness(HazenTask):
         return results
 
     def find_ramps(self, img, centre, res):
-        """Find ramps in the pixel array
+        """Find ramps in the pixel array.
 
         Args:
-            img (np.array): dcm.pixel_array
-            centre (list): x,y coordinates of the phantom centre
-            res (float): dcm.PixelSpacing
+            img (np.array): dcm.pixel_array.
+            centre (list): x,y coordinates of the phantom centre.
+            res (float): dcm.PixelSpacing.
 
         Returns:
-            tuple: x and y coordinates of ramp
+            tuple: x and y coordinates of ramp.
         """
         # X
         investigate_region = int(np.ceil(5.5 / res[1]).item())
@@ -129,13 +130,13 @@ class ACRSliceThickness(HazenTask):
         return x, y
 
     def FWHM(self, data):
-        """Calculate full width at half maximum
+        """Calculate full width at half maximum.
 
         Args:
-            data (np.array): curve
+            data (np.array): curve.
 
         Returns:
-            tuple: simple interpolation of half max points
+            tuple: simple interpolation of half max points.
         """
         baseline = np.min(data)
         data -= baseline
@@ -148,14 +149,14 @@ class ACRSliceThickness(HazenTask):
 
         # Interpolation
         def simple_interp(x_start, ydata):
-            """Simple interpolation
+            """Simple interpolation.
 
             Args:
-                x_start (int or float): x coordinate of the half maximum
-                ydata (np.array): y coordinates
+                x_start (int or float): x coordinate of the half maximum.
+                ydata (np.array): y coordinates.
 
             Returns:
-                float: true x coordinate of the half maximum
+                float: true x coordinate of the half maximum.
             """
             x_init = x_start - 5
             x_pts = np.arange(x_start - 5, x_start + 5)
@@ -175,13 +176,13 @@ class ACRSliceThickness(HazenTask):
         return FWHM_pts
 
     def get_slice_thickness(self, dcm):
-        """Measure slice thickness
+        """Measure slice thickness.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            float: measured slice thickness
+            float: measured slice thickness.
         """
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
