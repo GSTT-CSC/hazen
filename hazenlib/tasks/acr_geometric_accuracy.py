@@ -37,8 +37,6 @@ from hazenlib.ACRObject import ACRObject
 
 class ACRGeometricAccuracy(HazenTask):
     """Geometric accuracy measurement class for DICOM images of the ACR phantom.
-
-    Inherits from HazenTask class.
     """
 
     def __init__(self, **kwargs):
@@ -46,13 +44,12 @@ class ACRGeometricAccuracy(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing geometric accuracy measurement
-        using the first and fifth slices from the ACR phantom image set
+        """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM
-            Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
-            generated images for visualisation.
+                Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
+                generated images for visualisation.
         """
 
         # Initialise results dictionary
@@ -100,7 +97,9 @@ class ACRGeometricAccuracy(HazenTask):
 
 
     def get_geometric_accuracy(self, slice_index):
-        """Measure geometric accuracy for input slice.
+        """Measure geometric accuracy for input slice. Creates a mask over the phantom from the pixel array of the DICOM
+        image. Uses the centre and shape of the mask to determine horizontal and vertical lengths, and also diagonal lengths
+        in the case of slice 5.
 
         Args:
             slice_index (int): the index of the slice position, for example slice 5 would have an index of 4.
@@ -188,7 +187,7 @@ class ACRGeometricAccuracy(HazenTask):
             return length_dict['Horizontal Distance'], length_dict['Vertical Distance']
 
     def diagonal_lengths(self, img, cxy, slice_index):
-        """Measure diagonal lengths.
+        """Measure diagonal lengths. Rotates the pixel array by 45° and measures the horizontal and vertical distances.
 
         Args:
             img (np.array): pixel array of the slice (dcm.pixel_array).
@@ -197,10 +196,13 @@ class ACRGeometricAccuracy(HazenTask):
 
         Returns:
             tuple of dictionaries: for both the south-east (SE) diagonal length and the south-west (SW) diagonal length:
-            "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
-            pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
+                "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
+                pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
         """
         res = self.ACR_obj.pixel_spacing
+        # getting the geometric mean of the x and y pixel spacing components, as the pixel_spacing DICOM attribute is in
+        #co-ordinate form due to the possibility of pixels being rectangular, ie. the length and width of pixels can
+        #differ.
         eff_res = np.sqrt(np.mean(np.square(res)))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
@@ -246,7 +248,8 @@ class ACRGeometricAccuracy(HazenTask):
 
     @staticmethod
     def distortion_metric(L):
-        """Calculate the distortion metric based on length.
+        """Calculates the mean error, the maximum error and the coefficient of variation between the horizontal and vertical
+        distances measured on slices 1 and 5.
 
         Args:
             L (tuple): horizontal and vertical distances from slices 1 and 5.
@@ -254,6 +257,7 @@ class ACRGeometricAccuracy(HazenTask):
         Returns:
             tuple of floats: mean_err, max_err, cov_l
         """
+        #TODO change function name to eg. get_distortion_metrics
         err = [x - 190 for x in L]
         mean_err = np.mean(err)
 
