@@ -15,38 +15,76 @@ class ACRObject:
         Args:
             dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
         """
-        # Initialise an ACR object from a stack of images of the ACR phantom
-        self.dcm_list = dcm_list
-        # Load files as DICOM and their pixel arrays into 'images'
-        self.images, self.dcms = self.sort_images()
+
+        # # Initialise an ACR object from a stack of images of the ACR phantom
+        # self.dcm_list =
+        # Perform sorting of the input file list
+
+        for dcm in dcm_list:
+            print(dcm.InstanceNumber)
+            print(dcm.ImagePositionPatient)
+            # The x, y, and z coordinates of the upper left hand corner (center of the first voxel transmitted) of the image, in mm
+            # eg [28.364610671997, -88.268096923828, 141.94101905823]
+            print(dcm.ImageOrientationPatient)
+            # The direction cosines of the first row and the first column with respect to the patient.
+            # eg
+            # [1, 0, 0, 0, 1, 0]  transverse/axial
+            # [1, 0, 0, 0, 0, -1] coronal
+            # [0, 1, 0, 0, 0, -1] sagittal
+            print(dcm.PixelSpacing)
+            # Physical distance in the patient between the center of each pixel, specified by a numeric pair - adjacent row spacing (dx) (delimiter) adjacent column spacing (dy) in mm.
+            print(dcm.SliceThickness)
+            # Nominal slice thickness, in mm
+        # Store file content as pyDICOM objects 'dcms'
+        # and their pixel arrays as 'images'
+        self.dcms, self.images = self.sort_images(dcm_list)
         # Store the pixel spacing value from the first image (expected to be the same for all)
         self.pixel_spacing = self.dcms[0].PixelSpacing
         # Check whether images of the phantom are the correct orientation
         self.orientation_checks()
         # Determine whether image rotation is necessary
         self.rot_angle = self.determine_rotation()
+        for dcm in dcm_list:
+            print(dcm.InstanceNumber)
         # Find the centre coordinates of the phantom (circle) on slice 7 only:
         self.centre, self.radius = self.find_phantom_center(self.images[6])
+        print(self.centre)
         # Store the DCM object of slice 7 as it is used often
         self.slice7_dcm = self.dcms[6]
         # Store a mask image of slice 7 for reusability
         self.mask_image = self.get_mask_image(self.images[6])
 
-    def sort_images(self):
+    def sort_images(self, dcm_list):
         """Sort a stack of images based on slice position.
 
+        Args:
+            dcm_list (list): list of file paths
+
         Returns:
-            tuple of lists: img_stack and dcm_stack
-                img_stack - list of np.array of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
-                dcm_stack - list of pydicom.Dataset objects
+            tuple of lists: dcm_stack and img_stack
+                dcm_stack - list of pydicom.Dataset objects. \n
+                img_stack - list of np.array of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # TODO: implement a check if phantom was placed in other than axial position
         # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
 
-        # x = np.array([dcm.ImagePositionPatient[0] for dcm in self.dcm_list])
-        # y = np.array([dcm.ImagePositionPatient[1] for dcm in self.dcm_list])
-        z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
-        dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
+        x = np.array([dcm.ImagePositionPatient[0] for dcm in dcm_list])
+        y = np.array([dcm.ImagePositionPatient[1] for dcm in dcm_list])
+        z = np.array([dcm.ImagePositionPatient[2] for dcm in dcm_list])
+        print("x")  # SAG
+        print(set(x))
+        print(len(set(x)))
+        print()
+
+        print("y")  # COR
+        print(set(y))
+        print(len(set(y)))
+
+        print("z")  # TRA
+        print(set(z))
+        print(len(set(z)))
+
+        dicom_stack = [dcm_list[i] for i in np.argsort(z)]
         img_stack = [dicom.pixel_array for dicom in dicom_stack]
 
         return img_stack, dicom_stack
@@ -58,55 +96,85 @@ class ACRObject:
         This function analyzes the given set of images and their associated DICOM objects to determine if any
         adjustments are needed to restore the correct slice order and view orientation.
         """
-        test_images = (self.images[0], self.images[-1])
+        first_image = self.images[0]
+        last_image = self.images[-1]
         dx = self.pixel_spacing[0]
 
-        normalised_images = [
-            cv2.normalize(
-                src=image,
-                dst=None,
-                alpha=0,
-                beta=255,
-                norm_type=cv2.NORM_MINMAX,
-                dtype=cv2.CV_8U,
-            )
-            for image in test_images
-        ]
+        normalised_first_image = cv2.normalize(
+            src=first_image,
+            dst=None,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8U,
+        )
+        normalised_last_image = cv2.normalize(
+            src=last_image,
+            dst=None,
+            alpha=0,
+            beta=255,
+            norm_type=cv2.NORM_MINMAX,
+            dtype=cv2.CV_8U,
+        )
+        print(self.images[0].shape)
+        print(dx)
+        print(180 / dx)
+        print(16 / dx)
+        print(5 / dx)
 
         # search for circle in first slice of ACR phantom dataset with radius of ~11mm
-        detected_circles = [
-            cv2.HoughCircles(
-                norm_image,
-                cv2.HOUGH_GRADIENT,
-                1,
-                param1=50,
-                param2=30,
-                minDist=int(180 / dx),
-                minRadius=int(5 / dx),
-                maxRadius=int(16 / dx),
-            )
-            for norm_image in normalised_images
-        ]
+        detected_circles_first = cv2.HoughCircles(
+            normalised_first_image,
+            cv2.HOUGH_GRADIENT,
+            1,
+            param1=50,
+            param2=30,
+            minDist=int(180 / dx),
+            minRadius=int(5 / dx),
+            maxRadius=int(16 / dx),
+        )
+        print(detected_circles_first.shape)
+        # returns x_centre, y_centre, radius
 
-        if detected_circles[0] is not None:
-            true_circle = detected_circles[0].flatten()
+        detected_circles_last = cv2.HoughCircles(
+            normalised_last_image,
+            cv2.HOUGH_GRADIENT,
+            1,
+            param1=50,
+            param2=30,
+            minDist=int(180 / dx),
+            minRadius=int(5 / dx),
+            maxRadius=int(16 / dx),
+        )
+
+        if detected_circles_first is not None:
+            true_circle = detected_circles_first.flatten()
+            print("kitty")
         else:
-            true_circle = detected_circles[1].flatten()
+            true_circle = detected_circles_last.flatten()
+            print("cat")
 
-        if detected_circles[0] is None and detected_circles[1] is not None:
+        if detected_circles_first is None and detected_circles_last is not None:
             print("Performing slice order inversion to restore correct slice order.")
             self.images.reverse()
             self.dcms.reverse()
+            print("kitty")
         else:
             print("Slice order inversion not required.")
+            print("cat")
 
+        print(true_circle[0])
+        print(self.images[0].shape[0] // 2)
+        print(true_circle[0] > self.images[0].shape[0] // 2)
         if true_circle[0] > self.images[0].shape[0] // 2:
             print("Performing LR orientation swap to restore correct view.")
             flipped_images = [np.fliplr(image) for image in self.images]
             for index, dcm in enumerate(self.dcms):
                 dcm.PixelData = flipped_images[index].tobytes()
+            print("kitty")
         else:
             print("LR orientation swap not required.")
+            print("cat")
 
     def determine_rotation(self):
         """Determine the rotation angle of the phantom using edge detection and the Hough transform.
