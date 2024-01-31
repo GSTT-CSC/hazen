@@ -104,6 +104,7 @@ For a new release: <br>
    - Update version number in `hazenlib/_version.py`
      - This is automatically propagated into `docs/source/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
    - Update version number and date released in `CITATION.cff`
+   - Updated contributors in `docs/source/contributors.rst`
 6. Create a [new Release](https://github.com/GSTT-CSC/hazen/releases)
    - Create a tag equal to the version number, e.g. 1.2.1
    - Select `main` as the Target branch from which to create the Release
