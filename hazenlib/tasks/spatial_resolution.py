@@ -2,12 +2,9 @@
 Spatial Resolution
 
 Contributors:
-Haris Shuaib, haris.shuaib@gstt.nhs.uk
-Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
-
-.. todo::
-    Replace shape finding functions with hazenlib.utils equivalents
-    
+Haris Shuaib, haris.shuaib@gstt.nhs.uk \n
+Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018 \n
+Sophie Ratkai , sophie.ratkai@nhs.net, 25/01/2024
 """
 import os
 import sys
@@ -31,296 +28,223 @@ class SpatialResolution(HazenTask):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # set contants
+        self.ROI_half_size = 10
+
+        # Obtain values from DICOM object
         self.single_dcm = self.dcm_list[0]
+        self.arr = self.single_dcm.pixel_array
+        self.spacing = hazenlib.utils.get_pixel_size(self.single_dcm)
 
-    def run(self) -> dict:
-        """Main function for performing spatial resolution measurement
+        # 1. Detect phantom (circle) using ShapeDetector
+        shape_detector = hazenlib.utils.ShapeDetector(self.arr)
+        # Return centre coords, and radius
+        x, y, r = shape_detector.get_shape("circle")
+        circle_x, circle_y, circle_radius = round(x), round(y), round(r)
+        logger.debug(
+            "Centre coordinates, size and rotation angle of the detected square",
+            args=(x, y, size, angle),
+        )
+        # TODO: visualise_shape()
 
-        Returns:
-            dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
-        """
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
-        try:
-            pe_result, fe_result = self.calculate_mtf(self.single_dcm)
-            results["measurement"] = {
-                "phase encoding direction mm": round(pe_result, 2),
-                "frequency encoding direction mm": round(fe_result, 2),
-            }
-        except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}"
-            )
-            traceback.print_exc(file=sys.stdout)
+        # 2. Detect square within phantom using ShapeDetector
+        # Return centre coords, size and angle
+        (x, y), size, angle = shape_detector.get_shape("rectangle")
+        logger.debug(
+            "Centre coordinates, size and rotation angle of the detected square",
+            args=(x, y, size, angle),
+        )
+        # Get coordinates of the corners
+        detected_box = cv.boxPoints(((x, y), size, angle))
+        box_coords = detected_box.round().astype(int)
+        # TODO: visualise_shape()
 
-        # only return reports if requested
-        if self.report:
-            results["report_image"] = self.report_files
+        # 3. Define regions to sample background (void),
+        #    signal and edges in horizontal and vertical directions
+        void_arr = self.get_roi(self.arr, (circle_x, circle_y))
+        # TODO: visualise_shape()
+        (
+            horizontal_edge_centre,
+            horizontal_signal_centre,
+        ) = self.get_horizontal_roi_centres(box_coords, circle_radius)
+        (
+            vertical_edge_centre,
+            vertical_signal_centre,
+        ) = self.get_vertical_roi_centres(box_coords, circle_radius)
 
-        return results
+        # Common functions
+        horizontal_mean = self.get_mean_signal(horizontal_signal_centre, void_arr)
+        vertical_mean = self.get_mean_signal(vertical_signal_centre, void_arr)
 
-    def get_circles(self, image):
-        """Locate Hough Circles in a DICOM pixel array
+        horizontal_edge_roi = self.get_edge_roi(horizontal_edge_centre, horizontal_mean)
+        vertical_edge_roi = self.get_edge_roi(vertical_edge_centre, vertical_mean)
+        # TODO: visualise_shape()
 
-        Args:
-            image (array): DICOM pixel array rescaled to byte
+        # 4. Infer resolution from edge functions
+        self.horizontal_resolution = self.calculate_mtf(
+            horizontal_edge_roi, horizontal_mean
+        )
+        self.vertical_resolution = self.calculate_mtf(vertical_edge_roi, vertical_mean)
+        # TODO: visualise_shape()
 
-        Returns:
-            np.array: pixel array of the located circle
-        """
-        # TODO: use shape functions from utils
-        v = np.median(image)
-        upper = int(min(255, (1.0 + 5) * v))
-        i = 40
+        print(f"horizontal resolution is {self.horizontal_resolution}")
+        print(f"vertical resolution is {self.vertical_resolution}")
 
-        while True:
-            circles = cv.HoughCircles(
-                image,
-                cv.HOUGH_GRADIENT,
-                1.2,
-                256,
-                param1=upper,
-                param2=i,
-                minRadius=80,
-                maxRadius=200,
-            )
-            # min and max radius need to accomodate at least 256 and 512 matrix sizes
-            i -= 1
-            if circles is None:
-                pass
-            else:
-                circles = np.uint16(np.around(circles))
-                break
-
-        # img = cv.circle(image, (circles[0][0][0], circles[0][0][1]), circles[0][0][2], (255, 0, 0))
-        # plt.imshow(img)
-        # plt.show()
-        return circles
-
-    def thresh_image(self, img, bound=150):
-        """Create a threshold image
+    def get_roi(self, arr: np.ndarray, centre: tuple):
+        """Get pixel array within the region of interest
 
         Args:
-            img (np.array): pixel array
-            bound (int, optional): _description_. Defaults to 150.
-
-        Returns:
-            np.array: thresholded pixel array
-        """
-        blurred = cv.GaussianBlur(img, (5, 5), 0)
-        thresh = cv.threshold(blurred, bound, 255, cv.THRESH_TOZERO_INV)[1]
-        return thresh
-
-    def find_square(self, img):
-        # TODO: use shape functions from utils
-        cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
-
-        for c in cnts:
-            perimeter = cv.arcLength(c, True)
-            approx = cv.approxPolyDP(c, 0.1 * perimeter, True)
-            if len(approx) == 4:
-                # compute the bounding box of the contour and use the
-                # bounding box to compute the aspect ratio
-                rect = cv.minAreaRect(approx)
-
-                # OpenCV 4.5 adjustment
-                # - cv.minAreaRect() output tuple order changed since v3.4
-                # - swap rect[1] order & rotate rect[2] by -90
-                # – convert tuple>list>tuple to do this
-                rectAsList = list(rect)
-                rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
-                rectAsList[2] = rectAsList[2] - 90
-                rect = tuple(rectAsList)
-
-                box = cv.boxPoints(rect)
-                box = np.int0(box)
-                w, h = rect[1]
-                ar = w / float(h)
-
-                # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
-                if not 20 < w < 100:
-                    continue
-
-                # a square will have an aspect ratio that is approximately
-                # equal to one, otherwise, the shape is a rectangle
-                if 0.92 < ar < 1.08:
-                    break
-
-        # points should start at top-right and go anti-clockwise
-        top_corners = sorted(box, key=lambda x: x[1])[:2]
-        top_corners = sorted(top_corners, key=lambda x: x[0], reverse=True)
-
-        bottom_corners = sorted(box, key=lambda x: x[1])[2:]
-        bottom_corners = sorted(bottom_corners, key=lambda x: x[0])
-        return top_corners + bottom_corners, box
-
-    def get_roi(self, pixels, centre, size=20):
-        """Get coordinates of the region of interest
-
-        Args:
-            pixels (np.array): _description_
+            arr (np.ndarray): _description_
             centre (tuple): x,y (int) coordinates
-            size (int, optional): diameter of the region of interest. Defaults to 20.
 
         Returns:
-            np.array: subset of the pixel array
+            np.ndarray: subset of the pixel array
         """
         y, x = centre
-        arr = pixels[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
-        return arr
+        roi_arr = arr[
+            x - self.ROI_half_size : x + self.ROI_half_size,
+            y - self.ROI_half_size : y + self.ROI_half_size,
+        ]
+        return roi_arr
 
-    def get_void_roi(self, pixels, circle, size=20):
-        """Create an 'empty' region of interest - same size filles with 0
+    def get_horizontal_roi_centres(self, box_coords, circle_radius) -> tuple:
+        """Get the centre coordinates of the horizontal edge and signal ROI
 
         Args:
-            pixels (np.array): _description_
-            centre (tuple): x,y (int) coordinates
-            size (int, optional): diameter of the region of interest. Defaults to 20.
+            box_coords (list[tuple]): x, y coordinates of the box corners
+            circle_radius (int or float): radius of the phantom (circle)
 
         Returns:
-            np.array: subset of the pixel array
+            tuple of tuple: edge_centre and signal_centre coordinates
         """
-        centre_x = circle[0][0][0]
-        centre_y = circle[0][0][1]
-        return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
-
-    def get_edge_roi(self, pixels, edge_centre, size=20):
-        return self.get_roi(
-            pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
-        )
-        return self.get_roi(
-            pixels, centre=(edge_centre["x"], edge_centre["y"]), size=size
+        edge_centre = (
+            (box_coords[3][0] + box_coords[2][0]) // 2,
+            (box_coords[3][1] + box_coords[2][1]) // 2,
         )
 
-    def edge_is_vertical(self, edge_roi, mean) -> bool:
+        signal_centre = (edge_centre[0], edge_centre[1] - circle_radius // 2)
+
+        return edge_centre, signal_centre
+
+    def get_vertical_roi_centres(self, box_coords, circle_radius) -> tuple:
+        """Get the centre coordinates of the vertical edge and signal ROI
+
+        Args:
+            box_coords (list[tuple]): x, y coordinates of the box corners
+            circle_radius (int or float): radius of the phantom (circle)
+
+        Returns:
+            tuple of tuple: edge_centre and signal_centre coordinates
+        """
+        edge_centre = (
+            (box_coords[0][0] + box_coords[3][0]) // 2,
+            (box_coords[0][1] + box_coords[3][1]) // 2,
+        )
+
+        signal_centre = (edge_centre[0] + circle_radius // 2, edge_centre[1])
+
+        return edge_centre, signal_centre
+
+    def get_mean_signal(self, signal_centre: tuple, void_arr: np.ndarray) -> float:
+        """Determine the mean signal value between the signal and background ROI
+
+        Args:
+            signal_centre (tuple): x, y coordinates of the centre for the signal ROI
+            void_arr (np.ndarray): pixel array corresponding to the background ROI
+
+        Returns:
+            float: mean signal value
+        """
+        signal_arr = self.get_roi(self.arr, signal_centre)
+        mean = np.mean([void_arr, signal_arr])
+        return mean
+
+    def is_edge_vertical(self, edge_roi: np.ndarray, mean: float) -> bool:
         """Determine whether edge is vertical
-            control_parameter_01=0  ;a control parameter that will be equal to 1 if the edge is vertical and 0 if it is horizontal
 
-        for column=0, event.MTF_roi_size-2 do begin
-        if MTF_Data(column, 0 ) EQ mean_value then control_parameter_01=1
-        if (MTF_Data(column, 0) LT mean_value) AND (MTF_Data(column+1, 0) GT mean_value) then control_parameter_01=1
-        if (MTF_Data(column, 0) GT mean_value) AND (MTF_Data(column+1, 0) LT mean_value) then control_parameter_01=1
-        end
         Args:
-            edge_roi (np.array): pixel array in ROI
-            mean (np.array): array of mean pixel values
+            edge_roi (np.ndarray): pixel array in ROI
+            mean (float): array of mean pixel values
 
         Returns:
-            bool: True or false whether edge is vertical
+            bool: True or False whether edge is vertical
         """
-        for col in range(edge_roi.shape[0] - 1):
-            if edge_roi[col, 0] == mean:
+        # Iterate over first row of pixel array to determine whether there are
+        # any consecutive pixel values on either side of the mean value
+        for col in range(self.ROI_half_size * 2 - 1):
+            if edge_roi[col, 0] <= mean <= edge_roi[col + 1, 0]:
                 return True
-            if edge_roi[col, 0] < mean < edge_roi[col + 1, 0]:
-                return True
-            if edge_roi[col, 0] > mean > edge_roi[col + 1, 0]:
+            if edge_roi[col, 0] >= mean >= edge_roi[col + 1, 0]:
                 return True
 
         return False
 
-    def get_bisecting_normal(self, vector, centre, length_factor=0.25):
-        # calculate coordinates of bisecting normal
-        nrx_1 = centre["x"] - int(length_factor * vector["y"])
-        nry_1 = centre["y"] + int(length_factor * vector["x"])
-        nrx_2 = centre["x"] + int(length_factor * vector["y"])
-        nry_2 = centre["y"] - int(length_factor * vector["x"])
-        return nrx_1, nry_1, nrx_2, nry_2
-
-    def get_top_edge_vector_and_centre(self, square):
-        # Calculate dx and dy
-        top_edge_profile_vector = {
-            "x": (square[0][0] + square[1][0]) // 2,
-            "y": (square[0][1] + square[1][1]) // 2,
-        }
-
-        # Calculate centre (x,y) of edge
-        top_edge_profile_roi_centre = {
-            "x": (square[0][0] + square[1][0]) // 2,
-            "y": (square[0][1] + square[1][1]) // 2,
-        }
-
-        return top_edge_profile_vector, top_edge_profile_roi_centre
-
-    def get_right_edge_vector_and_centre(self, square):
-        # Calculate dx and dy
-        right_edge_profile_vector = {
-            "x": square[3][0] - square[0][0],
-            "y": square[3][1] - square[0][1],
-        }  # nonsense
-
-        # Calculate centre (x,y) of edge
-        right_edge_profile_roi_centre = {
-            "x": (square[3][0] + square[0][0]) // 2,
-            "y": (square[3][1] + square[0][1]) // 2,
-        }
-        return right_edge_profile_vector, right_edge_profile_roi_centre
-
-    def get_signal_roi(self, pixels, edge, edge_centre, circle_r, size=20):
-        """Get pixel array from the image within ROI
+    def get_edge_roi(self, edge_centre: tuple, mean: float) -> np.ndarray:
+        """Get pixel array in the edge region, in which the edge is horizontal
 
         Args:
-            pixels (np.array): _description_
-            edge (_type_): _description_
-            edge_centre (_type_): _description_
-            circle_r (float/int): circle radius
-            size (int, optional): diameter of the region of interest. Defaults to 20.
+            edge_centre (tuple of int): x, y coordinates of the edge ROI centre
+            mean (float): mean pixel value
 
         Returns:
-            np.array: subset of the pixel array
+            np.ndarray: a pixel array in which the edge is horizontal
         """
+        edge_arr = self.get_roi(self.arr, edge_centre)
 
-        if edge == "right":
-            x = edge_centre["x"] + circle_r // 2
-            y = edge_centre["y"]
-        elif edge == "top":
-            x = edge_centre["x"]
-            y = edge_centre["y"] - circle_r // 2
+        if self.is_edge_vertical(edge_arr, mean):
+            logger.info("edge is vertical, rotating pixel array by 90 degrees")
+            horizontal_edge_arr = np.rot90(edge_arr)
+        else:
+            horizontal_edge_arr = edge_arr
 
-        return self.get_roi(pixels=pixels, centre=(x, y), size=size)
+        return horizontal_edge_arr
 
-    def get_edge(self, edge_arr, mean_value, spacing):
-        # TODO: simplify this function
-        if self.edge_is_vertical(edge_arr, mean_value):
-            edge_arr = np.rot90(edge_arr)
+    def get_edges(self, edge_arr: np.ndarray, mean_value: float) -> tuple[list]:
+        """Obtain list of values corrseponding to ????
 
-        x_edge = [0] * 20
-        y_edge = [0] * 20
+        Args:
+            edge_arr (np.ndarray): edge ROI pixel array
+            mean_value (float): mean pixel value between void and signal
 
+        Returns:
+            tuple of list: x_edge and y_edge are a list of values
+        """
+        x_edge = []
+        y_edge = []
+
+        # Iterate over every pixel value in the ROI array
+        # save values to list when adjacent pixel values are
+        # on either side of the mean pixel value
         for row in range(20):
             for col in range(19):
-                control_parameter_02 = 0
-
-                if edge_arr[row, col] == mean_value:
-                    control_parameter_02 = 1
-                if (edge_arr[row, col] < mean_value) and (
-                    edge_arr[row, col + 1] > mean_value
+                if (edge_arr[row, col] <= mean_value) and (
+                    edge_arr[row, col + 1] >= mean_value
                 ):
-                    control_parameter_02 = 1
-                if (edge_arr[row, col] > mean_value) and (
-                    edge_arr[row, col + 1] < mean_value
+                    x_edge.append(row * self.spacing[0])
+                    y_edge.append(col * self.spacing[1])
+                    break
+
+                elif (edge_arr[row, col] >= mean_value) and (
+                    edge_arr[row, col + 1] <= mean_value
                 ):
-                    control_parameter_02 = 1
+                    x_edge.append(row * self.spacing[0])
+                    y_edge.append(col * self.spacing[1])
+                    break
+                else:
+                    pass
 
-                if control_parameter_02 == 1:
-                    x_edge[row] = row * spacing[0]
-                    y_edge[row] = col * spacing[1]
+        return x_edge, y_edge
 
-        return x_edge, y_edge, edge_arr
-
-    def get_edge_angle_and_intercept(self, x_edge, y_edge):
-        """Get edge (slope) angle and intercept value
+    def get_edge_angle_and_intercept(self, x_edge: list, y_edge: list) -> tuple[float]:
+        """Get edge (slope) angle and intercept value, using least squares method for the edge
 
         Args:
-            x_edge (np.ndarray): _description_
-            y_edge (np.ndarray): _description_
+            x_edge (list): _description_
+            y_edge (list): _description_
 
         Returns:
-            tuple: angle and intercept values
+            tuple of float: angle and intercept values
         """
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        # ;Apply least squares method for the edge
-        # ;%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
         mean_x = np.mean(x_edge)
         mean_y = np.mean(y_edge)
 
@@ -329,35 +253,36 @@ class SpatialResolution(HazenTask):
         slope = slope_up / slope_down
         angle = np.arctan(slope)
         intercept = mean_y - slope * mean_x
+
         return angle, intercept
 
-    def get_edge_profile_coords(self, angle, intercept, spacing):
+    def get_edge_profile_coords(self, angle: float, intercept: float):
         """translate and rotate the data's coordinates according to the slope and intercept
 
         Args:
-            angle (ndarray or scalar): angle of slope
-            intercept (ndarray or scalar): intercept of slope
-            spacing (tuple/list): spacing value in x and y directions
+            angle (float): angle of slope
+            intercept (float): intercept of slope
 
         Returns:
             tuple: of np.ndarrays of the rotated MTF positions in x and y directions
         """
 
-        original_mtf_x_position = np.array([x * spacing[0] for x in range(20)])
+        original_mtf_x_position = np.array([x * self.spacing[0] for x in range(20)])
         original_mtf_x_positions = copy.copy(original_mtf_x_position)
         for row in range(19):
             original_mtf_x_positions = np.row_stack(
                 (original_mtf_x_positions, original_mtf_x_position)
             )
 
-        original_mtf_y_position = np.array([x * spacing[1] for x in range(20)])
+        original_mtf_y_position = np.array([x * self.spacing[1] for x in range(20)])
         original_mtf_y_positions = copy.copy(original_mtf_y_position)
         for row in range(19):
             original_mtf_y_positions = np.column_stack(
                 (original_mtf_y_positions, original_mtf_y_position)
             )
 
-        # we are only interested in the rotated y positions as there correspond to the distance of the data from the edge
+        # we are only interested in the rotated y positions
+        # as they correspond to the distance of the data from the edge
         rotated_mtf_y_positions = -original_mtf_x_positions * np.sin(angle) + (
             original_mtf_y_positions - intercept
         ) * np.cos(angle)
@@ -368,11 +293,11 @@ class SpatialResolution(HazenTask):
 
         return rotated_mtf_x_positions, rotated_mtf_y_positions
 
-    def get_esf(self, edge_arr, y):
-        """Extract the edge response function
+    def calculate_esf(self, edge_arr: np.ndarray, y: np.ndarray):
+        """Interpolate the edge response function (ESF) as applied to the edge ROI
 
         Args:
-            edge_arr (np.ndarray): _description_
+            edge_arr (np.ndarray): edge ROI pixel array
             y (np.ndarray): _description_
 
         Returns:
@@ -380,14 +305,13 @@ class SpatialResolution(HazenTask):
         """
 
         # extract the distance from the edge and the corresponding data as vectors
-
         edge_distance = copy.copy(y[0, :])
 
-        for row in range(1, 20):
+        for row in range(1, self.ROI_half_size * 2):
             edge_distance = np.append(edge_distance, y[row, :])
 
         esf_data = copy.copy(edge_arr[:, 0])
-        for row in range(1, 20):
+        for row in range(1, self.ROI_half_size * 2):
             esf_data = np.append(esf_data, edge_arr[:, row])
 
         # sort the distances and the data accordingly
@@ -407,40 +331,29 @@ class SpatialResolution(HazenTask):
                 temp_array01 = np.append(temp_array01, sorted_edge_distance[element])
                 temp_array02 = np.append(temp_array02, sorted_esf_data[element])
 
-        # ;interpolate the edge response function (ESF) so that it only has 128 elements
+        # interpolate the edge response function (ESF) so that it only has 128 elements
         u = np.linspace(temp_array01[0], temp_array01[-1], 128)
         esf = np.interp(u, temp_array01, temp_array02)
 
         return u, esf
 
-    def calculate_mtf_for_edge(self, dicom, edge):
-        pixels = dicom.pixel_array
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf(self, edge_arr: np.ndarray, mean: float) -> float:
+        """Calculate MTF of an edge response function
+        Args:
+            edge_arr (np.ndarray): edge ROI pixel array
+            mean (float): mean pixel value between void and signal
 
-        img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
-        thresh = self.thresh_image(img)
-        circle = self.get_circles(img)
-        circle_radius = circle[0][0][2]
-        square, box = self.find_square(thresh)
-        if edge == "right":
-            _, centre = self.get_right_edge_vector_and_centre(square)
-        else:
-            _, centre = self.get_top_edge_vector_and_centre(square)
-
-        edge_arr = self.get_edge_roi(pixels, centre)
-        void_arr = self.get_void_roi(pixels, circle)
-        signal_arr = self.get_signal_roi(pixels, edge, centre, circle_radius)
-        spacing = hazenlib.utils.get_pixel_size(dicom)
-        mean = np.mean([void_arr, signal_arr])
-        x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
+        Returns:
+            float: spatial resolution value
+        """
+        x_edge, y_edge = self.get_edges(edge_arr, mean)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
-        x, y = self.get_edge_profile_coords(angle, intercept, spacing)
-        u, esf = self.get_esf(edge_arr, y)
+        x, y = self.get_edge_profile_coords(angle, intercept)
+        u, esf = self.calculate_esf(edge_arr, y)
         # This function calculated the LSF by taking the derivative of the ESF.
         # Reference: https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3643984/
         lsf = np.gradient(esf)
         lsf = np.array(lsf)
-        n = lsf.size
         mtf = abs(np.fft.fft(lsf))
         norm_mtf = mtf / mtf[0]
         mtf_50 = min(
@@ -451,29 +364,54 @@ class SpatialResolution(HazenTask):
             ]
         )
         profile_length = max(y.flatten()) - min(y.flatten())
-        freqs = fftfreq(n, profile_length / n)
+        freqs = fftfreq(lsf.size, profile_length / lsf.size)
         mask = freqs >= 0
         mtf_frequency = 10.0 * mtf_50 / profile_length
-        res = 10 / (2 * mtf_frequency)
+        resolution = 10 / (2 * mtf_frequency)
 
+        return resolution
+
+    def run(self) -> dict:
+        """Main function for performing spatial resolution measurement
+
+        Returns:
+            dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+        """
+        results = self.init_result_dict()
+        results["file"] = self.img_desc(self.single_dcm)
+
+        pe = self.single_dcm.InPlanePhaseEncodingDirection
+
+        if pe == "COL":  # FE right, PE top
+            pe_result = self.horizontal_resolution
+            fe_result = self.vertical_resolution
+        elif pe == "ROW":  # PE right, FE top
+            pe_result = self.vertical_resolution
+            fe_result = self.horizontal_resolution
+
+        results["measurement"] = {
+            "phase encoding direction mm": round(pe_result, 10),
+            "frequency encoding direction mm": round(fe_result, 10),
+        }
+
+        # only return reports if requested
         if self.report:
+            # TODO: separate plots and visualisation into their respective functions
             import matplotlib.pyplot as plt
 
             fig, axes = plt.subplots(11, 1)
             fig.set_size_inches(5, 36)
             fig.tight_layout(pad=4)
             axes[0].set_title("raw pixels")
-            axes[0].imshow(pixels, cmap="gray")
-            axes[1].set_title("rescaled to byte")
-            axes[1].imshow(img, cmap="gray")
-            axes[2].set_title("thresholded")
-            axes[2].imshow(thresh, cmap="gray")
+            axes[0].imshow(self.arr, cmap="gray")
+            # axes[1].set_title("rescaled to byte")
+            # axes[1].imshow(img, cmap="gray")
+            # axes[2].set_title("thresholded")
+            # axes[2].imshow(thresh, cmap="gray")
             axes[3].set_title("finding circle")
-            c = cv.circle(
-                img, (circle[0][0][0], circle[0][0][1]), circle[0][0][2], (255, 0, 0)
-            )
+            c = cv.circle(self.arr, (circle_x, circle_y), circle_radius, (255, 0, 0))
             axes[3].imshow(c)
-            box = cv.drawContours(img, [box], 0, (255, 0, 0), 1)
+            box = cv.drawContours(self.arr, [box_coords], 0, (255, 0, 0), 1)
             axes[4].set_title("finding MTF square")
             axes[4].imshow(box)
             axes[5].set_title("edge ROI")
@@ -496,23 +434,12 @@ class SpatialResolution(HazenTask):
             logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
             img_path = os.path.realpath(
                 os.path.join(
-                    self.report_path, f"{self.img_desc(dicom)}_{pe}_{edge}.png"
+                    self.report_path,
+                    f"{self.img_desc(self.single_dcm)}_{pe}_{edge}.png",
                 )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
+            results["report_image"] = self.report_files
 
-        return res
-
-    def calculate_mtf(self, dicom) -> tuple:
-        pe = dicom.InPlanePhaseEncodingDirection
-        pe_result, fe_result = None, None
-
-        if pe == "COL":
-            pe_result = self.calculate_mtf_for_edge(dicom, "top")
-            fe_result = self.calculate_mtf_for_edge(dicom, "right")
-        elif pe == "ROW":
-            pe_result = self.calculate_mtf_for_edge(dicom, "right")
-            fe_result = self.calculate_mtf_for_edge(dicom, "top")
-
-        return pe_result, fe_result
+        return results

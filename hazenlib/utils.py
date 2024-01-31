@@ -2,18 +2,25 @@ import os
 import cv2 as cv
 import pydicom
 import imutils
-import matplotlib
 import numpy as np
 
 from collections import defaultdict
 from skimage import filters
 
 import hazenlib.exceptions as exc
-
-matplotlib.use("Agg")
+from hazenlib.logger import logger
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
+    """Collect files in the folder into a list if they are parsable DICOMs
+
+    Args:
+        folder (str): path to folder
+        sort (bool, optional): whether to sort file list based on InstanceNumber. Defaults to False.
+
+    Returns:
+        list: full path to DICOM files found within a folder
+    """
     if sort:
         file_list = [
             os.path.join(folder, x)
@@ -31,15 +38,16 @@ def get_dicom_files(folder: str, sort=False) -> list:
 
 
 def is_dicom_file(filename):
-    """
-    Util function to check if file is a dicom file
-    the first 128 bytes are preamble
+    """Check if file is a DICOM file, using the the first 128 bytes are preamble
     the next 4 bytes should contain DICM otherwise it is not a dicom
 
-    :param filename: file to check for the DICM header block
-    :type filename: str
-    :returns: True if it is a dicom file
+    Args:
+        filename (str): path to file to be checked for the DICM header block
+
+    Returns:
+        bool: True or False whether file is a DICOM
     """
+    # TODO: make it more robust, ensure that file contains a pixel_array
     file_stream = open(filename, "rb")
     file_stream.seek(128)
     data = file_stream.read(4)
@@ -51,23 +59,17 @@ def is_dicom_file(filename):
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
+    """Check if file is an enhanced DICOM file
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Raises:
+        Exception: Unrecognised_SOPClassUID
+
+    Returns:
+        bool: True or False whether file is an enhanced DICOM
     """
-
-    Parameters
-    ----------
-    dcm
-
-    Returns
-    -------
-    bool
-
-    Raises
-    ------
-    Exception
-     Unrecognised SOPClassUID
-
-    """
-
     if dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4.1":
         return True
     elif dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4":
@@ -77,6 +79,17 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
 
 
 def get_manufacturer(dcm: pydicom.Dataset) -> str:
+    """Get the manufacturer field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Raises:
+        Exception: _description_
+
+    Returns:
+        str: manufacturer of the scanner used to obtain the DICOM image
+    """
     supported = ["ge", "siemens", "philips", "toshiba", "canon"]
     manufacturer = dcm.Manufacturer.lower()
     for item in supported:
@@ -87,6 +100,14 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
+    """Get the NumberOfAverages field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        float: value of the NumberOfAverages field from the DICOM header
+    """
     if is_enhanced_dicom(dcm):
         averages = (
             dcm.SharedFunctionalGroupsSequence[0].MRAveragesSequence[0].NumberOfAverages
@@ -98,34 +119,28 @@ def get_average(dcm: pydicom.Dataset) -> float:
 
 
 def get_bandwidth(dcm: pydicom.Dataset) -> float:
-    """
-    Returns PixelBandwidth
+    """Get the PixelBandwidth field from the DICOM header
 
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
 
-    Returns
-    -------
-    bandwidth: float
+    Returns:
+        float: value of the PixelBandwidth field from the DICOM header
     """
     bandwidth = dcm.PixelBandwidth
     return bandwidth
 
 
 def get_num_of_frames(dcm: pydicom.Dataset) -> int:
+    """Get the number of frames from the DICOM pixel_array
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        float: value of the PixelBandwidth field from the DICOM header
     """
-    Returns number of frames of dicom object
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-        DICOM object
-
-    Returns
-    -------
-
-    """
+    # TODO: investigate what values could the dcm.pixel_array.shape be and what that means
     if len(dcm.pixel_array.shape) > 2:
         return dcm.pixel_array.shape[0]
     elif len(dcm.pixel_array.shape) == 2:
@@ -133,6 +148,14 @@ def get_num_of_frames(dcm: pydicom.Dataset) -> int:
 
 
 def get_slice_thickness(dcm: pydicom.Dataset) -> float:
+    """Get the SliceThickness field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        float: value of the SliceThickness field from the DICOM header
+    """
     if is_enhanced_dicom(dcm):
         try:
             slice_thickness = (
@@ -155,6 +178,14 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
 
 
 def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
+    """Get the PixelSpacing field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        tuple of float: x and y values of the PixelSpacing field from the DICOM header
+    """
     manufacturer = get_manufacturer(dcm)
     try:
         if is_enhanced_dicom(dcm):
@@ -166,7 +197,7 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
         else:
             dx, dy = dcm.PixelSpacing
     except:
-        print("Warning: Could not find PixelSpacing..")
+        print("Warning: Could not find PixelSpacing.")
         if "ge" in manufacturer:
             fov = get_field_of_view(dcm)
             dx = fov / dcm.Columns
@@ -178,18 +209,16 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
 
 
 def get_TR(dcm: pydicom.Dataset) -> float:
+    """Get the RepetitionTime field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        float: value of the RepetitionTime field from the DICOM header, or defaults to 1000
     """
-    Returns Repetition Time (TR)
-
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
-
-    Returns
-    -------
-    TR: float
-    """
-
+    # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
+    # check with physicists whether 1000 is an appropriate default value
     try:
         TR = dcm.RepetitionTime
     except:
@@ -199,17 +228,16 @@ def get_TR(dcm: pydicom.Dataset) -> float:
 
 
 def get_rows(dcm: pydicom.Dataset) -> float:
-    """
-    Returns number of image rows (rows)
+    """Get the Rows field from the DICOM header
 
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
 
-    Returns
-    -------
-    rows: float
+    Returns:
+        float: value of the Rows field from the DICOM header, or defaults to 256
     """
+    # TODO: explore what type of DICOM files do not have Rows in DICOM header
+    # check with physicists whether 256 is an appropriate default value
     try:
         rows = dcm.Rows
     except:
@@ -222,17 +250,16 @@ def get_rows(dcm: pydicom.Dataset) -> float:
 
 
 def get_columns(dcm: pydicom.Dataset) -> float:
-    """
-    Returns number of image columns (columns)
+    """Get the Columns field from the DICOM header
 
-    Parameters
-    ----------
-    dcm: pydicom.Dataset
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
 
-    Returns
-    -------
-    columns: float
+    Returns:
+        float: value of the Columns field from the DICOM header, or defaults to 256
     """
+    # TODO: explore what type of DICOM files do not have Columns in DICOM header
+    # check with physicists whether 256 is an appropriate default value
     try:
         columns = dcm.Columns
     except:
@@ -244,6 +271,17 @@ def get_columns(dcm: pydicom.Dataset) -> float:
 
 
 def get_field_of_view(dcm: pydicom.Dataset):
+    """Get Field of View value from DICOM header depending on manufacturer encoding
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Raises:
+        NotImplementedError: Manufacturer not GE, Siemens, Toshiba or Philips so FOV cannot be calculated.
+
+    Returns:
+        float: value of the Field of View (calculated as Columns * PixelSpacing[0])
+    """
     # assumes square pixels
     manufacturer = get_manufacturer(dcm)
 
@@ -265,7 +303,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
         raise NotImplementedError(
-            "Manufacturer not ge,siemens, toshiba or philips so FOV cannot be calculated."
+            "Manufacturer not GE, Siemens, Toshiba or Philips so FOV cannot be calculated."
         )
 
     return fov
@@ -274,12 +312,14 @@ def get_field_of_view(dcm: pydicom.Dataset):
 def get_image_orientation(iop):
     """
     From http://dicomiseasy.blogspot.com/2013/06/getting-oriented-using-image-plane.html
+
     Args:
-        iop:
+        iop (list): values of dcm.ImageOrientationPatient - list of float
 
     Returns:
-
+        str: Sagittal, Coronal or Transverse
     """
+    # TODO: check that ImageOrientationPatient field is always available (every mannufacturer and enhanced)
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
     plane = [abs(x) for x in plane]
@@ -294,11 +334,12 @@ def get_image_orientation(iop):
 def rescale_to_byte(array):
     """
     WARNING: This function normalises/equalises the histogram. This might have unintended consequences.
+
     Args:
-        array:
+        array (np.ndarray): dcm.pixel_array
 
     Returns:
-
+        np.ndarray: normalised pixel values as 8-bit (byte) integer
     """
     image_histogram, bins = np.histogram(array.flatten(), 255)
     cdf = image_histogram.cumsum()  # cumulative distribution function
@@ -311,6 +352,8 @@ def rescale_to_byte(array):
 
 
 class Rod:
+    """Class for rods detected in the image"""
+
     def __init__(self, x, y):
         self.x = x
         self.y = y
@@ -339,21 +382,18 @@ class Rod:
 
 
 class ShapeDetector:
-    """
+    """Class for the detection of shapes in pixel arrays
     This class is largely adapted from https://www.pyimagesearch.com/2016/02/08/opencv-shape-detection/
-
     """
 
     def __init__(self, arr):
-        self.arr = arr
-        self.contours = None
-        self.shapes = defaultdict(list)
-        self.blurred = None
-        self.thresh = None
+        contours = self.find_contours(arr)
+        self.shapes = self.detect(contours)
 
-    def find_contours(self):
+    def find_contours(self, arr):
+        """Find contours in pixel array"""
         # convert the resized image to grayscale, blur it slightly, and threshold it
-        self.blurred = cv.GaussianBlur(self.arr.copy(), (5, 5), 0)  # magic numbers
+        self.blurred = cv.GaussianBlur(arr.copy(), (5, 5), 0)  # magic numbers
 
         optimal_threshold = filters.threshold_li(
             self.blurred, initial_guess=np.quantile(self.blurred, 0.50)
@@ -363,16 +403,31 @@ class ShapeDetector:
         )
 
         # have to convert type for find contours
-        contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
-        self.contours = imutils.grab_contours(contours)
+        detected_contours = cv.findContours(self.thresh, cv.RETR_TREE, 1)
+        contours = imutils.grab_contours(detected_contours)
         # rep = cv.drawContours(self.arr.copy(), [self.contours[0]], -1, color=(0, 255, 0), thickness=5)
         # plt.imshow(rep)
         # plt.title("rep")
         # plt.colorbar()
         # plt.show()
+        return contours
 
-    def detect(self):
-        for c in self.contours:
+    def detect(self, contours):
+        """Detect specified shapes in pixel array
+
+        Currently supported shapes:
+            - circle
+            - triangle
+            - rectangle
+            - pentagon
+        """
+        detected_shapes = {
+            "triangle": [],
+            "rectangle": [],
+            "pentagon": [],
+            "circle": [],
+        }
+        for c in contours:
             # initialize the shape name and approximate the contour
             peri = cv.arcLength(c, True)
             if peri < 100:
@@ -398,12 +453,25 @@ class ShapeDetector:
                 shape = "circle"
 
             # return the name of the shape
-            self.shapes[shape].append(c)
+            detected_shapes[shape].append(c)
+
+        return detected_shapes
 
     def get_shape(self, shape):
-        self.find_contours()
-        self.detect()
+        """Return contours for requested shape
 
+        Args:
+            shape (string): name of shape requested ("circle" or "rectangle")
+
+        Raises:
+            exc.ShapeDetectionError: ensure that only expected shapes are detected
+            exc.MultipleShapesError: ensure that only 1 shape is detected
+
+        Returns:
+            tuple: features of the requested shape
+                - circle: x, y, r - corresponding to x,y coords of centre and radius
+                - rectangle/square: (x, y), size, angle - corresponding to x,y coords of centre, size (tuple) and angle in degrees
+        """
         if shape not in self.shapes.keys():
             # print(self.shapes.keys())
             raise exc.ShapeDetectionError(shape)
@@ -424,9 +492,34 @@ class ShapeDetector:
 
         if shape == "rectangle" or shape == "square":
             (x, y), size, angle = cv.minAreaRect(contour)
+            rect = cv.minAreaRect(contour)
+
             # OpenCV v4.5 adjustment
             # - cv.minAreaRect() output tuple order changed since v3.4
             # - swap size order & rotate angle by -90
             size = (size[1], size[0])
             angle = angle - 90
+
+            # OpenCV 4.5 adjustment
+            # - cv.minAreaRect() output tuple order changed since v3.4
+            # - swap rect[1] order & rotate rect[2] by -90
+            # – convert tuple>list>tuple to do this
+            rectAsList = list(rect)
+            rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
+            rectAsList[2] = rectAsList[2] - 90
+            rect = tuple(rectAsList)
+
+            box = cv.boxPoints(rect)
+            box = np.int0(box)
+            w, h = rect[1]
+            ar = w / float(h)
+
+            # make sure that the width of the square is reasonable size taking into account 256 and 512 matrix
+            if not 20 < w < 100:
+                logger.info("It's a rectangle")
+
+            # a square will have an aspect ratio that is approximately
+            # equal to one, otherwise, the shape is a rectangle
+            if 0.92 < ar < 1.08:
+                logger.info("It's a square")
             return (x, y), size, angle

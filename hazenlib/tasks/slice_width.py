@@ -74,7 +74,7 @@ class SliceWidth(HazenTask):
         """Locate rods in the pixel array
 
         Args:
-            arr (np.array): DICOM pixel array
+            arr (np.ndarray): DICOM pixel array
 
         Returns:
             rods : array_like – centroid coordinates of rods
@@ -465,7 +465,7 @@ class SliceWidth(HazenTask):
         Based on code by Siân Culley, UCL/KCL
 
         Args:
-            cropped_data (np.array): 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
+            cropped_data (np.ndarray): 2D array of magnitude voxels (nb: should be inverted if rods hypointense)
             gauss_amp (float/int): initial estimate of amplitude of 2D Gaussian
             gauss_radius (int): initial estimate of centre of 2D Gaussian
             box_radius (int): 'radius' of box around rod
@@ -851,13 +851,12 @@ class SliceWidth(HazenTask):
 
         Returns:
             dict: including
-            - slice_width_mm: float
-                calculated slice width (top, bottom, combined; various methods) in mm
-            - horizontal_linearity_mm, vertical_linearity_mm : float
-                calculated average rod distance in mm
-            - horz_distortion_mm, vert_distortion_mm : float
-                calculated rod distance distortion in mm
-
+                - slice_width_mm (float):
+                    calculated slice width (top, bottom, combined; various methods) in mm
+                - horizontal_linearity_mm, vertical_linearity_mm (float):
+                    calculated average rod distance in mm
+                - horz_distortion_mm, vert_distortion_mm (float)
+                    calculated rod distance distortion in mm
         """
         slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
         arr = dcm.pixel_array

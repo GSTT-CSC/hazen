@@ -72,7 +72,7 @@ class Uniformity(HazenTask):
         """Finds the modal value of an array. From scipy.stats.mode
 
         Args:
-            a (np.array): _description_
+            a (np.ndarray): _description_
             axis (int, optional): Axis to calculate mode along. Defaults to 0.
 
         Returns:

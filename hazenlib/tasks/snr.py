@@ -154,7 +154,7 @@ class SNR(HazenTask):
 
         return normalised_snr_factor
 
-    def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
+    def filtered_image(self, dcm: pydicom.Dataset) -> np.ndarray:
         """Performs a 2D convolution (for filtering images)
         using uniform_filter SciPy function and a kernel size based on user input coil
 
@@ -162,7 +162,7 @@ class SNR(HazenTask):
             dcm (pydicom.Dataset): DICOM image to be filtered
 
         Returns:
-            np.array: filtered image pixel values
+            np.ndarray: filtered image pixel values
         """
         a = dcm.pixel_array.astype("int")
 
@@ -172,7 +172,7 @@ class SNR(HazenTask):
         filtered_array = ndimage.uniform_filter(a, self.kernel_size, mode="constant")
         return filtered_array
 
-    def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
+    def get_noise_image(self, dcm: pydicom.Dataset) -> np.ndarray:
         """Separates the image noise
         by smoothing the image and subtracting the smoothed image from the original.
 
@@ -180,7 +180,7 @@ class SNR(HazenTask):
             dcm (pydicom.Dataset): DICOM image to get noise from
 
         Returns:
-            np.array: pixel array representing the image noise
+            np.ndarray: pixel array representing the image noise
         """
         a = dcm.pixel_array.astype("int")
 
@@ -199,7 +199,7 @@ class SNR(HazenTask):
             dcm (pydicom.Dataset): DICOM image to get noise from
 
         Returns:
-            tuple of np.array: (imthresholded, mask)
+            tuple of np.ndarray: (imthresholded, mask)
                 pixel array representing the image above threshold
                 and a corresponding mask
         """
