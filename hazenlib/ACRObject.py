@@ -141,7 +141,7 @@ class ACRObject:
         """Find the center of the ACR phantom in a given slice (pixel array) \n
         using the Hough circle detector on a blurred image
         Args:
-            img (np.array): pixel array of the dicom
+            img (np.ndarray): pixel array of the dicom
 
 
         Returns:
@@ -174,16 +174,15 @@ class ACRObject:
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
         Args:
-            image (np.array): pixel array of the dicom
+            image (np.ndarray): pixel array of the dicom
             mag_threshold (float, optional): magnitude threshold. Defaults to 0.07.
             open_threshold (int, optional): open threshold. Defaults to 500.
 
         Returns:
-            np.array: the masked image
+            np.ndarray: the masked image
         """
-        test_mask = self.circular_mask(
-            self.centre, (80 // self.pixel_spacing[0]), image.shape
-        )
+        centre, _ = self.find_phantom_center(image, self.dx, self.dy)
+        test_mask = self.circular_mask(centre, (80 // self.dx), image.shape)
         test_image = image * test_mask
         test_vals = test_image[np.nonzero(test_image)]
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
@@ -215,7 +214,7 @@ class ACRObject:
             dims (tuple): dimensions of the circular mask.
 
         Returns:
-            np.array: A sorted stack of images, where each image is represented as a 2D numpy array.
+            np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # Define a circular logical mask
         x = np.linspace(1, dims[0], dims[0])
@@ -223,7 +222,6 @@ class ACRObject:
 
         X, Y = np.meshgrid(x, y)
         mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius**2
-        print(type(mask))
 
         return mask
 
@@ -231,7 +229,7 @@ class ACRObject:
         """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
         Args:
-            mask (np.array): Boolean array of the image where pixel values meet threshold
+            mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
             dict: a dictionary with the following
@@ -245,9 +243,8 @@ class ACRObject:
                     The horizontal/vertical length of the object.
         """
         dims = mask.shape
-        dx, dy = self.pixel_spacing
-        [(vertical, horizontal), radius] = self.find_phantom_center(
-            self.images[slice_index]
+        (vertical, horizontal), radius = self.find_phantom_center(
+            self.slice_stack[slice_index].pixel_array, self.dx, self.dy
         )
 
         horizontal_start = (horizontal, 0)
@@ -256,7 +253,7 @@ class ACRObject:
             mask, horizontal_start, horizontal_end
         )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
-        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
+        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * self.dx
 
         vertical_start = (0, vertical)
         vertical_end = (dims[1] - 1, vertical)
@@ -264,7 +261,7 @@ class ACRObject:
             mask, vertical_start, vertical_end
         )
         vertical_extent = np.nonzero(vertical_line_profile)[0]
-        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * dy
+        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * self.dy
 
         length_dict = {
             "Horizontal Start": horizontal_start,
@@ -305,12 +302,12 @@ class ACRObject:
         """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
         Args:
-            data (np.array): pixel array containing the data to perform peak extraction on
+            data (np.ndarray): pixel array containing the data to perform peak extraction on
             n (int): The coordinates of the point to rotate
             height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-            tuple of np.array: peak_locs and peak_heights
+            tuple of np.ndarray: peak_locs and peak_heights
                 peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
                 peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 
