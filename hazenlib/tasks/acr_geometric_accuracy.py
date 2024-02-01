@@ -43,8 +43,7 @@ class ACRGeometricAccuracy(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing geometric accuracy measurement
-        using the first and fifth slices from the ACR phantom image set
+        """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
@@ -86,7 +85,7 @@ class ACRGeometricAccuracy(HazenTask):
 
         L = lengths_1 + lengths_5
 
-        mean_err, max_err, cov_l = self.distortion_metric(L)
+        mean_err, max_err, cov_l = self.get_distortion_metrics(L)
 
         results["measurement"]["distortion"] = {
             "Mean relative measurement error": round(mean_err, 2),
@@ -101,13 +100,16 @@ class ACRGeometricAccuracy(HazenTask):
         return results
 
     def get_geometric_accuracy(self, slice_index):
-        """Measure geometric accuracy for input slice
+        """Measure geometric accuracy for input slice. \n
+        Creates a mask over the phantom from the pixel array of the DICOM
+        image. Uses the centre and shape of the mask to determine horizontal and vertical lengths, and also diagonal lengths
+        in the case of slice 5.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            slice_index (int): the index of the slice position, for example slice 5 is at index 4.
 
         Returns:
-            tuple of float: horizontal and vertical distances
+            tuple of float: horizontal and vertical distances.
         """
         img_dcm = self.ACR_obj.slice_stack[slice_index]
         img = img_dcm.pixel_array
@@ -247,16 +249,22 @@ class ACRGeometricAccuracy(HazenTask):
             return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
 
     def diagonal_lengths(self, img, cxy, slice_index):
-        """Measure diagonal lengths
+        """Measure diagonal lengths. \n
+        Rotates the pixel array by 45° and measures the horizontal and vertical distances.
 
         Args:
-            img (np.array): dcm.pixel_array
-            cxy (list): x,y coordinates and radius of the circle
-            slice_index (int): index of the slice number
+            img (np.ndarray): pixel array of the slice (dcm.pixel_array).
+            cxy (tuple): x,y coordinates of the circle centre.
+            slice_index (int): index of the slice number.
 
         Returns:
-            tuple of dictionaries: _description_
+            tuple of dict: for both the south-east (SE) diagonal length and the south-west (SW) diagonal length:
+                "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
+                pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
         """
+        # Calculate geometric mean of the x and y pixel spacing components,
+        # due to the possibility of pixels being rectangular,
+        # ie. the length and width of pixels can differ.
         eff_res = np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
@@ -301,11 +309,13 @@ class ACRGeometricAccuracy(HazenTask):
         return sw_dict, se_dict
 
     @staticmethod
-    def distortion_metric(L):
-        """Calculate the distortion metric based on length
+    def get_distortion_metrics(L):
+        """Calculates the mean error, the maximum error and the coefficient of
+        variation between the horizontal and vertical distances
+        measured on slices 1 and 5.
 
         Args:
-            L (tuple): horizontal and vertical distances from slices 1 and 5
+            L (tuple): horizontal and vertical distances from slices 1 and 5.
 
         Returns:
             tuple of floats: mean_err, max_err, cov_l

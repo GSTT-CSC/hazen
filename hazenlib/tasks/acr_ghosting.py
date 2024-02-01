@@ -25,10 +25,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRGhosting(HazenTask):
-    """Ghosting measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
-    """
+    """Ghosting measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -36,8 +33,7 @@ class ACRGhosting(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing ghosting measurement
-        using slice 7 from the ACR phantom image set
+        """Main function for performing ghosting measurement using slice 7 from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
@@ -62,13 +58,16 @@ class ACRGhosting(HazenTask):
         return results
 
     def get_signal_ghosting(self, dcm):
-        """Calculate signal ghosting
+        """alculate signal ghosting. \n
+        Sample signal intensity from ellipses outside the phantom in
+        four directions and calculates the mean signal value within each.
+        Calculate the percentage signal ghosting (PSG): the mean signal in these four ROIs as a percentage of the mean signal in a ROI in the centre of the phantom.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            float: percentage ghosting value
+            float: percentage ghosting value.
         """
         img = dcm.pixel_array
         r_large = np.ceil(80 / self.ACR_obj.dx).astype(

@@ -140,12 +140,12 @@ class ACRObject:
     def find_phantom_center(img, dx, dy):
         """Find the center of the ACR phantom in a given slice (pixel array) \n
         using the Hough circle detector on a blurred image
+
         Args:
             img (np.ndarray): pixel array of the dicom
 
-
         Returns:
-            tuple of ints: representing the (x, y) coordinates of the center of the image
+            tuple of ints: representing the (x, y) coordinates of the center of the image.
         """
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)

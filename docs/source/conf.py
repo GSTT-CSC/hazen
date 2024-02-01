@@ -12,9 +12,8 @@
 #
 import os
 import sys
-from hazenlib._version import __version__
-
 sys.path.insert(0, os.path.abspath("../.."))
+from hazenlib._version import __version__
 
 
 # -- Project information -----------------------------------------------------

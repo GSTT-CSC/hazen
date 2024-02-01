@@ -38,10 +38,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSlicePosition(HazenTask):
-    """Slice position measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
-    """
+    """Slice position measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -50,7 +47,7 @@ class ACRSlicePosition(HazenTask):
 
     def run(self) -> dict:
         """Main function for performing slice position measurement
-        using the first and last slices from the ACR phantom image set
+        using the first and last slices from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
@@ -83,14 +80,16 @@ class ACRSlicePosition(HazenTask):
         return results
 
     def find_wedges(self, img, mask):
-        """Find wedges in the pixel array
+        """Find wedges in the pixel array. \n
+        Investigates the top half of the phantom to locate where the wedges
+        pass through the slice, and calculates the co-ordinates of these locations.
 
         Args:
-            img (np.array): dcm.pixel_array
-            mask (np.array): dcm.pixel_array of the image mask
+            img (np.ndarray): dcm.pixel_array
+            mask (np.ndarray): dcm.pixel_array of the image mask
 
         Returns:
-            tuple: arrays of x and y coordinates of wedges
+            tuple: arrays of x and y coordinates of wedges.
         """
         # X COORDINATES
         x_investigate_region = np.ceil(35 / self.ACR_obj.dx).astype(
@@ -101,41 +100,38 @@ class ACRSlicePosition(HazenTask):
             # we want an odd number to see -N to N points in the x direction
             x_investigate_region = x_investigate_region + 1
 
-        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()  # westmost point of object
-        e_point = np.argwhere(np.sum(mask, 0) > 0)[
-            -1
-        ].item()  # eastmost point of object
-        n_point = np.argwhere(np.sum(mask, 1) > 0)[
-            0
-        ].item()  # northmost point of object
+        # westmost point of object
+        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()
+        # eastmost point of object
+        e_point = np.argwhere(np.sum(mask, 0) > 0)[-1].item()
+        # northmost point of object
+        n_point = np.argwhere(np.sum(mask, 1) > 0)[0].item()
 
         invest_x = []
         for k in range(x_investigate_region):
-            y_loc = n_point + k  # add n_point to ensure in image's coordinate system
-            t = mask[
-                y_loc, np.arange(w_point, e_point + 1, 1)
-            ]  # mask for resultant line profile
+            # add n_point to ensure in image's coordinate system
+            y_loc = n_point + k
+            # mask for resultant line profile
+            t = mask[y_loc, np.arange(w_point, e_point + 1, 1)]
             # line profile at varying y positions from west to east
             line_prof_x = skimage.measure.profile_line(
                 img, (y_loc, w_point), (y_loc, e_point), mode="constant"
             ).flatten()
 
-            invest_x.append(t * line_prof_x)  # mask unwanted values out and append
+            # mask unwanted values out and append
+            invest_x.append(t * line_prof_x)
 
-        invest_x = np.array(invest_x).T  # transpose array
-        mean_x_profile = np.mean(
-            invest_x, 1
-        )  # mean of horizontal projections of phantom
-        abs_diff_x_profile = np.abs(
-            np.diff(mean_x_profile)
-        )  # absolute first derivative of mean
+        # transpose array
+        invest_x = np.array(invest_x).T
+        # mean of horizontal projections of phantom
+        mean_x_profile = np.mean(invest_x, 1)
+        # absolute first derivative of mean
+        abs_diff_x_profile = np.abs(np.diff(mean_x_profile))
 
-        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(
-            abs_diff_x_profile, 2
-        )  # find two highest peaks
-        x_locs = (
-            w_point + x_peaks
-        )  # x coordinates of these peaks in image coordinate system(before diff operation)
+        # find two highest peaks
+        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 2)
+        # x coordinates of these peaks in image coordinate system(before diff operation)
+        x_locs = w_point + x_peaks
 
         width_pts = [x_locs[0], x_locs[1]]  # width of wedges
         width = np.max(width_pts) - np.min(width_pts)  # width
@@ -169,47 +165,43 @@ class ACRSlicePosition(HazenTask):
             ).flatten()
             invest_y.append(c * line_prof_y)
 
-        invest_y = np.array(invest_y).T  # transpose array
-        mean_y_profile = np.mean(invest_y, 1)  # mean of vertical projections of phantom
-        abs_diff_y_profile = np.abs(
-            np.diff(mean_y_profile)
-        )  # absolute first derivative of mean
+        # transpose array
+        invest_y = np.array(invest_y).T
+        # mean of vertical projections of phantom
+        mean_y_profile = np.mean(invest_y, 1)
+        # absolute first derivative of mean
+        abs_diff_y_profile = np.abs(np.diff(mean_y_profile))
 
-        y_peaks, _ = self.ACR_obj.find_n_highest_peaks(
-            abs_diff_y_profile, 2
-        )  # find two highest peaks
-        y_locs = (
-            w_point + y_peaks - 1
-        )  # y coordinates of these peaks in image coordinate system(before diff operation)
+        # find two highest peaks
+        y_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_y_profile, 2)
+        # y coordinates of these peaks in image coordinate system(before diff operation)
+        y_locs = w_point + y_peaks - 1
 
         if y_locs[1] - y_locs[0] < 5 / self.ACR_obj.dy:
-            y = [
-                n_point + round(10 / self.ACR_obj.dy)
-            ]  # if peaks too close together, use phantom geometry
+            # if peaks too close together, use phantom geometry
+            y = [n_point + round(10 / self.ACR_obj.dy)]
         else:
-            y = np.round(
-                np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs))
-            )  # define y coordinate
+            # define y coordinate
+            y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs)))
 
-        dist_to_y = (
-            np.abs(n_point - y[0]) * self.ACR_obj.dy
-        )  # distance to y from top of phantom
+        # distance to y from top of phantom
+        dist_to_y = np.abs(n_point - y[0]) * self.ACR_obj.dy
+        # place 2nd y point 47mm from top of phantom
         y_pts = np.append(
             y, np.round(y[0] + (47 - dist_to_y) / self.ACR_obj.dy)
-        ).astype(
-            int
-        )  # place 2nd y point 47mm from top of phantom
+        ).astype(int)
 
         return x_pts, y_pts
 
     def get_slice_position(self, dcm):
-        """Measure slice position
+        """Measure slice position. \n
+        Locates the two opposing wedges and calculates the height difference.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            float: bar length difference
+            float: bar length difference.
         """
         img = dcm.pixel_array
         mask = self.ACR_obj.get_mask_image(img)
@@ -222,11 +214,10 @@ class ACRSlicePosition(HazenTask):
             img, (y_pts[0], x_pts[1]), (y_pts[1], x_pts[1]), mode="constant"
         ).flatten()  # line profile through right wedge
 
-        interp_factor = 5
+        # interpolation
+        interp_factor = 1 / 5
         x = np.arange(1, len(line_prof_L) + 1)
-        new_x = np.arange(
-            1, len(line_prof_L) + (1 / interp_factor), (1 / interp_factor)
-        )
+        new_x = np.arange(1, len(line_prof_L) + interp_factor, interp_factor)
 
         # interpolate left line profile
         interp_line_prof_L = scipy.interpolate.interp1d(x, line_prof_L)(new_x)
@@ -282,7 +273,7 @@ class ACRSlicePosition(HazenTask):
         shift = -lag[temp][0] if pos == 1 else lag[temp][0]
 
         # calculate bar length difference
-        dL = pos * np.abs(shift) * (1 / interp_factor) * self.ACR_obj.dy
+        dL = pos * np.abs(shift) * interp_factor * self.ACR_obj.dy
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -303,14 +294,14 @@ class ACRSlicePosition(HazenTask):
 
             axes[2].grid()
             axes[2].plot(
-                (1 / interp_factor)
+                interp_factor
                 * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
                 * self.ACR_obj.dy,
                 interp_line_prof_L,
                 "b",
             )
             axes[2].plot(
-                (1 / interp_factor)
+                interp_factor
                 * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R))
                 * self.ACR_obj.dy,
                 interp_line_prof_R,
@@ -320,7 +311,7 @@ class ACRSlicePosition(HazenTask):
             axes[2].set_xlabel("Relative Pixel Position (mm)")
 
             axes[3].plot(
-                (1 / interp_factor)
+                interp_factor
                 * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
                 * self.ACR_obj.dy,
                 interp_line_prof_L,
@@ -339,7 +330,7 @@ class ACRSlicePosition(HazenTask):
 
             axes[3].grid()
             axes[3].plot(
-                (1 / interp_factor)
+                interp_factor
                 * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
                 * self.ACR_obj.dy,
                 shift_line,
