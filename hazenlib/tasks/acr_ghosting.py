@@ -44,14 +44,14 @@ class ACRGhosting(HazenTask):
         """
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice7_dcm)
+        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
-            result = self.get_signal_ghosting(self.ACR_obj.slice7_dcm)
+            result = self.get_signal_ghosting(self.ACR_obj.slice_stack[6])
             results["measurement"] = {"signal ghosting %": round(result, 3)}
         except Exception as e:
             print(
-                f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice7_dcm)} because of : {e}"
+                f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice_stack[6])} because of : {e}"
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -71,30 +71,31 @@ class ACRGhosting(HazenTask):
             float: percentage ghosting value
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        r_large = np.ceil(80 / res[0]).astype(
+        r_large = np.ceil(80 / self.ACR_obj.dx).astype(
             int
         )  # Required pixel radius to produce ~200cm2 ROI
         dims = img.shape
 
-        mask = self.ACR_obj.mask_image
-        cxy = self.ACR_obj.centre
+        mask = self.ACR_obj.get_mask_image(img)
+        (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy
+        )
 
         nx = np.linspace(1, dims[0], dims[0])
         ny = np.linspace(1, dims[1], dims[1])
 
         x, y = np.meshgrid(nx, ny)
 
-        lroi = np.square(x - cxy[0]) + np.square(
-            y - cxy[1] - np.divide(5, res[1])
+        lroi = np.square(x - centre_x) + np.square(
+            y - centre_y - np.divide(5, self.ACR_obj.dy)
         ) <= np.square(r_large)
         sad = 2 * np.ceil(
-            np.sqrt(1000 / (4 * np.pi)) / res[0]
+            np.sqrt(1000 / (4 * np.pi)) / self.ACR_obj.dx
         )  # Short axis diameter for an ellipse of 10cm2 with a 1:4 axis ratio
 
         # WEST ELLIPSE
         w_point = np.argwhere(np.sum(mask, 0) > 0)[0]  # find first column in mask
-        w_centre = [cxy[1], np.floor(w_point / 2)]  # initialise centre of ellipse
+        w_centre = [centre_y, np.floor(w_point / 2)]  # initialise centre of ellipse
         left_fov_to_centre = (
             w_centre[1] - sad / 2 - 5
         )  # edge of ellipse towards left FoV (+ tolerance)
@@ -113,13 +114,13 @@ class ACRGhosting(HazenTask):
         w_ellipse = np.square((y - w_centre[0]) / (4 * w_factor)) + np.square(
             (x - w_centre[1]) * w_factor
         ) <= np.square(
-            10 / res[0]
+            10 / self.ACR_obj.dx
         )  # generate ellipse mask
 
         # EAST ELLIPSE
         e_point = np.argwhere(np.sum(mask, 0) > 0)[-1]  # find last column in mask
         e_centre = [
-            cxy[1],
+            centre_y,
             e_point + np.ceil((dims[1] - e_point) / 2),
         ]  # initialise centre of ellipse
         right_fov_to_centre = (
@@ -143,12 +144,12 @@ class ACRGhosting(HazenTask):
         e_ellipse = np.square((y - e_centre[0]) / (4 * e_factor)) + np.square(
             (x - e_centre[1]) * e_factor
         ) <= np.square(
-            10 / res[0]
+            10 / self.ACR_obj.dx
         )  # generate ellipse mask
 
         # NORTH ELLIPSE
         n_point = np.argwhere(np.sum(mask, 1) > 0)[0]  # find first row in mask
-        n_centre = [np.round(n_point / 2), cxy[0]]  # initialise centre of ellipse
+        n_centre = [np.round(n_point / 2), centre_x]  # initialise centre of ellipse
         top_fov_to_centre = (
             n_centre[0] - sad / 2 - 5
         )  # edge of ellipse towards top FoV (+ tolerance)
@@ -167,14 +168,14 @@ class ACRGhosting(HazenTask):
         n_ellipse = np.square((y - n_centre[0]) * n_factor) + np.square(
             (x - n_centre[1]) / (4 * n_factor)
         ) <= np.square(
-            10 / res[0]
+            10 / self.ACR_obj.dx
         )  # generate ellipse mask
 
         # SOUTH ELLIPSE
         s_point = np.argwhere(np.sum(mask, 1) > 0)[-1]  # find last row in mask
         s_centre = [
             s_point + np.round((dims[1] - s_point) / 2),
-            cxy[0],
+            centre_x,
         ]  # initialise centre of ellipse
         bottom_fov_to_centre = (
             s_centre[0] + sad / 2 + 5
@@ -194,7 +195,7 @@ class ACRGhosting(HazenTask):
 
         s_ellipse = np.square((y - s_centre[0]) * s_factor) + np.square(
             (x - s_centre[1]) / (4 * s_factor)
-        ) <= np.square(10 / res[0])
+        ) <= np.square(10 / self.ACR_obj.dx)
 
         large_roi_val = np.mean(img[np.nonzero(lroi)])
         w_ellipse_val = np.mean(img[np.nonzero(w_ellipse)])
@@ -217,62 +218,62 @@ class ACRGhosting(HazenTask):
             theta = np.linspace(0, 2 * np.pi, 360)
 
             axes[0].imshow(img)
-            axes[0].scatter(cxy[0], cxy[1], c="red")
+            axes[0].scatter(centre_x, centre_y, c="red")
             axes[0].axis("off")
             axes[0].set_title("Centroid Location")
 
             axes[1].imshow(img)
             axes[1].plot(
-                r_large * np.cos(theta) + cxy[0],
-                r_large * np.sin(theta) + cxy[1] + 5 / res[1],
+                r_large * np.cos(theta) + centre_x,
+                r_large * np.sin(theta) + centre_y + 5 / self.ACR_obj.dy,
                 c="black",
             )
             axes[1].text(
-                cxy[0] - 3 * np.floor(10 / res[0]),
-                cxy[1] + np.floor(10 / res[1]),
+                centre_x - 3 * np.floor(10 / self.ACR_obj.dx),
+                centre_y + np.floor(10 / self.ACR_obj.dy),
                 "Mean = " + str(np.round(large_roi_val, 2)),
                 c="white",
             )
 
             axes[1].plot(
-                10.0 / res[0] * np.cos(theta) / w_factor + w_centre[1],
-                10.0 / res[0] * np.sin(theta) * 4 * w_factor + w_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / w_factor + w_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * w_factor + w_centre[0],
                 c="red",
             )
             axes[1].text(
-                w_centre[1] - np.floor(10 / res[0]),
+                w_centre[1] - np.floor(10 / self.ACR_obj.dx),
                 w_centre[0],
                 "Mean = " + str(np.round(w_ellipse_val, 2)),
                 c="white",
             )
 
             axes[1].plot(
-                10.0 / res[0] * np.cos(theta) / e_factor + e_centre[1],
-                10.0 / res[0] * np.sin(theta) * 4 * e_factor + e_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / e_factor + e_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * e_factor + e_centre[0],
                 c="red",
             )
             axes[1].text(
-                e_centre[1] - np.floor(30 / res[0]),
+                e_centre[1] - np.floor(30 / self.ACR_obj.dx),
                 e_centre[0],
                 "Mean = " + str(np.round(e_ellipse_val, 2)),
                 c="white",
             )
 
             axes[1].plot(
-                10.0 / res[0] * np.cos(theta) * 4 * n_factor + n_centre[1],
-                10.0 / res[0] * np.sin(theta) / n_factor + n_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * n_factor + n_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / n_factor + n_centre[0],
                 c="red",
             )
             axes[1].text(
-                n_centre[1] - 5 * np.floor(10 / res[0]),
+                n_centre[1] - 5 * np.floor(10 / self.ACR_obj.dx),
                 n_centre[0],
                 "Mean = " + str(np.round(n_ellipse_val, 2)),
                 c="white",
             )
 
             axes[1].plot(
-                10.0 / res[0] * np.cos(theta) * 4 * s_factor + s_centre[1],
-                10.0 / res[0] * np.sin(theta) / s_factor + s_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * s_factor + s_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / s_factor + s_centre[0],
                 c="red",
             )
             axes[1].text(
