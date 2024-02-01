@@ -45,15 +45,15 @@ class ACRUniformity(HazenTask):
         """
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice7_dcm)
+        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
-            result = self.get_integral_uniformity(self.ACR_obj.slice7_dcm)
+            result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
             results["measurement"] = {"integral uniformity %": round(result, 2)}
         except Exception as e:
             print(
                 f"Could not calculate the percent integral uniformity for"
-                f"{self.img_desc(self.ACR_obj.slice7_dcm)} because of : {e}"
+                f"{self.img_desc(self.ACR_obj.slice_stack[6])} because of : {e}"
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -73,26 +73,26 @@ class ACRUniformity(HazenTask):
             int or float: value of integral unformity
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        r_large = np.ceil(80 / res[0]).astype(
-            int
-        )  # Required pixel radius to produce ~200cm2 ROI
-        r_small = np.ceil(np.sqrt(100 / np.pi) / res[0]).astype(
-            int
-        )  # Required pixel radius to produce ~1cm2 ROI
-        d_void = np.ceil(5 / res[0]).astype(
-            int
-        )  # Offset distance for rectangular void at top of phantom
+        # Required pixel radius to produce ~200cm2 ROI
+        r_large = np.ceil(80 / self.ACR_obj.dx).astype(int)
+        # Required pixel radius to produce ~1cm2 ROI
+        r_small = np.ceil(np.sqrt(100 / np.pi) / self.ACR_obj.dx).astype(int)
+        # Offset distance for rectangular void at top of phantom
+        d_void = np.ceil(5 / self.ACR_obj.dx).astype(int)
         dims = img.shape  # Dimensions of image
 
-        cxy = self.ACR_obj.centre
+        (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy
+        )
+        # Dummy circular mask at centroid
         base_mask = ACRObject.circular_mask(
-            (cxy[0], cxy[1] + d_void), r_small, dims
-        )  # Dummy circular mask at
-        # centroid
+            (centre_x, centre_y + d_void), r_small, dims
+        )
         coords = np.nonzero(base_mask)  # Coordinates of mask
 
-        lroi = self.ACR_obj.circular_mask([cxy[0], cxy[1] + d_void], r_large, dims)
+        # TODO: ensure that shifting the sampling circle centre
+        # is in the correct direction by a correct factor
+        lroi = self.ACR_obj.circular_mask([centre_x, centre_y + d_void], r_large, dims)
         img_masked = lroi * img
         half_max = np.percentile(img_masked[np.nonzero(img_masked)], 50)
 
@@ -120,8 +120,8 @@ class ACRUniformity(HazenTask):
             for idx, (row, col) in enumerate(zip(rows, cols)):
                 centre = [row, col]
                 translate_mask = [
-                    coords[0] + centre[0] - cxy[0] - d_void,
-                    coords[1] + centre[1] - cxy[1],
+                    coords[0] + centre[0] - centre_x - d_void,
+                    coords[1] + centre[1] - centre_y,
                 ]
                 values = masked_image[translate_mask[0], translate_mask[1]]
                 if np.count_nonzero(values) < np.count_nonzero(sample_mask):
@@ -154,7 +154,7 @@ class ACRUniformity(HazenTask):
             theta = np.linspace(0, 2 * np.pi, 360)
 
             axes[0].imshow(img)
-            axes[0].scatter(cxy[0], cxy[1], c="red")
+            axes[0].scatter(centre_x, centre_y, c="red")
             axes[0].axis("off")
             axes[0].set_title("Centroid Location")
 
@@ -169,7 +169,7 @@ class ACRUniformity(HazenTask):
             )
             axes[1].annotate(
                 "Min = " + str(np.round(sig_min, 1)),
-                [min_loc[1], min_loc[0] + 10 / res[0]],
+                [min_loc[1], min_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
 
@@ -180,12 +180,12 @@ class ACRUniformity(HazenTask):
             )
             axes[1].annotate(
                 "Max = " + str(np.round(sig_max, 1)),
-                [max_loc[1], max_loc[0] + 10 / res[0]],
+                [max_loc[1], max_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
             axes[1].plot(
-                r_large * np.cos(theta) + cxy[1],
-                r_large * np.sin(theta) + cxy[0] + 5 / res[1],
+                r_large * np.cos(theta) + centre_y,
+                r_large * np.sin(theta) + centre_x + 5 / self.ACR_obj.dy,
                 c="black",
             )
             axes[1].axis("off")
