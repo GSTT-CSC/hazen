@@ -45,7 +45,7 @@ class ACRSliceThickness(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         # Identify relevant slice
-        slice_thickness_dcm = self.ACR_obj.dcms[0]
+        slice_thickness_dcm = self.ACR_obj.slice_stack[0]
 
         # Initialise results dictionary
         results = self.init_result_dict()
@@ -66,19 +66,18 @@ class ACRSliceThickness(HazenTask):
 
         return results
 
-    def find_ramps(self, img, centre, res):
+    def find_ramps(self, img, centre):
         """Find ramps in the pixel array
 
         Args:
             img (np.array): dcm.pixel_array
             centre (list): x,y coordinates of the phantom centre
-            res (float): dcm.PixelSpacing
 
         Returns:
             tuple: x and y coordinates of ramp
         """
         # X
-        investigate_region = int(np.ceil(5.5 / res[1]).item())
+        investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
 
         if np.mod(investigate_region, 2) == 0:
             investigate_region = investigate_region + 1
@@ -157,6 +156,8 @@ class ACRSliceThickness(HazenTask):
             Returns:
                 float: true x coordinate of the half maximum
             """
+            # TODO: account for if x_start is too close to len(ydata)
+            # causes error for sagittal data
             x_init = x_start - 5
             x_pts = np.arange(x_start - 5, x_start + 5)
             x_pts = np.arange(x_init, x_init + 11)
@@ -184,15 +185,13 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        cxy = self.ACR_obj.centre
-        x_pts, y_pts = self.find_ramps(img, cxy, res)
+        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        x_pts, y_pts = self.find_ramps(img, cxy)
 
-        interp_factor = 5
+        interp_factor = 1 / 5
+        interp_factor_dx = interp_factor * self.ACR_obj.dx
         sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
-        new_sample = np.arange(
-            1, x_pts[1] - x_pts[0] + (1 / interp_factor), (1 / interp_factor)
-        )
+        new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
         offsets = np.arange(-3, 4)
         ramp_length = np.zeros((2, 7))
 
@@ -220,8 +219,8 @@ class ACRSliceThickness(HazenTask):
                 scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
             ]
             fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
-            ramp_length[0, i] = (1 / interp_factor) * np.diff(fwhm[0]) * res[0]
-            ramp_length[1, i] = (1 / interp_factor) * np.diff(fwhm[1]) * res[0]
+            ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
+            ramp_length[1, i] = interp_factor_dx * np.diff(fwhm[1])
 
             line_store.append(interp_lines)
             fwhm_store.append(fwhm)
@@ -241,11 +240,11 @@ class ACRSliceThickness(HazenTask):
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
 
-            x_ramp = new_sample * res[0]
+            x_ramp = new_sample * self.ACR_obj.dx
             x_extent = np.max(x_ramp)
             y_ramp = line_store[z_ind][1]
             y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
+            max_loc = np.argmax(y_ramp) * interp_factor_dx
 
             axes[0].imshow(img)
             axes[0].scatter(cxy[0], cxy[1], c="red")
@@ -262,8 +261,8 @@ class ACRSliceThickness(HazenTask):
             axes[1].axis("off")
             axes[1].set_title("Line Profiles")
 
-            xmin = fwhm_store[z_ind][1][0] * (1 / interp_factor) * res[0] / x_extent
-            xmax = fwhm_store[z_ind][1][1] * (1 / interp_factor) * res[0] / x_extent
+            xmin = fwhm_store[z_ind][1][0] * interp_factor_dx / x_extent
+            xmax = fwhm_store[z_ind][1][1] * interp_factor_dx / x_extent
 
             axes[2].plot(
                 x_ramp,
@@ -285,13 +284,13 @@ class ACRSliceThickness(HazenTask):
             axes[2].grid()
             axes[2].legend(loc="best")
 
-            xmin = fwhm_store[z_ind][0][0] * (1 / interp_factor) * res[0] / x_extent
-            xmax = fwhm_store[z_ind][0][1] * (1 / interp_factor) * res[0] / x_extent
-            x_ramp = new_sample * res[0]
+            xmin = fwhm_store[z_ind][0][0] * interp_factor_dx / x_extent
+            xmax = fwhm_store[z_ind][0][1] * interp_factor_dx / x_extent
+            x_ramp = new_sample * self.ACR_obj.dx
             x_extent = np.max(x_ramp)
             y_ramp = line_store[z_ind][0]
             y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
+            max_loc = np.argmax(y_ramp) * interp_factor_dx
 
             axes[3].plot(
                 x_ramp,
