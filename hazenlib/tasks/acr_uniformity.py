@@ -26,9 +26,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRUniformity(HazenTask):
-    """Uniformity measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
+    """Uniformity measurement class for DICOM images of the ACR phantom.
     """
 
     def __init__(self, **kwargs):
@@ -37,8 +35,7 @@ class ACRUniformity(HazenTask):
         self.ACR_obj = ACRObject(self.dcm_list)
 
     def run(self) -> dict:
-        """Main function for performing uniformity measurement
-        using slice 7 from the ACR phantom image set
+        """Main function for performing uniformity measurement using slice 7 from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
@@ -64,13 +61,21 @@ class ACRUniformity(HazenTask):
         return results
 
     def get_integral_uniformity(self, dcm):
-        """Calculate the integral uniformity in accordance with ACR guidance.
+        """
+        Calculates the percent integral uniformity (PIU) of a DICOM pixel array. Iterates with a ~1 cm^2 ROI through a
+        ~200 cm^2 ROI inside the phantom region, and calculates the mean non-zero pixel value inside each iteration of
+        the ~1 cm^2 ROI. The PIU is defined as:
+
+        PIU = 100 * (1 - (max - min) / (max + min))
+
+        where 'max' and 'min' represent the maximum and minimum of the mean non-zero pixel values of each iteration
+        of the ~1 cm^2 ROI.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object to calculate uniformity from
+            dcm (pydicom.Dataset): DICOM image object to calculate uniformity from.
 
         Returns:
-            int or float: value of integral unformity
+            int or float: value of integral uniformity.
         """
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
@@ -105,16 +110,17 @@ class ACRUniformity(HazenTask):
         mean_array = np.zeros(img_masked.shape)
 
         def uniformity_iterator(masked_image, sample_mask, rows, cols):
-            """Iterate through a pixel array and determine mean value
+            """Iterates spatially through the pixel array with a circular ROI and calculates the mean non-zero pixel
+            value within the circular ROI at each iteration.
 
             Args:
-                masked_image (np.array): subset of pixel array
-                sample_mask (np.array): _description_
-                rows (np.array): 1D array
-                cols (np.array): 1D array
+                masked_image (np.array): subset of pixel array.
+                sample_mask (np.array): _description_.
+                rows (np.array): 1D array.
+                cols (np.array): 1D array.
 
             Returns:
-                np.array: array of mean values
+                np.array: array of mean values.
             """
             coords = np.nonzero(sample_mask)  # Coordinates of mask
             for idx, (row, col) in enumerate(zip(rows, cols)):
