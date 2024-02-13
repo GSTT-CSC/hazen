@@ -43,6 +43,8 @@ import logging
 import importlib
 
 from docopt import docopt
+import pydicom
+from hazenlib.logger import logger
 from hazenlib.utils import get_dicom_files
 from hazenlib._version import __version__
 
@@ -165,6 +167,7 @@ def main():
         selected_task = arguments["<task>"]
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
+            # for now these are most likely not enhanced, single-frame
             for file in files:
                 task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
@@ -173,6 +176,8 @@ def main():
             return
         else:
             # Slice Position task, all ACR tasks except SNR
+            # may be enhanced, may be multi-frame
+            print("Processing", files)
             task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 

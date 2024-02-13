@@ -17,6 +17,9 @@ class ACRObject:
         Args:
             dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
         """
+        # First, need to determine if input DICOMs are
+        # enhanced or normal, single or multi-frame
+        # may be 11 in 1 or 11 separate DCM objects
 
         # # Initialise an ACR object from a list of images of the ACR phantom
         # Store pixel spacing value from the first image (expected to be the same for all)
@@ -93,6 +96,7 @@ class ACRObject:
     @staticmethod
     def determine_rotation(img):
         """Determine the rotation angle of the phantom using edge detection and the Hough transform.
+        only relevant for MTF-based spatial resolution - need to convince David Price!!!!!
 
         Args:
             img (np.ndarray): pixel array of a DICOM object
@@ -185,6 +189,7 @@ class ACRObject:
         centre, _ = self.find_phantom_center(image, self.dx, self.dy)
         test_mask = self.circular_mask(centre, (80 // self.dx), image.shape)
         test_image = image * test_mask
+        # get range of values in the mask
         test_vals = test_image[np.nonzero(test_image)]
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
             image
@@ -198,9 +203,11 @@ class ACRObject:
         else:
             initial_mask = image > mag_threshold * np.max(image)
 
+        # unconnected region of pixels, to remove noise
         opened_mask = skimage.morphology.area_opening(
             initial_mask, area_threshold=open_threshold
         )
+        # remove air bubbles from image area
         final_mask = skimage.morphology.convex_hull_image(opened_mask)
 
         return final_mask

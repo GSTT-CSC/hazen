@@ -15,28 +15,19 @@ matplotlib.use("Agg")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
-    """Collect files in the folder into a list if they are parsable DICOMs
+    """Collect files with pixel_array into a list
 
     Args:
-        folder (str): path to folder
-        sort (bool, optional): whether to sort file list based on InstanceNumber. Defaults to False.
+        folder (str): path to folder to check
 
     Returns:
-        list: full path to DICOM files found within a folder
+        list: paths to DICOM image files (may be multi-framed)
     """
-    if sort:
-        file_list = [
-            os.path.join(folder, x)
-            for x in os.listdir(folder)
-            if is_dicom_file(os.path.join(folder, x))
-        ]
-        file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
-    else:
-        file_list = [
-            os.path.join(folder, x)
-            for x in os.listdir(folder)
-            if is_dicom_file(os.path.join(folder, x))
-        ]
+    file_list = []
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        if has_pixel_array(file_path):
+            file_list.append(file_path)
     return file_list
 
 
@@ -61,6 +52,43 @@ def is_dicom_file(filename):
         return False
 
 
+def has_pixel_array(filename) -> bool:
+    """Check whether DICOM object has pixel_array that can be used for calc
+
+    Args:
+        filename (str): path to file to be checked
+
+    Returns:
+        bool: True/False whether pixel_array is available
+    """
+
+    try:
+        dcm = pydicom.dcmread(filename)
+        img = dcm.pixel_array
+        return True
+    except:
+        print(f"{filename} does not contain image data")
+        return False
+
+
+def get_z_position(dcm_list):
+    """Get the ImagePositionPatient tag value from a DICOM
+
+    Args:
+        dcm_list (list): list of pydicom objects with pixel arrays
+    """
+    for dcm in dcm_list:
+        try:
+            image_position_patient = dcm.ImagePositionPatient
+        except:
+            image_position_patient = (
+                dcm.PerFrameFunctionalGroupsSequence[0]
+                .PlaneOrientationSequence[0]
+                .ImagePositionPatient
+            )
+        z_position = image_position_patient[2]
+
+
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """Check if file is an enhanced DICOM file
 
@@ -73,7 +101,8 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     Returns:
         bool: True or False whether file is an enhanced DICOM
     """
-    if dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4.1":
+
+    if dcm.SOPClassUID in ["1.2.840.10008.5.1.4.1.1.4.1", "EnhancedMRImageStorage"]:
         return True
     elif dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4":
         return False
