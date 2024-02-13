@@ -1,12 +1,10 @@
 import os
 import unittest
-import pathlib
 import pydicom
 import numpy as np
 
-from hazenlib import HazenTask
 from hazenlib.ACRObject import ACRObject
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from tests import TEST_DATA_DIR
 
 
 # Siemens (axial)
