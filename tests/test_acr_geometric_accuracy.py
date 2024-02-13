@@ -24,11 +24,10 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
-        self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
-        self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
+        self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.slice_stack[0]
+        self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.slice_stack[4]
 
     def test_geometric_accuracy_slice_1(self):
-
         slice1_vals = self.acr_geometric_accuracy_task.get_geometric_accuracy(0)
 
         slice1_vals = np.round(slice1_vals, 2)
@@ -40,7 +39,9 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         assert (slice1_vals == self.L1).all() == True
 
     def test_geometric_accuracy_slice_5(self):
-        slice5_vals = np.array(self.acr_geometric_accuracy_task.get_geometric_accuracy(4))
+        slice5_vals = np.array(
+            self.acr_geometric_accuracy_task.get_geometric_accuracy(4)
+        )
 
         slice5_vals = np.round(slice5_vals, 2)
 
@@ -51,7 +52,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
 
     def test_distortion_metrics(self):
         metrics = np.array(
-            self.acr_geometric_accuracy_task.distortion_metric(self.L1 + self.L5)
+            self.acr_geometric_accuracy_task.get_distortion_metrics(self.L1 + self.L5)
         )
         metrics = np.round(metrics, 2)
         assert (metrics == self.distortion_metrics).all() == True
@@ -73,5 +74,5 @@ class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
             input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
         )
 
-        self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.dcms[0]
-        self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.dcms[4]
+        self.dcm_1 = self.acr_geometric_accuracy_task.ACR_obj.slice_stack[0]
+        self.dcm_5 = self.acr_geometric_accuracy_task.ACR_obj.slice_stack[4]
