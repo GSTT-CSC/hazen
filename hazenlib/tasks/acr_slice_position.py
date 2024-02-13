@@ -89,7 +89,7 @@ class ACRSlicePosition(HazenTask):
             mask (np.ndarray): dcm.pixel_array of the image mask
 
         Returns:
-            tuple: arrays of x and y coordinates of wedges.
+            tuple of tuples: of x and y coordinates of wedges.
         """
         # X COORDINATES
         x_investigate_region = np.ceil(35 / self.ACR_obj.dx).astype(
@@ -137,9 +137,8 @@ class ACRSlicePosition(HazenTask):
         width = np.max(width_pts) - np.min(width_pts)  # width
 
         # rough midpoints of wedges
-        x_pts = np.round(
-            [np.min(width_pts) + 0.25 * width, np.max(width_pts) - 0.25 * width]
-        ).astype(int)
+        x_pts_left = round(np.min(width_pts) + 0.25 * width)
+        x_pts_right = round(np.max(width_pts) - 0.25 * width)
 
         # Y COORDINATES
         # define height of region to test (comparable to wedges)
@@ -155,7 +154,9 @@ class ACRSlicePosition(HazenTask):
         invest_y = []
         for m in range(y_investigate_region):
             x_loc = (
-                m - np.floor(y_investigate_region / 2) + np.floor(np.mean(x_pts))
+                m
+                - np.floor(y_investigate_region / 2)
+                + np.floor(np.mean([x_pts_left, x_pts_right]))
             ).astype(int)
             c = mask[
                 np.arange(n_point, end_point + 1, 1), x_loc
@@ -182,16 +183,14 @@ class ACRSlicePosition(HazenTask):
             y = [n_point + round(10 / self.ACR_obj.dy)]
         else:
             # define y coordinate
-            y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs)))
+            y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs))).flatten()
 
         # distance to y from top of phantom
         dist_to_y = np.abs(n_point - y[0]) * self.ACR_obj.dy
         # place 2nd y point 47mm from top of phantom
-        y_pts = np.append(
-            y, np.round(y[0] + (47 - dist_to_y) / self.ACR_obj.dy)
-        ).astype(int)
+        y_pt = round(y[0] + (47 - dist_to_y) / self.ACR_obj.dy)
 
-        return x_pts, y_pts
+        return [x_pts_left, x_pts_right], [y[0], y_pt]
 
     def get_slice_position(self, dcm):
         """Measure slice position. \n
