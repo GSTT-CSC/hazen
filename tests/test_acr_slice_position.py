@@ -8,6 +8,7 @@ from tests import TEST_DATA_DIR
 
 
 class TestACRSlicePositionSiemens(unittest.TestCase):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     slice_1_x_pts = [123, 129]
     slice_11_x_pts = [123, 129]
     slice_1_y_pts = [40, 82]
@@ -15,10 +16,8 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
     dL = -0.59, -1.56
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
-        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
-
-        self.acr_slice_position_task = ACRSlicePosition(input_data=siemens_files)
+        input_files = get_dicom_files(self.ACR_DATA)
+        self.acr_slice_position_task = ACRSlicePosition(input_data=input_files)
 
         self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
         img_1 = self.dcm_1.pixel_array
@@ -66,29 +65,9 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
 
 class TestACRSlicePositionGE(TestACRSlicePositionSiemens):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     slice_1_x_pts = [246, 257]
     slice_11_x_pts = [246, 257]
     slice_1_y_pts = [84, 164]
     slice_11_y_pts = [89, 162]
     dL = 0.41, 0.3
-
-    def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-        ge_files = get_dicom_files(ACR_DATA_GE)
-
-        self.acr_slice_position_task = ACRSlicePosition(input_data=ge_files)
-
-        self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
-        img_1 = self.dcm_1.pixel_array
-        mask_1 = self.acr_slice_position_task.ACR_obj.get_mask_image(img_1)
-        self.slice1_x_pts, self.slice1_y_pts = self.acr_slice_position_task.find_wedges(
-            img_1, mask_1
-        )
-
-        self.dcm_11 = self.acr_slice_position_task.ACR_obj.slice_stack[-1]
-        img_11 = self.dcm_11.pixel_array
-        mask_11 = self.acr_slice_position_task.ACR_obj.get_mask_image(img_11)
-        (
-            self.slice11_x_pts,
-            self.slice11_y_pts,
-        ) = self.acr_slice_position_task.find_wedges(img_11, mask_11)
