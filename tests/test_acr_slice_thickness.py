@@ -20,24 +20,18 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
 
         self.acr_slice_thickness_task = ACRSliceThickness(input_data=siemens_files)
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.slice_stack[0]
+        self.centre, _ = self.acr_slice_thickness_task.ACR_obj.find_phantom_center(
+            self.dcm.pixel_array, self.dcm.PixelSpacing[0], self.dcm.PixelSpacing[1]
+        )
 
     def test_ramp_find(self):
-        res = self.dcm.PixelSpacing
-        centre = self.acr_slice_thickness_task.ACR_obj.centre
-        assert (
-            self.acr_slice_thickness_task.find_ramps(self.dcm.pixel_array, centre, res)[
-                0
-            ]
-            == self.x_pts
-        ).all() == True
+        x_pts, y_pts = self.acr_slice_thickness_task.find_ramps(
+            self.dcm.pixel_array, self.centre
+        )
+        assert (x_pts == self.x_pts).all() == True
 
-        assert (
-            self.acr_slice_thickness_task.find_ramps(self.dcm.pixel_array, centre, res)[
-                1
-            ]
-            == self.y_pts
-        ).all() == True
+        assert (y_pts == self.y_pts).all() == True
 
     def test_slice_thickness(self):
         slice_thickness_val = round(
@@ -52,7 +46,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
 
 
 class TestACRSliceThicknessGE(TestACRSliceThicknessSiemens):
-    x_pts = [146, 356]
+    x_pts = [145, 357]
     y_pts = [262, 250]
     dz = 5.02
 
@@ -62,4 +56,7 @@ class TestACRSliceThicknessGE(TestACRSliceThicknessSiemens):
 
         self.acr_slice_thickness_task = ACRSliceThickness(input_data=ge_files)
 
-        self.dcm = self.acr_slice_thickness_task.ACR_obj.dcms[0]
+        self.dcm = self.acr_slice_thickness_task.ACR_obj.slice_stack[0]
+        self.centre, _ = self.acr_slice_thickness_task.ACR_obj.find_phantom_center(
+            self.dcm.pixel_array, self.dcm.PixelSpacing[0], self.dcm.PixelSpacing[1]
+        )
