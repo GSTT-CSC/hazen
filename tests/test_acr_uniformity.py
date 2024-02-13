@@ -23,7 +23,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
     def test_uniformity(self):
         results = self.acr_uniformity_task.get_integral_uniformity(
-            self.acr_uniformity_task.ACR_obj.slice7_dcm
+            self.acr_uniformity_task.ACR_obj.slice_stack[6]
         )
         rounded_results = round(results, 2)
 

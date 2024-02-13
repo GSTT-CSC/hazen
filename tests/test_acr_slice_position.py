@@ -1,11 +1,9 @@
 import os
 import unittest
 import pathlib
-import pydicom
 
 from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_slice_position import ACRSlicePosition
-from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
 
@@ -20,33 +18,26 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
         self.acr_slice_position_task = ACRSlicePosition(input_data=siemens_files)
 
-        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
-        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.slice_stack[-1]
 
-    def test_wedge_find(self):
+    def test_find_wedge_slice1(self):
         # IMAGE 1
         img = self.dcm_1.pixel_array
-        res = self.dcm_1.PixelSpacing
         mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
-        assert (
-            self.acr_slice_position_task.find_wedges(img, mask, res)[0] == self.x_pts[0]
-        ).all() == True
+        x_pts, y_pts = self.acr_slice_position_task.find_wedges(img, mask)
+        assert (x_pts == self.x_pts[0]).all() == True
 
-        assert (
-            self.acr_slice_position_task.find_wedges(img, mask, res)[1] == self.y_pts[0]
-        ).all() == True
+        assert (y_pts == self.y_pts[0]).all() == True
 
+    def test_find_wedge_slice11(self):
         # IMAGE 11
         img = self.dcm_11.pixel_array
-        res = self.dcm_11.PixelSpacing
         mask = self.acr_slice_position_task.ACR_obj.get_mask_image(img)
-        assert (
-            self.acr_slice_position_task.find_wedges(img, mask, res)[0] == self.x_pts[1]
-        ).all() == True
+        x_pts, y_pts = self.acr_slice_position_task.find_wedges(img, mask)
+        assert (x_pts == self.x_pts[0]).all() == True
 
-        assert (
-            self.acr_slice_position_task.find_wedges(img, mask, res)[1] == self.y_pts[1]
-        ).all() == True
+        assert (y_pts == self.y_pts[0]).all() == True
 
     def test_slice_position(self):
         slice_position_val_1 = round(
@@ -75,5 +66,5 @@ class TestACRSlicePositionGE(TestACRSlicePositionSiemens):
 
         self.acr_slice_position_task = ACRSlicePosition(input_data=ge_files)
 
-        self.dcm_1 = self.acr_slice_position_task.ACR_obj.dcms[0]
-        self.dcm_11 = self.acr_slice_position_task.ACR_obj.dcms[-1]
+        self.dcm_1 = self.acr_slice_position_task.ACR_obj.slice_stack[0]
+        self.dcm_11 = self.acr_slice_position_task.ACR_obj.slice_stack[-1]

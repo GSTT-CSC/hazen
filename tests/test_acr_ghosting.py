@@ -10,7 +10,6 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGhostingSiemens(unittest.TestCase):
-    centre = [129, 128]
     psg = 0.035
 
     def setUp(self):
@@ -24,7 +23,7 @@ class TestACRGhostingSiemens(unittest.TestCase):
     def test_ghosting(self):
         ghosting_val = round(
             self.acr_ghosting_task.get_signal_ghosting(
-                self.acr_ghosting_task.ACR_obj.slice7_dcm
+                self.acr_ghosting_task.ACR_obj.slice_stack[6]
             ),
             3,
         )
@@ -37,7 +36,6 @@ class TestACRGhostingSiemens(unittest.TestCase):
 
 
 class TestACRGhostingGE(TestACRGhostingSiemens):
-    centre = [253, 256]
     psg = 0.482
 
     def setUp(self):
