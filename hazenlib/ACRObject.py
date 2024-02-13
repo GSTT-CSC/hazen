@@ -23,10 +23,10 @@ class ACRObject:
         self.dx, self.dy = dcm_list[0].PixelSpacing
 
         # Perform sorting of the input DICOM list based on position
-        # sorted_dcms = self.sort_dcms(dcm_list)
+        sorted_dcms = self.sort_dcms(dcm_list)
 
         # Perform sorting of the image slices based on phantom orientation
-        self.slice_stack = self.order_phantom_slices(dcm_list)
+        self.slice_stack = self.order_phantom_slices(sorted_dcms)
 
     def sort_dcms(self, dcm_list):
         """Sort a stack of DICOM images based on slice position.
@@ -78,8 +78,9 @@ class ACRObject:
             # If last slice has the circle then slice order needs to be reversed
             logger.info("Performing slice order inversion.")
             return dcm_list[::-1]
+
         logger.debug("Neither slices had a circle detected")
-        return []
+        return dcm_list
 
         # if true_circle[0] > self.images[0].shape[0] // 2:
         #     print("Performing LR orientation swap to restore correct view.")

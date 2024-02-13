@@ -88,7 +88,7 @@ class ACRSNR(HazenTask):
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
             data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
-            snr_dcm2 = ACRObject(data2).slice7_dcm
+            snr_dcm2 = ACRObject(data2).slice_stack[6]
             results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
