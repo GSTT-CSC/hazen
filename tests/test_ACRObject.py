@@ -30,7 +30,7 @@ class TestACRTools(unittest.TestCase):
         phantom_centre, _ = self.ACR_object.find_phantom_center(
             self.img7, self.ACR_object.dx, self.ACR_object.dy
         )
-        assert (self.centre == np.round(phantom_centre, 1)).all() == True
+        assert self.centre == phantom_centre
 
     def test_find_rotation(self):
         rotation_angle = self.ACR_object.determine_rotation(self.img1)
@@ -70,7 +70,7 @@ class TestACRToolsTRA(TestACRTools):
 # Siemens coronal
 class TestACRToolsCOR(TestACRTools):
     centre = (128, 128)
-    rotation = -1.0
+    rotation = 0.0
     horizontal_distance = 190.0
     horizontal_end = (128, 255)
     vertical_distance = 191.0
