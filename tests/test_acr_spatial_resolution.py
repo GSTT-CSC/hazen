@@ -11,6 +11,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRSpatialResolutionSiemens(unittest.TestCase):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
     centre = (128, 124)
     rotation_angle = 9
     y_ramp_pos = 118
@@ -21,11 +22,10 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     MTF50 = (1.18, 1.35)
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
-        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+        input_files = get_dicom_files(self.ACR_DATA)
 
         self.acr_spatial_resolution_task = ACRSpatialResolution(
-            input_data=siemens_files,
+            input_data=input_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
@@ -71,6 +71,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
 
 
 class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     centre = (254, 255)
     rotation_angle = 0
     y_ramp_pos = 244
@@ -79,18 +80,3 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
     edge_loc = [5, 7]
     slope = 0.037
     MTF50 = (0.72, 0.71)
-
-    def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-        ge_files = get_dicom_files(ACR_DATA_GE)
-
-        self.acr_spatial_resolution_task = ACRSpatialResolution(
-            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
-        )
-
-        self.dcm = self.acr_spatial_resolution_task.ACR_obj.slice_stack[0]
-        self.crop_image = self.acr_spatial_resolution_task.crop_image(
-            self.dcm.pixel_array, self.centre[0], self.y_ramp_pos, self.width
-        )
-        self.data = self.dcm.pixel_array
-        self.res = self.dcm.PixelSpacing

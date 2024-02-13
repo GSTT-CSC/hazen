@@ -10,14 +10,14 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRUniformitySiemens(unittest.TestCase):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     piu = 67.95
 
     def setUp(self):
-        ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
-        siemens_files = get_dicom_files(ACR_DATA_SIEMENS)
+        input_files = get_dicom_files(self.ACR_DATA)
 
         self.acr_uniformity_task = ACRUniformity(
-            input_data=siemens_files,
+            input_data=input_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
@@ -38,12 +38,5 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
 
 class TestACRUniformityGE(TestACRUniformitySiemens):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     piu = 85.17
-
-    def setUp(self):
-        ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-        ge_files = get_dicom_files(ACR_DATA_GE)
-
-        self.acr_uniformity_task = ACRUniformity(
-            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
-        )
