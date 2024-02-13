@@ -29,7 +29,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
-        self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcms[0]
+        self.dcm = self.acr_spatial_resolution_task.ACR_obj.slice_stack[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(
             self.dcm.pixel_array, self.centre[0], self.y_ramp_pos, self.width
         )
@@ -38,7 +38,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
 
     def test_find_y_ramp(self):
         y_ramp_pos = self.acr_spatial_resolution_task.y_position_for_ramp(
-            self.res, self.data, self.centre
+            self.data, self.centre
         )
         assert y_ramp_pos == self.y_ramp_pos
 
@@ -88,7 +88,7 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
             input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
         )
 
-        self.dcm = self.acr_spatial_resolution_task.ACR_obj.dcms[0]
+        self.dcm = self.acr_spatial_resolution_task.ACR_obj.slice_stack[0]
         self.crop_image = self.acr_spatial_resolution_task.crop_image(
             self.dcm.pixel_array, self.centre[0], self.y_ramp_pos, self.width
         )
