@@ -64,29 +64,13 @@ def has_pixel_array(filename) -> bool:
 
     try:
         dcm = pydicom.dcmread(filename)
+        # while enhanced DICOMs have a pixel_array, it's shape is in the format
+        # (# frames, x_dim, y_dim)
         img = dcm.pixel_array
         return True
     except:
-        print(f"{filename} does not contain image data")
+        logger.debug("%s does not contain image data", filename)
         return False
-
-
-def get_z_position(dcm_list):
-    """Get the ImagePositionPatient tag value from a DICOM
-
-    Args:
-        dcm_list (list): list of pydicom objects with pixel arrays
-    """
-    for dcm in dcm_list:
-        try:
-            image_position_patient = dcm.ImagePositionPatient
-        except:
-            image_position_patient = (
-                dcm.PerFrameFunctionalGroupsSequence[0]
-                .PlaneOrientationSequence[0]
-                .ImagePositionPatient
-            )
-        z_position = image_position_patient[2]
 
 
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
@@ -252,9 +236,16 @@ def get_TR(dcm: pydicom.Dataset) -> float:
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
     # check with physicists whether 1000 is an appropriate default value
     try:
-        TR = dcm.RepetitionTime
+        if is_enhanced_dicom(dcm):
+            TR = (
+                dcm.SharedFunctionalGroupsSequence[0]
+                .MRTimingAndRelatedParametersSequence[0]
+                .RepetitionTime
+            )
+        else:
+            TR = dcm.RepetitionTime
     except:
-        print("Warning: Could not find Repetition Time. Using default value of 1000 ms")
+        logger.warning("Could not find Repetition Time. Using default value of 1000 ms")
         TR = 1000
     return TR
 
@@ -273,8 +264,8 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     try:
         rows = dcm.Rows
     except:
-        print(
-            "Warning: Could not find Number of matrix rows. Using default value of 256"
+        logger.warning(
+            "Could not find Number of matrix rows. Using default value of 256"
         )
         rows = 256
 
@@ -295,11 +286,30 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     try:
         columns = dcm.Columns
     except:
-        print(
-            "Warning: Could not find matrix size (columns). Using default value of 256."
+        logger.warning(
+            "Could not find matrix size (columns). Using default value of 256."
         )
         columns = 256
     return columns
+
+
+def get_pe_direction(dcm: pydicom.Dataset):
+    """Get the PhaseEncodingDirection field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        str: value of the InPlanePhaseEncodingDirection field from the DICOM header
+    """
+    if is_enhanced_dicom(dcm):
+        return (
+            dcm.SharedFunctionalGroupsSequence[0]
+            .MRFOVGeometrySequence[0]
+            .InPlanePhaseEncodingDirection
+        )
+    else:
+        return dcm.InPlanePhaseEncodingDirection
 
 
 def get_field_of_view(dcm: pydicom.Dataset):
@@ -341,17 +351,25 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 
-def get_image_orientation(iop):
+def get_image_orientation(dcm):
     """
     From http://dicomiseasy.blogspot.com/2013/06/getting-oriented-using-image-plane.html
 
     Args:
-        iop (list): values of dcm.ImageOrientationPatient - list of float
+        dcm (list): values of dcm.ImageOrientationPatient - list of float
 
     Returns:
         str: Sagittal, Coronal or Transverse
     """
-    # TODO: check that ImageOrientationPatient field is always available (every manufacturer and enhanced)
+    if is_enhanced_dicom(dcm):
+        iop = (
+            dcm.PerFrameFunctionalGroupsSequence[0]
+            .PlaneOrientationSequence[0]
+            .ImageOrientationPatient
+        )
+    else:
+        iop = dcm.ImageOrientationPatient
+
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
     plane = [abs(x) for x in plane]
