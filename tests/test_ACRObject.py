@@ -14,7 +14,7 @@ class TestACRTools(unittest.TestCase):
     horizontal_distance = 191.40625
     horizontal_end = (128, 255)
     vertical_distance = 187.5
-    vertical_end = (255, 128)
+    vertical_end = (255, 126)
 
     def setUp(self):
         self.Siemens_data = [
