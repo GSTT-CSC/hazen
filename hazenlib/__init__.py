@@ -43,22 +43,21 @@ import logging
 import importlib
 
 from docopt import docopt
-import pydicom
+from pydicom import dcmread
 from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
 
-"""
-Hazen is designed to measure the same parameters from multiple images.
-While some tasks require a set of multiple images (within the same folder),
-such as slice position, SNR and all ACR tasks,
-the majority of the calculations are performed on a single image at a time,
-and bulk processing all images in the input folder with the same task.
+"""Hazen is designed to measure the same parameters from multiple images.
+    While some tasks require a set of multiple images (within the same folder),
+    such as slice position, SNR and all ACR tasks,
+    the majority of the calculations are performed on a single image at a time,
+    and bulk processing all images in the input folder with the same task.
 
-In Sep 2023 a design decision was made to pass the minimum number of files
-to the task.run() functions.
-Below is a list of the single image tasks where the task.run() will be called
-on each image in the folder, while other tasks are being passed ALL image files.
+    In Sep 2023 a design decision was made to pass the minimum number of files
+    to the task.run() functions.
+    Below is a list of the single image tasks where the task.run() will be called
+    on each image in the folder, while other tasks are being passed ALL image files.
 """
 single_image_tasks = [
     "ghosting",
@@ -111,7 +110,6 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 def main():
     """Main entrypoint to hazen"""
     arguments = docopt(__doc__, version=__version__)
-    files = get_dicom_files(arguments["<folder>"])
 
     # Set common options
     log_levels = {
@@ -131,6 +129,12 @@ def main():
     report = arguments["--report"]
     report_dir = arguments["--output"] if arguments["--output"] else None
     verbose = arguments["--verbose"]
+
+    logger.debug("The following files were identified as valid DICOMs:")
+    files = get_dicom_files(arguments["<folder>"])
+    logger.debug(
+        "%s task will be set off on %s images", arguments["<task>"], len(files)
+    )
 
     # Parse the task and optional arguments:
     if arguments["snr"] or arguments["<task>"] == "snr":
