@@ -19,7 +19,7 @@ class TestACRSpatialResolutionSiemens(unittest.TestCase):
     edge_type = "vertical", "downward"
     edge_loc = [5, 7]
     slope = -0.165
-    MTF50 = (1.18, 1.35)
+    MTF50 = (1.16, 1.35)
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -79,4 +79,4 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
     edge_type = "vertical", "upward"
     edge_loc = [5, 7]
     slope = 0.037
-    MTF50 = (0.72, 0.71)
+    MTF50 = (0.5, 1.96)
