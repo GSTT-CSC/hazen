@@ -79,4 +79,4 @@ class TestACRSpatialResolutionGE(TestACRSpatialResolutionSiemens):
     edge_type = "vertical", "upward"
     edge_loc = [5, 7]
     slope = 0.037
-    MTF50 = (0.5, 1.96)
+    MTF50 = (0.5, 1.85)
