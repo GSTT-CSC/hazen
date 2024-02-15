@@ -5,7 +5,7 @@ import numpy as np
 
 
 class ACRObject:
-    """Base class for performing tasks on image sets of the ACR phantom.
+    """Base class for performing tasks on image sets of the ACR phantom. \n
     acquired following the ACR Large phantom guidelines
     """
 
@@ -36,8 +36,8 @@ class ACRObject:
         """Sort a stack of images based on slice position.
 
         Returns:
-            tuple of lists: img_stack and dcm_stack
-                img_stack - list of np.array of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
+            tuple of lists:
+                img_stack - list of np.ndarray of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
                 dcm_stack - list of pydicom.Dataset objects
         """
         # TODO: implement a check if phantom was placed in other than axial position
@@ -133,7 +133,7 @@ class ACRObject:
         """Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
 
         Returns:
-            np.array: The rotated images.
+            np.ndarray: The rotated images.
         """
 
         return skimage.transform.rotate(
@@ -143,11 +143,12 @@ class ACRObject:
     def find_phantom_center(self, img):
         """
         Find the center of the ACR phantom by filtering the input slice and using the Hough circle detector.
+
         Args:
-            img (np.array): pixel array of the dicom
+            img (np.ndarray): pixel array of the dicom
 
         Returns:
-            tuple of ints: representing the (x, y) coordinates of the center of the image
+            tuple of ints: (x, y) coordinates of the center of the image
         """
         dx, dy = self.pixel_spacing
 
@@ -169,17 +170,17 @@ class ACRObject:
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
-        """Create a masked pixel array \n
+        """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
         Args:
-            image (np.array): pixel array of the dicom
+            image (np.ndarray): pixel array of the dicom
             mag_threshold (float, optional): magnitude threshold. Defaults to 0.07.
             open_threshold (int, optional): open threshold. Defaults to 500.
 
         Returns:
-            np.array: the masked image
+            np.ndarray: the masked image
         """
         test_mask = self.circular_mask(
             self.centre, (80 // self.pixel_spacing[0]), image.shape
@@ -215,7 +216,7 @@ class ACRObject:
             dims (tuple): dimensions of the circular mask.
 
         Returns:
-            np.array: A sorted stack of images, where each image is represented as a 2D numpy array.
+            np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # Define a circular logical mask
         x = np.linspace(1, dims[0], dims[0])
@@ -230,22 +231,24 @@ class ACRObject:
         """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
         Args:
-            mask (np.array): Boolean array of the image where pixel values meet threshold
+            mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
-            dict: a dictionary with the following
+            dict: a dictionary with the following:
                 'Horizontal Start'      | 'Vertical Start' : tuple of int
                     Horizontal/vertical starting point of the object.
                 'Horizontal End'        | 'Vertical End' : tuple of int
                     Horizontal/vertical ending point of the object.
-                'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
+                'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
                     Indices of the non-zero elements of the horizontal/vertical line profile.
                 'Horizontal Distance'   | 'Vertical Distance' : float
                     The horizontal/vertical length of the object.
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
-        [(vertical, horizontal), radius] = self.find_phantom_center(self.images[slice_index])
+        [(vertical, horizontal), radius] = self.find_phantom_center(
+            self.images[slice_index]
+        )
 
         horizontal_start = (horizontal, 0)
         horizontal_end = (horizontal, dims[0] - 1)
@@ -286,9 +289,8 @@ class ACRObject:
             angle (int): Angle in degrees.
 
         Returns:
-            tuple of float: x_prime and y_prime
-                Floats representing the x and y coordinates of the input point
-                after being rotated around an origin.
+            tuple of float: Floats representing the x and y coordinates of the input point
+            after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -302,12 +304,12 @@ class ACRObject:
         """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
         Args:
-            data (np.array): pixel array containing the data to perform peak extraction on
+            data (np.ndarray): pixel array containing the data to perform peak extraction on
             n (int): The coordinates of the point to rotate
             height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-            tuple of np.array: peak_locs and peak_heights
+            tuple of np.ndarray:
                 peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
                 peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 

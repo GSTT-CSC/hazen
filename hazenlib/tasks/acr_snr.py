@@ -3,14 +3,15 @@ ACR SNR
 
 Calculates the SNR for slice 7 (the uniformity slice) of the ACR phantom.
 
-This script utilises the smoothed subtraction method described in McCann 2013:
-A quick and robust method for measurement of signal-to-noise ratio in MRI, Phys. Med. Biol. 58 (2013) 3775:3790
+This script utilises the smoothed subtraction method described in McCann 2013 [1], and a standard subtraction SNR.
 
-and a standard subtraction SNR.
-
-Created by Neil Heraghty (Adapted by Yassine Azma)
+Created by Neil Heraghty (Adapted by Yassine Azma, yassine.azma@rmh.nhs.uk)
 
 09/01/2023
+
+[1] McCann, A. J., Workman, A., & McGrath, C. (2013). A quick and robust
+method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
+& Biology, 58(11), 3775.
 """
 
 import os
@@ -27,8 +28,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSNR(HazenTask):
-    """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom.
-    """
+    """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -48,10 +48,10 @@ class ACRSNR(HazenTask):
 
     def run(self) -> dict:
         """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
-        smoothing or subtraction method depending on preferences set by user.
+        smoothing or subtraction method depending on user-provided input.
 
         Notes:
-            using the smoothing method by default or the subtraction method if a second set of images are provided (in a separate folder).
+            Uses the smoothing method by default or the subtraction method if a second set of images are provided (using the --subtract option with dataset in a separate folder).
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
@@ -159,7 +159,7 @@ class ACRSNR(HazenTask):
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013
         # recommends 25x25 for body coil.
-        #TODO add coil options, same as with MagNet SNR
+        # TODO add coil options, same as with MagNet SNR
         filtered_array = ndimage.uniform_filter(a, 25, mode="constant")
         return filtered_array
 

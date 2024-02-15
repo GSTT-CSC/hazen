@@ -26,8 +26,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRUniformity(HazenTask):
-    """Uniformity measurement class for DICOM images of the ACR phantom.
-    """
+    """Uniformity measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -61,41 +60,32 @@ class ACRUniformity(HazenTask):
         return results
 
     def get_integral_uniformity(self, dcm):
-        """
-        Calculates the percent integral uniformity (PIU) of a DICOM pixel array. Iterates with a ~1 cm^2 ROI through a
-        ~200 cm^2 ROI inside the phantom region, and calculates the mean non-zero pixel value inside each iteration of
-        the ~1 cm^2 ROI. The PIU is defined as:
-
-        PIU = 100 * (1 - (max - min) / (max + min))
-
-        where 'max' and 'min' represent the maximum and minimum of the mean non-zero pixel values of each iteration
-        of the ~1 cm^2 ROI.
+        """Calculates the percent integral uniformity (PIU) of a DICOM pixel array. \n
+        Iterates with a ~1 cm^2 ROI through a ~200 cm^2 ROI inside the phantom region,
+        and calculates the mean non-zero pixel value inside each ~1 cm^2 ROI. \n
+        The PIU is defined as: `PIU = 100 * (1 - (max - min) / (max + min))`, where \n
+        'max' and 'min' represent the maximum and minimum of the mean non-zero pixel values of each ~1 cm^2 ROI.
 
         Args:
             dcm (pydicom.Dataset): DICOM image object to calculate uniformity from.
 
         Returns:
-            int or float: value of integral uniformity.
+            float: value of integral uniformity.
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        r_large = np.ceil(80 / res[0]).astype(
-            int
-        )  # Required pixel radius to produce ~200cm2 ROI
-        r_small = np.ceil(np.sqrt(100 / np.pi) / res[0]).astype(
-            int
-        )  # Required pixel radius to produce ~1cm2 ROI
-        d_void = np.ceil(5 / res[0]).astype(
-            int
-        )  # Offset distance for rectangular void at top of phantom
+        # In-plane resolution from metadata
+        res = dcm.PixelSpacing
+        # Required pixel radius to produce ~200cm2 ROI
+        r_large = np.ceil(80 / res[0]).astype(int)
+        # Required pixel radius to produce ~1cm2 ROI
+        r_small = np.ceil(np.sqrt(100 / np.pi) / res[0]).astype(int)
+        # Offset distance for rectangular void at top of phantom
+        d_void = np.ceil(5 / res[0]).astype(int)
         dims = img.shape  # Dimensions of image
 
         cxy = self.ACR_obj.centre
-        base_mask = ACRObject.circular_mask(
-            (cxy[0], cxy[1] + d_void), r_small, dims
-        )  # Dummy circular mask at
-        # centroid
-        coords = np.nonzero(base_mask)  # Coordinates of mask
+        # Dummy circular mask at
+        base_mask = ACRObject.circular_mask((cxy[0], cxy[1] + d_void), r_small, dims)
 
         lroi = self.ACR_obj.circular_mask([cxy[0], cxy[1] + d_void], r_large, dims)
         img_masked = lroi * img
@@ -122,7 +112,8 @@ class ACRUniformity(HazenTask):
             Returns:
                 np.array: array of mean values.
             """
-            coords = np.nonzero(sample_mask)  # Coordinates of mask
+            # Coordinates of mask
+            coords = np.nonzero(sample_mask)
             for idx, (row, col) in enumerate(zip(rows, cols)):
                 centre = [row, col]
                 translate_mask = [

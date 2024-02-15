@@ -27,8 +27,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSliceThickness(HazenTask):
-    """Slice width measurement class for DICOM images of the ACR phantom.
-    """
+    """Slice width measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -39,9 +38,7 @@ class ACRSliceThickness(HazenTask):
         """Main function for performing slice width measurement using slice 1 from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM
-                Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the
-                generated images for visualisation.
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.dcms[0]
@@ -69,7 +66,7 @@ class ACRSliceThickness(HazenTask):
         """Find ramps in the pixel array and returns co-ordinates of their location.
 
         Args:
-            img (np.array): dcm.pixel_array.
+            img (np.ndarray): dcm.pixel_array.
             centre (list): x,y coordinates of the phantom centre.
             res (float): dcm.PixelSpacing.
 
@@ -131,18 +128,20 @@ class ACRSliceThickness(HazenTask):
         """Calculate full width at half maximum of the line profile.
 
         Args:
-            data (np.array): slice profile curve.
+            data (np.ndarray): slice profile curve.
 
         Returns:
             tuple: co-ordinates of the half-maximum points on the line profile.
         """
         baseline = np.min(data)
         data -= baseline
-        #TODO create separate variable so that data value isn't being rewritten
+        # TODO create separate variable so that data value isn't being rewritten
         half_max = np.max(data) * 0.5
 
         # Naive attempt
-        half_max_crossing_indices = np.argwhere(np.diff(np.sign(data - half_max))).flatten()
+        half_max_crossing_indices = np.argwhere(
+            np.diff(np.sign(data - half_max))
+        ).flatten()
 
         # Interpolation
         def simple_interp(x_start, ydata):
@@ -150,7 +149,7 @@ class ACRSliceThickness(HazenTask):
 
             Args:
                 x_start (int or float): x coordinate of the half maximum.
-                ydata (np.array): y coordinates.
+                ydata (np.ndarray): y coordinates.
 
             Returns:
                 float: true x coordinate of the half maximum.
@@ -181,7 +180,7 @@ class ACRSliceThickness(HazenTask):
         """
         img = dcm.pixel_array
         res = dcm.PixelSpacing  # In-plane resolution from metadata
-        #TODO define object centre for slice 1 (not slice 7 as the default)
+        # TODO define object centre for slice 1 (not slice 7 as the default)
         cxy = self.ACR_obj.centre
         x_pts, y_pts = self.find_ramps(img, cxy, res)
 
@@ -228,7 +227,7 @@ class ACRSliceThickness(HazenTask):
             dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
 
         dz = dz[~np.isnan(dz)]
-        #TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
+        # TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
         z_ind = np.argmin(np.abs(dcm.SliceThickness - dz))
 
         slice_thickness = dz[z_ind]
