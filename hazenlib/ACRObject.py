@@ -7,7 +7,7 @@ from hazenlib.utils import determine_orientation, detect_circle
 
 
 class ACRObject:
-    """Base class for performing tasks on image sets of the ACR phantom.
+    """Base class for performing tasks on image sets of the ACR phantom. \n
     acquired following the ACR Large phantom guidelines
     """
 
@@ -134,19 +134,18 @@ class ACRObject:
         rotated_images = skimage.transform.rotate(
             dcm_list, rot_angle, resize=False, preserve_range=True
         )
-        print(type(rotated_images))
         return rotated_images
 
     @staticmethod
     def find_phantom_center(img, dx, dy):
         """Find the center of the ACR phantom in a given slice (pixel array) \n
-        using the Hough circle detector on a blurred image
+        using the Hough circle detector on a blurred image.
 
         Args:
-            img (np.ndarray): pixel array of the dicom
+            img (np.ndarray): pixel array of the DICOM image.
 
         Returns:
-            tuple of ints: representing the (x, y) coordinates of the center of the image.
+            tuple of ints: (x, y) coordinates of the center of the image
         """
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
@@ -170,7 +169,7 @@ class ACRObject:
         return (centre_x, centre_y), radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
-        """Create a masked pixel array \n
+        """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
@@ -233,12 +232,12 @@ class ACRObject:
             mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
-            dict: a dictionary with the following
+            dict: a dictionary with the following:
                 'Horizontal Start'      | 'Vertical Start' : tuple of int
                     Horizontal/vertical starting point of the object.
                 'Horizontal End'        | 'Vertical End' : tuple of int
                     Horizontal/vertical ending point of the object.
-                'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
+                'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
                     Indices of the non-zero elements of the horizontal/vertical line profile.
                 'Horizontal Distance'   | 'Vertical Distance' : float
                     The horizontal/vertical length of the object.
@@ -287,9 +286,8 @@ class ACRObject:
             angle (int): Angle in degrees.
 
         Returns:
-            tuple of float: x_prime and y_prime
-                Floats representing the x and y coordinates of the input point
-                after being rotated around an origin.
+            tuple of float: Floats representing the x and y coordinates of the input point
+            after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -302,15 +300,19 @@ class ACRObject:
     def find_n_highest_peaks(data, n, height=1):
         """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
-        Args:
-            data (np.ndarray): pixel array containing the data to perform peak extraction on
-            n (int): The coordinates of the point to rotate
-            height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
+                Args:
+                    data (np.ndarray): pixel array containing the data to perform peak extraction on
+                    n (int): The coordinates of the point to rotate
+                    height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
-        Returns:
-            tuple of np.ndarray: peak_locs and peak_heights
-                peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
-                peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
+                Returns:
+        <<<<<<< HEAD
+                    tuple of np.ndarray: peak_locs and peak_heights
+        =======
+                    tuple of np.ndarray:
+        >>>>>>> 397-standardise-docstrings
+                        peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
+                        peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 
         """
         peaks = scipy.signal.find_peaks(data, height)

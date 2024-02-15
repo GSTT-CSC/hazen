@@ -46,7 +46,7 @@ class ACRGeometricAccuracy(HazenTask):
         """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
 
         # Initialise results dictionary
@@ -101,9 +101,9 @@ class ACRGeometricAccuracy(HazenTask):
 
     def get_geometric_accuracy(self, slice_index):
         """Measure geometric accuracy for input slice. \n
-        Creates a mask over the phantom from the pixel array of the DICOM
-        image. Uses the centre and shape of the mask to determine horizontal and vertical lengths, and also diagonal lengths
-        in the case of slice 5.
+        Creates a mask over the phantom from the pixel array of the DICOM image.
+        Uses the centre and shape of the mask to determine horizontal and vertical lengths,
+        and also diagonal lengths in slice 5.
 
         Args:
             slice_index (int): the index of the slice position, for example slice 5 is at index 4.
@@ -258,9 +258,9 @@ class ACRGeometricAccuracy(HazenTask):
             slice_index (int): index of the slice number.
 
         Returns:
-            tuple of dict: for both the south-east (SE) diagonal length and the south-west (SW) diagonal length:
-                "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
-                pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
+            tuple of dictionaries: for both the south-east (SE) diagonal length and the south-west (SW) diagonal length: \n
+            "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
+            pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
         """
         # Calculate geometric mean of the x and y pixel spacing components,
         # due to the possibility of pixels being rectangular,
