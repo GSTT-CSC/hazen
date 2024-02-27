@@ -220,7 +220,6 @@ def get_TR(dcm: pydicom.Dataset) -> float:
         float: value of the RepetitionTime field from the DICOM header, or defaults to 1000
     """
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
-    # check with physicists whether 1000 is an appropriate default value
     try:
         TR = dcm.RepetitionTime
     except:
@@ -238,8 +237,6 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the Rows field from the DICOM header, or defaults to 256
     """
-    # TODO: explore what type of DICOM files do not have Rows in DICOM header
-    # check with physicists whether 256 is an appropriate default value
     try:
         rows = dcm.Rows
     except:
@@ -260,8 +257,6 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the Columns field from the DICOM header, or defaults to 256
     """
-    # TODO: explore what type of DICOM files do not have Columns in DICOM header
-    # check with physicists whether 256 is an appropriate default value
     try:
         columns = dcm.Columns
     except:
