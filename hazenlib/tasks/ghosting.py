@@ -352,7 +352,7 @@ class Ghosting(HazenTask):
             img = img.astype("float64")
             # print('this is img',img)
             img *= 255.0 / img.max()
-            img = hazenlib.utils.rescale_to_byte(dcm.pixel_array)
+            # img = hazenlib.utils.rescale_to_byte(dcm.pixel_array)
             img = cv.rectangle(img.copy(), (x1, y1), (x2, y2), (255, 0, 0), 1)
 
             for roi in background_rois:
