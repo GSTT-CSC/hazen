@@ -44,7 +44,8 @@ class TestACRTools(unittest.TestCase):
         assert self.vertical_distance == length_dict["Vertical Distance"]
         assert self.vertical_end == length_dict["Vertical End"]
 
-'''
+
+"""
 # Siemens transverse = axial
 class TestACRToolsTRA(TestACRTools):
     centre = (136, 128)
@@ -109,6 +110,7 @@ class TestACRToolsSAG(TestACRTools):
         self.ACR_object = ACRObject(self.SAG_data)
         self.img1 = self.ACR_object.slice_stack[0].pixel_array
         self.img7 = self.ACR_object.slice_stack[6].pixel_array
+"""
 
 
 # GE axial
@@ -135,5 +137,3 @@ class TestACRToolsGE(TestACRTools):
         rotated_point = np.array(self.ACR_object.rotate_point((0, 0), (30, 70), 150))
         rotated_point = np.round(rotated_point, 2)
         assert (rotated_point == self.test_point).all() == True
-
-'''
