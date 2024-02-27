@@ -851,13 +851,12 @@ class SliceWidth(HazenTask):
 
         Returns:
             dict: including
-            - slice_width_mm: float
-                calculated slice width (top, bottom, combined; various methods) in mm
-            - horizontal_linearity_mm, vertical_linearity_mm : float
-                calculated average rod distance in mm
-            - horz_distortion_mm, vert_distortion_mm : float
-                calculated rod distance distortion in mm
-
+                - slice_width_mm (float):
+                    calculated slice width (top, bottom, combined; various methods) in mm
+                - horizontal_linearity_mm, vertical_linearity_mm (float):
+                    calculated average rod distance in mm
+                - horz_distortion_mm, vert_distortion_mm (float)
+                    calculated rod distance distortion in mm
         """
         slice_width_mm = {"top": {}, "bottom": {}, "combined": {}}
         arr = dcm.pixel_array

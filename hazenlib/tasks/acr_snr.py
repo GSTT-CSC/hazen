@@ -3,14 +3,15 @@ ACR SNR
 
 Calculates the SNR for slice 7 (the uniformity slice) of the ACR phantom.
 
-This script utilises the smoothed subtraction method described in McCann 2013:
-A quick and robust method for measurement of signal-to-noise ratio in MRI, Phys. Med. Biol. 58 (2013) 3775:3790
+This script utilises the smoothed subtraction method described in McCann 2013 [1], and a standard subtraction SNR.
 
-and a standard subtraction SNR.
-
-Created by Neil Heraghty (Adapted by Yassine Azma)
+Created by Neil Heraghty (Adapted by Yassine Azma, yassine.azma@rmh.nhs.uk)
 
 09/01/2023
+
+[1] McCann, A. J., Workman, A., & McGrath, C. (2013). A quick and robust
+method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
+& Biology, 58(11), 3775.
 """
 
 import os
@@ -27,10 +28,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSNR(HazenTask):
-    """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
-    """
+    """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -49,14 +47,14 @@ class ACRSNR(HazenTask):
             self.subtract = None
 
     def run(self) -> dict:
-        """Main function for performing SNR measurement
-        using slice 7 from the ACR phantom image set
+        """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
+        smoothing or subtraction method depending on user-provided input.
 
         Notes:
-            using the smoothing method by default or the subtraction method if a second set of images are provided (in a separate folder)
+            Uses the smoothing method by default or the subtraction method if a second set of images are provided (using the --subtract option with dataset in a separate folder).
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
         snr_dcm = self.ACR_obj.slice7_dcm
@@ -113,14 +111,15 @@ class ACRSNR(HazenTask):
         return results
 
     def get_normalised_snr_factor(self, dcm, measured_slice_width=None) -> float:
-        """Calculate the normalisation factor to be applied
+        """Calculates the normalisation factor to be applied to the SNR in order to obtain the absolute SNR (ASNR). The
+        normalisation factor depends on voxel size, bandwidth, number of averages and number of phase encoding steps.
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
             measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
 
         Returns:
-            float: normalisation factor
+            float: normalisation factor.
         """
         dx, dy = hazenlib.utils.get_pixel_size(dcm)
         bandwidth = hazenlib.utils.get_bandwidth(dcm)
@@ -145,36 +144,37 @@ class ACRSNR(HazenTask):
         return normalised_snr_factor
 
     def filtered_image(self, dcm: pydicom.Dataset) -> np.array:
-        """Apply filtering to a pixel array (image)
+        """Apply filtering to a pixel array (image), as per the single image SNR method outlined in McCann et al, 2013.
 
         Notes:
-            Performs a 2D convolution (for filtering images)
-            uses uniform_filter SciPy function
+            Performs a 2D convolution (for filtering images), using uniform_filter (SciPy function).
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            np.array: pixel array of the filtered image
+            np.array: pixel array of the filtered image.
         """
         a = dcm.pixel_array.astype("int")
 
         # filter size = 9, following MATLAB code and McCann 2013 paper for head coil, although note McCann 2013
         # recommends 25x25 for body coil.
+        # TODO add coil options, same as with MagNet SNR
         filtered_array = ndimage.uniform_filter(a, 25, mode="constant")
         return filtered_array
 
     def get_noise_image(self, dcm: pydicom.Dataset) -> np.array:
-        """Get noise image by subtracting the filtered image from the original pixel array
+        """Get a noise image when only one set of DICOM data is available.
 
         Notes:
-            Separates the image noise by smoothing the image and subtracting the smoothed image from the original.
+            Separates the image noise by smoothing the pixel array and subtracting the smoothed pixel array from the
+            original, leaving only the noise.
 
         Args:
             dcm (pydicom.Dataset): DICOM image object
 
         Returns:
-            np.array: pixel array representing the image noise
+            np.array: pixel array representing the image noise.
         """
         a = dcm.pixel_array.astype("int")
 
@@ -189,16 +189,16 @@ class ACRSNR(HazenTask):
     def get_roi_samples(
         self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
     ) -> list:
-        """Identify regions of interest
+        """Takes the pixel array and divides it into several rectangular regions of interest (ROIs). If 'ax' is provided, then a plot of the ROIs is generated.
 
         Args:
-            ax (matplotlib.pyplot.subplots): matplotlib axis for visualisation
-            dcm (pydicom.Dataset or np.ndarray): DICOM image object, or its pixel array
-            centre_col (int): x coordinate of the centre
-            centre_row (int): y coordinate of the centre
+            ax (matplotlib.pyplot.subplots): matplotlib axis for visualisation.
+            dcm (pydicom.Dataset or np.ndarray): DICOM image object, or its pixel array.
+            centre_col (int): x coordinate of the centre.
+            centre_row (int): y coordinate of the centre.
 
         Returns:
-            list of np.array: subsets of the original pixel array
+            list of np.array: subsets of the original pixel array.
         """
         if type(dcm) == np.ndarray:
             data = dcm
@@ -246,14 +246,17 @@ class ACRSNR(HazenTask):
     def snr_by_smoothing(
         self, dcm: pydicom.Dataset, measured_slice_width=None
     ) -> float:
-        """Calculate signal to noise ratio based on smoothing method
+        """Obtains a noise image using the single-image smoothing technique. Generates a ROI within the phantom region
+        of the pixel array. Then measures the mean signal within the ROI on the original pixel array, and the standard
+        deviation within the ROI on the noise image. Calculates SNR using these values and multiplies the SNR by the
+        normalisation factor.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
             measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
 
         Returns:
-            float: normalised_snr
+            float: normalised_snr.
         """
         centre = self.ACR_obj.centre
         col, row = centre
@@ -305,15 +308,18 @@ class ACRSNR(HazenTask):
     def snr_by_subtraction(
         self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None
     ) -> float:
-        """Calculate signal to noise ratio based on subtraction method
+        """Calculates signal to noise ratio using the two image subtraction method. Obtains a noise image by subtracting
+        the two pixel arrays. Obtains ROIs within the phantom region of the pixel arrays. Calculates the mean within
+        the ROI on one of the pixel arrays, and the standard deviation within the ROIs on the noise image.
+        Calculates the SNR with these measurements and multiplies by the normalisation factor.
 
         Args:
-            dcm1 (pydicom.Dataset): DICOM image object to calculate signal
-            dcm2 (pydicom.Dataset): DICOM image object to calculate noise
+            dcm1 (pydicom.Dataset): DICOM image object to calculate signal.
+            dcm2 (pydicom.Dataset): DICOM image object to calculate noise.
             measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
 
         Returns:
-            float: normalised_snr
+            float: normalised_snr.
         """
 
         centre = self.ACR_obj.centre

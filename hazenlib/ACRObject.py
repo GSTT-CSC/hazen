@@ -5,7 +5,16 @@ import numpy as np
 
 
 class ACRObject:
+    """Base class for performing tasks on image sets of the ACR phantom. \n
+    acquired following the ACR Large phantom guidelines
+    """
+
     def __init__(self, dcm_list):
+        """Initialise an ACR object instance
+
+        Args:
+            dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
+        """
         # Initialise an ACR object from a stack of images of the ACR phantom
         self.dcm_list = dcm_list
         # Load files as DICOM and their pixel arrays into 'images'
@@ -24,17 +33,13 @@ class ACRObject:
         self.mask_image = self.get_mask_image(self.images[6])
 
     def sort_images(self):
-        """
-        Sort a stack of images based on slice position.
+        """Sort a stack of images based on slice position.
 
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
-        dcm_stack : pyd
-            A sorted stack of dicoms
+        Returns:
+            tuple of lists:
+                img_stack - list of np.ndarray of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
+                dcm_stack - list of pydicom.Dataset objects
         """
-
         # TODO: implement a check if phantom was placed in other than axial position
         # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
 
@@ -47,12 +52,9 @@ class ACRObject:
         return img_stack, dicom_stack
 
     def orientation_checks(self):
-        """
-        Perform orientation checks on a set of images to determine if slice order inversion or an
-        LR orientation swap is required.
+        """Perform orientation checks on a set of images to determine if slice order inversion
+        or an LR orientation swap is required. \n
 
-        Description
-        -----------
         This function analyzes the given set of images and their associated DICOM objects to determine if any
         adjustments are needed to restore the correct slice order and view orientation.
         """
@@ -107,13 +109,10 @@ class ACRObject:
             print("LR orientation swap not required.")
 
     def determine_rotation(self):
-        """
-        Determine the rotation angle of the phantom using edge detection and the Hough transform.
+        """Determine the rotation angle of the phantom using edge detection and the Hough transform.
 
-        Returns
-        ------
-        rot_angle : float
-            The rotation angle in degrees.
+        Returns:
+            float: The rotation angle in degrees.
         """
 
         thresh = cv2.threshold(self.images[0], 127, 255, cv2.THRESH_BINARY)[1]
@@ -131,13 +130,10 @@ class ACRObject:
         return rot_angle
 
     def rotate_images(self):
-        """
-        Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
+        """Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
 
-        Returns
-        -------
-        np.array:
-            The rotated images.
+        Returns:
+            np.ndarray: The rotated images.
         """
 
         return skimage.transform.rotate(
@@ -147,11 +143,12 @@ class ACRObject:
     def find_phantom_center(self, img):
         """
         Find the center of the ACR phantom by filtering the input slice and using the Hough circle detector.
+
         Args:
-            img (np.array): pixel array of the dicom
+            img (np.ndarray): pixel array of the dicom
 
         Returns:
-            tuple: Tuple of ints representing the (x, y) center of the image.
+            tuple of ints: (x, y) coordinates of the center of the image
         """
         dx, dy = self.pixel_spacing
 
@@ -173,18 +170,17 @@ class ACRObject:
         return centre, radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
-        """Create a masked pixel array
+        """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
         Args:
-            image (np.array): pixel array of the dicom
+            image (np.ndarray): pixel array of the dicom
             mag_threshold (float, optional): magnitude threshold. Defaults to 0.07.
             open_threshold (int, optional): open threshold. Defaults to 500.
 
         Returns:
-            np.array:
-                The masked image.
+            np.ndarray: the masked image
         """
         test_mask = self.circular_mask(
             self.centre, (80 // self.pixel_spacing[0]), image.shape
@@ -212,22 +208,15 @@ class ACRObject:
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """
-        Sort a stack of images based on slice position.
+        """Sort a stack of images based on slice position.
 
-        Parameters
-        ----------
-        centre : tuple
-            The centre coordinates of the circular mask.
-        radius : int
-            The radius of the circular mask.
-        dims   : tuple
-            The dimensions of the circular mask.
+        Args:
+            centre (tuple): centre coordinates of the circular mask.
+            radius (int): radius of the circular mask.
+            dims (tuple): dimensions of the circular mask.
 
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
+        Returns:
+            np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # Define a circular logical mask
         x = np.linspace(1, dims[0], dims[0])
@@ -239,30 +228,27 @@ class ACRObject:
         return mask
 
     def measure_orthogonal_lengths(self, mask, slice_index):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        mask    : ndarray of bool
-            Boolean array of the image.
+        Args:
+            mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
-        ----------
-        length_dict : dict
-            A dictionary containing the following information for both horizontal and vertical line profiles:
-            'Horizontal Start'      | 'Vertical Start' : tuple of int
-                Horizontal/vertical starting point of the object.
-            'Horizontal End'        | 'Vertical End' : tuple of int
-                Horizontal/vertical ending point of the object.
-            'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
-                Indices of the non-zero elements of the horizontal/vertical line profile.
-            'Horizontal Distance'   | 'Vertical Distance' : float
-                The horizontal/vertical length of the object.
+            dict: a dictionary with the following:
+                'Horizontal Start'      | 'Vertical Start' : tuple of int
+                    Horizontal/vertical starting point of the object.
+                'Horizontal End'        | 'Vertical End' : tuple of int
+                    Horizontal/vertical ending point of the object.
+                'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
+                    Indices of the non-zero elements of the horizontal/vertical line profile.
+                'Horizontal Distance'   | 'Vertical Distance' : float
+                    The horizontal/vertical length of the object.
         """
         dims = mask.shape
         dx, dy = self.pixel_spacing
-        [(vertical, horizontal), radius] = self.find_phantom_center(self.images[slice_index])
+        [(vertical, horizontal), radius] = self.find_phantom_center(
+            self.images[slice_index]
+        )
 
         horizontal_start = (horizontal, 0)
         horizontal_end = (horizontal, dims[0] - 1)
@@ -295,24 +281,16 @@ class ACRObject:
 
     @staticmethod
     def rotate_point(origin, point, angle):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        origin : tuple
-            The coordinates of the point around which the rotation is performed.
-        point  : tuple
-            The coordinates of the point to rotate.
-        angle  : int
-            Angle in degrees.
+        Args:
+            origin (tuple): The coordinates of the point around which the rotation is performed.
+            point (tuple): The coordinates of the point to rotate.
+            angle (int): Angle in degrees.
 
         Returns:
-        ----------
-        x_prime : float
-            A float representing the x coordinate of the desired point after being rotated around an origin.
-        y_prime : float
-            A float representing the y coordinate of the desired point after being rotated around an origin.
+            tuple of float: Floats representing the x and y coordinates of the input point
+            after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -323,24 +301,18 @@ class ACRObject:
 
     @staticmethod
     def find_n_highest_peaks(data, n, height=1):
-        """
-        Find the indices and amplitudes of the N highest peaks within a 1D array.
+        """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
-        Parameters:
-        ----------
-        data    : np.array
-            The array containing the data to perform peak extraction on.
-        n       : int
-            The coordinates of the point to rotate.
-        height  : int or float
-            The amplitude threshold for peak identification.
+        Args:
+            data (np.ndarray): pixel array containing the data to perform peak extraction on
+            n (int): The coordinates of the point to rotate
+            height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-        ----------
-        peak_locs       : np.array
-            A numpy array containing the indices of the N highest peaks identified.
-        peak_heights    : np.array
-            A numpy array containing the amplitudes of the N highest peaks identified.
+            tuple of np.ndarray:
+                peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
+                peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
+
         """
         peaks = scipy.signal.find_peaks(data, height)
         pk_heights = peaks[1]["peak_heights"]
