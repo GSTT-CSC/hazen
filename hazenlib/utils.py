@@ -332,12 +332,17 @@ def get_image_orientation(iop):
 def determine_orientation(dcm_list):
     """Determine the phantom orientation based on DICOM metadata from a list of DICOM images
 
+    Note:
+        The ImageOrientationPatient tag is a record of the orientation of the
+        imaging volume which contains the phantom. The orientation of the
+        imaging volume MAY NOT align with the true phantom orientation
+
     Args:
         dcm_list (list): list of pyDICOM image objects
 
     Returns:
-        tuple: (string, list)
-            "saggital", "coronal", "axial", or "unexpected" orientation
+        tuple (string, list):
+            "saggital", "coronal", "axial", or "unexpected" orientation \n
             list of the changing ImagePositionPatient values
     """
     # for dcm in dcm_list:
