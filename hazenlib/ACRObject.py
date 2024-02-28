@@ -206,12 +206,15 @@ class ACRObject:
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """__meow__.
+        """Generates a circular mask using given centre coordinates and a given radius. Generates a linspace grid the
+        size of the given dimensions and checks whether each point on the linspace grid is within the desired radius
+        from the given centre coordinates. Each linspace value within the chosen radius then becomes part of the mask.
+
 
         Args:
             centre (tuple): centre coordinates of the circular mask.
             radius (int): radius of the circular mask.
-            dims (tuple): dimensions of the circular mask.
+            dims (tuple): dimensions to create the base linspace grid from.
 
         Returns:
             np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
