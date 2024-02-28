@@ -300,19 +300,15 @@ class ACRObject:
     def find_n_highest_peaks(data, n, height=1):
         """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
-                Args:
-                    data (np.ndarray): pixel array containing the data to perform peak extraction on
-                    n (int): The coordinates of the point to rotate
-                    height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
+        Args:
+            data (np.ndarray): pixel array containing the data to perform peak extraction on
+            n (int): The coordinates of the point to rotate
+            height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
-                Returns:
-        <<<<<<< HEAD
-                    tuple of np.ndarray: peak_locs and peak_heights
-        =======
-                    tuple of np.ndarray:
-        >>>>>>> 397-standardise-docstrings
-                        peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
-                        peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
+        Returns:
+            tuple of np.ndarray:
+                peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
+                peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 
         """
         peaks = scipy.signal.find_peaks(data, height)
