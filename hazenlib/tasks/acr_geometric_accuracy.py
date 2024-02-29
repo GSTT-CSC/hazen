@@ -52,25 +52,25 @@ class ACRGeometricAccuracy(HazenTask):
         # Initialise results dictionary
         results = self.init_result_dict()
         results["file"] = [
-            self.img_desc(self.ACR_obj.dcms[0]),
-            self.img_desc(self.ACR_obj.dcms[4]),
+            self.img_desc(self.ACR_obj.slice_stack[0]),
+            self.img_desc(self.ACR_obj.slice_stack[4]),
         ]
 
         try:
             lengths_1 = self.get_geometric_accuracy(0)
-            results["measurement"][self.img_desc(self.ACR_obj.dcms[0])] = {
+            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[0])] = {
                 "Horizontal distance": round(lengths_1[0], 2),
                 "Vertical distance": round(lengths_1[1], 2),
             }
         except Exception as e:
             print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.dcms[0])} because of : {e}"
+                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[0])} because of : {e}"
             )
             traceback.print_exc(file=sys.stdout)
 
         try:
             lengths_5 = self.get_geometric_accuracy(4)
-            results["measurement"][self.img_desc(self.ACR_obj.dcms[4])] = {
+            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[4])] = {
                 "Horizontal distance": round(lengths_5[0], 2),
                 "Vertical distance": round(lengths_5[1], 2),
                 "Diagonal distance SW": round(lengths_5[2], 2),
@@ -78,14 +78,14 @@ class ACRGeometricAccuracy(HazenTask):
             }
         except Exception as e:
             print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.dcms[4])} because of : {e}"
+                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[4])} because of : {e}"
             )
 
             traceback.print_exc(file=sys.stdout)
 
         L = lengths_1 + lengths_5
 
-        mean_err, max_err, cov_l = self.distortion_metric(L)
+        mean_err, max_err, cov_l = self.get_distortion_metrics(L)
 
         results["measurement"]["distortion"] = {
             "Mean relative measurement error": round(mean_err, 2),
@@ -106,15 +106,15 @@ class ACRGeometricAccuracy(HazenTask):
         and also diagonal lengths in slice 5.
 
         Args:
-            slice_index (int): the index of the slice position, for example slice 5 would have an index of 4.
+            slice_index (int): the index of the slice position, for example slice 5 is at index 4.
 
         Returns:
             tuple of float: horizontal and vertical distances.
         """
-        img_dcm = self.ACR_obj.dcms[slice_index]
+        img_dcm = self.ACR_obj.slice_stack[slice_index]
         img = img_dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(self.ACR_obj.images[slice_index])
-        [cxy, r] = self.ACR_obj.find_phantom_center(img)
+        mask = self.ACR_obj.get_mask_image(img)
+        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
 
         length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, slice_index)
         if slice_index == 4:
@@ -249,11 +249,12 @@ class ACRGeometricAccuracy(HazenTask):
             return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
 
     def diagonal_lengths(self, img, cxy, slice_index):
-        """Measure diagonal lengths by rotating the pixel array by 45° and measure the horizontal and vertical distances.
+        """Measure diagonal lengths. \n
+        Rotates the pixel array by 45° and measures the horizontal and vertical distances.
 
         Args:
-            img (np.array): pixel array of the slice (dcm.pixel_array).
-            cxy (list): x,y coordinates and radius of the circle.
+            img (np.ndarray): pixel array of the slice (dcm.pixel_array).
+            cxy (tuple): x,y coordinates of the circle centre.
             slice_index (int): index of the slice number.
 
         Returns:
@@ -261,11 +262,10 @@ class ACRGeometricAccuracy(HazenTask):
             "start" and "end" indicate the start and end x and y positions of the lengths; "Extent" is the distance (in
             pixels) of the lengths; "Distance" is "Extent" with factors applied to convert from pixels to mm.
         """
-        res = self.ACR_obj.pixel_spacing
-        # getting the geometric mean of the x and y pixel spacing components, as the pixel_spacing DICOM attribute is in
-        # co-ordinate form due to the possibility of pixels being rectangular, ie. the length and width of pixels can
-        # differ.
-        eff_res = np.sqrt(np.mean(np.square(res)))
+        # Calculate geometric mean of the x and y pixel spacing components,
+        # due to the possibility of pixels being rectangular,
+        # ie. the length and width of pixels can differ.
+        eff_res = np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
         length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, slice_index)
@@ -309,9 +309,10 @@ class ACRGeometricAccuracy(HazenTask):
         return sw_dict, se_dict
 
     @staticmethod
-    def distortion_metric(L):
-        """Calculates the mean error, the maximum error and the coefficient of variation between the horizontal and vertical
-        distances measured on slices 1 and 5.
+    def get_distortion_metrics(L):
+        """Calculates the mean error, the maximum error and the coefficient of
+        variation between the horizontal and vertical distances
+        measured on slices 1 and 5.
 
         Args:
             L (tuple): horizontal and vertical distances from slices 1 and 5.
@@ -319,7 +320,6 @@ class ACRGeometricAccuracy(HazenTask):
         Returns:
             tuple of floats: mean_err, max_err, cov_l
         """
-        # TODO change function name to eg. get_distortion_metrics
         err = [x - 190 for x in L]
         mean_err = np.mean(err)
 

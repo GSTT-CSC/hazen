@@ -2,6 +2,8 @@ import cv2
 import scipy
 import skimage
 import numpy as np
+from hazenlib.logger import logger
+from hazenlib.utils import determine_orientation, detect_circle
 
 
 class ACRObject:
@@ -15,142 +17,136 @@ class ACRObject:
         Args:
             dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
         """
-        # Initialise an ACR object from a stack of images of the ACR phantom
-        self.dcm_list = dcm_list
-        # Load files as DICOM and their pixel arrays into 'images'
-        self.images, self.dcms = self.sort_images()
-        # Store the pixel spacing value from the first image (expected to be the same for all)
-        self.pixel_spacing = self.dcms[0].PixelSpacing
-        # Check whether images of the phantom are the correct orientation
-        self.orientation_checks()
-        # Determine whether image rotation is necessary
-        self.rot_angle = self.determine_rotation()
-        # Find the centre coordinates of the phantom (circle) on slice 7 only:
-        self.centre, self.radius = self.find_phantom_center(self.images[6])
-        # Store the DCM object of slice 7 as it is used often
-        self.slice7_dcm = self.dcms[6]
-        # Store a mask image of slice 7 for reusability
-        self.mask_image = self.get_mask_image(self.images[6])
 
-    def sort_images(self):
-        """Sort a stack of images based on slice position.
+        # # Initialise an ACR object from a list of images of the ACR phantom
+        # Store pixel spacing value from the first image (expected to be the same for all)
+        self.dx, self.dy = dcm_list[0].PixelSpacing
+
+        # Perform sorting of the input DICOM list based on position
+        sorted_dcms = self.sort_dcms(dcm_list)
+
+        # Perform sorting of the image slices based on phantom orientation
+        self.slice_stack = self.order_phantom_slices(sorted_dcms)
+
+    def sort_dcms(self, dcm_list):
+        """Sort a stack of DICOM images based on slice position.
+
+        Args:
+            dcm_list (list): list of pyDICOM image objects
 
         Returns:
-            tuple of lists:
-                img_stack - list of np.ndarray of dcm.pixel_array: A sorted stack of images, where each image is represented as a 2D numpy array. \n
-                dcm_stack - list of pydicom.Dataset objects
+            list: sorted list of pydicom.Dataset objects
         """
-        # TODO: implement a check if phantom was placed in other than axial position
-        # This is to be able to flag to the user the caveat of measurments if deviating from ACR guidance
+        orientation, positions = determine_orientation(dcm_list)
+        if orientation == "unexpected":
+            pass
 
-        # x = np.array([dcm.ImagePositionPatient[0] for dcm in self.dcm_list])
-        # y = np.array([dcm.ImagePositionPatient[1] for dcm in self.dcm_list])
-        z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
-        dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
-        img_stack = [dicom.pixel_array for dicom in dicom_stack]
+        logger.info("image orientation is %s", orientation)
+        dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
+        # img_stack = [dcm.pixel_array for dcm in dcm_stack]
 
-        return img_stack, dicom_stack
+        return dcm_stack  # , img_stack
 
-    def orientation_checks(self):
-        """Perform orientation checks on a set of images to determine if slice order inversion
-        or an LR orientation swap is required. \n
+    def order_phantom_slices(self, dcm_list):
+        """Determine slice order based on the detection of the small circle in the first slice
+        # or an LR orientation swap is required. \n
 
-        This function analyzes the given set of images and their associated DICOM objects to determine if any
-        adjustments are needed to restore the correct slice order and view orientation.
+        # This function analyzes the given set of images and their associated DICOM objects to determine if any
+        # adjustments are needed to restore the correct slice order and view orientation.
+
+        Args:
+            dcm_list (list): list of pyDICOM image objects
+
+        Returns:
+            list: sorted list of pydicom.Dataset objects corresponding to ordered phantom slices
         """
-        test_images = (self.images[0], self.images[-1])
-        dx = self.pixel_spacing[0]
+        # Check whether the circle is on the first or last slice
 
-        normalised_images = [
-            cv2.normalize(
-                src=image,
-                dst=None,
-                alpha=0,
-                beta=255,
-                norm_type=cv2.NORM_MINMAX,
-                dtype=cv2.CV_8U,
-            )
-            for image in test_images
-        ]
+        # Get pixel array of first and last slice
+        first_slice = dcm_list[0].pixel_array
+        last_slice = dcm_list[-1].pixel_array
+        # Detect circles in the first and last slice
+        detected_circles_first = detect_circle(first_slice, self.dx)
+        detected_circles_last = detect_circle(last_slice, self.dx)
 
-        # search for circle in first slice of ACR phantom dataset with radius of ~11mm
-        detected_circles = [
-            cv2.HoughCircles(
-                norm_image,
-                cv2.HOUGH_GRADIENT,
-                1,
-                param1=50,
-                param2=30,
-                minDist=int(180 / dx),
-                minRadius=int(5 / dx),
-                maxRadius=int(16 / dx),
-            )
-            for norm_image in normalised_images
-        ]
+        # It is assumed that only the first or the last slice has circles
+        if detected_circles_first is not None and detected_circles_last is None:
+            # If first slice has the circle then slice order is correct
+            logger.info("Slice order inversion is not required.")
+            return dcm_list
+        if detected_circles_first is None and detected_circles_last is not None:
+            # If last slice has the circle then slice order needs to be reversed
+            logger.info("Performing slice order inversion.")
+            return dcm_list[::-1]
 
-        if detected_circles[0] is not None:
-            true_circle = detected_circles[0].flatten()
-        else:
-            true_circle = detected_circles[1].flatten()
+        logger.debug("Neither slices had a circle detected")
+        return dcm_list
 
-        if detected_circles[0] is None and detected_circles[1] is not None:
-            print("Performing slice order inversion to restore correct slice order.")
-            self.images.reverse()
-            self.dcms.reverse()
-        else:
-            print("Slice order inversion not required.")
+        # if true_circle[0] > self.images[0].shape[0] // 2:
+        #     print("Performing LR orientation swap to restore correct view.")
+        #     flipped_images = [np.fliplr(image) for image in self.images]
+        #     for index, dcm in enumerate(self.dcms):
+        #         dcm.PixelData = flipped_images[index].tobytes()
+        # else:
+        #     print("LR orientation swap not required.")
 
-        if true_circle[0] > self.images[0].shape[0] // 2:
-            print("Performing LR orientation swap to restore correct view.")
-            flipped_images = [np.fliplr(image) for image in self.images]
-            for index, dcm in enumerate(self.dcms):
-                dcm.PixelData = flipped_images[index].tobytes()
-        else:
-            print("LR orientation swap not required.")
-
-    def determine_rotation(self):
+    @staticmethod
+    def determine_rotation(img):
         """Determine the rotation angle of the phantom using edge detection and the Hough transform.
+
+        Args:
+            img (np.ndarray): pixel array of a DICOM object
 
         Returns:
             float: The rotation angle in degrees.
         """
-
-        thresh = cv2.threshold(self.images[0], 127, 255, cv2.THRESH_BINARY)[1]
-
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+
+        thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)[1]
         dilate = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
         diff = cv2.absdiff(dilate, thresh)
 
         h, theta, d = skimage.transform.hough_line(diff)
         _, angles, _ = skimage.transform.hough_line_peaks(h, theta, d)
 
-        angle = np.rad2deg(scipy.stats.mode(angles)[0][0])
-        rot_angle = angle + 90 if angle < 0 else angle - 90
+        if len(angles) >= 1:
+            angle = np.rad2deg(scipy.stats.mode(angles, keepdims=False).mode)
+            if angle < 0:
+                rot_angle = angle + 90
+            else:
+                rot_angle = angle - 90
+        else:
+            rot_angle = 0
+        logger.info("Phantom is rotated by %s degrees", rot_angle)
 
         return rot_angle
 
-    def rotate_images(self):
+    def rotate_images(self, dcm_list, rot_angle):
         """Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
 
+        Args:
+            dcm_list (list): list of pyDICOM image objects
+            rot_angle (float): angle in degrees that image (pixel array) should be rotated by
+
         Returns:
-            np.ndarray: The rotated images.
+            list of np.ndarray: The rotated images.
         """
-
-        return skimage.transform.rotate(
-            self.images, self.rot_angle, resize=False, preserve_range=True
+        rotated_images = skimage.transform.rotate(
+            dcm_list, rot_angle, resize=False, preserve_range=True
         )
+        return rotated_images
 
-    def find_phantom_center(self, img):
-        """
-        Find the center of the ACR phantom by filtering the input slice and using the Hough circle detector.
+    @staticmethod
+    def find_phantom_center(img, dx, dy):
+        """Find the center of the ACR phantom in a given slice (pixel array) \n
+        using the Hough circle detector on a blurred image.
 
         Args:
-            img (np.ndarray): pixel array of the dicom
+            img (np.ndarray): pixel array of the DICOM image.
 
         Returns:
             tuple of ints: (x, y) coordinates of the center of the image
         """
-        dx, dy = self.pixel_spacing
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
@@ -165,9 +161,12 @@ class ACRObject:
             minRadius=int(180 / (2 * dy)),
             maxRadius=int(200 / (2 * dx)),
         ).flatten()
-        centre = [int(i) for i in detected_circles[:2]]
-        radius = int(detected_circles[2])
-        return centre, radius
+
+        centre_x = round(detected_circles[0])
+        centre_y = round(detected_circles[1])
+        radius = round(detected_circles[2])
+
+        return (centre_x, centre_y), radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
         """Create a masked pixel array. \n
@@ -182,9 +181,8 @@ class ACRObject:
         Returns:
             np.ndarray: the masked image
         """
-        test_mask = self.circular_mask(
-            self.centre, (80 // self.pixel_spacing[0]), image.shape
-        )
+        centre, _ = self.find_phantom_center(image, self.dx, self.dy)
+        test_mask = self.circular_mask(centre, (80 // self.dx), image.shape)
         test_image = image * test_mask
         test_vals = test_image[np.nonzero(test_image)]
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
@@ -208,12 +206,15 @@ class ACRObject:
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """Sort a stack of images based on slice position.
+        """Generates a circular mask using given centre coordinates and a given radius. Generates a linspace grid the
+        size of the given dimensions and checks whether each point on the linspace grid is within the desired radius
+        from the given centre coordinates. Each linspace value within the chosen radius then becomes part of the mask.
+
 
         Args:
             centre (tuple): centre coordinates of the circular mask.
             radius (int): radius of the circular mask.
-            dims (tuple): dimensions of the circular mask.
+            dims (tuple): dimensions to create the base linspace grid from.
 
         Returns:
             np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
@@ -245,9 +246,8 @@ class ACRObject:
                     The horizontal/vertical length of the object.
         """
         dims = mask.shape
-        dx, dy = self.pixel_spacing
-        [(vertical, horizontal), radius] = self.find_phantom_center(
-            self.images[slice_index]
+        (vertical, horizontal), radius = self.find_phantom_center(
+            self.slice_stack[slice_index].pixel_array, self.dx, self.dy
         )
 
         horizontal_start = (horizontal, 0)
@@ -256,7 +256,7 @@ class ACRObject:
             mask, horizontal_start, horizontal_end
         )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
-        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
+        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * self.dx
 
         vertical_start = (0, vertical)
         vertical_end = (dims[1] - 1, vertical)
@@ -264,7 +264,7 @@ class ACRObject:
             mask, vertical_start, vertical_end
         )
         vertical_extent = np.nonzero(vertical_line_profile)[0]
-        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * dy
+        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * self.dy
 
         length_dict = {
             "Horizontal Start": horizontal_start,

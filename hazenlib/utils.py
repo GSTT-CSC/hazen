@@ -9,6 +9,7 @@ from collections import defaultdict
 from skimage import filters
 
 import hazenlib.exceptions as exc
+from hazenlib.logger import logger
 
 matplotlib.use("Agg")
 
@@ -316,7 +317,7 @@ def get_image_orientation(iop):
     Returns:
         str: Sagittal, Coronal or Transverse
     """
-    # TODO: check that ImageOrientationPatient field is always available (every mannufacturer and enhanced)
+    # TODO: check that ImageOrientationPatient field is always available (every manufacturer and enhanced)
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
     plane = [abs(x) for x in plane]
@@ -326,6 +327,74 @@ def get_image_orientation(iop):
         return "Coronal"
     elif plane[2] == 1:
         return "Transverse"
+
+
+def determine_orientation(dcm_list):
+    """Determine the phantom orientation based on DICOM metadata from a list of DICOM images.
+
+    Note:
+        The ImageOrientationPatient tag is a record of the orientation of the
+        imaging volume which contains the phantom. The orientation of the
+        imaging volume MAY NOT align with the true phantom orientation.
+
+    Args:
+        dcm_list (list): list of pyDICOM image objects.
+
+    Returns:
+        tuple (string, list):
+            "saggital", "coronal", "axial", or "unexpected" orientation. \n
+            list of the changing ImagePositionPatient values.
+    """
+    # for dcm in dcm_list:
+    #     print(dcm.InstanceNumber) # unique
+    #     print(dcm.ImagePositionPatient) # unique
+    #     # The x, y, and z coordinates of the upper left hand corner (center of the first voxel transmitted) of the image, in mm
+    #     # eg [28.364610671997, -88.268096923828, 141.94101905823]
+    #     print(dcm.ImageOrientationPatient) # common
+    #     # The direction cosines of the first row and the first column with respect to the patient.
+    #     # eg
+    #     # [1, 0, 0, 0, 1, 0]  transverse/axial
+    #     # [1, 0, 0, 0, 0, -1] coronal
+    #     # [0, 1, 0, 0, 0, -1] sagittal
+    #     print(dcm.PixelSpacing) # common
+    #     # Physical distance in the patient between the center of each pixel, specified by a numeric pair - adjacent row spacing (dx) (delimiter) adjacent column spacing (dy) in mm.
+    #     print(dcm.SliceThickness) # common
+    #     # Nominal slice thickness, in mm
+    # Get the number of images in the list,
+    # assuming each have a unique position in one of the 3 directions
+    expected = len(dcm_list)
+    iop = dcm_list[0].ImageOrientationPatient
+    x = np.array([dcm.ImagePositionPatient[0] for dcm in dcm_list])
+    y = np.array([dcm.ImagePositionPatient[1] for dcm in dcm_list])
+    z = np.array([dcm.ImagePositionPatient[2] for dcm in dcm_list])
+
+    # Determine phantom orientation based on DICOM header metadata
+    # Assume phantom orientation based on ImageOrientationPatient
+    logger.debug("Checking phantom orientation based on ImageOrientationPatient")
+    if iop == [0, 1, 0, 0, 0, -1] and len(set(x)) == expected:
+        logger.debug("x %s", set(x))
+        return "sagittal", x
+    elif iop == [1, 0, 0, 0, 0, -1] and len(set(y)) == expected:
+        logger.debug("y %s", set(y))
+        return "coronal", y
+    elif iop == [1, 0, 0, 0, 1, 0] and len(set(z)) == expected:
+        logger.debug("z %s", set(z))
+        return "axial", z
+    else:
+        logger.debug("Checking phantom orientation based on ImagePositionPatient")
+        # Assume phantom orientation based on ImagePositionPatient
+        if len(set(x)) == expected and len(set(y)) == 1 and len(set(z)) == 1:
+            return "sagittal", x
+        elif len(set(x)) == 1 and len(set(y)) == expected and len(set(z)) == 1:
+            return "coronal", y
+        elif len(set(x)) == 1 and len(set(y)) == 1 and len(set(z)) == expected:
+            return "axial", z
+        else:
+            logger.warning("Unable to determine orientation based on DICOM metadata")
+            logger.info("x %s", set(x))
+            logger.info("y %s", set(y))
+            logger.info("z %s", set(z))
+            return "unexpected", [x, y, z]
 
 
 def rescale_to_byte(array):
@@ -346,6 +415,28 @@ def rescale_to_byte(array):
     image_equalized = np.interp(array.flatten(), bins[:-1], cdf)
 
     return image_equalized.reshape(array.shape).astype("uint8")
+
+
+def detect_circle(img, dx):
+    normalised_img = cv.normalize(
+        src=img,
+        dst=None,
+        alpha=0,
+        beta=255,
+        norm_type=cv.NORM_MINMAX,
+        dtype=cv.CV_8U,
+    )
+    detected_circles = cv.HoughCircles(
+        normalised_img,
+        cv.HOUGH_GRADIENT,
+        1,
+        param1=50,
+        param2=30,
+        minDist=int(10 / dx),  # used to be 180 / dx
+        minRadius=int(5 / dx),
+        maxRadius=int(16 / dx),
+    )
+    return detected_circles
 
 
 class Rod:

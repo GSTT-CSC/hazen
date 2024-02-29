@@ -57,7 +57,7 @@ class ACRSNR(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
-        snr_dcm = self.ACR_obj.slice7_dcm
+        snr_dcm = self.ACR_obj.slice_stack[6]
         # Initialise results dictionary
         results = self.init_result_dict()
 
@@ -86,7 +86,7 @@ class ACRSNR(HazenTask):
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
             data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
-            snr_dcm2 = ACRObject(data2).slice7_dcm
+            snr_dcm2 = ACRObject(data2).slice_stack[6]
             results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
@@ -258,21 +258,22 @@ class ACRSNR(HazenTask):
         Returns:
             float: normalised_snr.
         """
-        centre = self.ACR_obj.centre
-        col, row = centre
+        (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
+            dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy
+        )
         noise_img = self.get_noise_image(dcm)
 
         signal = [
             np.mean(roi)
             for roi in self.get_roi_samples(
-                ax=None, dcm=dcm, centre_col=int(col), centre_row=int(row)
+                ax=None, dcm=dcm, centre_col=centre_x, centre_row=centre_y
             )
         ]
 
         noise = [
             np.std(roi, ddof=1)
             for roi in self.get_roi_samples(
-                ax=None, dcm=noise_img, centre_col=int(col), centre_row=int(row)
+                ax=None, dcm=noise_img, centre_col=centre_x, centre_row=centre_y
             )
         ]
         # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and
@@ -290,12 +291,12 @@ class ACRSNR(HazenTask):
             fig.tight_layout(pad=4)
 
             axes[0].imshow(dcm.pixel_array)
-            axes[0].scatter(centre[0], centre[1], c="red")
+            axes[0].scatter(centre_x, centre_y, c="red")
             axes[0].set_title("Centroid Location")
 
             axes[1].set_title("Smoothed Noise Image")
             axes[1].imshow(noise_img, cmap="gray")
-            self.get_roi_samples(axes[1], dcm, int(col), int(row))
+            self.get_roi_samples(axes[1], dcm, centre_x, centre_y)
 
             img_path = os.path.realpath(
                 os.path.join(self.report_path, f"{self.img_desc(dcm)}_smoothing.png")
@@ -321,9 +322,9 @@ class ACRSNR(HazenTask):
         Returns:
             float: normalised_snr.
         """
-
-        centre = self.ACR_obj.centre
-        col, row = centre
+        (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
+            dcm1.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy
+        )
 
         difference = np.subtract(
             dcm1.pixel_array.astype("int"), dcm2.pixel_array.astype("int")
@@ -332,14 +333,14 @@ class ACRSNR(HazenTask):
         signal = [
             np.mean(roi)
             for roi in self.get_roi_samples(
-                ax=None, dcm=dcm1, centre_col=int(col), centre_row=int(row)
+                ax=None, dcm=dcm1, centre_col=centre_x, centre_row=centre_y
             )
         ]
         noise = np.divide(
             [
                 np.std(roi, ddof=1)
                 for roi in self.get_roi_samples(
-                    ax=None, dcm=difference, centre_col=int(col), centre_row=int(row)
+                    ax=None, dcm=difference, centre_col=centre_x, centre_row=centre_y
                 )
             ],
             np.sqrt(2),
@@ -358,7 +359,7 @@ class ACRSNR(HazenTask):
             fig.tight_layout(pad=4)
 
             axes[0].imshow(dcm1.pixel_array)
-            axes[0].scatter(centre[0], centre[1], c="red")
+            axes[0].scatter(centre_x, centre_y, c="red")
             axes[0].axis("off")
             axes[0].set_title("Centroid Location")
 
@@ -367,7 +368,7 @@ class ACRSNR(HazenTask):
                 difference,
                 cmap="gray",
             )
-            self.get_roi_samples(axes[1], dcm1, int(col), int(row))
+            self.get_roi_samples(axes[1], dcm1, centre_x, centre_y)
             axes[1].axis("off")
 
             img_path = os.path.realpath(
