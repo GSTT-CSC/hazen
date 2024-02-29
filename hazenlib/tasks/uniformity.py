@@ -137,7 +137,6 @@ class Uniformity(HazenTask):
             tuple: values of horizontal and vertical fractional uniformity
         """
         arr = dcm.pixel_array
-        print(type(dcm))
         x, y = self.get_object_centre(dcm)
 
         central_roi = arr[(y - 5) : (y + 5), (x - 5) : (x + 5)].flatten()

@@ -364,9 +364,9 @@ def determine_orientation(dcm_list):
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
     iop = dcm_list[0].ImageOrientationPatient
-    x = np.array([dcm.ImagePositionPatient[0] for dcm in dcm_list])
-    y = np.array([dcm.ImagePositionPatient[1] for dcm in dcm_list])
-    z = np.array([dcm.ImagePositionPatient[2] for dcm in dcm_list])
+    x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
+    y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
+    z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient
@@ -382,12 +382,24 @@ def determine_orientation(dcm_list):
         return "axial", z
     else:
         logger.debug("Checking phantom orientation based on ImagePositionPatient")
-        # Assume phantom orientation based on ImagePositionPatient
-        if len(set(x)) == expected and len(set(y)) == 1 and len(set(z)) == 1:
+        # Assume phantom orientation based on the changing value in ImagePositionPatient
+        if (
+            len(set(x)) == expected
+            and len(set(y)) < expected
+            and len(set(z)) < expected
+        ):
             return "sagittal", x
-        elif len(set(x)) == 1 and len(set(y)) == expected and len(set(z)) == 1:
+        elif (
+            len(set(x)) < expected
+            and len(set(y)) == expected
+            and len(set(z)) < expected
+        ):
             return "coronal", y
-        elif len(set(x)) == 1 and len(set(y)) == 1 and len(set(z)) == expected:
+        elif (
+            len(set(x)) < expected
+            and len(set(y)) < expected
+            and len(set(z)) == expected
+        ):
             return "axial", z
         else:
             logger.warning("Unable to determine orientation based on DICOM metadata")

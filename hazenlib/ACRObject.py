@@ -1,3 +1,4 @@
+import sys
 import cv2
 import scipy
 import skimage
@@ -39,7 +40,9 @@ class ACRObject:
         """
         orientation, positions = determine_orientation(dcm_list)
         if orientation == "unexpected":
-            pass
+            # TODO: error out for now,
+            # in future allow manual override based on optional CLI args
+            sys.exit()
 
         logger.info("image orientation is %s", orientation)
         dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
