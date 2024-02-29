@@ -153,7 +153,6 @@ class ACRObject:
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
-        print(int(180 / (2 * dy)))
 
         detected_circles = cv2.HoughCircles(
             img_grad,
@@ -162,10 +161,9 @@ class ACRObject:
             param1=50,
             param2=30,
             minDist=int(180 / dy),
-            minRadius=80,  # int(180 / (2 * dy)),
+            minRadius=int(180 / (2 * dy)),
             maxRadius=int(200 / (2 * dx)),
         ).flatten()
-        print(detected_circles)
 
         centre_x = round(detected_circles[0])
         centre_y = round(detected_circles[1])
