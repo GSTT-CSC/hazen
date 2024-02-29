@@ -717,6 +717,9 @@ class SliceWidth(HazenTask):
 
             baseline_fit_temp = np.poly1d(base)(x_interp)
 
+            if len(trapezoid_fit_temp) != len(baseline_fit_temp):
+                trapezoid_fit_temp = trapezoid_fit_temp[: len(baseline_fit_temp)]
+
             sum_squared_difference = sum(
                 (profile_interp - (baseline_fit_temp + trapezoid_fit_temp)) ** 2
             )
