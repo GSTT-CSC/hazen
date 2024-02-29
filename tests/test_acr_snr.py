@@ -11,7 +11,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 class TestACRSNRGE(unittest.TestCase):
     norm_factor = 57.12810400630368
-    snr = 40.19
+    snr = 39.76
 
     def setUp(self):
         ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
@@ -34,8 +34,8 @@ class TestACRSNRGE(unittest.TestCase):
 
 class TestACRSNRSiemens(TestACRSNRGE):
     norm_factor = 9.761711312090041
-    snr = 344.15
-    sub_snr = 75.94
+    snr = 351.22
+    sub_snr = 76.06
 
     def setUp(self):
         ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")

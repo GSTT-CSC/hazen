@@ -1,3 +1,4 @@
+import sys
 import cv2
 import scipy
 import skimage
@@ -7,7 +8,7 @@ from hazenlib.utils import determine_orientation, detect_circle
 
 
 class ACRObject:
-    """Base class for performing tasks on image sets of the ACR phantom.
+    """Base class for performing tasks on image sets of the ACR phantom. \n
     acquired following the ACR Large phantom guidelines
     """
 
@@ -42,7 +43,9 @@ class ACRObject:
         """
         orientation, positions = determine_orientation(dcm_list)
         if orientation == "unexpected":
-            pass
+            # TODO: error out for now,
+            # in future allow manual override based on optional CLI args
+            sys.exit()
 
         logger.info("image orientation is %s", orientation)
         dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
@@ -138,34 +141,45 @@ class ACRObject:
         rotated_images = skimage.transform.rotate(
             dcm_list, rot_angle, resize=False, preserve_range=True
         )
-        print(type(rotated_images))
         return rotated_images
 
     @staticmethod
     def find_phantom_center(img, dx, dy):
         """Find the center of the ACR phantom in a given slice (pixel array) \n
-        using the Hough circle detector on a blurred image
+        using the Hough circle detector on a blurred image.
 
         Args:
-            img (np.ndarray): pixel array of the dicom
+            img (np.ndarray): pixel array of the DICOM image.
 
         Returns:
-            tuple of ints: representing the (x, y) coordinates of the center of the image.
+            tuple of ints: (x, y) coordinates of the center of the image
         """
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
-        detected_circles = cv2.HoughCircles(
-            img_grad,
-            cv2.HOUGH_GRADIENT,
-            1,
-            param1=50,
-            param2=30,
-            minDist=int(180 / dy),
-            minRadius=int(180 / (2 * dy)),
-            maxRadius=int(200 / (2 * dx)),
-        ).flatten()
+        try:
+            detected_circles = cv2.HoughCircles(
+                img_grad,
+                cv2.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=int(180 / (2 * dy)),
+                maxRadius=int(200 / (2 * dx)),
+            ).flatten()
+        except AttributeError:
+            detected_circles = cv2.HoughCircles(
+                img_grad,
+                cv2.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=80,
+                maxRadius=200,
+            ).flatten()
 
         centre_x = round(detected_circles[0])
         centre_y = round(detected_circles[1])
@@ -174,7 +188,7 @@ class ACRObject:
         return (centre_x, centre_y), radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
-        """Create a masked pixel array \n
+        """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
@@ -214,12 +228,15 @@ class ACRObject:
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """__meow__.
+        """Generates a circular mask using given centre coordinates and a given radius. Generates a linspace grid the
+        size of the given dimensions and checks whether each point on the linspace grid is within the desired radius
+        from the given centre coordinates. Each linspace value within the chosen radius then becomes part of the mask.
+
 
         Args:
             centre (tuple): centre coordinates of the circular mask.
             radius (int): radius of the circular mask.
-            dims (tuple): dimensions of the circular mask.
+            dims (tuple): dimensions to create the base linspace grid from.
 
         Returns:
             np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
@@ -240,12 +257,12 @@ class ACRObject:
             mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
-            dict: a dictionary with the following
+            dict: a dictionary with the following:
                 'Horizontal Start'      | 'Vertical Start' : tuple of int
                     Horizontal/vertical starting point of the object.
                 'Horizontal End'        | 'Vertical End' : tuple of int
                     Horizontal/vertical ending point of the object.
-                'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
+                'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
                     Indices of the non-zero elements of the horizontal/vertical line profile.
                 'Horizontal Distance'   | 'Vertical Distance' : float
                     The horizontal/vertical length of the object.
@@ -294,9 +311,8 @@ class ACRObject:
             angle (int): Angle in degrees.
 
         Returns:
-            tuple of float: x_prime and y_prime
-                Floats representing the x and y coordinates of the input point
-                after being rotated around an origin.
+            tuple of float: Floats representing the x and y coordinates of the input point
+            after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -315,7 +331,7 @@ class ACRObject:
             height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-            tuple of np.ndarray: peak_locs and peak_heights
+            tuple of np.ndarray:
                 peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
                 peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
 

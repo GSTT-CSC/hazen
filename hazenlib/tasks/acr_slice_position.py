@@ -9,13 +9,13 @@ This script calculates the bar length difference in accordance with the ACR Guid
 vertically through the left and right wedges. The right wedge's line profile is shifted and wrapped round before being
 subtracted from the left wedge's line profile, e.g.:
 
-Right line profile: [1, 2, 3, 4, 5]
+Right line profile: [1, 2, 3, 4, 5] \n
 Right line profile wrapped round by 1: [2, 3, 4, 5, 1]
 
-This wrapping process, from hereon referred to as circular shifting, is then used for subtractions.
+This wrapping process, from hereon referred to as 'circular shifting', is then used for subtractions.
 
 The shift used to produce the minimum difference between the circularly shifted right line profile and the static left
-one is used to determine the bar length difference, which is twice the slice position displacement.
+one is used to determine the bar length difference, which is twice the slice position displacement. \n
 The results are also visualised.
 
 Created by Yassine Azma
@@ -133,8 +133,10 @@ class ACRSlicePosition(HazenTask):
         # x coordinates of these peaks in image coordinate system(before diff operation)
         x_locs = w_point + x_peaks
 
-        width_pts = [x_locs[0], x_locs[1]]  # width of wedges
-        width = np.max(width_pts) - np.min(width_pts)  # width
+        # width of wedges
+        width_pts = [x_locs[0], x_locs[1]]
+        # width
+        width = np.max(width_pts) - np.min(width_pts)
 
         # rough midpoints of wedges
         x_pts_left = round(np.min(width_pts) + 0.25 * width)
@@ -158,9 +160,8 @@ class ACRSlicePosition(HazenTask):
                 - np.floor(y_investigate_region / 2)
                 + np.floor(np.mean([x_pts_left, x_pts_right]))
             ).astype(int)
-            c = mask[
-                np.arange(n_point, end_point + 1, 1), x_loc
-            ]  # mask for resultant line profile
+            # mask for resultant line profile
+            c = mask[np.arange(n_point, end_point + 1, 1), x_loc]
             line_prof_y = skimage.measure.profile_line(
                 img, (n_point, x_loc), (end_point, x_loc), mode="constant"
             ).flatten()
@@ -206,12 +207,14 @@ class ACRSlicePosition(HazenTask):
         mask = self.ACR_obj.get_mask_image(img)
         x_pts, y_pts = self.find_wedges(img, mask)
 
+        # line profile through left wedge
         line_prof_L = skimage.measure.profile_line(
             img, (y_pts[0], x_pts[0]), (y_pts[1], x_pts[0]), mode="constant"
-        ).flatten()  # line profile through left wedge
+        ).flatten()
+        # line profile through right wedge
         line_prof_R = skimage.measure.profile_line(
             img, (y_pts[0], x_pts[1]), (y_pts[1], x_pts[1]), mode="constant"
-        ).flatten()  # line profile through right wedge
+        ).flatten()
 
         # interpolation
         interp_factor = 1 / 5
@@ -226,9 +229,10 @@ class ACRSlicePosition(HazenTask):
 
         # difference of line profiles
         delta = interp_line_prof_L - interp_line_prof_R
+        # find two highest peaks
         peaks, _ = ACRObject.find_n_highest_peaks(
             abs(delta), 2, 0.5 * np.max(abs(delta))
-        )  # find two highest peaks
+        )
 
         # if only one peak, set dummy range
         if len(peaks) == 1:
@@ -252,9 +256,8 @@ class ACRSlicePosition(HazenTask):
         err = np.zeros(len(lag))
 
         for k, lag_val in enumerate(lag):
-            difference = static_line_R - np.roll(
-                static_line_L, lag_val
-            )  # difference of L and circularly shifted R
+            # difference of L and circularly shifted R
+            difference = static_line_R - np.roll(static_line_L, lag_val)
             # set wrapped values to nan
             if lag_val > 0:
                 difference[:lag_val] = np.nan

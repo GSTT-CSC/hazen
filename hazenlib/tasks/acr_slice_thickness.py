@@ -39,7 +39,7 @@ class ACRSliceThickness(HazenTask):
         using slice 1 from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.slice_stack[0]
@@ -154,10 +154,16 @@ class ACRSliceThickness(HazenTask):
             Returns:
                 float: true x coordinate of the half maximum.
             """
-            # TODO: account for if x_start is too close to len(ydata)
-            # causes error for sagittal data
-            x_init = x_start - 5
-            x_pts = np.arange(x_init, x_init + 11)
+            x_points = np.arange(x_start - 5, x_start + 6)
+            # Check if expected x_pts (indices) will be out of range ( >= len(ydata))
+            inrange = np.where(x_points == len(ydata))[0]
+            if np.size(inrange) > 0:
+                # locate index of where ydata ends within x_pts
+                # crop x_pts until len(ydata)
+                x_pts = x_points[: inrange.flatten()[0]]
+            else:
+                x_pts = x_points
+
             y_pts = ydata[x_pts]
 
             grad = (y_pts[-1] - y_pts[0]) / (x_pts[-1] - x_pts[0])

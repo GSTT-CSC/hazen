@@ -234,7 +234,6 @@ def get_TR(dcm: pydicom.Dataset) -> float:
         float: value of the RepetitionTime field from the DICOM header, or defaults to 1000
     """
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
-    # check with physicists whether 1000 is an appropriate default value
     try:
         if is_enhanced_dicom(dcm):
             TR = (
@@ -259,8 +258,6 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the Rows field from the DICOM header, or defaults to 256
     """
-    # TODO: explore what type of DICOM files do not have Rows in DICOM header
-    # check with physicists whether 256 is an appropriate default value
     try:
         rows = dcm.Rows
     except:
@@ -281,8 +278,6 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     Returns:
         float: value of the Columns field from the DICOM header, or defaults to 256
     """
-    # TODO: explore what type of DICOM files do not have Columns in DICOM header
-    # check with physicists whether 256 is an appropriate default value
     try:
         columns = dcm.Columns
     except:
@@ -382,15 +377,20 @@ def get_image_orientation(dcm):
 
 
 def determine_orientation(dcm_list):
-    """Determine the phantom orientation based on DICOM metadata from a list of DICOM images
+    """Determine the phantom orientation based on DICOM metadata from a list of DICOM images.
+
+    Note:
+        The ImageOrientationPatient tag is a record of the orientation of the
+        imaging volume which contains the phantom. The orientation of the
+        imaging volume MAY NOT align with the true phantom orientation.
 
     Args:
-        dcm_list (list): list of pyDICOM image objects
+        dcm_list (list): list of pyDICOM image objects.
 
     Returns:
-        tuple: (string, list)
-            "saggital", "coronal", "axial", or "unexpected" orientation
-            list of the changing ImagePositionPatient values
+        tuple (string, list):
+            "saggital", "coronal", "axial", or "unexpected" orientation. \n
+            list of the changing ImagePositionPatient values.
     """
     # for dcm in dcm_list:
     #     print(dcm.InstanceNumber) # unique
@@ -411,9 +411,9 @@ def determine_orientation(dcm_list):
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
     iop = dcm_list[0].ImageOrientationPatient
-    x = np.array([dcm.ImagePositionPatient[0] for dcm in dcm_list])
-    y = np.array([dcm.ImagePositionPatient[1] for dcm in dcm_list])
-    z = np.array([dcm.ImagePositionPatient[2] for dcm in dcm_list])
+    x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
+    y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
+    z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient
@@ -429,12 +429,24 @@ def determine_orientation(dcm_list):
         return "axial", z
     else:
         logger.debug("Checking phantom orientation based on ImagePositionPatient")
-        # Assume phantom orientation based on ImagePositionPatient
-        if len(set(x)) == expected and len(set(y)) == 1 and len(set(z)) == 1:
+        # Assume phantom orientation based on the changing value in ImagePositionPatient
+        if (
+            len(set(x)) == expected
+            and len(set(y)) < expected
+            and len(set(z)) < expected
+        ):
             return "sagittal", x
-        elif len(set(x)) == 1 and len(set(y)) == expected and len(set(z)) == 1:
+        elif (
+            len(set(x)) < expected
+            and len(set(y)) == expected
+            and len(set(z)) < expected
+        ):
             return "coronal", y
-        elif len(set(x)) == 1 and len(set(y)) == 1 and len(set(z)) == expected:
+        elif (
+            len(set(x)) < expected
+            and len(set(y)) < expected
+            and len(set(z)) == expected
+        ):
             return "axial", z
         else:
             logger.warning("Unable to determine orientation based on DICOM metadata")
