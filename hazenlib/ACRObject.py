@@ -154,16 +154,28 @@ class ACRObject:
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
-        detected_circles = cv2.HoughCircles(
-            img_grad,
-            cv2.HOUGH_GRADIENT,
-            1,
-            param1=50,
-            param2=30,
-            minDist=int(180 / dy),
-            minRadius=int(180 / (2 * dy)),
-            maxRadius=int(200 / (2 * dx)),
-        ).flatten()
+        try:
+            detected_circles = cv2.HoughCircles(
+                img_grad,
+                cv2.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=int(180 / (2 * dy)),
+                maxRadius=int(200 / (2 * dx)),
+            ).flatten()
+        except AttributeError:
+            detected_circles = cv2.HoughCircles(
+                img_grad,
+                cv2.HOUGH_GRADIENT,
+                1,
+                param1=50,
+                param2=30,
+                minDist=int(180 / dy),
+                minRadius=80,
+                maxRadius=200,
+            ).flatten()
 
         centre_x = round(detected_circles[0])
         centre_y = round(detected_circles[1])
