@@ -137,7 +137,7 @@ from scipy.special import i0e, ive
 
 import hazenlib.exceptions
 from hazenlib.HazenTask import HazenTask
-from hazenlib.relaxometry_params import (
+from hazenlib.data.relaxometry_params import (
     MAX_RICIAN_NOISE,
     SEED_RICIAN_NOISE,
     TEMPLATE_VALUES,

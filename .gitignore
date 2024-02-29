@@ -29,6 +29,8 @@ uploads
 report*
 # TODO: Remove the following if no longer needed
 hazenlib/data
+dump/
+tests/data
 
 # docs
 docs/_build

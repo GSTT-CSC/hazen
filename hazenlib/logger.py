@@ -4,6 +4,7 @@ import colorlog
 
 
 def configure_logger():
+    """Configure logger for the standard out (command line) stream and save logs to file"""
     # make log formatters
     stream_formatter = colorlog.ColoredFormatter(
         "%(log_color)s%(asctime)-15s %(levelname).1s "

@@ -16,3 +16,5 @@ Contributors
 * `Elizabeth Stamou <https://github.com/elizaGSTT>`_
 * `Francesco Padormo <https://github.com/francescopadormo>`_
 * `Sian Culley <https://github.com/superresolusian>`_
+* `Molly Buckley <https://github.com/mollybuckley>`_
+* `Becky Thornley <https://github.com/RebeccaThornley>`_

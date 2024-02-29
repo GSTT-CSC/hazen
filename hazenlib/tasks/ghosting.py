@@ -114,11 +114,11 @@ class Ghosting(HazenTask):
         """_summary_
 
         Args:
-            bounding_box (_type_): _description_
+            bounding_box (tuple): left_column, right_column, upper_row, lower_row
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            _type_: _description_
+            tuple of np.array: _description_
         """
         left_column, right_column, upper_row, lower_row = bounding_box
         centre_row = (upper_row + lower_row) // 2
@@ -139,14 +139,14 @@ class Ghosting(HazenTask):
         return dcm.InPlanePhaseEncodingDirection
 
     def get_background_rois(self, dcm, signal_centre):
-        """_summary_
+        """Create pixel arrays of the selected regions of interest from the background
 
         Args:
-            dcm (_type_): _description_
-            signal_centre (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
+            signal_centre (list): x, y coordinates of the centre
 
         Returns:
-            _type_: _description_
+            list: pixel arrays of the background regions of interest
         """
         background_rois = []
 
@@ -205,11 +205,11 @@ class Ghosting(HazenTask):
         """_summary_
 
         Args:
-            background_rois (_type_): _description_
+            background_rois (list): list of pixel arrays (np.array)
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            _type_: _description_
+            list: _description_
         """
         slices = [
             (
@@ -230,11 +230,11 @@ class Ghosting(HazenTask):
 
         Args:
             signal_bounding_box (_type_): _description_
-            dcm (_type_): _description_
+            dcm (pydicom.Dataset): DICOM image object
             slice_radius (int, optional): _description_. Defaults to 5.
 
         Returns:
-            _type_: _description_
+            tuple of lists: corresponding to eligible_columns, eligible_rows
         """
         left_column, right_column, upper_row, lower_row = signal_bounding_box
 

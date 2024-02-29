@@ -24,7 +24,9 @@ Algorithm overview
 6. Plot the local noise as a heat map.
 
 
-.. [1] McCann, A. J., Workman, A., & McGrath, C. (2013). A quick and robust
+References
+===========
+McCann, A. J., Workman, A., & McGrath, C. (2013). A quick and robust
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """

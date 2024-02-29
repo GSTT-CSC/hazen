@@ -66,15 +66,15 @@ class ACRSpatialResolution(HazenTask):
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
-        rot_ang = self.ACR_obj.rot_angle
+        # Identify relevant slices
+        mtf_dcm = self.ACR_obj.slice_stack[0]
+
+        rot_ang = self.ACR_obj.determine_rotation(mtf_dcm.pixel_array)
         if np.abs(rot_ang) < 3:
             logger.warning(
                 f"The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which "
                 f"is less than the recommended 3 degrees. Results will be unreliable!"
             )
-
-        # Identify relevant slices
-        mtf_dcm = self.ACR_obj.dcms[0]
 
         # Initialise results dictionary
         results = self.init_result_dict()
@@ -99,18 +99,17 @@ class ACRSpatialResolution(HazenTask):
 
         return results
 
-    def y_position_for_ramp(self, res, img, cxy):
+    def y_position_for_ramp(self, img, cxy):
         """Identify the y coordinate of the ramp
 
         Args:
-            res (int or float): dcm.PixelSpacing
             img (np.ndarray): dcm.pixelarray
             cxy (tuple): x,y coordinates of the object centre
 
         Returns:
             float: y coordinate of the ramp min
         """
-        investigate_region = int(np.ceil(5.5 / res[1]).item())
+        investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
 
         if np.mod(investigate_region, 2) == 0:
             investigate_region = investigate_region + 1
@@ -379,12 +378,11 @@ class ACRSpatialResolution(HazenTask):
 
         return erf_fit
 
-    def calculate_MTF(self, erf, res):
+    def calculate_MTF(self, erf):
         """Calculate MTF
 
         Args:
             erf (np.array): array of ?
-            res (float): dcm.PixelSpacing
 
         Returns:
             tuple: freq, lsf, MTF
@@ -398,7 +396,10 @@ class ACRSpatialResolution(HazenTask):
         )
 
         resamp_factor = 8
-        Fs = 1 / (np.sqrt(np.mean(np.square(res))) * (1 / resamp_factor))
+        Fs = 1 / (
+            np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
+            * (1 / resamp_factor)
+        )
         freq = n * Fs / N
         MTF = np.abs(np.fft.fftshift(np.fft.fft(lsf)))
         MTF = MTF / np.max(MTF)
@@ -438,11 +439,10 @@ class ACRSpatialResolution(HazenTask):
             tuple: _description_
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing
-        cxy = self.ACR_obj.centre
+        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
 
         ramp_x = int(cxy[0])
-        ramp_y = self.y_position_for_ramp(res, img, cxy)
+        ramp_y = self.y_position_for_ramp(img, cxy)
         width = int(13 * img.shape[0] / 256)
         crop_img = self.crop_image(img, ramp_x, ramp_y, width)
         edge_type, direction = self.get_edge_type(crop_img)
@@ -450,8 +450,8 @@ class ACRSpatialResolution(HazenTask):
         erf = self.sample_erf(crop_img, slope, edge_type)
         erf_fit = self.fit_erf(erf)
 
-        freq, lsf_raw, MTF_raw = self.calculate_MTF(erf, res)
-        _, lsf_fit, MTF_fit = self.calculate_MTF(erf_fit, res)
+        freq, lsf_raw, MTF_raw = self.calculate_MTF(erf)
+        _, lsf_fit, MTF_fit = self.calculate_MTF(erf_fit)
 
         eff_raw_res = self.identify_MTF50(freq, MTF_raw)
         eff_fit_res = self.identify_MTF50(freq, MTF_fit)
