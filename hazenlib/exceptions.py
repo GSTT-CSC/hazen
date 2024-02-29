@@ -3,6 +3,7 @@
 
 class ShapeError(Exception):
     """Base exception for shapes."""
+
     def __init__(self, shape, msg=None):
         if msg is None:
             # Default message
@@ -13,6 +14,7 @@ class ShapeError(Exception):
 
 class ShapeDetectionError(ShapeError):
     """Shape not found"""
+
     def __init__(self, shape, msg=None):
         if msg is None:
             # Default message
@@ -23,6 +25,7 @@ class ShapeDetectionError(ShapeError):
 
 class MultipleShapesError(ShapeDetectionError):
     """Shape not found"""
+
     def __init__(self, shape, msg=None):
         if msg is None:
             # Default message
@@ -34,5 +37,6 @@ class MultipleShapesError(ShapeDetectionError):
 
 class ArgumentCombinationError(Exception):
     """Argument combination not valid."""
-    def __init__(self, msg='Invalid combination of arguments.'):
+
+    def __init__(self, msg="Invalid combination of arguments."):
         super().__init__(msg)
