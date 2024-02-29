@@ -27,10 +27,7 @@ from hazenlib.ACRObject import ACRObject
 
 
 class ACRSliceThickness(HazenTask):
-    """Slice width measurement class for DICOM images of the ACR phantom
-
-    Inherits from HazenTask class
-    """
+    """Slice width measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -39,13 +36,13 @@ class ACRSliceThickness(HazenTask):
 
     def run(self) -> dict:
         """Main function for performing slice width measurement
-        using slice 1 from the ACR phantom image set
+        using slice 1 from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
-        slice_thickness_dcm = self.ACR_obj.dcms[0]
+        slice_thickness_dcm = self.ACR_obj.slice_stack[0]
 
         # Initialise results dictionary
         results = self.init_result_dict()
@@ -66,19 +63,18 @@ class ACRSliceThickness(HazenTask):
 
         return results
 
-    def find_ramps(self, img, centre, res):
-        """Find ramps in the pixel array
+    def find_ramps(self, img, centre):
+        """Find ramps in the pixel array and return the co-ordinates of their location.
 
         Args:
-            img (np.array): dcm.pixel_array
+            img (np.ndarray): dcm.pixel_array
             centre (list): x,y coordinates of the phantom centre
-            res (float): dcm.PixelSpacing
 
         Returns:
-            tuple: x and y coordinates of ramp
+            tuple: x and y coordinates of ramp.
         """
         # X
-        investigate_region = int(np.ceil(5.5 / res[1]).item())
+        investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
 
         if np.mod(investigate_region, 2) == 0:
             investigate_region = investigate_region + 1
@@ -129,16 +125,17 @@ class ACRSliceThickness(HazenTask):
         return x, y
 
     def FWHM(self, data):
-        """Calculate full width at half maximum
+        """Calculate full width at half maximum of the line profile.
 
         Args:
-            data (np.array): curve
+            data (np.ndarray): slice profile curve.
 
         Returns:
-            tuple: simple interpolation of half max points
+            tuple: co-ordinates of the half-maximum points on the line profile.
         """
         baseline = np.min(data)
         data -= baseline
+        # TODO create separate variable so that data value isn't being overwritten
         half_max = np.max(data) * 0.5
 
         # Naive attempt
@@ -148,17 +145,18 @@ class ACRSliceThickness(HazenTask):
 
         # Interpolation
         def simple_interp(x_start, ydata):
-            """Simple interpolation
+            """Simple interpolation - obtaining more accurate x co-ordinates.
 
             Args:
-                x_start (int or float): x coordinate of the half maximum
-                ydata (np.array): y coordinates
+                x_start (int or float): x coordinate of the half maximum.
+                ydata (np.ndarray): y coordinates.
 
             Returns:
-                float: true x coordinate of the half maximum
+                float: true x coordinate of the half maximum.
             """
+            # TODO: account for if x_start is too close to len(ydata)
+            # causes error for sagittal data
             x_init = x_start - 5
-            x_pts = np.arange(x_start - 5, x_start + 5)
             x_pts = np.arange(x_init, x_init + 11)
             y_pts = ydata[x_pts]
 
@@ -171,28 +169,26 @@ class ACRSliceThickness(HazenTask):
         FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
             half_max_crossing_indices[-1], data
         )
-
         return FWHM_pts
 
     def get_slice_thickness(self, dcm):
-        """Measure slice thickness
+        """Measure slice thickness. \n
+        Identify the ramps, measure the line profile, measure the FWHM, and use this to calculate the slice thickness.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object
+            dcm (pydicom.Dataset): DICOM image object.
 
         Returns:
-            float: measured slice thickness
+            float: measured slice thickness.
         """
         img = dcm.pixel_array
-        res = dcm.PixelSpacing  # In-plane resolution from metadata
-        cxy = self.ACR_obj.centre
-        x_pts, y_pts = self.find_ramps(img, cxy, res)
+        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        x_pts, y_pts = self.find_ramps(img, cxy)
 
-        interp_factor = 5
+        interp_factor = 1 / 5
+        interp_factor_dx = interp_factor * self.ACR_obj.dx
         sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
-        new_sample = np.arange(
-            1, x_pts[1] - x_pts[0] + (1 / interp_factor), (1 / interp_factor)
-        )
+        new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
         offsets = np.arange(-3, 4)
         ramp_length = np.zeros((2, 7))
 
@@ -220,8 +216,8 @@ class ACRSliceThickness(HazenTask):
                 scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
             ]
             fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
-            ramp_length[0, i] = (1 / interp_factor) * np.diff(fwhm[0]) * res[0]
-            ramp_length[1, i] = (1 / interp_factor) * np.diff(fwhm[1]) * res[0]
+            ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
+            ramp_length[1, i] = interp_factor_dx * np.diff(fwhm[1])
 
             line_store.append(interp_lines)
             fwhm_store.append(fwhm)
@@ -230,6 +226,7 @@ class ACRSliceThickness(HazenTask):
             dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
 
         dz = dz[~np.isnan(dz)]
+        # TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
         z_ind = np.argmin(np.abs(dcm.SliceThickness - dz))
 
         slice_thickness = dz[z_ind]
@@ -241,11 +238,11 @@ class ACRSliceThickness(HazenTask):
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
 
-            x_ramp = new_sample * res[0]
+            x_ramp = new_sample * self.ACR_obj.dx
             x_extent = np.max(x_ramp)
             y_ramp = line_store[z_ind][1]
             y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
+            max_loc = np.argmax(y_ramp) * interp_factor_dx
 
             axes[0].imshow(img)
             axes[0].scatter(cxy[0], cxy[1], c="red")
@@ -262,8 +259,8 @@ class ACRSliceThickness(HazenTask):
             axes[1].axis("off")
             axes[1].set_title("Line Profiles")
 
-            xmin = fwhm_store[z_ind][1][0] * (1 / interp_factor) * res[0] / x_extent
-            xmax = fwhm_store[z_ind][1][1] * (1 / interp_factor) * res[0] / x_extent
+            xmin = fwhm_store[z_ind][1][0] * interp_factor_dx / x_extent
+            xmax = fwhm_store[z_ind][1][1] * interp_factor_dx / x_extent
 
             axes[2].plot(
                 x_ramp,
@@ -285,13 +282,13 @@ class ACRSliceThickness(HazenTask):
             axes[2].grid()
             axes[2].legend(loc="best")
 
-            xmin = fwhm_store[z_ind][0][0] * (1 / interp_factor) * res[0] / x_extent
-            xmax = fwhm_store[z_ind][0][1] * (1 / interp_factor) * res[0] / x_extent
-            x_ramp = new_sample * res[0]
+            xmin = fwhm_store[z_ind][0][0] * interp_factor_dx / x_extent
+            xmax = fwhm_store[z_ind][0][1] * interp_factor_dx / x_extent
+            x_ramp = new_sample * self.ACR_obj.dx
             x_extent = np.max(x_ramp)
             y_ramp = line_store[z_ind][0]
             y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * (1 / interp_factor) * res[0]
+            max_loc = np.argmax(y_ramp) * interp_factor_dx
 
             axes[3].plot(
                 x_ramp,

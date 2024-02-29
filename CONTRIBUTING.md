@@ -3,6 +3,8 @@
 - [2) How to make and test code changes](#2-how-to-make-and-test-code-changes)
 - [3) Developer Process for Contributing](#3-developer-process-for-contributing)
 - [4) Release Process](#4-release-process)
+- [5) Update Documentation](#5-update-documentation)
+
 
 ## 1) Introduction
 
@@ -102,6 +104,7 @@ For a new release: <br>
    - Update version number in `hazenlib/_version.py`
      - This is automatically propagated into `docs/source/conf.py`, `hazenlib/__init__.py` and `setup.cfg`
    - Update version number and date released in `CITATION.cff`
+   - Updated contributors in `docs/source/contributors.rst`
 6. Create a [new Release](https://github.com/GSTT-CSC/hazen/releases)
    - Create a tag equal to the version number, e.g. 1.2.1
    - Select `main` as the Target branch from which to create the Release
@@ -148,4 +151,18 @@ For a new release: <br>
 > - Updated cli-test.yml by @laurencejackson in #195
 > - Release/0.5.2 by @tomaroberts in #196
 
+## 5) Update Documentation
 
+Create rst files describing the structure of the hazen Python Package
+```
+# in an active hazen virtual environment in the root of the project
+# the command below specifies that sphinx should look for scripts in the hazenlib folder
+# and output rst files into the docs/source folder
+sphinx-apidoc -o docs/source hazenlib
+
+# next, from within the docs/ folder
+cd docs/
+# create/update the html files for the documentation
+make html  -f Makefile
+# opening the docs/source/index.html in a web browser allows a preview of the generated docs
+```
