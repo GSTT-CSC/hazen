@@ -1,20 +1,24 @@
+import sys
 import logging
 import colorlog
-import sys
 
 
 def configure_logger():
-
+    """Configure logger for the standard out (command line) stream and save logs to file"""
     # make log formatters
-    stream_formatter = colorlog.ColoredFormatter('%(log_color)s%(asctime)-15s %(levelname).1s '
-                                                 '[%(filename)s:%(funcName)s:%(lineno)d] %(message)s',
-                                                 '%Y-%m-%d %H:%M:%S')
+    stream_formatter = colorlog.ColoredFormatter(
+        "%(log_color)s%(asctime)-15s %(levelname).1s "
+        "[%(filename)s:%(funcName)s:%(lineno)d] %(message)s",
+        "%Y-%m-%d %H:%M:%S",
+    )
 
-    file_formatter = logging.Formatter('%(asctime)-15s %(levelname).1s [%(filename)s:%(funcName)s:%(lineno)d]'
-                                       ' %(message)s',
-                                       '%Y-%m-%d %H:%M:%S')
+    file_formatter = logging.Formatter(
+        "%(asctime)-15s %(levelname).1s [%(filename)s:%(funcName)s:%(lineno)d]"
+        " %(message)s",
+        "%Y-%m-%d %H:%M:%S",
+    )
 
-    log_file = 'Hazen_logger.log'
+    log_file = "Hazen_logger.log"
     stream_handler = logging.StreamHandler(sys.stdout)
     file_handler = logging.FileHandler(log_file)
 
