@@ -1,3 +1,4 @@
+import sys
 import cv2
 import scipy
 import skimage
@@ -39,7 +40,9 @@ class ACRObject:
         """
         orientation, positions = determine_orientation(dcm_list)
         if orientation == "unexpected":
-            pass
+            # TODO: error out for now,
+            # in future allow manual override based on optional CLI args
+            sys.exit()
 
         logger.info("image orientation is %s", orientation)
         dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
@@ -150,6 +153,7 @@ class ACRObject:
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
+        print(int(180 / (2 * dy)))
 
         detected_circles = cv2.HoughCircles(
             img_grad,
@@ -158,9 +162,10 @@ class ACRObject:
             param1=50,
             param2=30,
             minDist=int(180 / dy),
-            minRadius=int(180 / (2 * dy)),
+            minRadius=80,  # int(180 / (2 * dy)),
             maxRadius=int(200 / (2 * dx)),
         ).flatten()
+        print(detected_circles)
 
         centre_x = round(detected_circles[0])
         centre_y = round(detected_circles[1])
