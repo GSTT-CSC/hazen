@@ -1,280 +1,296 @@
-import numpy as np
 import cv2
 import scipy
 import skimage
+import numpy as np
+from hazenlib.logger import logger
+from hazenlib.utils import determine_orientation, detect_circle
 
 
 class ACRObject:
+    """Base class for performing tasks on image sets of the ACR phantom. \n
+    acquired following the ACR Large phantom guidelines
+    """
+
     def __init__(self, dcm_list):
-        # Initialise an ACR object from a stack of images of the ACR phantom
-        self.dcm_list = dcm_list
-        # Load files as DICOM and their pixel arrays into 'images'
-        self.images, self.dcms = self.sort_images()
-        # Store the DCM object of slice 7 as it is used often
-        self.slice7_dcm = self.dcms[6]
-        # Store the pixel spacing value from the first image (expected to be the same for all)
-        self.pixel_spacing = self.dcms[0].PixelSpacing
-        # Check whether images of the phantom are the correct orientation
-        self.orientation_checks()
-        # Determine whether image rotation is necessary
-        self.rot_angle = self.determine_rotation()
-        # Find the centre coordinates of the phantom (circle)
-        self.centre, self.radius = self.find_phantom_center()
-        # Store a mask image of slice 7 for reusability
-        self.mask_image = self.get_mask_image(self.images[6])
+        """Initialise an ACR object instance
 
-    def sort_images(self):
-        """
-        Sort a stack of images based on slice position.
-
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
-        dcm_stack : pyd
-            A sorted stack of dicoms
+        Args:
+            dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
         """
 
-        z = np.array([dcm.ImagePositionPatient[2] for dcm in self.dcm_list])
-        dicom_stack = [self.dcm_list[i] for i in np.argsort(z)]
-        img_stack = [dicom.pixel_array for dicom in dicom_stack]
+        # # Initialise an ACR object from a list of images of the ACR phantom
+        # Store pixel spacing value from the first image (expected to be the same for all)
+        self.dx, self.dy = dcm_list[0].PixelSpacing
 
-        return img_stack, dicom_stack
+        # Perform sorting of the input DICOM list based on position
+        sorted_dcms = self.sort_dcms(dcm_list)
 
-    def orientation_checks(self):
+        # Perform sorting of the image slices based on phantom orientation
+        self.slice_stack = self.order_phantom_slices(sorted_dcms)
+
+    def sort_dcms(self, dcm_list):
+        """Sort a stack of DICOM images based on slice position.
+
+        Args:
+            dcm_list (list): list of pyDICOM image objects
+
+        Returns:
+            list: sorted list of pydicom.Dataset objects
         """
-        Perform orientation checks on a set of images to determine if slice order inversion or an
-        LR orientation swap is required.
+        orientation, positions = determine_orientation(dcm_list)
+        if orientation == "unexpected":
+            pass
 
-        Description
-        -----------
-        This function analyzes the given set of images and their associated DICOM objects to determine if any
-        adjustments are needed to restore the correct slice order and view orientation.
+        logger.info("image orientation is %s", orientation)
+        dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
+        # img_stack = [dcm.pixel_array for dcm in dcm_stack]
+
+        return dcm_stack  # , img_stack
+
+    def order_phantom_slices(self, dcm_list):
+        """Determine slice order based on the detection of the small circle in the first slice
+        # or an LR orientation swap is required. \n
+
+        # This function analyzes the given set of images and their associated DICOM objects to determine if any
+        # adjustments are needed to restore the correct slice order and view orientation.
+
+        Args:
+            dcm_list (list): list of pyDICOM image objects
+
+        Returns:
+            list: sorted list of pydicom.Dataset objects corresponding to ordered phantom slices
         """
-        test_images = (self.images[0], self.images[-1])
-        dx = self.pixel_spacing[0]
+        # Check whether the circle is on the first or last slice
 
-        normalised_images = [cv2.normalize(
-                                src=image, dst=None, alpha=0, beta=255,
-                                norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U
-                            ) for image in test_images]
+        # Get pixel array of first and last slice
+        first_slice = dcm_list[0].pixel_array
+        last_slice = dcm_list[-1].pixel_array
+        # Detect circles in the first and last slice
+        detected_circles_first = detect_circle(first_slice, self.dx)
+        detected_circles_last = detect_circle(last_slice, self.dx)
 
-        # search for circle in first slice of ACR phantom dataset with radius of ~11mm
-        detected_circles = [cv2.HoughCircles(
-                                norm_image, cv2.HOUGH_GRADIENT, 1,
-                                param1=50, param2=30,
-                                minDist=int(180 / dx),
-                                minRadius=int(5 / dx),
-                                maxRadius=int(16 / dx)
-                            ) for norm_image in normalised_images]
+        # It is assumed that only the first or the last slice has circles
+        if detected_circles_first is not None and detected_circles_last is None:
+            # If first slice has the circle then slice order is correct
+            logger.info("Slice order inversion is not required.")
+            return dcm_list
+        if detected_circles_first is None and detected_circles_last is not None:
+            # If last slice has the circle then slice order needs to be reversed
+            logger.info("Performing slice order inversion.")
+            return dcm_list[::-1]
 
-        if detected_circles[0] is not None:
-            true_circle = detected_circles[0].flatten()
-        else:
-            true_circle = detected_circles[1].flatten()
+        logger.debug("Neither slices had a circle detected")
+        return dcm_list
 
-        if detected_circles[0] is None and detected_circles[1] is not None:
-            print('Performing slice order inversion to restore correct slice order.')
-            self.images.reverse()
-            self.dcms.reverse()
-        else:
-            print('Slice order inversion not required.')
+        # if true_circle[0] > self.images[0].shape[0] // 2:
+        #     print("Performing LR orientation swap to restore correct view.")
+        #     flipped_images = [np.fliplr(image) for image in self.images]
+        #     for index, dcm in enumerate(self.dcms):
+        #         dcm.PixelData = flipped_images[index].tobytes()
+        # else:
+        #     print("LR orientation swap not required.")
 
-        if true_circle[0] > self.images[0].shape[0] // 2:
-            print('Performing LR orientation swap to restore correct view.')
-            flipped_images = [np.fliplr(image) for image in self.images]
-            for index, dcm in enumerate(self.dcms):
-                dcm.PixelData = flipped_images[index].tobytes()
-        else:
-            print('LR orientation swap not required.')
+    @staticmethod
+    def determine_rotation(img):
+        """Determine the rotation angle of the phantom using edge detection and the Hough transform.
 
-    def determine_rotation(self):
+        Args:
+            img (np.ndarray): pixel array of a DICOM object
+
+        Returns:
+            float: The rotation angle in degrees.
         """
-        Determine the rotation angle of the phantom using edge detection and the Hough transform.
-
-        Returns
-        ------
-        rot_angle : float
-            The rotation angle in degrees.
-        """
-
-        thresh = cv2.threshold(self.images[0], 127, 255, cv2.THRESH_BINARY)[1]
-
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+
+        thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)[1]
         dilate = cv2.morphologyEx(thresh, cv2.MORPH_DILATE, kernel)
         diff = cv2.absdiff(dilate, thresh)
 
         h, theta, d = skimage.transform.hough_line(diff)
         _, angles, _ = skimage.transform.hough_line_peaks(h, theta, d)
 
-        angle = np.rad2deg(scipy.stats.mode(angles)[0][0])
-        rot_angle = angle + 90 if angle < 0 else angle - 90
+        if len(angles) >= 1:
+            angle = np.rad2deg(scipy.stats.mode(angles, keepdims=False).mode)
+            if angle < 0:
+                rot_angle = angle + 90
+            else:
+                rot_angle = angle - 90
+        else:
+            rot_angle = 0
+        logger.info("Phantom is rotated by %s degrees", rot_angle)
 
         return rot_angle
 
-    def rotate_images(self):
+    def rotate_images(self, dcm_list, rot_angle):
+        """Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
+
+        Args:
+            dcm_list (list): list of pyDICOM image objects
+            rot_angle (float): angle in degrees that image (pixel array) should be rotated by
+
+        Returns:
+            list of np.ndarray: The rotated images.
         """
-        Rotate the images by a specified angle. The value range and dimensions of the image are preserved.
+        rotated_images = skimage.transform.rotate(
+            dcm_list, rot_angle, resize=False, preserve_range=True
+        )
+        return rotated_images
 
-        Returns
-        -------
-        np.array:
-            The rotated images.
+    @staticmethod
+    def find_phantom_center(img, dx, dy):
+        """Find the center of the ACR phantom in a given slice (pixel array) \n
+        using the Hough circle detector on a blurred image.
+
+        Args:
+            img (np.ndarray): pixel array of the DICOM image.
+
+        Returns:
+            tuple of ints: (x, y) coordinates of the center of the image
         """
 
-        return skimage.transform.rotate(self.images, self.rot_angle, resize=False, preserve_range=True)
-
-    def find_phantom_center(self):
-        """
-        Find the center of the ACR phantom by filtering the uniformity slice and using the Hough circle detector.
-
-
-        Returns
-        -------
-        centre  : tuple
-            Tuple of ints representing the (x, y) center of the image.
-        """
-        img = self.images[6]
-        dx, dy = self.pixel_spacing
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
         img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
 
         detected_circles = cv2.HoughCircles(
-                                img_grad, cv2.HOUGH_GRADIENT, 1,
-                                param1=50, param2=30,
-                                minDist=int(180 / dy),
-                                minRadius=int(180 / (2 * dy)),
-                                maxRadius=int(200 / (2 * dx))
-                            ).flatten()
+            img_grad,
+            cv2.HOUGH_GRADIENT,
+            1,
+            param1=50,
+            param2=30,
+            minDist=int(180 / dy),
+            minRadius=int(180 / (2 * dy)),
+            maxRadius=int(200 / (2 * dx)),
+        ).flatten()
 
-        centre = [int(i) for i in detected_circles[:2]]
-        radius = int(detected_circles[2])
-        return centre, radius
+        centre_x = round(detected_circles[0])
+        centre_y = round(detected_circles[1])
+        radius = round(detected_circles[2])
 
-    def get_mask_image(self, image, mag_threshold=0.05, open_threshold=500):
-        """
+        return (centre_x, centre_y), radius
+
+    def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
+        """Create a masked pixel array. \n
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
-        Returns
-        -------
-        np.array:
-            The masked image.
+        Args:
+            image (np.ndarray): pixel array of the dicom
+            mag_threshold (float, optional): magnitude threshold. Defaults to 0.07.
+            open_threshold (int, optional): open threshold. Defaults to 500.
+
+        Returns:
+            np.ndarray: the masked image
         """
-        test_mask = self.circular_mask(self.centre, (80 // self.pixel_spacing[0]), image.shape)
+        centre, _ = self.find_phantom_center(image, self.dx, self.dy)
+        test_mask = self.circular_mask(centre, (80 // self.dx), image.shape)
         test_image = image * test_mask
         test_vals = test_image[np.nonzero(test_image)]
-        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(image):
-            print('Large intensity variations detected in image. Using local thresholding!')
-            initial_mask = skimage.filters.threshold_sauvola(image, window_size=3, k=0.95)
+        if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
+            image
+        ):
+            print(
+                "Large intensity variations detected in image. Using local thresholding!"
+            )
+            initial_mask = skimage.filters.threshold_sauvola(
+                image, window_size=3, k=0.95
+            )
         else:
             initial_mask = image > mag_threshold * np.max(image)
 
-        opened_mask = skimage.morphology.area_opening(initial_mask, area_threshold=open_threshold)
+        opened_mask = skimage.morphology.area_opening(
+            initial_mask, area_threshold=open_threshold
+        )
         final_mask = skimage.morphology.convex_hull_image(opened_mask)
 
         return final_mask
 
     @staticmethod
     def circular_mask(centre, radius, dims):
-        """
-        Sort a stack of images based on slice position.
+        """Generates a circular mask using given centre coordinates and a given radius. Generates a linspace grid the
+        size of the given dimensions and checks whether each point on the linspace grid is within the desired radius
+        from the given centre coordinates. Each linspace value within the chosen radius then becomes part of the mask.
 
-        Parameters
-        ----------
-        centre : tuple
-            The centre coordinates of the circular mask.
-        radius : int
-            The radius of the circular mask.
-        dims   : tuple
-            The dimensions of the circular mask.
 
-        Returns
-        -------
-        img_stack : np.array
-            A sorted stack of images, where each image is represented as a 2D numpy array.
+        Args:
+            centre (tuple): centre coordinates of the circular mask.
+            radius (int): radius of the circular mask.
+            dims (tuple): dimensions to create the base linspace grid from.
+
+        Returns:
+            np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
         """
         # Define a circular logical mask
         x = np.linspace(1, dims[0], dims[0])
         y = np.linspace(1, dims[1], dims[1])
 
         X, Y = np.meshgrid(x, y)
-        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius ** 2
+        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius**2
 
         return mask
 
-    def measure_orthogonal_lengths(self, mask):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+    def measure_orthogonal_lengths(self, mask, slice_index):
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        mask    : ndarray of bool
-            Boolean array of the image.
+        Args:
+            mask (np.ndarray): Boolean array of the image where pixel values meet threshold
 
         Returns:
-        ----------
-        length_dict : dict
-            A dictionary containing the following information for both horizontal and vertical line profiles:
-            'Horizontal Start'      | 'Vertical Start' : tuple of int
-                Horizontal/vertical starting point of the object.
-            'Horizontal End'        | 'Vertical End' : tuple of int
-                Horizontal/vertical ending point of the object.
-            'Horizontal Extent'     | 'Vertical Extent' : ndarray of int
-                Indices of the non-zero elements of the horizontal/vertical line profile.
-            'Horizontal Distance'   | 'Vertical Distance' : float
-                The horizontal/vertical length of the object.
+            dict: a dictionary with the following:
+                'Horizontal Start'      | 'Vertical Start' : tuple of int
+                    Horizontal/vertical starting point of the object.
+                'Horizontal End'        | 'Vertical End' : tuple of int
+                    Horizontal/vertical ending point of the object.
+                'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
+                    Indices of the non-zero elements of the horizontal/vertical line profile.
+                'Horizontal Distance'   | 'Vertical Distance' : float
+                    The horizontal/vertical length of the object.
         """
         dims = mask.shape
-        dx, dy = self.pixel_spacing
+        (vertical, horizontal), radius = self.find_phantom_center(
+            self.slice_stack[slice_index].pixel_array, self.dx, self.dy
+        )
 
-        horizontal_start = (self.centre[1], 0)
-        horizontal_end = (self.centre[1], dims[0] - 1)
+        horizontal_start = (horizontal, 0)
+        horizontal_end = (horizontal, dims[0] - 1)
         horizontal_line_profile = skimage.measure.profile_line(
-                            mask, horizontal_start, horizontal_end)
+            mask, horizontal_start, horizontal_end
+        )
         horizontal_extent = np.nonzero(horizontal_line_profile)[0]
-        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * dx
+        horizontal_distance = (horizontal_extent[-1] - horizontal_extent[0]) * self.dx
 
-        vertical_start = (0, self.centre[0])
-        vertical_end = (dims[1] - 1, self.centre[0])
+        vertical_start = (0, vertical)
+        vertical_end = (dims[1] - 1, vertical)
         vertical_line_profile = skimage.measure.profile_line(
-                            mask, vertical_start, vertical_end)
+            mask, vertical_start, vertical_end
+        )
         vertical_extent = np.nonzero(vertical_line_profile)[0]
-        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * dy
+        vertical_distance = (vertical_extent[-1] - vertical_extent[0]) * self.dy
 
         length_dict = {
-            'Horizontal Start': horizontal_start,
-            'Horizontal End': horizontal_end,
-            'Horizontal Extent': horizontal_extent,
-            'Horizontal Distance': horizontal_distance,
-            'Vertical Start': vertical_start,
-            'Vertical End': vertical_end,
-            'Vertical Extent': vertical_extent,
-            'Vertical Distance': vertical_distance
+            "Horizontal Start": horizontal_start,
+            "Horizontal End": horizontal_end,
+            "Horizontal Extent": horizontal_extent,
+            "Horizontal Distance": horizontal_distance,
+            "Vertical Start": vertical_start,
+            "Vertical End": vertical_end,
+            "Vertical Extent": vertical_extent,
+            "Vertical Distance": vertical_distance,
         }
 
         return length_dict
 
     @staticmethod
     def rotate_point(origin, point, angle):
-        """
-        Compute the horizontal and vertical lengths of a mask, based on the centroid.
+        """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
-        Parameters:
-        ----------
-        origin : tuple
-            The coordinates of the point around which the rotation is performed.
-        point  : tuple
-            The coordinates of the point to rotate.
-        angle  : int
-            Angle in degrees.
+        Args:
+            origin (tuple): The coordinates of the point around which the rotation is performed.
+            point (tuple): The coordinates of the point to rotate.
+            angle (int): Angle in degrees.
 
         Returns:
-        ----------
-        x_prime : float
-            A float representing the x coordinate of the desired point after being rotated around an origin.
-        y_prime : float
-            A float representing the y coordinate of the desired point after being rotated around an origin.
+            tuple of float: Floats representing the x and y coordinates of the input point
+            after being rotated around an origin.
         """
         theta = np.radians(angle)
         c, s = np.cos(theta), np.sin(theta)
@@ -285,30 +301,26 @@ class ACRObject:
 
     @staticmethod
     def find_n_highest_peaks(data, n, height=1):
-        """
-        Find the indices and amplitudes of the N highest peaks within a 1D array.
+        """Find the indices and amplitudes of the N highest peaks within a 1D array.
 
-        Parameters:
-        ----------
-        data    : np.array
-            The array containing the data to perform peak extraction on.
-        n       : int
-            The coordinates of the point to rotate.
-        height  : int or float
-            The amplitude threshold for peak identification.
+        Args:
+            data (np.ndarray): pixel array containing the data to perform peak extraction on
+            n (int): The coordinates of the point to rotate
+            height (int, optional): The amplitude threshold for peak identification. Defaults to 1.
 
         Returns:
-        ----------
-        peak_locs       : np.array
-            A numpy array containing the indices of the N highest peaks identified.
-        peak_heights    : np.array
-            A numpy array containing the amplitudes of the N highest peaks identified.
+            tuple of np.ndarray:
+                peak_locs: A numpy array containing the indices of the N highest peaks identified. \n
+                peak_heights: A numpy array containing the amplitudes of the N highest peaks identified.
+
         """
         peaks = scipy.signal.find_peaks(data, height)
-        pk_heights = peaks[1]['peak_heights']
+        pk_heights = peaks[1]["peak_heights"]
         pk_ind = peaks[0]
 
-        peak_heights = pk_heights[(-pk_heights).argsort()[:n]]  # find n highest peak amplitudes
+        peak_heights = pk_heights[
+            (-pk_heights).argsort()[:n]
+        ]  # find n highest peak amplitudes
         peak_locs = pk_ind[(-pk_heights).argsort()[:n]]  # find n highest peak locations
 
         return np.sort(peak_locs), np.sort(peak_heights)
