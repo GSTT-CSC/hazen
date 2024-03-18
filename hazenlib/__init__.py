@@ -36,6 +36,7 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
+import os
 import sys
 import json
 import inspect
@@ -181,7 +182,8 @@ def main():
         else:
             # Slice Position task, all ACR tasks except SNR
             # may be enhanced, may be multi-frame
-            print("Processing", files)
+            fns = [os.path.basename(fn) for fn in files]
+            print("Processing", fns)
             task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 
