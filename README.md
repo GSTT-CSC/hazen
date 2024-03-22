@@ -33,12 +33,12 @@ and the MagNET Test Objects collection of phantoms.
 
 The hazen Tasks provide the following measurements within these phantoms:
 - Signal-to-noise ratio (SNR)
-- Spatial resolution (will not receive future updates)
+- Spatial resolution
 - Slice position
 - Slice width
 - Uniformity
 - Ghosting
-- MR relaxometry (will not receive future updates)
+- MR relaxometry
 
 Each Task outputs numerical results to the user's terminal. Below is an output from the `hazen snr` Task performed on 
 some example MRI data:
