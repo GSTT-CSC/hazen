@@ -15,28 +15,19 @@ matplotlib.use("Agg")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
-    """Collect files in the folder into a list if they are parsable DICOMs
+    """Collect files with pixel_array into a list
 
     Args:
-        folder (str): path to folder
-        sort (bool, optional): whether to sort file list based on InstanceNumber. Defaults to False.
+        folder (str): path to folder to check
 
     Returns:
-        list: full path to DICOM files found within a folder
+        list: paths to DICOM image files (may be multi-framed)
     """
-    if sort:
-        file_list = [
-            os.path.join(folder, x)
-            for x in os.listdir(folder)
-            if is_dicom_file(os.path.join(folder, x))
-        ]
-        file_list.sort(key=lambda x: pydicom.dcmread(x).InstanceNumber)
-    else:
-        file_list = [
-            os.path.join(folder, x)
-            for x in os.listdir(folder)
-            if is_dicom_file(os.path.join(folder, x))
-        ]
+    file_list = []
+    for file in os.listdir(folder):
+        file_path = os.path.join(folder, file)
+        if has_pixel_array(file_path):
+            file_list.append(file_path)
     return file_list
 
 
@@ -61,6 +52,27 @@ def is_dicom_file(filename):
         return False
 
 
+def has_pixel_array(filename) -> bool:
+    """Check whether DICOM object has pixel_array that can be used for calc
+
+    Args:
+        filename (str): path to file to be checked
+
+    Returns:
+        bool: True/False whether pixel_array is available
+    """
+
+    try:
+        dcm = pydicom.dcmread(filename)
+        # while enhanced DICOMs have a pixel_array, it's shape is in the format
+        # (# frames, x_dim, y_dim)
+        img = dcm.pixel_array
+        return True
+    except:
+        logger.debug("%s does not contain image data", filename)
+        return False
+
+
 def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     """Check if file is an enhanced DICOM file
 
@@ -73,7 +85,8 @@ def is_enhanced_dicom(dcm: pydicom.Dataset) -> bool:
     Returns:
         bool: True or False whether file is an enhanced DICOM
     """
-    if dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4.1":
+
+    if dcm.SOPClassUID in ["1.2.840.10008.5.1.4.1.1.4.1", "EnhancedMRImageStorage"]:
         return True
     elif dcm.SOPClassUID == "1.2.840.10008.5.1.4.1.1.4":
         return False
@@ -222,9 +235,16 @@ def get_TR(dcm: pydicom.Dataset) -> float:
     """
     # TODO: explore what type of DICOM files do not have RepetitionTime in DICOM header
     try:
-        TR = dcm.RepetitionTime
+        if is_enhanced_dicom(dcm):
+            TR = (
+                dcm.SharedFunctionalGroupsSequence[0]
+                .MRTimingAndRelatedParametersSequence[0]
+                .RepetitionTime
+            )
+        else:
+            TR = dcm.RepetitionTime
     except:
-        print("Warning: Could not find Repetition Time. Using default value of 1000 ms")
+        logger.warning("Could not find Repetition Time. Using default value of 1000 ms")
         TR = 1000
     return TR
 
@@ -241,8 +261,8 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     try:
         rows = dcm.Rows
     except:
-        print(
-            "Warning: Could not find Number of matrix rows. Using default value of 256"
+        logger.warning(
+            "Could not find Number of matrix rows. Using default value of 256"
         )
         rows = 256
 
@@ -261,11 +281,30 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     try:
         columns = dcm.Columns
     except:
-        print(
-            "Warning: Could not find matrix size (columns). Using default value of 256."
+        logger.warning(
+            "Could not find matrix size (columns). Using default value of 256."
         )
         columns = 256
     return columns
+
+
+def get_pe_direction(dcm: pydicom.Dataset):
+    """Get the PhaseEncodingDirection field from the DICOM header
+
+    Args:
+        dcm (pydicom.Dataset): DICOM image object
+
+    Returns:
+        str: value of the InPlanePhaseEncodingDirection field from the DICOM header
+    """
+    if is_enhanced_dicom(dcm):
+        return (
+            dcm.SharedFunctionalGroupsSequence[0]
+            .MRFOVGeometrySequence[0]
+            .InPlanePhaseEncodingDirection
+        )
+    else:
+        return dcm.InPlanePhaseEncodingDirection
 
 
 def get_field_of_view(dcm: pydicom.Dataset):
@@ -307,17 +346,25 @@ def get_field_of_view(dcm: pydicom.Dataset):
     return fov
 
 
-def get_image_orientation(iop):
+def get_image_orientation(dcm):
     """
     From http://dicomiseasy.blogspot.com/2013/06/getting-oriented-using-image-plane.html
 
     Args:
-        iop (list): values of dcm.ImageOrientationPatient - list of float
+        dcm (list): values of dcm.ImageOrientationPatient - list of float
 
     Returns:
         str: Sagittal, Coronal or Transverse
     """
-    # TODO: check that ImageOrientationPatient field is always available (every manufacturer and enhanced)
+    if is_enhanced_dicom(dcm):
+        iop = (
+            dcm.PerFrameFunctionalGroupsSequence[0]
+            .PlaneOrientationSequence[0]
+            .ImageOrientationPatient
+        )
+    else:
+        iop = dcm.ImageOrientationPatient
+
     iop_round = [round(x) for x in iop]
     plane = np.cross(iop_round[0:3], iop_round[3:6])
     plane = [abs(x) for x in plane]

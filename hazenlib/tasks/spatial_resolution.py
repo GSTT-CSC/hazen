@@ -18,7 +18,7 @@ import cv2 as cv
 import numpy as np
 from numpy.fft import fftfreq
 
-import hazenlib.utils
+from hazenlib.utils import rescale_to_byte, get_pixel_size, get_pe_direction
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 
@@ -413,11 +413,11 @@ class SpatialResolution(HazenTask):
 
         return u, esf
 
-    def calculate_mtf_for_edge(self, dicom, edge):
-        pixels = dicom.pixel_array
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf_for_edge(self, dcm, edge):
+        pixels = dcm.pixel_array
+        pe = get_pe_direction(dcm)
 
-        img = hazenlib.utils.rescale_to_byte(pixels)  # rescale for OpenCV operations
+        img = rescale_to_byte(pixels)  # rescale for OpenCV operations
         thresh = self.thresh_image(img)
         circle = self.get_circles(img)
         circle_radius = circle[0][0][2]
@@ -430,7 +430,7 @@ class SpatialResolution(HazenTask):
         edge_arr = self.get_edge_roi(pixels, centre)
         void_arr = self.get_void_roi(pixels, circle)
         signal_arr = self.get_signal_roi(pixels, edge, centre, circle_radius)
-        spacing = hazenlib.utils.get_pixel_size(dicom)
+        spacing = get_pixel_size(dcm)
         mean = np.mean([void_arr, signal_arr])
         x_edge, y_edge, edge_arr = self.get_edge(edge_arr, mean, spacing)
         angle, intercept = self.get_edge_angle_and_intercept(x_edge, y_edge)
@@ -495,24 +495,22 @@ class SpatialResolution(HazenTask):
             axes[10].set_xlabel("lp/mm")
             logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
             img_path = os.path.realpath(
-                os.path.join(
-                    self.report_path, f"{self.img_desc(dicom)}_{pe}_{edge}.png"
-                )
+                os.path.join(self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png")
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
         return res
 
-    def calculate_mtf(self, dicom) -> tuple:
-        pe = dicom.InPlanePhaseEncodingDirection
+    def calculate_mtf(self, dcm) -> tuple:
+        pe = get_pe_direction(dcm)
         pe_result, fe_result = None, None
 
         if pe == "COL":
-            pe_result = self.calculate_mtf_for_edge(dicom, "top")
-            fe_result = self.calculate_mtf_for_edge(dicom, "right")
+            pe_result = self.calculate_mtf_for_edge(dcm, "top")
+            fe_result = self.calculate_mtf_for_edge(dcm, "right")
         elif pe == "ROW":
-            pe_result = self.calculate_mtf_for_edge(dicom, "right")
-            fe_result = self.calculate_mtf_for_edge(dicom, "top")
+            pe_result = self.calculate_mtf_for_edge(dcm, "right")
+            fe_result = self.calculate_mtf_for_edge(dcm, "top")
 
         return pe_result, fe_result

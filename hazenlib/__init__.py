@@ -36,6 +36,7 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
+import os
 import sys
 import json
 import inspect
@@ -43,20 +44,21 @@ import logging
 import importlib
 
 from docopt import docopt
-from hazenlib.utils import get_dicom_files
+from pydicom import dcmread
+from hazenlib.logger import logger
+from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
 
-"""
-Hazen is designed to measure the same parameters from multiple images.
-While some tasks require a set of multiple images (within the same folder),
-such as slice position, SNR and all ACR tasks,
-the majority of the calculations are performed on a single image at a time,
-and bulk processing all images in the input folder with the same task.
+"""Hazen is designed to measure the same parameters from multiple images.
+    While some tasks require a set of multiple images (within the same folder),
+    such as slice position, SNR and all ACR tasks,
+    the majority of the calculations are performed on a single image at a time,
+    and bulk processing all images in the input folder with the same task.
 
-In Sep 2023 a design decision was made to pass the minimum number of files
-to the task.run() functions.
-Below is a list of the single image tasks where the task.run() will be called
-on each image in the folder, while other tasks are being passed ALL image files.
+    In Sep 2023 a design decision was made to pass the minimum number of files
+    to the task.run() functions.
+    Below is a list of the single image tasks where the task.run() will be called
+    on each image in the folder, while other tasks are being passed ALL image files.
 """
 single_image_tasks = [
     "ghosting",
@@ -109,7 +111,6 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
 def main():
     """Main entrypoint to hazen"""
     arguments = docopt(__doc__, version=__version__)
-    files = get_dicom_files(arguments["<folder>"])
 
     # Set common options
     log_levels = {
@@ -129,6 +130,12 @@ def main():
     report = arguments["--report"]
     report_dir = arguments["--output"] if arguments["--output"] else None
     verbose = arguments["--verbose"]
+
+    logger.debug("The following files were identified as valid DICOMs:")
+    files = get_dicom_files(arguments["<folder>"])
+    logger.debug(
+        "%s task will be set off on %s images", arguments["<task>"], len(files)
+    )
 
     # Parse the task and optional arguments:
     if arguments["snr"] or arguments["<task>"] == "snr":
@@ -165,6 +172,7 @@ def main():
         selected_task = arguments["<task>"]
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
+            # for now these are most likely not enhanced, single-frame
             for file in files:
                 task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
@@ -173,6 +181,9 @@ def main():
             return
         else:
             # Slice Position task, all ACR tasks except SNR
+            # may be enhanced, may be multi-frame
+            fns = [os.path.basename(fn) for fn in files]
+            print("Processing", fns)
             task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 
