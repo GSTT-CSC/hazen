@@ -318,9 +318,7 @@ class SNR(HazenTask):
         try:
             logger.debug("Performing phantom shape detection.")
             shape_detector = hazenlib.utils.ShapeDetector(arr=dcm.pixel_array)
-            orientation = hazenlib.utils.get_image_orientation(
-                dcm.ImageOrientationPatient
-            )
+            orientation = hazenlib.utils.get_image_orientation(dcm)
 
             if orientation in ["Sagittal", "Coronal"]:
                 logger.debug("Orientation = sagittal or coronal.")
@@ -373,8 +371,8 @@ class SNR(HazenTask):
             tuple of float: SNR and normalised SNR values
 
         """
-        col, row = self.get_object_centre(dcm=dcm)
-        noise_img = self.get_noise_image(dcm=dcm)
+        col, row = self.get_object_centre(dcm)
+        noise_img = self.get_noise_image(dcm)
 
         signal = [
             np.mean(roi)
@@ -446,7 +444,7 @@ class SNR(HazenTask):
         Returns:
             tuple of float: SNR and normalised SNR values
         """
-        col, row = self.get_object_centre(dcm=dcm1)
+        col, row = self.get_object_centre(dcm1)
 
         difference = np.subtract(
             dcm1.pixel_array.astype("int"), dcm2.pixel_array.astype("int")
