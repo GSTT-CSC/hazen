@@ -109,7 +109,7 @@ class Uniformity(HazenTask):
         """
         arr = dcm.pixel_array
         shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
-        orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
+        orientation = hazenlib.utils.get_image_orientation(dcm)
 
         if orientation in ["Sagittal", "Coronal"]:
             # orientation is sagittal to patient
