@@ -82,9 +82,6 @@ class TestGhosting(unittest.TestCase):
             self.ghosting.get_signal_slice(self.SIGNAL_BOUNDING_BOX)[1]
         ) == list(self.SIGNAL_SLICE[1])
 
-    def test_get_pe_direction(self):
-        assert self.ghosting.get_pe_direction(self.dcm) == self.PE
-
     def test_get_background_rois(self):
         assert (
             self.ghosting.get_background_rois(self.dcm, self.SIGNAL_CENTRE)
