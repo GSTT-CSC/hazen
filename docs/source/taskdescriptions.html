@@ -1,0 +1,560 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<title>Task descriptions</title>
+<style type="text/css">
+
+/*
+:Author: David Goodger (goodger@python.org)
+:Id: $Id: html4css1.css 7952 2016-07-26 18:15:59Z milde $
+:Copyright: This stylesheet has been placed in the public domain.
+
+Default cascading style sheet for the HTML output of Docutils.
+
+See http://docutils.sf.net/docs/howto/html-stylesheets.html for how to
+customize this style sheet.
+*/
+
+/* used to remove borders from tables and images */
+.borderless, table.borderless td, table.borderless th {
+  border: 0 }
+
+table.borderless td, table.borderless th {
+  /* Override padding for "table.docutils td" with "! important".
+     The right padding separates the table cells. */
+  padding: 0 0.5em 0 0 ! important }
+
+.first {
+  /* Override more specific margin styles with "! important". */
+  margin-top: 0 ! important }
+
+.last, .with-subtitle {
+  margin-bottom: 0 ! important }
+
+.hidden {
+  display: none }
+
+.subscript {
+  vertical-align: sub;
+  font-size: smaller }
+
+.superscript {
+  vertical-align: super;
+  font-size: smaller }
+
+a.toc-backref {
+  text-decoration: none ;
+  color: black }
+
+blockquote.epigraph {
+  margin: 2em 5em ; }
+
+dl.docutils dd {
+  margin-bottom: 0.5em }
+
+object[type="image/svg+xml"], object[type="application/x-shockwave-flash"] {
+  overflow: hidden;
+}
+
+/* Uncomment (and remove this text!) to get bold-faced definition list terms
+dl.docutils dt {
+  font-weight: bold }
+*/
+
+div.abstract {
+  margin: 2em 5em }
+
+div.abstract p.topic-title {
+  font-weight: bold ;
+  text-align: center }
+
+div.admonition, div.attention, div.caution, div.danger, div.error,
+div.hint, div.important, div.note, div.tip, div.warning {
+  margin: 2em ;
+  border: medium outset ;
+  padding: 1em }
+
+div.admonition p.admonition-title, div.hint p.admonition-title,
+div.important p.admonition-title, div.note p.admonition-title,
+div.tip p.admonition-title {
+  font-weight: bold ;
+  font-family: sans-serif }
+
+div.attention p.admonition-title, div.caution p.admonition-title,
+div.danger p.admonition-title, div.error p.admonition-title,
+div.warning p.admonition-title, .code .error {
+  color: red ;
+  font-weight: bold ;
+  font-family: sans-serif }
+
+/* Uncomment (and remove this text!) to get reduced vertical space in
+   compound paragraphs.
+div.compound .compound-first, div.compound .compound-middle {
+  margin-bottom: 0.5em }
+
+div.compound .compound-last, div.compound .compound-middle {
+  margin-top: 0.5em }
+*/
+
+div.dedication {
+  margin: 2em 5em ;
+  text-align: center ;
+  font-style: italic }
+
+div.dedication p.topic-title {
+  font-weight: bold ;
+  font-style: normal }
+
+div.figure {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+div.footer, div.header {
+  clear: both;
+  font-size: smaller }
+
+div.line-block {
+  display: block ;
+  margin-top: 1em ;
+  margin-bottom: 1em }
+
+div.line-block div.line-block {
+  margin-top: 0 ;
+  margin-bottom: 0 ;
+  margin-left: 1.5em }
+
+div.sidebar {
+  margin: 0 0 0.5em 1em ;
+  border: medium outset ;
+  padding: 1em ;
+  background-color: #ffffee ;
+  width: 40% ;
+  float: right ;
+  clear: right }
+
+div.sidebar p.rubric {
+  font-family: sans-serif ;
+  font-size: medium }
+
+div.system-messages {
+  margin: 5em }
+
+div.system-messages h1 {
+  color: red }
+
+div.system-message {
+  border: medium outset ;
+  padding: 1em }
+
+div.system-message p.system-message-title {
+  color: red ;
+  font-weight: bold }
+
+div.topic {
+  margin: 2em }
+
+h1.section-subtitle, h2.section-subtitle, h3.section-subtitle,
+h4.section-subtitle, h5.section-subtitle, h6.section-subtitle {
+  margin-top: 0.4em }
+
+h1.title {
+  text-align: center }
+
+h2.subtitle {
+  text-align: center }
+
+hr.docutils {
+  width: 75% }
+
+img.align-left, .figure.align-left, object.align-left, table.align-left {
+  clear: left ;
+  float: left ;
+  margin-right: 1em }
+
+img.align-right, .figure.align-right, object.align-right, table.align-right {
+  clear: right ;
+  float: right ;
+  margin-left: 1em }
+
+img.align-center, .figure.align-center, object.align-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+table.align-center {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.align-left {
+  text-align: left }
+
+.align-center {
+  clear: both ;
+  text-align: center }
+
+.align-right {
+  text-align: right }
+
+/* reset inner alignment in figures */
+div.align-right {
+  text-align: inherit }
+
+/* div.align-center * { */
+/*   text-align: left } */
+
+.align-top    {
+  vertical-align: top }
+
+.align-middle {
+  vertical-align: middle }
+
+.align-bottom {
+  vertical-align: bottom }
+
+ol.simple, ul.simple {
+  margin-bottom: 1em }
+
+ol.arabic {
+  list-style: decimal }
+
+ol.loweralpha {
+  list-style: lower-alpha }
+
+ol.upperalpha {
+  list-style: upper-alpha }
+
+ol.lowerroman {
+  list-style: lower-roman }
+
+ol.upperroman {
+  list-style: upper-roman }
+
+p.attribution {
+  text-align: right ;
+  margin-left: 50% }
+
+p.caption {
+  font-style: italic }
+
+p.credits {
+  font-style: italic ;
+  font-size: smaller }
+
+p.label {
+  white-space: nowrap }
+
+p.rubric {
+  font-weight: bold ;
+  font-size: larger ;
+  color: maroon ;
+  text-align: center }
+
+p.sidebar-title {
+  font-family: sans-serif ;
+  font-weight: bold ;
+  font-size: larger }
+
+p.sidebar-subtitle {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+p.topic-title {
+  font-weight: bold }
+
+pre.address {
+  margin-bottom: 0 ;
+  margin-top: 0 ;
+  font: inherit }
+
+pre.literal-block, pre.doctest-block, pre.math, pre.code {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+pre.code .ln { color: grey; } /* line numbers */
+pre.code, code { background-color: #eeeeee }
+pre.code .comment, code .comment { color: #5C6576 }
+pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
+pre.code .literal.string, code .literal.string { color: #0C5404 }
+pre.code .name.builtin, code .name.builtin { color: #352B84 }
+pre.code .deleted, code .deleted { background-color: #DEB0A1}
+pre.code .inserted, code .inserted { background-color: #A3D289}
+
+span.classifier {
+  font-family: sans-serif ;
+  font-style: oblique }
+
+span.classifier-delimiter {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+span.interpreted {
+  font-family: sans-serif }
+
+span.option {
+  white-space: nowrap }
+
+span.pre {
+  white-space: pre }
+
+span.problematic {
+  color: red }
+
+span.section-subtitle {
+  /* font-size relative to parent (h1..h6 element) */
+  font-size: 80% }
+
+table.citation {
+  border-left: solid 1px gray;
+  margin-left: 1px }
+
+table.docinfo {
+  margin: 2em 4em }
+
+table.docutils {
+  margin-top: 0.5em ;
+  margin-bottom: 0.5em }
+
+table.footnote {
+  border-left: solid 1px black;
+  margin-left: 1px }
+
+table.docutils td, table.docutils th,
+table.docinfo td, table.docinfo th {
+  padding-left: 0.5em ;
+  padding-right: 0.5em ;
+  vertical-align: top }
+
+table.docutils th.field-name, table.docinfo th.docinfo-name {
+  font-weight: bold ;
+  text-align: left ;
+  white-space: nowrap ;
+  padding-left: 0 }
+
+/* "booktabs" style (no vertical lines) */
+table.docutils.booktabs {
+  border: 0px;
+  border-top: 2px solid;
+  border-bottom: 2px solid;
+  border-collapse: collapse;
+}
+table.docutils.booktabs * {
+  border: 0px;
+}
+table.docutils.booktabs th {
+  border-bottom: thin solid;
+  text-align: left;
+}
+
+h1 tt.docutils, h2 tt.docutils, h3 tt.docutils,
+h4 tt.docutils, h5 tt.docutils, h6 tt.docutils {
+  font-size: 100% }
+
+ul.auto-toc {
+  list-style-type: none }
+
+</style>
+</head>
+<body>
+<div class="document" id="task-descriptions">
+<h1 class="title">Task descriptions</h1>
+
+<p>The <em>hazen</em> application provides automatic quantitative analysis for MRI data acquired with either the ACR phantom or MagNET phantoms. Analysis is based on guidance from IPEM<a href="#id1"><span class="problematic" id="id2">:footcite:p:`2017:ipem112`</span></a>, <a href="#id3"><span class="problematic" id="id4">:footcite:p:`1999:ipem80`</span></a>, ACR<a href="#id5"><span class="problematic" id="id6">:footcite:p:`2015:acrQC`</span></a> and MagNET.</p>
+<div class="system-message" id="id1">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 3); <em><a href="#id2">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<div class="system-message" id="id3">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 3); <em><a href="#id4">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<div class="system-message" id="id5">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 3); <em><a href="#id6">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<p>Please refer to <strong>acquisition requirements</strong> for detail related to the acquisition of phantom images, as well as <strong>input requirements</strong> for the required folder structure for hazen input.</p>
+<div class="section" id="signal-to-noise-ratio-snr">
+<h1>Signal-to-noise ratio (SNR)</h1>
+<p>SNR is a measure of how the signal and hence the pixel intensity in the image is affected by random fluctuations referred to as noise. Sources of noise can include the RF coil and receiver system or inhomogeneities in the magnetic field. The choice of sequence type and parameters also affect SNR.</p>
+<p>Hazen calculates the SNR using a subtraction method<a href="#id7"><span class="problematic" id="id8">:footcite:p:`2017:ipem112`</span></a> or a smoothing method<a href="#id9"><span class="problematic" id="id10">:footcite:p:`2013:mcann`</span></a>. A normalised SNR is also calculated which accounts for voxel size, bandwidth, repetition time and number of measurements.</p>
+<div class="system-message" id="id7">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 11); <em><a href="#id8">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<div class="system-message" id="id9">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 11); <em><a href="#id10">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<p>The subtraction method is considered more accurate and uses two identical single-slice images of a flood or uniform section of a phantom. The signal is measured in five regions of interest (ROI) placed across the phantom. The noise image is generated by subtracting the two acquisitions. Noise is measured as the standard deviation in each ROI in the noise image. The average of the SNR in the five ROIs is reported.</p>
+<p>The smoothing method uses a single slice of a flood or uniform section of a phantom. The signal is measured in five ROIs placed across the phantom. A smoothing filter is applied to the image to remove low-frequency trends and the noise image is generated by subtracting the smoothed image from the original image. Noise is measured as the standard deviation in the same five ROIs in the noise image. The average of the SNR in the five ROIs is reported.</p>
+<div class="section" id="acr">
+<h2>ACR</h2>
+<p>The <em>acr_snr</em> task measures SNR in the flood field region, on slice 7 of the ACR phantom. By default, the task uses the smoothing method and Hazen will output both the measured and normalised SNR. The subtraction method can be used by providing a second data set using the <em>subtract</em> task option. A more accurate normalised snr can be calculated with the <em>measured_slice_width</em> task option.</p>
+<div class="figure align-center">
+<img alt="/_static/snr_ROIs.png" src="/_static/snr_ROIs.png" />
+<p class="caption">Regions of interest used to measure SNR</p>
+</div>
+</div>
+<div class="section" id="magnet">
+<h2>MagNET</h2>
+<p>The <em>snr</em> task measures SNR on an image of the MagNET flood field test object (or any other flood field/uniform phantom). Depending on the number of images provided, Hazen will calculate SNR via the smoothing method or via both the smoothing and subtraction methods, and outputs measured and normalised SNR.  Measured slice width can be provided as a task option to give a more accurate normalised SNR.</p>
+</div>
+</div>
+<div class="section" id="snr-map">
+<h1>SNR map</h1>
+<p>The <em>snr map</em> task can be used with either the ACR phantom or MagNET flood field test object.</p>
+<p>The SNR map can show variation in SNR caused by smoothing filters. It also highlights small regions of low signal which could be caused by microbubbles or foreign bodies in the phantom. These inhomogeneities can erroneously reduce SNR measurements made by other methods.</p>
+<p>SNR is calculated for each voxel by calculating the SNR in an ROI centred on that voxel. SNR is calculated via the smoothing method.</p>
+</div>
+<div class="section" id="spatial-resolution">
+<h1>Spatial resolution</h1>
+<p>Spatial resolution describes the ability of any imaging system to distinguish small objects. For MRI, the higher the spatial frequencies acquired the smaller the pixel size and the better the spatial resolution.</p>
+<p>Factors affecting spatial resolution include magnetic field inhomogeneities, eddy currents, imperfections in the gradient system as well as filtering of the acquired spatial frequency data.</p>
+<p>High-contrast spatial resolution can be assessed quantitatively through the modulation transfer function (MTF) and line spread function (LSF)<a href="#id11"><span class="problematic" id="id12">:footcite:p:`2017:ipem112`</span></a>.</p>
+<div class="system-message" id="id11">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 46); <em><a href="#id12">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<p>The MTF describes how the range of spatial frequencies of an object are modulated during the image formation process. It can be calculated by taking the Fourier transformation of the line spread function (LSF), derived from measurement and differentiation of the edge response function (ERF), obtained by taking a profile across a sharp high-contrast step (e.g. the edge of a block).</p>
+<div class="section" id="id13">
+<h2>MagNET</h2>
+<p>The <em>spatial_resolution</em> task measures spatial resolution with the MagNET resolution test object by calculating the MTF from the edges of the Perspex block which is angled at 10 degrees to the horizontal and vertical.</p>
+<p>A square ROI is selected that encompasses the central Perspex block,  and an edge response function is generated for both the top and right edges of the block.  This is then used to determine the LSF and subsequent MTF for each edge. Hazen outputs the measurement of spatial resolution in both the frequency and phase encoding directions.</p>
+</div>
+</div>
+<div class="section" id="uniformity">
+<h1>Uniformity</h1>
+<p>Uniformity is a measure of the ability of the MRI system to produce a constant signal response over the imaging volume. Factors affecting uniformity include RF homogeneity, B0 homogeneity and eddy current correction.</p>
+<p>Uniformity can be quantified via either the fractional<a href="#id14"><span class="problematic" id="id15">:footcite:p:`1999:ipem80`</span></a> or integral<a href="#id16"><span class="problematic" id="id17">:footcite:p:`2015:acrQC`</span></a> uniformity method.</p>
+<div class="system-message" id="id14">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 60); <em><a href="#id15">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<div class="system-message" id="id16">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 60); <em><a href="#id17">backlink</a></em></p>
+Unknown interpreted text role &quot;footcite:p&quot;.</div>
+<div class="section" id="id18">
+<h2>ACR</h2>
+<p>The <em>acr_uniformity</em> task calculates percentage integral uniformity in slice 7 of the ACR phantom.</p>
+<p>A 200cm<sup>2</sup> ROI is first defined in the centre of the slice before placing 1cm<sup>2</sup> ROIs at every pixel within the large ROI. The mean pixel value of each 1cm<sup>2</sup> ROI is calculated and the minimum and maximum values are used to calculate integral uniformity.</p>
+<div class="figure align-center">
+<img alt="/_static/acr_uni_analysis.png" src="/_static/acr_uni_analysis.png" />
+<p class="caption">Regions of interest used to measure uniformity with the ACR phantom</p>
+</div>
+</div>
+<div class="section" id="id19">
+<h2>MagNET</h2>
+<p>The <em>uniformity</em> task calculates fractional uniformity for a single-slice image of the MagNET flood field test object.</p>
+<p>To measure fractional uniformity, the modal value in a 10x10 pixel ROI at the centre of the image is first measured. The average of ten 160-pixel profiles at the image centre is then taken in both the horizontal and vertical directions. Fractional uniformity is given by the fraction of pixels in the horizontal and vertical profiles that are within 90-110% of the centre modal value.</p>
+</div>
+</div>
+<div class="section" id="ghosting">
+<h1>Ghosting</h1>
+<p>Ghosting is a type of artefact that appears as repeated low intensity copies of the main object displaced within the image. Ghosting can occur due to a variety of causes, arising from the equipment or sequence parameters and even the object being scanned.</p>
+<div class="section" id="id20">
+<h2>ACR</h2>
+<p>The <em>acr_ghosting</em> task measures the ghosting ratio on slice 7 of the ACR phantom.</p>
+<p>The percent-signal ghosting is calculated by defining a large central 200cm<sup>2</sup> ROI and four elliptical 10cm<sup>2</sup> ROI’s in the background along the cardinal directions. The mean pixel value in each ROI is used to calculate the percent-signal ghosting.</p>
+<div class="figure align-center">
+<img alt="/_static/acr_ghosting_analysis.png" src="/_static/acr_ghosting_analysis.png" />
+<p class="caption">Regions of interest used to measure ghosting with the ACR phantom</p>
+</div>
+</div>
+<div class="section" id="id21">
+<h2>MagNET</h2>
+<p>The <em>ghosting</em> task measures the percent-signal ghosting using the small-bottle method as described in IPEM 112.</p>
+<p>Ghosting is measured by utilising ROI’s to evaluate the true phantom signal, the signal in regions of ghosting in line with the phantom in the phase-encoding direction and the background noise level. Hazen outputs a ghosting ratio for each echo time.</p>
+</div>
+</div>
+<div class="section" id="slice-position">
+<h1>Slice Position</h1>
+<p>Slice position accuracy tests how well the actual locations of slices differ from their prescribed locations. Slice selection accuracy depends on the homogeneity of B0, gradient linearity and proper calibration of gradient amplitudes.</p>
+<div class="section" id="id22">
+<h2>ACR</h2>
+<p>The <em>acr_slice_position</em> task measures slice position on slices 1 and 11 of the ACR phantom.</p>
+<p>The crossing wedges positioned at the superior and inferior ends of the phantom are visualised on slices 1 and 11 as adjacent dark bars. If there is perfect agreement between the nominal and measured slice position, then the bars will have equal length on the image. If the slice is displaced superiorly with respect to the vertex, the bar on the observer’s right (anatomical left) will be longer. If the slice is displaced inferiorly with respect to the vertex, the bar on the observer’s left will be longer. Hazen outputs the bar length difference, which is twice the slice position displacement, for both slices 1 and 11. A negative sign is assigned to an inferior displacement.</p>
+<div class="figure align-center">
+<img alt="/_static/acr_slice_position.png" src="/_static/acr_slice_position.png" style="width: 200px; height: 200px;" />
+<p class="caption">Slices 1 and 11 of the ACR phantom are used to measure slice position</p>
+</div>
+</div>
+<div class="section" id="id23">
+<h2>MagNET</h2>
+<p>The <em>slice_position</em> task uses the slice position MagNET test object.  The test object contains two angled glass rods and four parallel glass rods. The distance between the angled rods is used to measure the agreement between the nominal slice position and the measured slice position.  Hazen outputs both the maximum and average slice position error.</p>
+</div>
+</div>
+<div class="section" id="slice-width">
+<h1>Slice Width</h1>
+<p>Slice width is a measure of the slice thickness compared to the nominal slice thickness and is affected by the RF pulse shape, the homogeneity of the B0 field, and gradient linearity.</p>
+<div class="section" id="id24">
+<h2>ACR</h2>
+<p>The <em>acr_slice_thickness</em> task measures slice width on slice 1 of the ACR phantom where there are two crossing ramps inclined at equal and opposite angles to the acquisition plane. The full-width half-maximum of each ramp is determined and used to calculate slice thickness.</p>
+<div class="figure align-center">
+<img alt="/_static/acr_slice_width.png" src="/_static/acr_slice_width.png" />
+<p class="caption">Slice 1 of the ACR phantom is used to measure slice width</p>
+</div>
+</div>
+<div class="section" id="id25">
+<h2>MagNET</h2>
+<p>The <em>slice_width</em> task measures slice width with the MagNET geometric test object, which contains two angled glass plates. The full-width half-maximum of each ramp is used along with the known angle of the ramp to calculate slice width. The average of both ramps is then calculated. Hazen outputs the slice width along with measures of linearity and distortion- see <strong>Geometric accuracy</strong>.</p>
+</div>
+</div>
+<div class="section" id="geometric-accuracy">
+<h1>Geometric Accuracy</h1>
+<p>Geometric accuracy is a measure of the amount of geometric distortion within an image and is affected by the homogeneity of the B0 field. Geometric distortions are inherent to MRI systems and typically increase with distance from isocentre.</p>
+<div class="section" id="id26">
+<h2>ACR</h2>
+<p>The <em>acr_geometric_accuracy</em> task quantifies geometric distortion by measuring the phantom diameter on slice 1 and 5 and comparing this to the known diameter (19cm).</p>
+<p>On slice 1, the diameter is measured in the horizontal and vertical directions and on slice 5 the diameter is measured in the horizontal, vertical and two diagonal directions. Hazen outputs each measured distance as well as the maximum error, minimum error and coefficient of variation for all five measurements.</p>
+<div class="figure align-center">
+<img alt="/_static/acr_geom_measurements.png" src="/_static/acr_geom_measurements.png" />
+<p class="caption">Diameters on slices 1 and 5 used to measure geometric accuracy</p>
+</div>
+</div>
+<div class="section" id="id27">
+<h2>MagNET</h2>
+<p>The <em>slice_width</em> task measures geometric linearity and distortion for the MagNET geometric test object. The test object contains a series of Perspex rods which are used to make three horizontal and three vertical measures of distance. Hazen outputs each measured distance as well as the average in both directions. Geometric linearity can be quantified via the error between the measured distance and known distance.</p>
+<p>Geometric distortion is quantified via the coefficient of variation of the errors between the measured distance and actual distance. Hazen outputs the coefficient of variation in both directions.</p>
+</div>
+</div>
+<div class="section" id="relaxometry">
+<h1>Relaxometry</h1>
+<p>Relaxometry is measurement of relaxation times from MR images. Within <em>hazen</em>, we determine the T1 and T2 decay constants for the relaxometry spheres in the <a class="reference external" href="https://qmri.com/contrast-mri/">Caliber (HPD) system phantom</a>.</p>
+<p>Values are compared to published values (without temperature correction), and graphs of fit and phantom registration images can optionally be produced.</p>
+<p>To summarise the algorithm used, we:</p>
+<ol class="arabic simple">
+<li>Create <tt class="docutils literal">T1ImageStack</tt> or <tt class="docutils literal">T2ImageStack</tt> object which stores a list of individual DICOM files (as <tt class="docutils literal">pydicom</tt> objects) in the <tt class="docutils literal">.images</tt> attribute.</li>
+<li>Obtain the RT (rotation / translation) matrix to register the template image to the test image. Four template images are provided, one for each relaxation parameter (T1 or T2) on plates 4 and 5, and regression is performed on the first image in the sequence. We can optionally output the overlay image to visually check the fit.</li>
+<li>An ROI is generated for each target sphere using stored coordinates, the RT transformation above, and a structuring element (default is a 5x5 boxcar).</li>
+<li>Store pixel data for each ROI, at various times, in an <tt class="docutils literal">ROITimeSeries</tt> object. A list of these objects is stored in <tt class="docutils literal">ImageStack.ROI_time_series</tt>.</li>
+<li>Generate the fit function. For T1 this looks up TR for the given TI (using piecewise linear interpolation if required) and determines if a magnitude or signed image is used. No customisation is required for T2 measurements.</li>
+<li>Determine relaxation time (T1 or T2) by fitting the decay equation to the ROI data for each sphere. The published values of the relaxation times are used to seed the optimisation algorithm. For T2 fitting the input data are truncated for TE &gt; 5*T2 to avoid fitting Rician noise in magnitude images with low signal intensity. We can optionally plot and save the decay curves.</li>
+<li>Return plate number, relaxation type (T1 or T2), measured relaxation times, published relaxation times, and fractional differences in a dictionary.</li>
+</ol>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">As some scanners may require a longer TR for long TI values, this algorithm will accommodate a variation in TR with TI and incomplete recovery due to short TR.</p>
+</div>
+<div class="system-message">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 186)</p>
+<p>Unknown directive type &quot;todo&quot;.</p>
+<pre class="literal-block">
+.. todo::
+   - Template fit on bolt holes--possibly better with large rotation angles -have bolthole template, find 3 positions in template and image, figure out transformation.
+   - Template fit on outline image--poss run though edge detection algorithms then fit.
+   - Use normalised structuring element in ROITimeSeries. This will allow correct calculation of mean if elements are not 0 or 1.
+   - Get r-squared measure of fit.
+
+</pre>
+</div>
+</div>
+<div class="section" id="references">
+<h1>References</h1>
+<div class="system-message">
+<p class="system-message-title">System Message: ERROR/3 (<tt class="docutils">/Users/rebeccathornley/hazen/docs/source/taskdescriptions.rst</tt>, line 195)</p>
+<p>Unknown directive type &quot;footbibliography&quot;.</p>
+<pre class="literal-block">
+.. footbibliography::
+</pre>
+</div>
+</div>
+</div>
+</body>
+</html>
