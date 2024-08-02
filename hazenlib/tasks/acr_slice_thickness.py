@@ -197,8 +197,8 @@ class ACRSliceThickness(HazenTask):
         interp_factor_dx = interp_factor * self.ACR_obj.dx
         sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
         new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
-        offsets = np.arange(-3, 4)
-        ramp_length = np.zeros((2, 7))
+        offsets = np.arange(-10, 11)
+        ramp_length = np.zeros((2, 21))
 
         line_store = []
         fwhm_store = []
