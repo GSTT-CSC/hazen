@@ -188,7 +188,7 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        mask = self.ACR_obj.get_mask_image(img)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
         interp_factor = 1 / 5
