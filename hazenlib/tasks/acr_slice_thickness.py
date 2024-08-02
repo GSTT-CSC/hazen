@@ -189,6 +189,8 @@ class ACRSliceThickness(HazenTask):
         """
         img = dcm.pixel_array
         mask = self.ACR_obj.get_mask_image(img)
+        cx, cy = mask.shape[1] // 2, mask.shape[0] // 2
+        cxy=(cx,cy)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
         interp_factor = 1 / 5
