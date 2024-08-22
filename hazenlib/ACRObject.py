@@ -50,7 +50,6 @@ class ACRObject:
         logger.info("image orientation is %s", orientation)
         dcm_stack = [dcm_list[i] for i in np.argsort(positions)]
         # img_stack = [dcm.pixel_array for dcm in dcm_stack]
-
         return dcm_stack  # , img_stack
 
     def order_phantom_slices(self, dcm_list):

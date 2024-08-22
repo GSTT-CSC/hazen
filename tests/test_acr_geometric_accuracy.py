@@ -57,10 +57,7 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         metrics = np.round(metrics, 2)
         assert (metrics == self.distortion_metrics).all() == True
 
-
-# TODO: Add unit tests for Philips datasets.
-
-
+# TODO: Add unit tests for Philips datasets (when Philips data is available).
 class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     L1 = 190.42, 188.9
