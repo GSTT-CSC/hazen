@@ -90,7 +90,7 @@ class TestACRToolsCOR(TestACRTools):
         self.img7 = self.ACR_object.slice_stack[6].pixel_array
 
 
-# Siemens saggital
+# Siemens sagittal
 class TestACRToolsSAG(TestACRTools):
     rotation = -90.0
     centre = (130, 148)
