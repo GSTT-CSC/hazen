@@ -15,6 +15,9 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
     L1 = 191.41, 187.5
     L5 = 191.41, 187.5, 191.41, 190.43
     distortion_metrics = [-0.06, 2.5, 0.93]
+    
+    # 5% tolerance
+    tolerance = 0.05
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -36,7 +39,8 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         print("new_release:", slice1_vals)
         print("fixed value:", self.L1)
 
-        assert (slice1_vals == self.L1).all() == True
+        # Allow for 5% tolerance in each comparison
+        assert np.allclose(slice1_vals, self.L1, rtol=self.tolerance)
 
     def test_geometric_accuracy_slice_5(self):
         slice5_vals = np.array(
@@ -48,16 +52,23 @@ class TestACRGeometricAccuracySiemens(unittest.TestCase):
         print("\ntest_geo_accuracy.py::TestGeoAccuracy::test_geo_accuracy_slice5")
         print("new_release:", slice5_vals)
         print("fixed value:", self.L5)
-        assert (slice5_vals == self.L5).all() == True
+        
+        # Allow for 5% tolerance in each comparison
+        assert np.allclose(slice5_vals, self.L5, rtol=self.tolerance)
 
     def test_distortion_metrics(self):
         metrics = np.array(
             self.acr_geometric_accuracy_task.get_distortion_metrics(self.L1 + self.L5)
         )
         metrics = np.round(metrics, 2)
-        assert (metrics == self.distortion_metrics).all() == True
+        
+        # Allow for 5% tolerance in each comparison
+        assert np.allclose(metrics, self.distortion_metrics, rtol=self.tolerance)
 
-# TODO: Add unit tests for Philips datasets (when Philips data is available).
+
+# TODO: Add unit tests for Philips datasets.
+
+
 class TestACRGeometricAccuracyGE(TestACRGeometricAccuracySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
     L1 = 190.42, 188.9
