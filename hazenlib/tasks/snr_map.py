@@ -28,6 +28,7 @@ Algorithm overview
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
+
 from hazenlib.HazenTask import HazenTask
 
 import numpy as np
@@ -55,7 +56,6 @@ class SNRMap(HazenTask):
         # * Scale ROI distance to account for different image sizes.
         # * Pass kernel_len and roi_size parameters from command line.
 
-
     def run(self):
         """
         Returns SNR parametric map on flood phantom DICOM file.
@@ -70,12 +70,13 @@ class SNRMap(HazenTask):
         """
         results = self.init_result_dict()
         img_desc = self.img_desc(self.single_dcm)
-        results['file'] = img_desc
+        results["file"] = img_desc
 
         #  Create original, smoothed and noise images
         #  ==========================================
-        original, smoothed, noise = self.smooth(dcm=self.single_dcm,
-                                                kernel=self.kernel_len)
+        original, smoothed, noise = self.smooth(
+            dcm=self.single_dcm, kernel=self.kernel_len
+        )
 
         """
             #  Note: access NumPy arrays by column then row. E.g.
@@ -100,25 +101,30 @@ class SNRMap(HazenTask):
 
         #  Calculate SNR
         #  =============
-        snr = self.calc_snr( original, noise, roi_corners)
+        snr = self.calc_snr(original, noise, roi_corners)
 
         #  Generate local SNR parametric map
         #  =================================
         snr_map = self.calc_snr_map(original, noise)
 
-        results['measurement'] = {"snr by smoothing": round(snr, 2)}
+        results["measurement"] = {"snr by smoothing": round(snr, 2)}
 
         if self.report:
             #  Plot images
             #  ===========
-            fig_detailed = self.plot_detailed(original, smoothed, noise, snr,
-                                            snr_map, image_centre, roi_corners)
+            fig_detailed = self.plot_detailed(
+                original, smoothed, noise, snr, snr_map, image_centre, roi_corners
+            )
             fig_summary = self.plot_summary(snr_map, original, roi_corners)
 
             #  Save images
             #  ===========
-            detailed_image_path = os.path.join(self.report_path, f'{img_desc}_snr_map_detailed.png')
-            summary_image_path = os.path.join(self.report_path, f'{img_desc}_snr_map.png')
+            detailed_image_path = os.path.join(
+                self.report_path, f"{img_desc}_snr_map_detailed.png"
+            )
+            summary_image_path = os.path.join(
+                self.report_path, f"{img_desc}_snr_map.png"
+            )
 
             fig_detailed.savefig(detailed_image_path, dpi=300)
             fig_summary.savefig(summary_image_path, dpi=300)
@@ -126,10 +132,9 @@ class SNRMap(HazenTask):
             self.report_files.append(summary_image_path)
             self.report_files.append(detailed_image_path)
 
-            results['report_image'] = self.report_files
+            results["report_image"] = self.report_files
 
         return results
-
 
     def smooth(self, dcm, kernel: int = 9):
         """
@@ -149,11 +154,15 @@ class SNRMap(HazenTask):
         #  Warn if not 256 x 256 image
         #  TODO scale distances for other image sizes
         if original_image.shape != (256, 256):
-            logger.warning('Expected image size (256, 256). Image size is %r.'
-                            ' Algorithm untested with these dimensions.',
-                            original_image.shape)
+            logger.warning(
+                "Expected image size (256, 256). Image size is %r."
+                " Algorithm untested with these dimensions.",
+                original_image.shape,
+            )
 
-        normalised_kernel = skimage.morphology.square(kernel) / skimage.morphology.square(kernel).sum()
+        normalised_kernel = (
+            skimage.morphology.square(kernel) / skimage.morphology.square(kernel).sum()
+        )
         # kernel = kernel / kernel.sum()  # normalise kernel
         smooth_image = ndimage.filters.convolve(original_image, normalised_kernel)
 
@@ -171,7 +180,6 @@ class SNRMap(HazenTask):
 
         return original_image, smooth_image, noise_image
 
-
     def get_rois(self, smooth_image):
         """
         Identify phantom and generate ROI locations.
@@ -185,9 +193,8 @@ class SNRMap(HazenTask):
         self.mask = smooth_image > threshold
 
         #  Get centroid (=centre of mass for binary image) and convert to array
-        image_centre = \
-            np.array(ndimage.measurements.center_of_mass(self.mask))
-        logger.debug('image_centre = %r.', image_centre)
+        image_centre = np.array(ndimage.measurements.center_of_mass(self.mask))
+        logger.debug("image_centre = %r.", image_centre)
 
         #  Store corner of centre ROI, cast as int for indexing
         roi_corners = [np.rint(image_centre - self.roi_size / 2).astype(int)]
@@ -201,7 +208,6 @@ class SNRMap(HazenTask):
 
         return image_centre, roi_corners
 
-
     def calc_snr(self, original_image, noise_image, roi_corners):
         """
         Calculate SNR from original_image and noise_image.
@@ -210,8 +216,12 @@ class SNRMap(HazenTask):
         roi_noise = []
 
         for [x, y] in roi_corners:
-            roi_signal.append(original_image[x:x + self.roi_size, y:y + self.roi_size].mean())
-            roi_noise.append(noise_image[x:x + self.roi_size, y:y + self.roi_size].std(ddof=1))
+            roi_signal.append(
+                original_image[x : x + self.roi_size, y : y + self.roi_size].mean()
+            )
+            roi_noise.append(
+                noise_image[x : x + self.roi_size, y : y + self.roi_size].std(ddof=1)
+            )
             # Note: *.std(ddof=1) uses sample standard deviation, default ddof=0
             # uses population std dev. Not sure which is statistically correct,
             # but using ddof=1 for consistency with IDL code.
@@ -219,11 +229,9 @@ class SNRMap(HazenTask):
         roi_snr = np.array(roi_signal) / np.array(roi_noise)
         snr = roi_snr.mean()
 
-        logger.debug('ROIs signal=%r, noise=%r, snr=%r',
-                     roi_signal, roi_noise, roi_snr)
+        logger.debug("ROIs signal=%r, noise=%r, snr=%r", roi_signal, roi_noise, roi_snr)
 
         return snr
-
 
     def calc_snr_map(self, original_image, noise_image):
         """
@@ -235,14 +243,13 @@ class SNRMap(HazenTask):
         #  If you need a faster (less transparent) implementation, see:
         #  https://nickc1.github.io/python,/matlab/2016/05/17/Standard-Deviation-(Filters)-in-Matlab-and-Python.html
 
-        noise_map = ndimage.filters.generic_filter(noise_image,
-                            lambda x: np.std(x, ddof=1), size=self.roi_size)
-        signal_map = ndimage.filters.uniform_filter(original_image,
-                                                    size=self.roi_size)
+        noise_map = ndimage.filters.generic_filter(
+            noise_image, lambda x: np.std(x, ddof=1), size=self.roi_size
+        )
+        signal_map = ndimage.filters.uniform_filter(original_image, size=self.roi_size)
         snr_map = signal_map / noise_map
 
         return snr_map
-
 
     def draw_roi_rectangles(self, roi_corners, ax):
         """
@@ -260,9 +267,14 @@ class SNRMap(HazenTask):
 
         """
         for corner in roi_corners:
-            rect = patches.Rectangle(np.flip(corner), self.roi_size,
-                                     self.roi_size, linewidth=1, edgecolor='r',
-                                     facecolor='none')
+            rect = patches.Rectangle(
+                np.flip(corner),
+                self.roi_size,
+                self.roi_size,
+                linewidth=1,
+                edgecolor="r",
+                facecolor="none",
+            )
             ax.add_patch(rect)
 
     def plot_snr_map(self, snr_map, fig, ax):
@@ -279,16 +291,28 @@ class SNRMap(HazenTask):
         -------
         None
         """
-        para_im = ax.imshow(snr_map, cmap='viridis', vmin=0)
-        cax = fig.add_axes([ax.get_position().x1 + 0.01,
-                            ax.get_position().y0, 0.02,
-                            ax.get_position().height])
+        para_im = ax.imshow(snr_map, cmap="viridis", vmin=0)
+        cax = fig.add_axes(
+            [
+                ax.get_position().x1 + 0.01,
+                ax.get_position().y0,
+                0.02,
+                ax.get_position().height,
+            ]
+        )
         plt.colorbar(para_im, cax=cax)
-        ax.set_title('SNR map')
+        ax.set_title("SNR map")
 
-
-    def plot_detailed(self, original_image, smooth_image, noise_image,
-                      snr, snr_map, image_centre, roi_corners):
+    def plot_detailed(
+        self,
+        original_image,
+        smooth_image,
+        noise_image,
+        snr,
+        snr_map,
+        image_centre,
+        roi_corners,
+    ):
         """
         Create 4-image detailed SNR map plots
 
@@ -297,25 +321,26 @@ class SNRMap(HazenTask):
         fig : matplotlib.figure.Figure
             Handle to plot
         """
-        fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
-                                figsize=(8, 2.8))
-        fig.suptitle('SNR = %.2f (file: %s)'
-                     % (snr, os.path.basename(self.single_dcm.filename)))
-        axs[0].imshow(original_image, cmap='gray')
-        axs[0].set_title('Magnitude Image')
-        axs[1].imshow(smooth_image, cmap='gray')
-        axs[1].contour(self.mask, colors='y')
+        fig, axs = plt.subplots(1, 4, sharex=True, sharey=True, figsize=(8, 2.8))
+        fig.suptitle(
+            "SNR = %.2f (file: %s)" % (snr, os.path.basename(self.single_dcm.filename))
+        )
+        axs[0].imshow(original_image, cmap="gray")
+        axs[0].set_title("Magnitude Image")
+        axs[1].imshow(smooth_image, cmap="gray")
+        axs[1].contour(self.mask, colors="y")
         phantom_centre_marker = patches.Circle(
-            np.flip(np.rint(image_centre).astype('int')), color='y')
+            np.flip(np.rint(image_centre).astype("int")), color="y"
+        )
         axs[1].add_patch(phantom_centre_marker)
-        axs[1].set_title('Smoothed')
-        axs[2].imshow(noise_image, cmap='gray')
-        axs[2].set_title('Noise')
+        axs[1].set_title("Smoothed")
+        axs[2].imshow(noise_image, cmap="gray")
+        axs[2].set_title("Noise")
         self.draw_roi_rectangles(roi_corners, axs[0])
         self.draw_roi_rectangles(roi_corners, axs[2])
         self.plot_snr_map(snr_map, fig, axs[3])
         for ax in axs:
-            ax.axis('off')
+            ax.axis("off")
 
         return fig
 
@@ -333,14 +358,13 @@ class SNRMap(HazenTask):
             Handle to plot
 
         """
-        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True,
-                                figsize=(6, 2.8))
-        axs[0].imshow(original_image, cmap='gray')
-        axs[0].set_title('Magnitude Image')
+        fig, axs = plt.subplots(1, 2, sharex=True, sharey=True, figsize=(6, 2.8))
+        axs[0].imshow(original_image, cmap="gray")
+        axs[0].set_title("Magnitude Image")
 
         self.draw_roi_rectangles(roi_corners, axs[0])
         self.plot_snr_map(snr_map, fig, axs[1])
         for ax in axs:
-            ax.axis('off')
+            ax.axis("off")
 
         return fig

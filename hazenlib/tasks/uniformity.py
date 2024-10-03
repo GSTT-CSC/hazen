@@ -26,46 +26,62 @@ import numpy as np
 import hazenlib.utils
 import hazenlib.exceptions as exc
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
 
 
 class Uniformity(HazenTask):
+    """Task to measure uniformity using a MagNET phantom
+    No additional arguments.
+
+    Args:
+        HazenTask: inherits from the HazenTask class
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
     def run(self) -> dict:
+        """Main function to run task with specified args
+
+        Returns:
+            results (dict): dictionary of task - value pair and optionally
+                        an images key with value listing image paths
+        """
         results = self.init_result_dict()
-        results['file'] = self.img_desc(self.single_dcm)
+        results["file"] = self.img_desc(self.single_dcm)
 
         try:
-            horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(self.single_dcm)
-            results['measurement'] = {
+            horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(
+                self.single_dcm
+            )
+            results["measurement"] = {
                 "horizontal %": round(horizontal_uniformity, 2),
                 "vertical %": round(vertical_uniformity, 2),
-                }
+            }
         except Exception as e:
-            print(f"Could test not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}")
+            print(
+                f"Could test not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}"
+            )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results['report_image'] = self.report_files
+            results["report_image"] = self.report_files
 
         return results
 
     def mode(self, a, axis=0):
-        """
-        Finds the modal value of an array. From scipy.stats.mode
+        """Find the modal value of an array. From scipy.stats.mode
+        TODO: lookup whether np has a built-in mode function
 
-        Parameters:
-        ---------------
-        a: array
+        Args:
+            a (array): _description_
+            axis (int, optional): Defaults to 0.
 
         Returns:
-        ---------------
-        most_frequent: the modal value
-        old_counts: the number of times this value was counted (check this)
+            most_frequent: the modal value
+            old_counts: the number of times this value was counted (check this)
         """
         scores = np.unique(np.ravel(a))  # get ALL unique values
         test_shape = list(a.shape)
@@ -75,7 +91,7 @@ class Uniformity(HazenTask):
         most_frequent = None
 
         for score in scores:
-            template = (a == score)
+            template = a == score
             counts = np.expand_dims(np.sum(template, axis), axis)
             most_frequent = np.where(counts > old_counts, score, old_most_frequent)
             old_counts = np.maximum(counts, old_counts)
@@ -84,20 +100,33 @@ class Uniformity(HazenTask):
         return most_frequent, old_counts
 
     def get_object_centre(self, dcm):
+        """Find the centre coordinates of an object
+        Based on orientation of the phantom in the input image, this function
+        identifies the centre coords of a rectangle or circle.
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Raises:
+            Exception: checks for the orientation of the object
+
+        Returns:
+            x,y: a tuple of integer values corresponding to the indices
+        """
         arr = dcm.pixel_array
         shape_detector = hazenlib.utils.ShapeDetector(arr=arr)
         orientation = hazenlib.utils.get_image_orientation(dcm.ImageOrientationPatient)
 
-        if orientation in ['Sagittal', 'Coronal']:
+        if orientation in ["Sagittal", "Coronal"]:
             # orientation is sagittal to patient
             try:
-                (x, y), size, angle = shape_detector.get_shape('rectangle')
+                (x, y), size, angle = shape_detector.get_shape("rectangle")
             except exc.ShapeError:
                 raise
 
-        elif orientation == 'Transverse':
+        elif orientation == "Transverse":
             # orientation is axial
-            x, y, r = shape_detector.get_shape('circle')
+            x, y, r = shape_detector.get_shape("circle")
 
         else:
             raise Exception("Direction must be Transverse, Sagittal or Coronal.")
@@ -105,28 +134,45 @@ class Uniformity(HazenTask):
         return int(x), int(y)
 
     def get_fractional_uniformity(self, dcm):
+        """Identify a central ROI 160x160 and count the number of pixels within
+            +/-0.1 of the mode of a 10x10 ROI horizontally and vertically
+
+        Args:
+            dcm (DICOM): DICOM image object
+
+        Returns:
+            result (dict): dictionary of the horizontal and vertical
+                            uniformity values
+        """
 
         arr = dcm.pixel_array
         x, y = self.get_object_centre(dcm)
 
-        central_roi = arr[(y - 5):(y + 5), (x - 5):(x + 5)].flatten()
+        central_roi = arr[(y - 5) : (y + 5), (x - 5) : (x + 5)].flatten()
         # Create central 10x10 ROI and measure modal value
 
         central_roi_mode, mode_popularity = self.mode(central_roi)
 
         # Create 160-pixel profiles (horizontal and vertical, centred at x,y)
-        horizontal_roi = arr[(y - 5):(y + 5), (x - 80):(x + 80)]
+        horizontal_roi = arr[(y - 5) : (y + 5), (x - 80) : (x + 80)]
         horizontal_profile = np.mean(horizontal_roi, axis=0)
-        vertical_roi = arr[(y - 80):(y + 80), (x - 5):(x + 5)]
+        vertical_roi = arr[(y - 80) : (y + 80), (x - 5) : (x + 5)]
         vertical_profile = np.mean(vertical_roi, axis=1)
 
         # Count how many elements are within 0.9-1.1 times the modal value
         horizontal_count = np.where(
-            np.logical_and((horizontal_profile > (0.9 * central_roi_mode)), (horizontal_profile < (
-                    1.1 * central_roi_mode))))
+            np.logical_and(
+                (horizontal_profile > (0.9 * central_roi_mode)),
+                (horizontal_profile < (1.1 * central_roi_mode)),
+            )
+        )
         horizontal_count = len(horizontal_count[0])
-        vertical_count = np.where(np.logical_and((vertical_profile > (0.9 * central_roi_mode)), (vertical_profile < (
-                1.1 * central_roi_mode))))
+        vertical_count = np.where(
+            np.logical_and(
+                (vertical_profile > (0.9 * central_roi_mode)),
+                (vertical_profile < (1.1 * central_roi_mode)),
+            )
+        )
         vertical_count = len(vertical_count[0])
 
         # Calculate fractional uniformity
@@ -137,17 +183,32 @@ class Uniformity(HazenTask):
             import matplotlib.pyplot as plt
             from matplotlib.patches import Rectangle
             from matplotlib.collections import PatchCollection
+
             fig, ax = plt.subplots()
-            rects = [Rectangle((x - 5, y - 5), 10, 10, facecolor="None", edgecolor='red', linewidth=3),
-                     Rectangle((x - 80, y - 5), 160, 10, facecolor="None", edgecolor='green'),
-                     Rectangle((x - 5, y - 80), 10, 160, facecolor="None", edgecolor='yellow')]
+            rects = [
+                Rectangle(
+                    (x - 5, y - 5),
+                    10,
+                    10,
+                    facecolor="None",
+                    edgecolor="red",
+                    linewidth=3,
+                ),
+                Rectangle(
+                    (x - 80, y - 5), 160, 10, facecolor="None", edgecolor="green"
+                ),
+                Rectangle(
+                    (x - 5, y - 80), 10, 160, facecolor="None", edgecolor="yellow"
+                ),
+            ]
             pc = PatchCollection(rects, match_original=True)
-            ax.imshow(arr, cmap='gray')
+            ax.imshow(arr, cmap="gray")
             ax.add_collection(pc)
             ax.scatter(x, y, 5)
 
-            img_path = os.path.realpath(os.path.join(self.report_path,
-                                            f'{self.img_desc(dcm)}.png'))
+            img_path = os.path.realpath(
+                os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
+            )
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
