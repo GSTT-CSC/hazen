@@ -150,7 +150,7 @@ class ACRUniformity(HazenTask):
                 c="yellow",
             )
             axes[1].annotate(
-                "Min = " + str(np.round(sig_min, 1)),
+                "Min = " + str(np.round(min_value, 1)),
                 [min_loc[1], min_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
@@ -161,7 +161,7 @@ class ACRUniformity(HazenTask):
                 c="yellow",
             )
             axes[1].annotate(
-                "Max = " + str(np.round(sig_max, 1)),
+                "Max = " + str(np.round(max_value, 1)),
                 [max_loc[1], max_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
