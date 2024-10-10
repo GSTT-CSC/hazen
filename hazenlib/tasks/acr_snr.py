@@ -85,7 +85,7 @@ class ACRSNR(HazenTask):
                 for f in os.listdir(self.subtract)
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
-            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            data2 = [pydicom.dcmread(dicom, force=True) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
             results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
