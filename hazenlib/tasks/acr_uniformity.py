@@ -82,7 +82,6 @@ class ACRUniformity(HazenTask):
         dims = img.shape  # Dimensions of image
 
         mask=self.ACR_obj.get_mask_image(img)
-        masked_img=mask * img
         cx, cy = mask.shape[1] // 2, mask.shape[0] // 2
         (centre_x, centre_y) = (cx,cy)
 
@@ -92,11 +91,6 @@ class ACRUniformity(HazenTask):
 
         # TODO: ensure that shifting the sampling circle centre
         # is in the correct direction by a correct factor
-        lroi = self.ACR_obj.circular_mask([centre_x, centre_y + d_void], r_large, dims)
-        img_masked = lroi * img
-        rows, cols = (img)[0], (img)[1]
-
-        mean_array = np.zeros(img_masked.shape)
 
         results = []
         height,width = img.shape
@@ -106,7 +100,7 @@ class ACRUniformity(HazenTask):
                 y_grid, x_grid = np.ogrid[:height, :width]
                 mask = (x_grid - x)**2 +(y_grid - y)**2 <= r_small**2
                 roi_values = img[mask]
-                mean_val = np.mean(roi_values)#[roi_values != 0])
+                mean_val = np.mean(roi_values)
                 results.append((x, y, mean_val))
 
 
