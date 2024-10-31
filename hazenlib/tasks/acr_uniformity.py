@@ -92,9 +92,11 @@ class ACRUniformity(HazenTask):
         # TODO: ensure that shifting the sampling circle centre
         # is in the correct direction by a correct factor
 
+        # List to store the results from each small ROI
         results = []
         height,width = img.shape
 
+        # Iterating through the large ROI with the small ROI and storing the results
         for x in range(r_small, width - r_small):
             for y in range (r_small, height - r_small):
                 y_grid, x_grid = np.ogrid[:height, :width]
@@ -106,9 +108,12 @@ class ACRUniformity(HazenTask):
 
         filtered_results = []
         for x, y, mean_val in results:
+            # Distance from centre of small ROI to centre of large ROI
             distance_to_centre = np.sqrt((x - cx)**2 + (y - cy)**2)
             if distance_to_centre + r_small <= r_large:
+                # Filtering small ROIs to only include those that fall completely within the larger ROI
                 filtered_results.append((x, y, mean_val))
+        # Get the small ROIs containing the maximum mean and minimum mean values
         max_mean_tuple = max(filtered_results, key = lambda item: item[2])
         min_mean_tuple = min(filtered_results, key=lambda item: item[2])
         max_value = max_mean_tuple[2]
@@ -118,6 +123,7 @@ class ACRUniformity(HazenTask):
         min_loc = [x_min, y_min]
         max_loc = [x_max, y_max]
 
+        # Uniformity calculation
         piu = 100 * (1 - (max_value - min_value) / (max_value + min_value))
 
         if self.report:
