@@ -95,6 +95,31 @@ class ACRObject:
         # else:
         #     print("LR orientation swap not required.")
 
+    def calculate_rotation(img):
+        img = (np.maximum(img,0) / img.max()) * 255
+        img = np.uint8(img)
+
+        imgBlur = cv.GaussianBlur(img, (13,13), 0)
+        canny_edge = cv.Canny(imgBlur, 5, 40)
+        
+        test_angles = np.linspace(-pi/2, pi/2, 1801, endpoint = False)
+        hough_space, theta, rho = hough_line(canny_edge, test_angles)
+        _ , bestTheta, _ = hough_line_peaks(hough_space, theta, rho, min_angle = 10)
+        rotation = np.mean(bestTheta[:2]) * 180/pi 
+        
+        # Transform to be angle wrt positive x axis.
+        rotation = 90 - (rotation + 180)
+        
+        # Select positive angle that is less than 360 deg.
+        while rotation < 0:
+            rotation += 180
+            
+        if rotation > 360:
+            rotation -= 360
+        
+        # Angle in degrees from positive x-axis.
+        return rotation
+    
     @staticmethod
     def determine_rotation(img):
         """Determine the rotation angle of the phantom using edge detection and the Hough transform.
