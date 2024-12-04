@@ -96,6 +96,15 @@ class ACRObject:
         #     print("LR orientation swap not required.")
 
     def calculate_rotation(img):
+        """Calculate the rotation angle of the phantom using a Gaussian blur, Canny edge detection and the Hough Transform.
+        
+        Args: 
+            img (np.ndarray): pixel array of a DICOM object
+            
+        Returns:
+            float: The rotation angle of the phantom wrt the positive x-axis in degrees.
+        """
+        
         img = (np.maximum(img,0) / img.max()) * 255
         img = np.uint8(img)
 
