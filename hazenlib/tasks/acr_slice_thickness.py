@@ -17,6 +17,8 @@ import os
 import sys
 import traceback
 import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 import scipy
 import skimage.morphology
@@ -184,20 +186,20 @@ class ACRSliceThickness(HazenTask):
         testPoint = rectCont[0]
         _, closest, middle, furthest = sorted(rectCont, key=lambda x: np.linalg.norm(testPoint - x))
         offset_points = [
-            offset_point(testPoint, closest, 3),
-            offset_point(closest, testPoint, 3),
-            offset_point(middle, furthest, 3),
-            offset_point(furthest, middle, 3),
+            self.offset_point(testPoint, closest, 3),
+            self.offset_point(closest, testPoint, 3),
+            self.offset_point(middle, furthest, 3),
+            self.offset_point(furthest, middle, 3),
         ]
     
         # Offset points by 1/8 of distance to line pair point, towards that point
         testPoint = offset_points[0]
         _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
         offset_points = [
-            offset_point(testPoint, middle, 8),
-            offset_point(middle, testPoint, 8),
-            offset_point(closest, furthest, 8),
-            offset_point(furthest, closest, 8),
+            self.offset_point(testPoint, middle, 8),
+            self.offset_point(middle, testPoint, 8),
+            self.offset_point(closest, furthest, 8),
+            self.offset_point(furthest, closest, 8),
         ]
     
         # Determine which points to join to form the lines.
