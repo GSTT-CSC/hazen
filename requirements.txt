@@ -9,7 +9,7 @@ scikit-image==0.21.0
 scipy==1.11.3
 imutils==0.5.4
 colorlog==6.7.0
-sphinx==7.2.5
+sphinx==6.2.1
 sphinxcontrib-bibtex==2.5.0
 sphinx-rtd-theme==1.2.0
 opencv-python==4.8.1.78
