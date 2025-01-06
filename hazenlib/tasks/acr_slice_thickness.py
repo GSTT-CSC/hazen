@@ -293,7 +293,7 @@ class ACRSliceThickness(HazenTask):
                 0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax
             )
             axes[2].axvline(
-                max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 
+                max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11
             )
 
             axes[2].set_xlabel("Relative Position (mm)")
