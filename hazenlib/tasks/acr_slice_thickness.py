@@ -17,6 +17,8 @@ import os
 import sys
 import traceback
 import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 import scipy
 import skimage.morphology
@@ -25,7 +27,6 @@ import skimage.measure
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib.utils import get_image_orientation
-
 
 
 class ACRSliceThickness(HazenTask):
@@ -48,7 +49,7 @@ class ACRSliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == 'Sagittal':
+        if ori == "Sagittal":
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -67,9 +68,7 @@ class ACRSliceThickness(HazenTask):
             result = self.get_slice_thickness(slice_thickness_dcm)
             results["measurement"] = {"slice width mm": round(result, 2)}
         except Exception as e:
-            print(
-                f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}"
-            )
+            print(f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}")
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
@@ -96,9 +95,7 @@ class ACRSliceThickness(HazenTask):
 
         # Line profiles around the central row
         invest_x = [
-            skimage.measure.profile_line(
-                img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant"
-            )
+            skimage.measure.profile_line(img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant")
             for k in range(investigate_region)
         ]
 
@@ -154,9 +151,7 @@ class ACRSliceThickness(HazenTask):
         half_max = np.max(data) * 0.5
 
         # Naive attempt
-        half_max_crossing_indices = np.argwhere(
-            np.diff(np.sign(data - half_max))
-        ).flatten()
+        half_max_crossing_indices = np.argwhere(np.diff(np.sign(data - half_max))).flatten()
 
         # Interpolation
         def simple_interp(x_start, ydata):
@@ -187,9 +182,7 @@ class ACRSliceThickness(HazenTask):
 
             return x_true
 
-        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
-            half_max_crossing_indices[-1], data
-        )
+        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(half_max_crossing_indices[-1], data)
         return FWHM_pts
 
     def get_slice_thickness(self, dcm):
@@ -233,9 +226,7 @@ class ACRSliceThickness(HazenTask):
                 ).flatten(),
             ]
 
-            interp_lines = [
-                scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
-            ]
+            interp_lines = [scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines]
             fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
             ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
             ramp_length[1, i] = interp_factor_dx * np.diff(fwhm[1])
@@ -271,12 +262,8 @@ class ACRSliceThickness(HazenTask):
             axes[0].set_title("Centroid Location")
 
             axes[1].imshow(img)
-            axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-"
-            )
-            axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-"
-            )
+            axes[1].plot([x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-")
+            axes[1].plot([x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-")
             axes[1].axis("off")
             axes[1].set_title("Line Profiles")
 
@@ -289,12 +276,8 @@ class ACRSliceThickness(HazenTask):
                 "r",
                 label=f"FWHM={np.round(ramp_length[1][z_ind], 2)}mm",
             )
-            axes[2].axhline(
-                0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax
-            )
-            axes[2].axvline(
-                max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11
-            )
+            axes[2].axhline(0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax)
+            axes[2].axvline(max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11)
 
             axes[2].set_xlabel("Relative Position (mm)")
             axes[2].set_xlim([0, x_extent])
@@ -317,12 +300,8 @@ class ACRSliceThickness(HazenTask):
                 "b",
                 label=f"FWHM={np.round(ramp_length[0][z_ind], 2)}mm",
             )
-            axes[3].axhline(
-                0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k"
-            )
-            axes[3].axvline(
-                max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k"
-            )
+            axes[3].axhline(0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k")
+            axes[3].axvline(max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k")
 
             axes[3].set_xlabel("Relative Position (mm)")
             axes[3].set_xlim([0, x_extent])
@@ -331,12 +310,78 @@ class ACRSliceThickness(HazenTask):
             axes[3].grid()
             axes[3].legend(loc="best")
 
-            img_path = os.path.realpath(
-                os.path.join(
-                    self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
-                )
-            )
+            img_path = os.path.realpath(os.path.join(self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"))
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
         return slice_thickness
+
+    @staticmethod
+    def offset_point(p1, p2, factor):
+        """Offsets a given point p1, by the vector between
+        points p2 and p1 divided by the factor parameter.
+
+        Args:
+            p1 (list): Point 1, [x, y]
+            p2 (list): Point 2, [x, y]
+            factor (int): Scaling factor for the vector offset.
+
+        Returns:
+            point (list): Point 1 after offset.
+        """
+        vector = [p2[0] - p1[0], p2[1] - p1[1]]
+        offset_vector = [x / factor for x in vector]
+        point = p1 + offset_vector
+
+        return point
+
+    def calculate_profiles(self, img):
+        """Calculates line profiles on image.
+        Works for a rotated phantom.
+
+        Args:
+            img (np.ndarray): Pixel array from DICOM image.
+
+        Returns:
+            profiles (list): A list of the two line profiles for ramps.
+        """
+        # Applying canny edge to uint8 representation of imgage and dilating.
+        img_uint8 = np.uint8(cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX))
+        img_uint8 = cv2.GaussianBlur(img_uint8, ksize=(15, 15), sigmaX=0, sigmaY=0)
+        canny = cv2.dilate(
+            cv2.Canny(img_uint8, threshold1=25, threshold2=50), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        )
+
+        # Find Contours. Sort by horizontal span and select second in list (which will be central insert)
+        contours, _ = cv2.findContours(canny, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        contours = sorted(contours, key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])), reverse=True)
+        rectCont = np.intp(cv2.boxPoints(cv2.minAreaRect(contours[1])))
+
+        # Offset points by 1/3 of distance to nearest point, towards that point
+        testPoint = rectCont[0]
+        _, closest, middle, furthest = sorted(rectCont, key=lambda x: np.linalg.norm(testPoint - x))
+        offset_points = [
+            self.offset_point(testPoint, closest, 3),
+            self.offset_point(closest, testPoint, 3),
+            self.offset_point(middle, furthest, 3),
+            self.offset_point(furthest, middle, 3),
+        ]
+
+        # Offset points by 1/8 of distance to line pair point, towards that point
+        testPoint = offset_points[0]
+        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
+        offset_points = [
+            self.offset_point(testPoint, middle, 8),
+            self.offset_point(middle, testPoint, 8),
+            self.offset_point(closest, furthest, 8),
+            self.offset_point(furthest, closest, 8),
+        ]
+
+        # Determine which points to join to form the lines.
+        testPoint = offset_points[0]
+        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
+
+        line1, line2 = [testPoint, middle], [closest, furthest]
+        profiles = [skimage.measure.profile_line(img, start[::-1], end[::-1]) for (start, end) in [line1, line2]]
+
+        return profiles
