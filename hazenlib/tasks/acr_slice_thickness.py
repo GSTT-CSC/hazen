@@ -18,7 +18,6 @@ import sys
 import traceback
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 
 import scipy
 import skimage.morphology
@@ -49,7 +48,7 @@ class ACRSliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == "Sagittal":
+        if ori == 'Sagittal':
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -68,7 +67,9 @@ class ACRSliceThickness(HazenTask):
             result = self.get_slice_thickness(slice_thickness_dcm)
             results["measurement"] = {"slice width mm": round(result, 2)}
         except Exception as e:
-            print(f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}")
+            print(
+                f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}"
+            )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
@@ -95,7 +96,9 @@ class ACRSliceThickness(HazenTask):
 
         # Line profiles around the central row
         invest_x = [
-            skimage.measure.profile_line(img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant")
+            skimage.measure.profile_line(
+                img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant"
+            )
             for k in range(investigate_region)
         ]
 
@@ -151,7 +154,9 @@ class ACRSliceThickness(HazenTask):
         half_max = np.max(data) * 0.5
 
         # Naive attempt
-        half_max_crossing_indices = np.argwhere(np.diff(np.sign(data - half_max))).flatten()
+        half_max_crossing_indices = np.argwhere(
+            np.diff(np.sign(data - half_max))
+        ).flatten()
 
         # Interpolation
         def simple_interp(x_start, ydata):
@@ -182,7 +187,9 @@ class ACRSliceThickness(HazenTask):
 
             return x_true
 
-        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(half_max_crossing_indices[-1], data)
+        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
+            half_max_crossing_indices[-1], data
+        )
         return FWHM_pts
 
     def get_slice_thickness(self, dcm):
@@ -226,7 +233,9 @@ class ACRSliceThickness(HazenTask):
                 ).flatten(),
             ]
 
-            interp_lines = [scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines]
+            interp_lines = [
+                scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
+            ]
             fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
             ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
             ramp_length[1, i] = interp_factor_dx * np.diff(fwhm[1])
@@ -262,8 +271,12 @@ class ACRSliceThickness(HazenTask):
             axes[0].set_title("Centroid Location")
 
             axes[1].imshow(img)
-            axes[1].plot([x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-")
-            axes[1].plot([x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-")
+            axes[1].plot(
+                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-"
+            )
+            axes[1].plot(
+                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-"
+            )
             axes[1].axis("off")
             axes[1].set_title("Line Profiles")
 
@@ -276,8 +289,12 @@ class ACRSliceThickness(HazenTask):
                 "r",
                 label=f"FWHM={np.round(ramp_length[1][z_ind], 2)}mm",
             )
-            axes[2].axhline(0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax)
-            axes[2].axvline(max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11)
+            axes[2].axhline(
+                0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax
+            )
+            axes[2].axvline(
+                max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 
+            )
 
             axes[2].set_xlabel("Relative Position (mm)")
             axes[2].set_xlim([0, x_extent])
@@ -300,8 +317,12 @@ class ACRSliceThickness(HazenTask):
                 "b",
                 label=f"FWHM={np.round(ramp_length[0][z_ind], 2)}mm",
             )
-            axes[3].axhline(0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k")
-            axes[3].axvline(max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k")
+            axes[3].axhline(
+                0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k"
+            )
+            axes[3].axvline(
+                max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k"
+            )
 
             axes[3].set_xlabel("Relative Position (mm)")
             axes[3].set_xlim([0, x_extent])
@@ -310,7 +331,11 @@ class ACRSliceThickness(HazenTask):
             axes[3].grid()
             axes[3].legend(loc="best")
 
-            img_path = os.path.realpath(os.path.join(self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"))
+            img_path = os.path.realpath(
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
+                )
+            )
             fig.savefig(img_path)
             self.report_files.append(img_path)
 
