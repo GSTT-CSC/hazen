@@ -19,7 +19,7 @@ import traceback
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
-from typing import Union, Self
+from typing import Union
 
 import scipy
 import skimage.morphology
@@ -436,7 +436,7 @@ class Point:
         """Getter for xy np array"""
         return self._xy
 
-    def get_distance_to(self, other: Self) -> float:
+    def get_distance_to(self, other: "Point") -> float:
         """Calculates distance between two point objects.
 
         Args:
@@ -450,7 +450,7 @@ class Point:
         dist = np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
         return dist
 
-    def as_int(self) -> Self:
+    def as_int(self) -> "Point":
         """Returns an instance of Point with coords mapped to int.
 
         Returns:
@@ -459,7 +459,7 @@ class Point:
         as_int = type(self)(x=round(self.x), y=round(self.y))
         return as_int
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, other: "Point") -> "Point":
         """Addition between two point objects
 
         Args:
@@ -473,7 +473,7 @@ class Point:
         result = type(self)(x=self.x + other.x, y=self.y + other.y)
         return result
 
-    def __sub__(self, other: Self) -> Self:
+    def __sub__(self, other: "Point") -> "Point":
         """Subtraction between two point objects
 
         Args:
@@ -487,7 +487,7 @@ class Point:
         result = type(self)(x=self.x - other.x, y=self.y - other.y)
         return result
 
-    def __truediv__(self, scalar: Union[int, float]) -> Self:
+    def __truediv__(self, scalar: Union[int, float]) -> "Point":
         """Divides point by scalar.
 
         Args:
@@ -501,7 +501,7 @@ class Point:
         result = type(self)(x=self.x / scalar, y=self.y / scalar)
         return result
 
-    def __mul__(self, scalar:  Union[int, float]) -> Self:
+    def __mul__(self, scalar:  Union[int, float]) -> "Point":
         """Multiplies point by scalar
 
         Args:
@@ -566,7 +566,7 @@ class Line:
         """Swaps order of points"""
         self._p1, self._p2 = self._p2, self._p1
 
-    def get_subline(self, percOfOrig: Union[int, float]) -> Self:
+    def get_subline(self, percOfOrig: Union[int, float]) -> "Line":
         """Returns an instance of self that is reduced in length to be X percent of the original. \n
         The percentage for shrinking is determined by var percOfOrig
 
@@ -599,5 +599,3 @@ class Line:
         """Str representation of Line"""
         return f"Line(\n    p1={self._p1},\n    p2={self._p2}\n)"
 
-stTask = ACRSliceThickness(input_data=get_dicom_files(r"R:\Users Public\Students\Nathan Crossley\MRI\Hazen Project\hazen\hazenlib\tasks\AA32044SP45_Ax"))
-stTask.run()
