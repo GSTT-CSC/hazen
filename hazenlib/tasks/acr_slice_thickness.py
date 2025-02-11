@@ -18,6 +18,8 @@ import sys
 import traceback
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
+from typing import Union, Self
 
 import scipy
 import skimage.morphology
@@ -25,7 +27,7 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import get_image_orientation
+from hazenlib.utils import get_image_orientation, get_dicom_files
 
 
 class ACRSliceThickness(HazenTask):
@@ -203,6 +205,22 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
+        
+        ############################
+        # Added by NC to demonstrate potential improvement for line placement
+        lines = self.place_lines(img)
+        profiles = [line.get_profile(refImg=img) for line in lines]
+        # Below is temporary code to demonstrate placed lines and obtained profiles
+        for line in lines:
+            plt.plot(*line)
+        plt.imshow(img)
+        plt.show()
+
+        for profile in profiles:
+            plt.plot(profile)
+        plt.show()
+        ############################
+        
         cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
@@ -253,8 +271,6 @@ class ACRSliceThickness(HazenTask):
         slice_thickness = dz[z_ind]
 
         if self.report:
-            import matplotlib.pyplot as plt
-
             fig, axes = plt.subplots(4, 1)
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
@@ -341,72 +357,247 @@ class ACRSliceThickness(HazenTask):
 
         return slice_thickness
 
-    @staticmethod
-    def offset_point(p1, p2, factor):
-        """Offsets a given point p1, by the vector between
-        points p2 and p1 divided by the factor parameter.
-
-        Args:
-            p1 (list): Point 1, [x, y]
-            p2 (list): Point 2, [x, y]
-            factor (int): Scaling factor for the vector offset.
-
-        Returns:
-            point (list): Point 1 after offset.
-        """
-        vector = [p2[0] - p1[0], p2[1] - p1[1]]
-        offset_vector = [x / factor for x in vector]
-        point = p1 + offset_vector
-
-        return point
-
-    def calculate_profiles(self, img):
-        """Calculates line profiles on image.
+    def place_lines(self, img: np.ndarray) -> list["Line"]:
+        """Places line on image within ramps insert.
         Works for a rotated phantom.
 
         Args:
             img (np.ndarray): Pixel array from DICOM image.
 
         Returns:
-            profiles (list): A list of the two line profiles for ramps.
+            profiles (list): A list of the two lines as Line objects.
         """
-        # Applying canny edge to uint8 representation of imgage and dilating.
-        img_uint8 = np.uint8(cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX))
-        img_uint8 = cv2.GaussianBlur(img_uint8, ksize=(15, 15), sigmaX=0, sigmaY=0)
-        canny = cv2.dilate(
-            cv2.Canny(img_uint8, threshold1=25, threshold2=50), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        # Normalize to uint8, enhance contast and binarize using otsu thresh
+
+        img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(img_uint8)
+        _, img_binary = cv2.threshold(contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        # Find contour by x-span sort
+        contours, _ = cv2.findContours(
+            img_binary.astype(np.uint8), mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE
         )
+        contours_sorted = sorted(
+            contours,
+            key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])),
+            reverse=True,
+        )
+        insertContour = contours_sorted[1]
 
-        # Find Contours. Sort by horizontal span and select second in list (which will be central insert)
-        contours, _ = cv2.findContours(canny, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
-        contours = sorted(contours, key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])), reverse=True)
-        rectCont = np.intp(cv2.boxPoints(cv2.minAreaRect(contours[1])))
+        # Create list of Point objects for the four corners of the contour
+        insertCorners = np.intp(cv2.boxPoints(cv2.minAreaRect(insertContour)))
+        insertCorners = insertCorners.astype(float)
+        corners = [Point(x=p[0], y=p[1]) for p in insertCorners]
 
-        # Offset points by 1/3 of distance to nearest point, towards that point
-        testPoint = rectCont[0]
-        _, closest, middle, furthest = sorted(rectCont, key=lambda x: np.linalg.norm(testPoint - x))
-        offset_points = [
-            self.offset_point(testPoint, closest, 3),
-            self.offset_point(closest, testPoint, 3),
-            self.offset_point(middle, furthest, 3),
-            self.offset_point(furthest, middle, 3),
+        # Define short sides of contours by list of line objects
+        corners = sorted(corners, key=lambda point: corners[0].get_distance_to(point))
+        shortSides = [Line(p1=corners[0], p2=corners[1]), Line(p1=corners[2], p2=corners[3])]
+
+        # Get sublines of short sides and force p1 to be higher in y
+        sublines = [line.get_subline(percOfOrig=30) for line in shortSides]
+        for line in sublines:
+            if line.p1.y < line.p2.y:
+                line.point_swap()
+
+        # Define connecting lines
+        connectingLines = [
+            Line(p1=sublines[0].p1, p2=sublines[1].p1),
+            Line(p1=sublines[0].p2, p2=sublines[1].p2),
         ]
 
-        # Offset points by 1/8 of distance to line pair point, towards that point
-        testPoint = offset_points[0]
-        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
-        offset_points = [
-            self.offset_point(testPoint, middle, 8),
-            self.offset_point(middle, testPoint, 8),
-            self.offset_point(closest, furthest, 8),
-            self.offset_point(furthest, closest, 8),
-        ]
+        # Final lines are sublines of connecting lines
+        finalLines = [line.get_subline(percOfOrig=95) for line in connectingLines]
 
-        # Determine which points to join to form the lines.
-        testPoint = offset_points[0]
-        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
+        return finalLines
 
-        line1, line2 = [testPoint, middle], [closest, furthest]
-        profiles = [skimage.measure.profile_line(img, start[::-1], end[::-1]) for (start, end) in [line1, line2]]
 
-        return profiles
+class Point:
+    """Class representing a point in Cartesian Space"""
+
+    def __init__(self, x: Union[int, float], y: Union[int, float]):
+        if not isinstance(x, (int, float)):
+            raise ValueError("arg x of Point.__init__ should be int or float.")
+        if not isinstance(y, (int, float)):
+            raise ValueError("arg y of Point.__init__ should be int or float.")
+        self._xy = np.array([x, y])
+
+    @property
+    def x(self):
+        """Getter for x coordinate."""
+        return self._xy[0]
+
+    @property
+    def y(self):
+        """Getter for y coord"""
+        return self._xy[1]
+
+    @property
+    def xy(self) -> np.ndarray:
+        """Getter for xy np array"""
+        return self._xy
+
+    def get_distance_to(self, other: Self) -> float:
+        """Calculates distance between two point objects.
+
+        Args:
+            other (Point): Point to calculate distance to.
+
+        Returns:
+            dist (float): The distance between the points.
+        """
+        if not isinstance(other, type(self)):
+            raise ValueError("arg other of Point.get_distance_to should be Point.")
+        dist = np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
+        return dist
+
+    def as_int(self) -> Self:
+        """Returns an instance of Point with coords mapped to int.
+
+        Returns:
+            as_int (Point): Instance of Point with coords mapped to int.
+        """
+        as_int = type(self)(x=round(self.x), y=round(self.y))
+        return as_int
+
+    def __add__(self, other: Self) -> Self:
+        """Addition between two point objects
+
+        Args:
+            other (Point): Point to add.
+
+        Returns:
+            result (Point): Point object for summed coords
+        """
+        if not isinstance(other, type(self)):
+            raise ValueError("arg other of Point.__add__ should be Point")
+        result = type(self)(x=self.x + other.x, y=self.y + other.y)
+        return result
+
+    def __sub__(self, other: Self) -> Self:
+        """Subtraction between two point objects
+
+        Args:
+            other (Point): Point to subtract.
+
+        Returns:
+            result (Point): Point object for subtracted coords
+        """
+        if not isinstance(other, type(self)):
+            raise ValueError("arg other of Point.__sub__ should be Point")
+        result = type(self)(x=self.x - other.x, y=self.y - other.y)
+        return result
+
+    def __truediv__(self, scalar: Union[int, float]) -> Self:
+        """Divides point by scalar.
+
+        Args:
+            scalar (int, float): scalar to divide point by.
+
+        Returns:
+            result (Point): Point object for divided coords
+        """
+        if not isinstance(scalar, (int, float)):
+            raise ValueError("arg scalar of Point.__truediv__ should be int or float.")
+        result = type(self)(x=self.x / scalar, y=self.y / scalar)
+        return result
+
+    def __mul__(self, scalar:  Union[int, float]) -> Self:
+        """Multiplies point by scalar
+
+        Args:
+            scalar (int, float): scalar to multiply point by.
+
+        Returns:
+            result (Point): Point object for multiplied coords
+        """
+        if not isinstance(scalar, (int, float)):
+            raise ValueError("arg scalar of Point.__mul__ should be int or float.")
+        result = type(self)(x=self.x * scalar, y=self.y * scalar)
+        return result
+
+    def __str__(self) -> str:
+        return f"Point{(self.x, self.y)}"
+
+
+class Line:
+    """Class for a line in Cartesian Space"""
+
+    def __init__(self, p1: Point, p2: Point):
+        if not isinstance(p1, Point):
+            raise ValueError("arg p1 of Line.__init__ should be Point.")
+        if not isinstance(p2, Point):
+            raise ValueError("arg p2 of Line.__init__ should be Point.")
+
+        self._p1 = p1
+        self._p2 = p2
+
+    @property
+    def p1(self) -> Point:
+        """Getter for point 1 in line"""
+        return self._p1
+
+    @property
+    def p2(self) -> Point:
+        """Getter for point 2 in line"""
+        return self._p2
+
+    @property
+    def midpoint(self) -> Point:
+        """Getter for line midpoint"""
+        return (self._p1 + self._p2) / 2
+
+    def get_profile(self, refImg: np.ndarray) -> list:
+        """Gets profile across line using pixel values from reference image
+
+        Args:
+            refImg (np.ndarray): Reference image for obtaining pixel values
+
+        Returns:
+            profile (list): pixel value profile across line
+        """
+        profile = skimage.measure.profile_line(
+            image=refImg,
+            src=self._p1.as_int().xy.tolist()[::-1],
+            dst=self._p2.as_int().xy.tolist()[::-1],
+        )
+        return profile
+
+    def point_swap(self):
+        """Swaps order of points"""
+        self._p1, self._p2 = self._p2, self._p1
+
+    def get_subline(self, percOfOrig: Union[int, float]) -> Self:
+        """Returns an instance of self that is reduced in length to be X percent of the original. \n
+        The percentage for shrinking is determined by var percOfOrig
+
+        Args:
+            percOfOrig (int, float): Percentage of original line to shrink output line to
+
+        Returns:
+            subline (Line): subline of original line
+        """
+        if not isinstance(percOfOrig, (int, float)):
+            raise ValueError("arg percOfOrig of Line.get_subline should be int or float.")
+        if not 0 < percOfOrig <= 100:
+            raise ValueError(
+                f"For Line.get_subline method:\n\t   Arg perc should be in bounds (0, 100], received perc={percOfOrig}."
+            )
+        percOffSide = (100 - percOfOrig) / 2
+        vector = self._p1 - self._p2
+        p1Prime = self._p1 - vector * percOffSide / 100
+        p2Prime = self._p2 + vector * percOffSide / 100
+        subline = Line(p1=p1Prime, p2=p2Prime)
+
+        return subline
+
+    def __iter__(self) -> iter:
+        x_values = [self._p1.x, self._p2.x]
+        y_values = [self._p1.y, self._p2.y]
+        return iter([x_values, y_values])
+
+    def __str__(self) -> str:
+        """Str representation of Line"""
+        return f"Line(\n    p1={self._p1},\n    p2={self._p2}\n)"
+
+stTask = ACRSliceThickness(input_data=get_dicom_files(r"R:\Users Public\Students\Nathan Crossley\MRI\Hazen Project\hazen\hazenlib\tasks\AA32044SP45_Ax"))
+stTask.run()
