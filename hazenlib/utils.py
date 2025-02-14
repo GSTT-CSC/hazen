@@ -645,190 +645,121 @@ class ShapeDetector:
             return (x, y), size, angle
 
 
-class Point:
-    """Class representing a point in Cartesian Space"""
+class Point(np.ndarray):
 
-    def __init__(self, x: Union[int, float], y: Union[int, float]):
-        if not isinstance(x, (int, float)):
-            raise ValueError("arg x of Point.__init__ should be int or float.")
-        if not isinstance(y, (int, float)):
-            raise ValueError("arg y of Point.__init__ should be int or float.")
-        self._xy = np.array([x, y])
+    def __new__(cls, *args: Union[int, float]) -> np.ndarray:
+        """Initialise the point class."""
+        supported_dims = {2}
+        if len(args) not in supported_dims:
+            err = (
+                f"Only {' or '.join(str(d) + 'D' for d in supported_dims)}"
+                " points are supported"
+            )
+            raise NotImplementedError(err)
 
-    @property
-    def x(self):
-        """Getter for x coordinate."""
-        return self._xy[0]
-
-    @property
-    def y(self):
-        """Getter for y coord"""
-        return self._xy[1]
+        return np.asarray(args, dtype=float).view(cls)
 
     @property
-    def xy(self) -> np.ndarray:
-        """Getter for xy np array"""
-        return self._xy
+    def x(self) -> float:
+        return self[0]
+
+    @property
+    def y(self) -> float:
+        return self[1]
 
     def get_distance_to(self, other: "Point") -> float:
-        """Calculates distance between two point objects.
+        """Calculates distance between two point objects
 
         Args:
-            other (Point): Point to calculate distance to.
+            other: Point to calculate distance to
 
         Returns:
-            dist (float): The distance between the points.
+            dist: The distance between the points
+
         """
-        if not isinstance(other, type(self)):
-            raise ValueError("arg other of Point.get_distance_to should be Point.")
-        dist = np.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2)
-        return dist
 
-    def as_int(self) -> "Point":
-        """Returns an instance of Point with coords mapped to int.
+        if not isinstance(other, Point):
+            err = f"other should be Point and not {type(other)}"
+            raise TypeError(err)
+        return np.sqrt(np.sum((self - other)**2)).item()
 
-        Returns:
-            as_int (Point): Instance of Point with coords mapped to int.
-        """
-        as_int = type(self)(x=round(self.x), y=round(self.y))
-        return as_int
-
-    def __add__(self, other: "Point") -> "Point":
-        """Addition between two point objects
-
-        Args:
-            other (Point): Point to add.
-
-        Returns:
-            result (Point): Point object for summed coords
-        """
-        if not isinstance(other, type(self)):
-            raise ValueError("arg other of Point.__add__ should be Point")
-        result = type(self)(x=self.x + other.x, y=self.y + other.y)
-        return result
-
-    def __sub__(self, other: "Point") -> "Point":
-        """Subtraction between two point objects
-
-        Args:
-            other (Point): Point to subtract.
-
-        Returns:
-            result (Point): Point object for subtracted coords
-        """
-        if not isinstance(other, type(self)):
-            raise ValueError("arg other of Point.__sub__ should be Point")
-        result = type(self)(x=self.x - other.x, y=self.y - other.y)
-        return result
-
-    def __truediv__(self, scalar: Union[int, float]) -> "Point":
-        """Divides point by scalar.
-
-        Args:
-            scalar (int, float): scalar to divide point by.
-
-        Returns:
-            result (Point): Point object for divided coords
-        """
-        if not isinstance(scalar, (int, float)):
-            raise ValueError("arg scalar of Point.__truediv__ should be int or float.")
-        result = type(self)(x=self.x / scalar, y=self.y / scalar)
-        return result
-
-    def __mul__(self, scalar: Union[int, float]) -> "Point":
-        """Multiplies point by scalar
-
-        Args:
-            scalar (int, float): scalar to multiply point by.
-
-        Returns:
-            result (Point): Point object for multiplied coords
-        """
-        if not isinstance(scalar, (int, float)):
-            raise ValueError("arg scalar of Point.__mul__ should be int or float.")
-        result = type(self)(x=self.x * scalar, y=self.y * scalar)
-        return result
-
-    def __str__(self) -> str:
-        return f"Point{(self.x, self.y)}"
+    def __iter__(self):
+        """Get iterable for plotting"""
+        return iter([self.x, self.y])
 
 
 class Line:
-    """Class for a line in Cartesian Space"""
 
-    def __init__(self, p1: "Point", p2: "Point"):
-        if not isinstance(p1, Point):
-            raise ValueError("arg p1 of Line.__init__ should be Point.")
-        if not isinstance(p2, Point):
-            raise ValueError("arg p2 of Line.__init__ should be Point.")
+    def __init__(self, *args: Point) -> None:
+        """Initialise Line object"""
 
-        self._p1 = p1
-        self._p2 = p2
+        for arg in args:
+            if not isinstance(arg, Point):
+                err = "All positional args should be instances of Point"
+                raise TypeError(err)
 
-    @property
-    def p1(self) -> "Point":
-        """Getter for point 1 in line"""
-        return self._p1
+        if len(args) != 2:
+            err = "Only two positional args should be provided (start and end points)"
+            raise ValueError(err)
 
-    @property
-    def p2(self) -> "Point":
-        """Getter for point 2 in line"""
-        return self._p2
+        self.start = args[0]
+        self.end = args[1]
+        self.midpoint = (self.start + self.end) / 2
 
-    @property
-    def midpoint(self) -> "Point":
-        """Getter for line midpoint"""
-        return (self._p1 + self._p2) / 2
-
-    def get_profile(self, refImg: np.ndarray) -> list:
-        """Gets profile across line using pixel values from reference image
+    def get_signal(self, refImg: np.ndarray) -> None:
+        """Gets signal across line using pixel values from reference image
 
         Args:
             refImg (np.ndarray): Reference image for obtaining pixel values
 
-        Returns:
-            profile (list): pixel value profile across line
         """
-        profile = measure.profile_line(
+        signal = measure.profile_line(
             image=refImg,
-            src=self._p1.as_int().xy.tolist()[::-1],
-            dst=self._p2.as_int().xy.tolist()[::-1],
+            src=self.start[::-1].astype(int).tolist(),
+            dst=self.end[::-1].astype(int).tolist(),
         )
-        return profile
+        self.signal = np.array(signal)
 
-    def point_swap(self):
-        """Swaps order of points"""
-        self._p1, self._p2 = self._p2, self._p1
-
-    def get_subline(self, percOfOrig: Union[int, float]) -> "Line":
-        """Returns an instance of self that is reduced in length to be X percent of the original. \n
-        The percentage for shrinking is determined by var percOfOrig
+    def get_subline(self, perc: Union[int, float]) -> "Line":
+        """Returns a "subline" of self.
+        This is a line that shares the same unit vector but is reduced in length.
+        Length of subline set to be "perc" percent of the length of self.
 
         Args:
-            percOfOrig (int, float): Percentage of original line to shrink output line to
+            perc (int, float): controls length of subline. Subline will be "perc" percent of original length.
 
         Returns:
             subline (Line): subline of original line
-        """
-        if not isinstance(percOfOrig, (int, float)):
-            raise ValueError("arg percOfOrig of Line.get_subline should be int or float.")
-        if not 0 < percOfOrig <= 100:
-            raise ValueError(
-                f"For Line.get_subline method:\n\t   Arg perc should be in bounds (0, 100], received perc={percOfOrig}."
-            )
-        percOffSide = (100 - percOfOrig) / 2
-        vector = self._p1 - self._p2
-        p1Prime = self._p1 - vector * percOffSide / 100
-        p2Prime = self._p2 + vector * percOffSide / 100
-        subline = type(self)(p1=p1Prime, p2=p2Prime)
 
-        return subline
+        """
+        if not isinstance(perc, (int, float)):
+            err = f"perc should be int of float, not {type(perc)}."
+            raise TypeError(err)
+
+        if not 0 < perc <= 100:
+            err = f"perc should be in bounds (0, 100] but received {perc}"
+            raise ValueError(err)
+
+        percOffSide = (100 - perc) / 2
+        vector = self.start - self.end
+
+        start = self.start - vector * percOffSide / 100
+        end = self.end + vector * percOffSide / 100
+
+        return type(self)(start, end)
+
+    def point_swap(self):
+        """Swaps start and end points and reverses associated attributes"""
+        self.start, self.end = self.end, self.start
+        self.signal = self.signal[::-1]
+
 
     def __iter__(self) -> iter:
-        x_values = [self._p1.x, self._p2.x]
-        y_values = [self._p1.y, self._p2.y]
-        return iter([x_values, y_values])
+        """Get iterable for plotting"""
+        points = (self.start, self.end)
+        return iter([[p.x for p in points], [p.y for p in points]])
 
-    def __str__(self) -> str:
-        """Str representation of Line"""
-        return f"Line(\n    p1={self._p1},\n    p2={self._p2}\n)"
+    def __str__(self):
+        """Get string representation"""
+        s = f"Line(start={self.start}, end={self.end})"
+        return s
