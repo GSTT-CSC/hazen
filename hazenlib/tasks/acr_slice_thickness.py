@@ -205,22 +205,22 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
-        
+
         ############################
         # Added by NC to demonstrate potential improvement for line placement
         lines = self.place_lines(img)
-        profiles = [line.get_profile(refImg=img) for line in lines]
+
         # Below is temporary code to demonstrate placed lines and obtained profiles
         for line in lines:
             plt.plot(*line)
         plt.imshow(img)
         plt.show()
 
-        for profile in profiles:
-            plt.plot(profile)
+        for line in lines:
+            plt.plot(line.signal)
         plt.show()
         ############################
-        
+
         cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
@@ -365,7 +365,7 @@ class ACRSliceThickness(HazenTask):
             img (np.ndarray): Pixel array from DICOM image.
 
         Returns:
-            profiles (list): A list of the two lines as Line objects.
+            finalLines (list): A list of the two lines as Line objects.
         """
         # Normalize to uint8, enhance contast and binarize using otsu thresh
 
@@ -385,27 +385,27 @@ class ACRSliceThickness(HazenTask):
         insertContour = contours_sorted[1]
 
         # Create list of Point objects for the four corners of the contour
-        insertCorners = np.intp(cv2.boxPoints(cv2.minAreaRect(insertContour)))
-        insertCorners = insertCorners.astype(float)
-        corners = [Point(x=p[0], y=p[1]) for p in insertCorners]
+        insertCorners = cv2.boxPoints(cv2.minAreaRect(insertContour))
+        corners = [Point(*p) for p in insertCorners]
 
         # Define short sides of contours by list of line objects
         corners = sorted(corners, key=lambda point: corners[0].get_distance_to(point))
-        shortSides = [Line(p1=corners[0], p2=corners[1]), Line(p1=corners[2], p2=corners[3])]
+        shortSides = [Line(*corners[:2]), Line(*corners[2:])]
 
         # Get sublines of short sides and force p1 to be higher in y
-        sublines = [line.get_subline(percOfOrig=30) for line in shortSides]
+        sublines = [line.get_subline(perc=30) for line in shortSides]
         for line in sublines:
-            if line.p1.y < line.p2.y:
+            if line.start.y < line.start.y:
                 line.point_swap()
 
         # Define connecting lines
         connectingLines = [
-            Line(p1=sublines[0].p1, p2=sublines[1].p1),
-            Line(p1=sublines[0].p2, p2=sublines[1].p2),
+            Line(sublines[0].start, sublines[1].start),
+            Line(sublines[0].end, sublines[1].end),
         ]
 
         # Final lines are sublines of connecting lines
-        finalLines = [line.get_subline(percOfOrig=95) for line in connectingLines]
+        finalLines = [line.get_subline(perc=95) for line in connectingLines]
+        for line in finalLines: line.get_signal(img)
 
         return finalLines
