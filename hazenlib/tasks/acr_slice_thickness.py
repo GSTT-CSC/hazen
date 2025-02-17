@@ -17,6 +17,8 @@ import os
 import sys
 import traceback
 import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 import scipy
 import skimage.morphology
@@ -24,8 +26,8 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import get_image_orientation
-
+from hazenlib.utils import get_image_orientation, get_dicom_files
+from hazenlib.utils import Point, Line
 
 
 class ACRSliceThickness(HazenTask):
@@ -203,6 +205,22 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
+
+        ############################
+        # Added by NC to demonstrate potential improvement for line placement
+        lines = self.place_lines(img)
+
+        # Below is temporary code to demonstrate placed lines and obtained profiles
+        for line in lines:
+            plt.plot(*line)
+        plt.imshow(img)
+        plt.show()
+
+        for line in lines:
+            plt.plot(line.signal)
+        plt.show()
+        ############################
+
         cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
@@ -253,8 +271,6 @@ class ACRSliceThickness(HazenTask):
         slice_thickness = dz[z_ind]
 
         if self.report:
-            import matplotlib.pyplot as plt
-
             fig, axes = plt.subplots(4, 1)
             fig.set_size_inches(8, 24)
             fig.tight_layout(pad=4)
@@ -340,3 +356,56 @@ class ACRSliceThickness(HazenTask):
             self.report_files.append(img_path)
 
         return slice_thickness
+
+    def place_lines(self, img: np.ndarray) -> list["Line"]:
+        """Places line on image within ramps insert.
+        Works for a rotated phantom.
+
+        Args:
+            img (np.ndarray): Pixel array from DICOM image.
+
+        Returns:
+            finalLines (list): A list of the two lines as Line objects.
+        """
+        # Normalize to uint8, enhance contast and binarize using otsu thresh
+
+        img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(img_uint8)
+        _, img_binary = cv2.threshold(contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        # Find contour by x-span sort
+        contours, _ = cv2.findContours(
+            img_binary.astype(np.uint8), mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE
+        )
+        contours_sorted = sorted(
+            contours,
+            key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])),
+            reverse=True,
+        )
+        insertContour = contours_sorted[1]
+
+        # Create list of Point objects for the four corners of the contour
+        insertCorners = cv2.boxPoints(cv2.minAreaRect(insertContour))
+        corners = [Point(*p) for p in insertCorners]
+
+        # Define short sides of contours by list of line objects
+        corners = sorted(corners, key=lambda point: corners[0].get_distance_to(point))
+        shortSides = [Line(*corners[:2]), Line(*corners[2:])]
+
+        # Get sublines of short sides and force p1 to be higher in y
+        sublines = [line.get_subline(perc=30) for line in shortSides]
+        for line in sublines:
+            if line.start.y < line.start.y:
+                line.point_swap()
+
+        # Define connecting lines
+        connectingLines = [
+            Line(sublines[0].start, sublines[1].start),
+            Line(sublines[0].end, sublines[1].end),
+        ]
+
+        # Final lines are sublines of connecting lines
+        finalLines = [line.get_subline(perc=95) for line in connectingLines]
+        for line in finalLines: line.get_signal(img)
+
+        return finalLines

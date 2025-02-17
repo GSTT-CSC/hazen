@@ -6,12 +6,15 @@ import matplotlib
 import numpy as np
 
 from collections import defaultdict
-from skimage import filters
+from skimage import filters, measure
+from typing import Union, TypeVar
 
 import hazenlib.exceptions as exc
 from hazenlib.logger import logger
 
 matplotlib.use("Agg")
+P = TypeVar("P", bound="Point")
+L = TypeVar("L", bound="Line")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -642,3 +645,123 @@ class ShapeDetector:
             size = (size[1], size[0])
             angle = angle - 90
             return (x, y), size, angle
+
+
+class Point(np.ndarray):
+
+    def __new__(cls, *args: Union[int, float]) -> np.ndarray:
+        """Initialise the point class."""
+        supported_dims = {2}
+        if len(args) not in supported_dims:
+            err = (
+                f"Only {' or '.join(str(d) + 'D' for d in supported_dims)}"
+                " points are supported"
+            )
+            raise NotImplementedError(err)
+
+        return np.asarray(args, dtype=float).view(cls)
+
+    @property
+    def x(self) -> float:
+        return self[0]
+
+    @property
+    def y(self) -> float:
+        return self[1]
+
+    def get_distance_to(self, other: P) -> float:
+        """Calculates distance between two point objects
+
+        Args:
+            other: Point to calculate distance to
+
+        Returns:
+            dist: The distance between the points
+
+        """
+
+        if not isinstance(other, Point):
+            err = f"other should be Point and not {type(other)}"
+            raise TypeError(err)
+        return np.sqrt(np.sum((self - other)**2)).item()
+
+    def __iter__(self):
+        """Get iterable for plotting"""
+        return iter([self.x, self.y])
+
+
+class Line:
+
+    def __init__(self, *args: Point) -> None:
+        """Initialise Line object"""
+
+        for arg in args:
+            if not isinstance(arg, Point):
+                err = "All positional args should be instances of Point"
+                raise TypeError(err)
+
+        if len(args) != 2:
+            err = "Only two positional args should be provided (start and end points)"
+            raise ValueError(err)
+
+        self.start = args[0]
+        self.end = args[1]
+        self.midpoint = (self.start + self.end) / 2
+
+    def get_signal(self, refImg: np.ndarray) -> None:
+        """Gets signal across line using pixel values from reference image
+
+        Args:
+            refImg (np.ndarray): Reference image for obtaining pixel values
+
+        """
+        signal = measure.profile_line(
+            image=refImg,
+            src=self.start[::-1].astype(int).tolist(),
+            dst=self.end[::-1].astype(int).tolist(),
+        )
+        self.signal = np.array(signal)
+
+    def get_subline(self, perc: Union[int, float]) -> L:
+        """Returns a "subline" of self.
+        This is a line that shares the same unit vector but is reduced in length.
+        Length of subline set to be "perc" percent of the length of self.
+
+        Args:
+            perc (int, float): controls length of subline. Subline will be "perc" percent of original length.
+
+        Returns:
+            subline (Line): subline of original line
+
+        """
+        if not isinstance(perc, (int, float)):
+            err = f"perc should be int of float, not {type(perc)}."
+            raise TypeError(err)
+
+        if not 0 < perc <= 100:
+            err = f"perc should be in bounds (0, 100] but received {perc}"
+            raise ValueError(err)
+
+        percOffSide = (100 - perc) / 2
+        vector = self.start - self.end
+
+        start = self.start - vector * percOffSide / 100
+        end = self.end + vector * percOffSide / 100
+
+        return type(self)(start, end)
+
+    def point_swap(self):
+        """Swaps start and end points and reverses associated attributes"""
+        self.start, self.end = self.end, self.start
+        self.signal = self.signal[::-1]
+
+
+    def __iter__(self) -> iter:
+        """Get iterable for plotting"""
+        points = (self.start, self.end)
+        return iter([[p.x for p in points], [p.y for p in points]])
+
+    def __str__(self):
+        """Get string representation"""
+        s = f"Line(start={self.start}, end={self.end})"
+        return s
