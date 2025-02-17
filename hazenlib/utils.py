@@ -7,12 +7,14 @@ import numpy as np
 
 from collections import defaultdict
 from skimage import filters, measure
-from typing import Union
+from typing import Union, TypeVar
 
 import hazenlib.exceptions as exc
 from hazenlib.logger import logger
 
 matplotlib.use("Agg")
+P = TypeVar("P", bound="Point")
+L = TypeVar("L", bound="Line")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -667,7 +669,7 @@ class Point(np.ndarray):
     def y(self) -> float:
         return self[1]
 
-    def get_distance_to(self, other: "Point") -> float:
+    def get_distance_to(self, other: P) -> float:
         """Calculates distance between two point objects
 
         Args:
@@ -720,7 +722,7 @@ class Line:
         )
         self.signal = np.array(signal)
 
-    def get_subline(self, perc: Union[int, float]) -> "Line":
+    def get_subline(self, perc: Union[int, float]) -> L:
         """Returns a "subline" of self.
         This is a line that shares the same unit vector but is reduced in length.
         Length of subline set to be "perc" percent of the length of self.
