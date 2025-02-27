@@ -4,6 +4,7 @@ import pydicom
 import imutils
 import matplotlib
 import numpy as np
+import matplotlib.pyplot as plt
 
 from collections import defaultdict
 from skimage import filters, measure
@@ -15,6 +16,7 @@ from hazenlib.logger import logger
 matplotlib.use("Agg")
 P = TypeVar("P", bound="Point")
 L = TypeVar("L", bound="Line")
+xy = TypeVar("xy", bound="XY")
 
 
 def get_dicom_files(folder: str, sort=False) -> list:
@@ -647,7 +649,41 @@ class ShapeDetector:
             return (x, y), size, angle
 
 
+class XY(np.ndarray):
+    """Class for 2D numpy array for plotting"""
+
+    def __new__(cls, *args: list[Union[int, float]]):
+        """Initialise class"""
+        if len(set(map(len, args))) != 1:
+            raise ValueError("All input arrays must have the same length")
+        arr = np.array(args)
+        if arr.ndim != 2 or arr.shape[0] != 2:
+            raise ValueError("args of XY should be two 1d arrays")
+        return np.asarray(arr).view(cls)
+
+    @property
+    def x(self) -> xy:
+        """Property for x array of plotting series"""
+        return self[0]
+
+    @property
+    def y(self) -> xy:
+        """Property for x array of plotting series"""
+        return self[1]
+
+    @y.setter
+    def y(self, val: np.ndarray):
+        """Setter for y property"""
+        if isinstance(val, (np.ndarray, list)):
+            if len(val) != len(self.y):
+                raise ValueError("Cannot modify shape of XY.y")
+        else:
+            raise TypeError("Expected input to be either a list or numpy.ndarray")
+        self[1] = val
+
+
 class Point(np.ndarray):
+    """Class for 2D spatial point"""
 
     def __new__(cls, *args: Union[int, float]) -> np.ndarray:
         """Initialise the point class."""
@@ -663,10 +699,12 @@ class Point(np.ndarray):
 
     @property
     def x(self) -> float:
+        """Property for x coordinate"""
         return self[0]
 
     @property
     def y(self) -> float:
+        """property for y coordinate"""
         return self[1]
 
     def get_distance_to(self, other: P) -> float:
@@ -691,6 +729,7 @@ class Point(np.ndarray):
 
 
 class Line:
+    """Class for line joining two points"""
 
     def __init__(self, *args: Point) -> None:
         """Initialise Line object"""
@@ -720,7 +759,7 @@ class Line:
             src=self.start[::-1].astype(int).tolist(),
             dst=self.end[::-1].astype(int).tolist(),
         )
-        self.signal = np.array(signal)
+        self.signal = XY(range(len(signal)), signal)
 
     def get_subline(self, perc: Union[int, float]) -> L:
         """Returns a "subline" of self.
@@ -751,9 +790,15 @@ class Line:
         return type(self)(start, end)
 
     def point_swap(self):
-        """Swaps start and end points and reverses associated attributes"""
+        """Swaps start and end points and reverses associated attributes
+        Args:
+            None
+        Returns:
+            None
+        """
         self.start, self.end = self.end, self.start
-        self.signal = self.signal[::-1]
+        if hasattr(self, "signal"):
+            self.signal = self.signal[::-1]
 
 
     def __iter__(self) -> iter:
@@ -765,3 +810,5 @@ class Line:
         """Get string representation"""
         s = f"Line(start={self.start}, end={self.end})"
         return s
+
+
