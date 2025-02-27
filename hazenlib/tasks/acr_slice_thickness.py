@@ -27,6 +27,7 @@ import scipy
 from scipy.signal import find_peaks, medfilt
 from scipy.optimize import curve_fit
 from scipy.ndimage import gaussian_filter1d
+from scipy.interpolate import interp1d
 import skimage.morphology
 import skimage.measure
 
@@ -44,35 +45,58 @@ class ACRSliceThickness(HazenTask):
         """Subclass of Line to implement functionality related to the ACR phantom's ramps"""
 
         def get_FWHM(self):
-
+            """Calculates the FWHM by fitting a piecewise sigmoid to signal across line"""
             if not hasattr(self, "signal"):
                 raise ValueError("Signal across line has not been computed!")
 
             fitted = self._fit_piecewise_sigmoid()
-            pass
+
+            peaks, props = find_peaks(fitted.y, height=0, prominence=np.max(fitted.y).item() / 4)
+            peak_height = np.max(props["peak_heights"])
+
+            backgroundL = fitted.y[0]
+            backgroundR = fitted.y[-1]
+
+            halfMaxL = (peak_height - backgroundL) / 2 + backgroundL
+            halfMaxR = (peak_height - backgroundR) / 2 + backgroundR
+
+            def simple_interpolate(targetY: float, signal: XY) -> float:
+                crossing_index = np.where(signal.y > targetY)[0][0]
+                x1, x2 = signal.x[crossing_index - 1], signal.x[crossing_index]
+                y1, y2 = signal.y[crossing_index - 1], signal.y[crossing_index]
+                targetX = x1 + (targetY - y1) * (x2 - x1) / (y2 - y1)
+                return targetX
+
+            xL = simple_interpolate(halfMaxL, fitted)
+            xR = simple_interpolate(halfMaxR, fitted[:, ::-1])
+
+            self.FWHM = xR - xL
+            self.fitted = fitted
 
         def _fit_piecewise_sigmoid(self) -> XY:
 
             smoothed = self.signal.copy()
-            k = round(len(smoothed.y)/20)
+            k = round(len(smoothed.y) / 20)
             if k % 2 == 0:
                 k += 1
             smoothed.y = medfilt(smoothed.y, k)
-            smoothed.y = gaussian_filter1d(smoothed.y, round(k/2.5))
+            smoothed.y = gaussian_filter1d(smoothed.y, round(k / 2.5))
 
-            peaks, props = find_peaks(smoothed.y, height=0, prominence=np.max(smoothed.y).item()/4)
+            peaks, props = find_peaks(
+                smoothed.y, height=0, prominence=np.max(smoothed.y).item() / 4
+            )
             heights = props["peak_heights"]
             peak = peaks[np.argmax(heights)]
 
-            def get_specific_sigmoid(wholeData: XY, fitStart: int, fitEnd:int) -> XY:
-                fitData = wholeData[:, fitStart: fitEnd]
+            def get_specific_sigmoid(wholeData: XY, fitStart: int, fitEnd: int) -> XY:
+                fitData = wholeData[:, fitStart:fitEnd]
                 A = np.max(fitData.y) - np.min(fitData.y)
                 b = np.min(fitData.y)
 
                 dy = np.diff(fitData.y)
                 dx = np.diff(fitData.x)
                 dx[dx == 0] = 1e-6
-                absDeriv = np.abs(dy/dx)
+                absDeriv = np.abs(dy / dx)
                 absGradMax = np.max(absDeriv)
                 k = np.sign(fitData.y[-1] - fitData.y[0]) * absGradMax * 0.5
                 x0 = fitData.x[np.argmax(absDeriv)]
@@ -80,8 +104,8 @@ class ACRSliceThickness(HazenTask):
                 p0 = [A, k, x0, b]
 
                 def sigmoid(x, A, k, x0, b):
-                    exp_term = np.exp(-k*(x-x0))
-                    return A/(1+exp_term) + b
+                    exp_term = np.exp(-k * (x - x0))
+                    return A / (1 + exp_term) + b
 
                 popt, _ = curve_fit(sigmoid, fitData.x, fitData.y, p0=p0)
 
@@ -97,9 +121,9 @@ class ACRSliceThickness(HazenTask):
             sigmoidR = XY(smoothed.x, sigmoidR_func(smoothed.x))
 
             def blending_weight(x, transition_x, transition_width):
-                return 1/(1+np.exp(-(x-transition_x)/transition_width))
+                return 1 / (1 + np.exp(-(x - transition_x) / transition_width))
 
-            W = blending_weight(smoothed.x, peak, 1/20 * peak + 1/20 * (len(smoothed.x) - peak))
+            W = blending_weight(smoothed.x, peak, 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak))
             fitted = XY(smoothed.x, (1 - W) * sigmoidL.y + W * sigmoidR.y)
 
             return fitted
@@ -121,7 +145,7 @@ class ACRSliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == 'Sagittal':
+        if ori == "Sagittal":
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -165,10 +189,43 @@ class ACRSliceThickness(HazenTask):
         lines = self.place_lines(img)
         for line in lines:
             line.get_FWHM()
-            pass
+        slice_thickness = 0.2 * (lines[0].FWHM * lines[1].FWHM) / (lines[0].FWHM + lines[1].FWHM)
+
+        if self.report:
+            import matplotlib.pyplot as plt
+
+            fig, axes = plt.subplots(1, 3, figsize=(16, 8))
+            axes[0].imshow(img)
+            for i, line in enumerate(lines):
+                axes[0].plot([line.start.x, line.end.x], [line.start.y, line.end.y])
+                axes[i + 1].plot(
+                    line.signal.x, line.signal.y, label="Raw signal", alpha=0.25, color=f"C{i}"
+                )
+                axes[i + 1].plot(
+                    line.fitted.x, line.fitted.y, label="Fitted piecewise sigmoid", color=f"C{i}"
+                )
+                axes[i + 1].legend(loc="lower right", bbox_to_anchor=(1, -0.2))
+
+            axes[0].axis("off")
+
+            axes[0].set_title("Plot showing placement of profile lines.")
+            axes[1].set_title("Pixel profile across blue line.")
+            axes[1].set_xlabel("Distance along blue line (pixels)")
+            axes[1].set_ylabel("Pixel value")
+
+            axes[2].set_title("Pixel profile across orange line.")
+            axes[2].set_xlabel("Distance along orange line (pixels)")
+            axes[2].set_ylabel("Pixel value")
+            plt.tight_layout()
+
+            img_path = os.path.realpath(
+                os.path.join(self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png")
+            )
+
+            fig.savefig(img_path, dpi=600)
+            self.report_files.append(img_path)
 
         return slice_thickness
-
 
     def place_lines(self, img: np.ndarray) -> list["Line"]:
         """Places line on image within ramps insert.
@@ -219,132 +276,19 @@ class ACRSliceThickness(HazenTask):
 
         # Final lines are sublines of connecting lines
         finalLines = [line.get_subline(perc=95) for line in connectingLines]
-        for line in finalLines: line.get_signal(img)
+        for line in finalLines:
+            line.get_signal(img)
 
         return finalLines
 
-    # def find_ramps(self, img, centre):
-    #     """Find ramps in the pixel array and return the co-ordinates of their location.
 
-    #     Args:
-    #         img (np.ndarray): dcm.pixel_array
-    #         centre (list): x,y coordinates of the phantom centre
-
-    #     Returns:
-    #         tuple: x and y coordinates of ramp.
-    #     """
-    #     # X
-    #     investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
-
-    #     if np.mod(investigate_region, 2) == 0:
-    #         investigate_region = investigate_region + 1
-
-    #     # Line profiles around the central row
-    #     invest_x = [
-    #         skimage.measure.profile_line(
-    #             img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant"
-    #         )
-    #         for k in range(investigate_region)
-    #     ]
-
-    #     invest_x = np.array(invest_x).T
-    #     mean_x_profile = np.mean(invest_x, 1)
-    #     abs_diff_x_profile = np.absolute(np.diff(mean_x_profile))
-
-    #     # find the points corresponding to the transition between:
-    #     # [0] - background and the hyperintense phantom
-    #     # [1] - hyperintense phantom and hypointense region with ramps
-    #     # [2] - hypointense region with ramps and hyperintense phantom
-    #     # [3] - hyperintense phantom and background
-
-    #     x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 4)
-    #     x_locs = np.sort(x_peaks) - 1
-
-    #     width_pts = [x_locs[1], x_locs[2]]
-    #     width = np.max(width_pts) - np.min(width_pts)
-
-    #     # take rough estimate of x points for later line profiles
-    #     x = np.round([np.min(width_pts) + 0.2 * width, np.max(width_pts) - 0.2 * width])
-
-    #     # Y
-    #     c = skimage.measure.profile_line(
-    #         img,
-    #         (centre[1] - 2 * investigate_region, centre[0]),
-    #         (centre[1] + 2 * investigate_region, centre[0]),
-    #         mode="constant",
-    #     ).flatten()
-
-    #     abs_diff_y_profile = np.absolute(np.diff(c))
-
-    #     y_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_y_profile, 2)
-    #     y_locs = centre[1] - 2 * investigate_region + 1 + y_peaks
-    #     height = np.max(y_locs) - np.min(y_locs)
-
-    #     y = np.round([np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height])
-
-    #     return x, y
-
-    # def FWHM(self, data):
-    #     """Calculate full width at half maximum of the line profile.
-
-    #     Args:
-    #         data (np.ndarray): slice profile curve.
-
-    #     Returns:
-    #         tuple: co-ordinates of the half-maximum points on the line profile.
-    #     """
-    #     baseline = np.min(data)
-    #     data -= baseline
-    #     # TODO create separate variable so that data value isn't being overwritten
-    #     half_max = np.max(data) * 0.5
-
-    #     # Naive attempt
-    #     half_max_crossing_indices = np.argwhere(
-    #         np.diff(np.sign(data - half_max))
-    #     ).flatten()
-
-    #     # Interpolation
-    #     def simple_interp(x_start, ydata):
-    #         """Simple interpolation - obtaining more accurate x co-ordinates.
-
-    #         Args:
-    #             x_start (int or float): x coordinate of the half maximum.
-    #             ydata (np.ndarray): y coordinates.
-
-    #         Returns:
-    #             float: true x coordinate of the half maximum.
-    #         """
-    #         x_points = np.arange(x_start - 5, x_start + 6)
-    #         # Check if expected x_pts (indices) will be out of range ( >= len(ydata))
-    #         inrange = np.where(x_points == len(ydata))[0]
-    #         if np.size(inrange) > 0:
-    #             # locate index of where ydata ends within x_pts
-    #             # crop x_pts until len(ydata)
-    #             x_pts = x_points[: inrange.flatten()[0]]
-    #         else:
-    #             x_pts = x_points
-
-    #         y_pts = ydata[x_pts]
-
-    #         grad = (y_pts[-1] - y_pts[0]) / (x_pts[-1] - x_pts[0])
-
-    #         x_true = x_start + (half_max - ydata[x_start]) / grad
-
-    #         return x_true
-
-    #     FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
-    #         half_max_crossing_indices[-1], data
-    #     )
-    #     return FWHM_pts
-
-
-
-"""
 import matplotlib
+
 matplotlib.use("inline")
 root = Tk()
 root.withdraw()
 file_path = filedialog.askdirectory()
-task = ACRSliceThickness(input_data=get_dicom_files(file_path))
-task.run()
-"""
+task = ACRSliceThickness(input_data=get_dicom_files(file_path), report=True)
+stResult = task.run()
+print(stResult)
+pass
