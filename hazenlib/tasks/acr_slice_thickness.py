@@ -16,20 +16,15 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 
-sys.path.append(r"R:\Users Public\Students\Nathan Crossley\MRI\Hazen Project\hazen")
 import traceback
 import numpy as np
 import cv2
-import matplotlib.pyplot as plt
 from tkinter import Tk, filedialog
 
-import scipy
 from scipy.signal import find_peaks, medfilt
 from scipy.optimize import curve_fit
 from scipy.ndimage import gaussian_filter1d
-from scipy.interpolate import interp1d
 import skimage.morphology
-import skimage.measure
 
 
 from hazenlib.HazenTask import HazenTask
@@ -247,12 +242,20 @@ class ACRSliceThickness(HazenTask):
         contours, _ = cv2.findContours(
             img_binary.astype(np.uint8), mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE
         )
+
+        def get_aspect_ratio(contour):
+            _, (width, height), _ = cv2.minAreaRect(contour)
+            return min(width, height) / max(width, height)
+
+        # filter out tiny contours from noise
+        threshArea = 15 * 15
+        contours = [cont for cont in contours if cv2.contourArea(cont) >= threshArea]
+        # select central insert
         contours_sorted = sorted(
             contours,
-            key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])),
-            reverse=True,
+            key=lambda c: get_aspect_ratio(c),
         )
-        insertContour = contours_sorted[1]
+        insertContour = contours_sorted[0]
 
         # Create list of Point objects for the four corners of the contour
         insertCorners = cv2.boxPoints(cv2.minAreaRect(insertContour))
@@ -280,15 +283,3 @@ class ACRSliceThickness(HazenTask):
             line.get_signal(img)
 
         return finalLines
-
-
-import matplotlib
-
-matplotlib.use("inline")
-root = Tk()
-root.withdraw()
-file_path = filedialog.askdirectory()
-task = ACRSliceThickness(input_data=get_dicom_files(file_path), report=True)
-stResult = task.run()
-print(stResult)
-pass
