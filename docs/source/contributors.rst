@@ -18,3 +18,5 @@ Contributors
 * `Sian Culley <https://github.com/superresolusian>`_
 * `Molly Buckley <https://github.com/mollybuckley>`_
 * `Becky Thornley <https://github.com/RebeccaThornley>`_
+* `Beatriz Laureano <https://github.com/Biaaaaaa12>`_
+* `Melissa Lowe <https://github.com/melissalowe98>`_

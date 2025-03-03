@@ -1,14 +1,13 @@
-Tasks
+Task descriptions
 =================================
-The *hazen* application provides automatic quantitative analysis for MRI data acquired with either the ACR phantom or MagNET phantoms. Analysis is based on guidance from IPEM\ :footcite:p:`2017:ipem112`\ :footcite:p:`1999:ipem80`, ACR\ :footcite:p:`2015:acrQC` and MagNET.
+The *hazen* application provides automatic quantitative analysis for MRI data acquired with either the ACR phantom or MagNET phantoms. Analysis is based on guidance from IPEM\ :footcite:p:`2017:ipem112`\ :sup:`,` :footcite:p:`1999:ipem80`, ACR\ :footcite:p:`2015:acrQC` and MagNET.
 
-Images should be acquired as detailed in the ACR\ :footcite:p:`2015:acrQC` and MagNET guidelines respectively. Acquisition requires precise phantom positioning such that the structures in the phantoms are orientated correctly with respect to the scanner.
+Please refer to **acquisition requirements** for detail related to the acquisition of phantom images, as well as **input requirements** for the required folder structure for hazen input.
 
-It should be noted that ACR guidance is limited to acquisition in the transverse plane. If acquiring in the sagittal and coronal planes, it is important to position the phantom such that the structures in the phantom are orientated in the same way as for a transverse acquisition. The online rotation tool at the scanner may be helpful in obtaining the correct orientation.
 
 Signal-to-noise ratio (SNR)
 ------------------------------
-The SNR is a measure of how the signal and hence the pixel intensity in the image is affected by random fluctuations referred to as noise. Sources of noise can include the RF coil and receiver system or inhomogeneities in the magnetic field. The choice of sequence type and parameters also affect SNR.
+SNR is a measure of how the signal and hence the pixel intensity in the image is affected by random fluctuations referred to as noise. Sources of noise can include the RF coil and receiver system or inhomogeneities in the magnetic field. The choice of sequence type and parameters also affect SNR.
 
 Hazen calculates the SNR using a subtraction method\ :footcite:p:`2017:ipem112` or a smoothing method\ :footcite:p:`2013:mcann`. A normalised SNR is also calculated which accounts for voxel size, bandwidth, repetition time and number of measurements.
 
@@ -18,13 +17,28 @@ The smoothing method uses a single slice of a flood or uniform section of a phan
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_snr’ task measures SNR in the flood field region, on slice 7 of the ACR phantom. The user should provide a folder path that contains all eleven slices of the ACR phantom. There are two task options, ‘measured_slice_width’ and ‘subtract’.
+The *acr_snr* task measures SNR in the flood field region, on slice 7 of the ACR phantom. By default, the task uses the smoothing method and Hazen will output both the measured and normalised SNR. The subtraction method can be used by providing a second data set using the *subtract* task option. A more accurate normalised snr can be calculated with the *measured_slice_width* task option.
 
-By default, the task uses the smoothing method and Hazen will output both the measured and normalised SNR. The subtraction method can be used by providing a second data set using the ‘subtract’ task option. The second data set should be an identical repeated acquisition of the first data set. Measured slice width can be provided as a task option to give a more accurate normalised SNR.
+.. figure:: /_static/snr_ROIs.png
+   :width: 300
+   :height: 300
+   :align: center
+
+   Regions of interest used to measure SNR
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘snr’ task measures SNR on an image of a flood field phantom such as the MagNET flood field test object using either the smoothed or subtraction method. The user should provide a folder path containing either one image or two identical images. If one image is provided, Hazen will calculate SNR via the smoothing method and outputs measured and normalised SNR.  If two images are provided, Hazen will calculate SNR via the smoothing method for each slice and via the subtraction method. Measured slice width can be provided as a task option to give a more accurate normalised SNR.
+The *snr* task measures SNR on an image of the MagNET flood field test object (or any other flood field/uniform phantom). Depending on the number of images provided, Hazen will calculate SNR via the smoothing method or via both the smoothing and subtraction methods. Both measured and normalised SNR are outputted.  Measured slice width can be provided as a task option to give a more accurate normalised SNR.
+
+
+SNR map
+---------------------
+The *snr map* task can be used with either the ACR phantom or MagNET flood field test object.
+
+The SNR map can show variation in SNR caused by smoothing filters. It also highlights small regions of low signal which could be caused by microbubbles or foreign bodies in the phantom. These inhomogeneities can erroneously reduce SNR measurements made by other methods.
+
+SNR is calculated for each voxel by calculating the SNR in an ROI centred on that voxel. SNR is calculated via the smoothing method.
+
 
 Spatial resolution
 ---------------------
@@ -36,17 +50,12 @@ High-contrast spatial resolution can be assessed quantitatively through the modu
 
 The MTF describes how the range of spatial frequencies of an object are modulated during the image formation process. It can be calculated by taking the Fourier transformation of the line spread function (LSF), derived from measurement and differentiation of the edge response function (ERF), obtained by taking a profile across a sharp high-contrast step (e.g. the edge of a block).
 
-ACR
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_spatial_resolution’ task measures spatial resolution in slice 1 of the ACR by calculating the MTF from the edges of the slice thickness insert. The user should provide a folder path that contains all eleven slices of the ACR phantom. Note that the phantom must be positioned such that the insert is at an angle of at least three degrees to the horizontal. This requires a separate acquisition to the data used for other tests.
-
-A square ROI is selected around the anterior edge of the slice thickness insert, and the ERF is generated based on the edge within the ROI. The raw data and ERF (fitted using a weighted sigmoid function) is then used to determine the LSF and subsequent MSF. Hazen outputs the measurement of spatial resolution for both the raw and fitted data.
-
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘spatial_resolution’ task measures spatial resolution with the MagNET resolution test object by calculating the MTF from the edges of the Perspex block which is angled at 10 degrees to the horizontal and vertical. The user should provide a folder path containing one image of the phantom.
+The *spatial_resolution* task measures spatial resolution with the MagNET resolution test object by calculating the MTF from the edges of the Perspex block which is angled at 10 degrees to the horizontal and vertical.
 
 A square ROI is selected that encompasses the central Perspex block,  and an edge response function is generated for both the top and right edges of the block.  This is then used to determine the LSF and subsequent MTF for each edge. Hazen outputs the measurement of spatial resolution in both the frequency and phase encoding directions.
+
 
 Uniformity
 ----------
@@ -56,15 +65,30 @@ Uniformity can be quantified via either the fractional\ :footcite:p:`1999:ipem80
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_uniformity’ task calculates percentage integral uniformity in slice 7 of the ACR phantom. The user should provide a folder path that contains all eleven slices of the ACR phantom.
+The *acr_uniformity* task calculates percentage integral uniformity in slice 7 of the ACR phantom.
 
 A 200cm\ :sup:`2` ROI is first defined in the centre of the slice before placing 1cm\ :sup:`2` ROIs at every pixel within the large ROI. The mean pixel value of each 1cm\ :sup:`2` ROI is calculated and the minimum and maximum values are used to calculate integral uniformity.
 
+.. figure:: /_static/acr_uni_analysis.png
+   :width: 300
+   :height: 300
+   :align: center
+
+   Regions of interest used to measure uniformity with the ACR phantom
+
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘uniformity’ task calculates fractional uniformity for a single-slice image of the MagNET flood field test object. The user should provide a folder path containing one image.
+The *uniformity* task calculates fractional uniformity for a single-slice image of the MagNET flood field test object.
 
 To measure fractional uniformity, the modal value in a 10x10 pixel ROI at the centre of the image is first measured. The average of ten 160-pixel profiles at the image centre is then taken in both the horizontal and vertical directions. Fractional uniformity is given by the fraction of pixels in the horizontal and vertical profiles that are within 90-110% of the centre modal value.
+
+.. figure:: /_static/magnet_uniformity.png
+   :width: 660
+   :height: 320
+   :align: center
+
+   Regions of interest used to measure uniformity with the ACR phantom
+
 
 Ghosting
 ------------------
@@ -72,15 +96,30 @@ Ghosting is a type of artefact that appears as repeated low intensity copies of 
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_ghosting’ task measures the ghosting ratio on slice 7 of the ACR phantom. The user should provide a folder path that contains all eleven slices of the ACR phantom.
+The *acr_ghosting* task measures the ghosting ratio on slice 7 of the ACR phantom.
 
 The percent-signal ghosting is calculated by defining a large central 200cm\ :sup:`2` ROI and four elliptical 10cm\ :sup:`2` ROI’s in the background along the cardinal directions. The mean pixel value in each ROI is used to calculate the percent-signal ghosting.
 
+.. figure:: /_static/acr_ghosting_analysis.png
+   :width: 300
+   :height: 300
+   :align: center
+
+   Regions of interest used to measure ghosting with the ACR phantom
+
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘ghosting’ task measures the percent-signal ghosting using the small-bottle method\ :footcite:p:`2017:ipem112`. Images of an off-centre phantom are acquired at different echo times (30,60,90,120 ms). The user should provide a folder path that contains four images, a single slice at each echo time. The user may choose to acquire and test this data with both one and two averages.
+The *ghosting* task measures the percent-signal ghosting using the small bottle method as described in IPEM 112.
 
 Ghosting is measured by utilising ROI’s to evaluate the true phantom signal, the signal in regions of ghosting in line with the phantom in the phase-encoding direction and the background noise level. Hazen outputs a ghosting ratio for each echo time.
+
+.. figure:: /_static/magnet_ghosting_analysis.png
+   :width: 300
+   :height: 300
+   :align: center
+
+   Regions of interest used to measure ghosting with the small bottle phantom
+
 
 Slice Position
 -------------------------
@@ -88,13 +127,21 @@ Slice position accuracy tests how well the actual locations of slices differ fro
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_slice_position’ task measures slice position on slices 1 and 11 of the ACR phantom. The user should provide a folder path that contains all eleven slices of the ACR phantom.
+The *acr_slice_position* task measures slice position on slices 1 and 11 of the ACR phantom.
 
-Slices 1 and 11 should be prescribed so that they are aligned with the vertices of the crossing wedges positioned at the superior and inferior ends of the phantom. The wedges are then visualised on slices 1 and 11 as adjacent dark bars. If there is perfect agreement between the nominal and measured slice position, then the bars will have equal length on the image. If the slice is displaced superiorly with respect to the vertex, the bar on the observer’s right (anatomical left) will be longer. If the slice is displaced inferiorly with respect to the vertex, the bar on the observer’s left will be longer. Hazen outputs the bar length difference, which is twice the slice position displacement, for both slices 1 and 11. A negative sign is assigned to an inferior displacement.
+The crossing wedges positioned at the superior and inferior ends of the phantom are visualised on slices 1 and 11 as adjacent dark bars. If there is perfect agreement between the nominal and measured slice position, then the bars will have equal length on the image. If the slice is displaced superiorly with respect to the vertex, the bar on the observer’s right (anatomical left) will be longer. If the slice is displaced inferiorly with respect to the vertex, the bar on the observer’s left will be longer. Hazen outputs the bar length difference, which is twice the slice position displacement, for both slices 1 and 11. A negative sign is assigned to an inferior displacement.
+
+.. figure:: /_static/acr_slice_position.png
+   :width: 684
+   :height: 348
+   :align: center
+
+   Slices 1 and 11 of the ACR phantom are used to measure slice position
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘slice_position’ task uses the slice position MagNET test object. The user should provide a folder path that contains 60 appropriately acquired transverse images. The test object contains two angled glass rods and four parallel glass rods. The distance between the angled rods is used to measure the agreement between the nominal slice position and the measured slice position.  Hazen outputs both the maximum and average slice position error.
+The *slice_position* task uses the slice position MagNET test object.  The test object contains two angled glass rods and four parallel glass rods. The distance between the angled rods is used to measure the agreement between the nominal slice position and the measured slice position.  Hazen outputs both the maximum and average slice position error.
+
 
 Slice Width
 -------------------------
@@ -102,11 +149,19 @@ Slice width is a measure of the slice thickness compared to the nominal slice th
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_slice_thickness’ task measures slice width on slice 1 of the ACR phantom where there are two crossing ramps inclined at equal and opposite angles to the acquisition plane. The user should provide a folder path that contains all eleven slices of the ACR phantom. The full-width half-maximum of each ramp is determined and used to calculate slice thickness.
+The *acr_slice_thickness* task measures slice width on slice 1 of the ACR phantom where there are two crossing ramps inclined at equal and opposite angles to the acquisition plane. The full-width half-maximum of each ramp is determined and used to calculate slice thickness.
+
+.. figure:: /_static/acr_slice_width.png
+   :width: 300
+   :height: 300
+   :align: center
+
+   Slice 1 of the ACR phantom is used to measure slice width
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘slice_width’ task measures slice width with the MagNET geometric test object, which contains two angled glass plates. The user should provide a folder path containing a single image of the phantom. The full-width half-maximum of each ramp is used along with the known angle of the ramp to calculate slice width. The average of both ramps is then calculated. Hazen outputs the slice width along with measures of linearity and distortion- see ‘Geometric accuracy’.
+The *slice_width* task measures slice width with the MagNET geometric test object, which contains two angled glass plates. The full-width half-maximum of each ramp is used along with the known angle of the ramp to calculate slice width. The average of both ramps is then calculated. Hazen outputs the slice width along with measures of linearity and distortion- see **Geometric accuracy**.
+
 
 Geometric Accuracy
 -------------------------
@@ -114,19 +169,27 @@ Geometric accuracy is a measure of the amount of geometric distortion within an 
 
 ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘acr_geometric_accuracy’ task quantifies geometric distortion by measuring the phantom diameter on slice 1 and 5 and comparing this to the known diameter (19cm). The user should provide a folder path that contains all eleven slices of the ACR phantom.
+The *acr_geometric_accuracy* task quantifies geometric distortion by measuring the phantom diameter on slice 1 and 5 and comparing this to the known diameter (19cm).
 
 On slice 1, the diameter is measured in the horizontal and vertical directions and on slice 5 the diameter is measured in the horizontal, vertical and two diagonal directions. Hazen outputs each measured distance as well as the maximum error, minimum error and coefficient of variation for all five measurements.
 
+.. figure:: /_static/acr_geom_measurements.png
+   :width: 684
+   :height: 348
+   :align: center
+
+   Diameters on slices 1 and 5 used to measure geometric accuracy
+
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-The ‘slice_width’ task measures geometric linearity and distortion for the MagNET geometric test object. The user should provide a folder path containing a single image of the phantom. The test object contains a series of Perspex rods which are used to make three horizontal and three vertical measures of distance. Hazen outputs each measured distance as well as the average in both directions. Geometric linearity can be quantified via the error between the measured distance and known distance.
+The *slice_width* task measures geometric linearity and distortion for the MagNET geometric test object. The test object contains a series of Perspex rods which are used to make three horizontal and three vertical measures of distance. Hazen outputs each measured distance as well as the average in both directions. Geometric linearity can be quantified via the error between the measured distance and known distance.
 
 Geometric distortion is quantified via the coefficient of variation of the errors between the measured distance and actual distance. Hazen outputs the coefficient of variation in both directions.
 
+
 Relaxometry
 --------------------------
-Relaxometry is measurement of relaxation times from MR images. Within `hazen`, we determine the T1 and T2 decay constants for the relaxometry spheres in the `Caliber (HPD) system phantom <https://qmri.com/contrast-mri/>`_.
+Relaxometry is measurement of relaxation times from MR images. Within *hazen*, we determine the T1 and T2 decay constants for the relaxometry spheres in the `Caliber (HPD) system phantom <https://qmri.com/contrast-mri/>`_.
 
 Values are compared to published values (without temperature correction), and graphs of fit and phantom registration images can optionally be produced.
 
@@ -148,6 +211,7 @@ To summarise the algorithm used, we:
    - Template fit on outline image--poss run though edge detection algorithms then fit.
    - Use normalised structuring element in ROITimeSeries. This will allow correct calculation of mean if elements are not 0 or 1.
    - Get r-squared measure of fit.
+
 
 References
 ------------------

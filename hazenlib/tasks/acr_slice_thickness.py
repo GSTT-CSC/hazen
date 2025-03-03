@@ -24,6 +24,8 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.utils import get_image_orientation
+
 
 
 class ACRSliceThickness(HazenTask):
@@ -43,6 +45,19 @@ class ACRSliceThickness(HazenTask):
         """
         # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.slice_stack[0]
+        # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
+
+        ori = get_image_orientation(slice_thickness_dcm)
+        if ori == 'Sagittal':
+            # Get the pixel array from the DICOM file
+            img = slice_thickness_dcm.pixel_array
+
+            # Rotate the image 90 degrees clockwise
+
+            rotated_img = np.rot90(img, k=-1)  # k=-1 for 90 degrees clockwise
+
+            # Update the pixel array in the DICOM object
+            slice_thickness_dcm.PixelData = rotated_img.tobytes()
 
         # Initialise results dictionary
         results = self.init_result_dict()
