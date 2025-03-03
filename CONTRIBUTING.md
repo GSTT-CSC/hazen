@@ -69,7 +69,7 @@ contribution.
    - Select the `Bug report` or `Feature request` template
    - Fill in the Issue according to the template
    - Add relevant Labels to the issue: `Enhancement`, `Bug`, `MRI`, `DICOM`, etc
-3. Create a new branch from `main`
+3. **Contact us to be given 'write' access to the repo** - this will allow you to branch off (note: we cannot merge from forks). Create a new branch from `main`
    - Name the branch with the issue number and a short description, e.g.: `123-snr-bugfix`
 4. Make your code changes (see guidance above)
 5. Perform unit tests on your machine: `pytest tests/`

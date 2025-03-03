@@ -71,7 +71,7 @@ There are two main options for running hazen.
 
 ### 1) Python install and run (CLI)
 
-hazen can be installed with Python 3.9, 3.10 or 3.11 versions via pip (Python 3.12 is not currently supported).
+hazen can be installed with Python 3.9, 3.10, 3.11 or 3.12 versions via pip.
 
 It is strongly recommended to use a virtual environment, that can be made using the following commands.
 

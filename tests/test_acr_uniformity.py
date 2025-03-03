@@ -14,6 +14,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
     piu = 67.89
     tolerance = 0.05  # 5% tolerance
 
+
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
 
@@ -37,4 +38,4 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
 class TestACRUniformityGE(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    piu = 84.66
+    piu = 84.23

@@ -78,73 +78,53 @@ class ACRUniformity(HazenTask):
         # Required pixel radius to produce ~1cm2 ROI
         r_small = np.ceil(np.sqrt(100 / np.pi) / self.ACR_obj.dx).astype(int)
         # Offset distance for rectangular void at top of phantom
-        d_void = np.ceil(5 / self.ACR_obj.dx).astype(int)
+        d_void = np.ceil(5 / self.ACR_obj.dy).astype(int)
         dims = img.shape  # Dimensions of image
 
-        (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
-            img, self.ACR_obj.dx, self.ACR_obj.dy
-        )
+        mask=self.ACR_obj.get_mask_image(img)
+        cx, cy = mask.shape[1] // 2, mask.shape[0] // 2
+        (centre_x, centre_y) = (cx,cy)
+
         # Dummy circular mask at centroid
-        base_mask = ACRObject.circular_mask(
-            (centre_x, centre_y + d_void), r_small, dims
-        )
+        base_mask = ACRObject.circular_mask((centre_x, centre_y + d_void), r_small, dims)
         coords = np.nonzero(base_mask)  # Coordinates of mask
 
         # TODO: ensure that shifting the sampling circle centre
         # is in the correct direction by a correct factor
-        lroi = self.ACR_obj.circular_mask([centre_x, centre_y + d_void], r_large, dims)
-        img_masked = lroi * img
-        half_max = np.percentile(img_masked[np.nonzero(img_masked)], 50)
 
-        min_image = img_masked * (img_masked < half_max)
-        max_image = img_masked * (img_masked > half_max)
+        # List to store the results from each small ROI
+        results = []
+        height,width = img.shape
 
-        min_rows, min_cols = np.nonzero(min_image)[0], np.nonzero(min_image)[1]
-        max_rows, max_cols = np.nonzero(max_image)[0], np.nonzero(max_image)[1]
+        # Iterating through the large ROI with the small ROI and storing the results
+        for x in range(r_small, width - r_small):
+            for y in range (r_small, height - r_small):
+                y_grid, x_grid = np.ogrid[:height, :width]
+                mask = (x_grid - x)**2 +(y_grid - y)**2 <= r_small**2
+                roi_values = img[mask]
+                mean_val = np.mean(roi_values)
+                results.append((x, y, mean_val))
 
-        mean_array = np.zeros(img_masked.shape)
 
-        def uniformity_iterator(masked_image, sample_mask, rows, cols):
-            """Iterates spatially through the pixel array with a circular ROI and calculates the mean non-zero pixel
-            value within the circular ROI at each iteration.
+        filtered_results = []
+        for x, y, mean_val in results:
+            # Distance from centre of small ROI to centre of large ROI
+            distance_to_centre = np.sqrt((x - cx)**2 + (y - cy)**2)
+            if distance_to_centre + r_small <= r_large:
+                # Filtering small ROIs to only include those that fall completely within the larger ROI
+                filtered_results.append((x, y, mean_val))
+        # Get the small ROIs containing the maximum mean and minimum mean values
+        max_mean_tuple = max(filtered_results, key = lambda item: item[2])
+        min_mean_tuple = min(filtered_results, key=lambda item: item[2])
+        max_value = max_mean_tuple[2]
+        min_value = min_mean_tuple[2]
+        x_max, y_max = max_mean_tuple[0], max_mean_tuple[1]
+        x_min, y_min = min_mean_tuple[0], min_mean_tuple[1]
+        min_loc = [x_min, y_min]
+        max_loc = [x_max, y_max]
 
-            Args:
-                masked_image (np.array): subset of pixel array.
-                sample_mask (np.array): _description_.
-                rows (np.array): 1D array.
-                cols (np.array): 1D array.
-
-            Returns:
-                np.array: array of mean values.
-            """
-            # Coordinates of mask
-            coords = np.nonzero(sample_mask)
-            for idx, (row, col) in enumerate(zip(rows, cols)):
-                centre = [row, col]
-                translate_mask = [
-                    coords[0] + centre[0] - centre_x - d_void,
-                    coords[1] + centre[1] - centre_y,
-                ]
-                values = masked_image[translate_mask[0], translate_mask[1]]
-                if np.count_nonzero(values) < np.count_nonzero(sample_mask):
-                    mean_val = 0
-                else:
-                    mean_val = np.mean(values[np.nonzero(values)])
-
-                mean_array[row, col] = mean_val
-
-            return mean_array
-
-        min_data = uniformity_iterator(min_image, base_mask, min_rows, min_cols)
-        max_data = uniformity_iterator(max_image, base_mask, max_rows, max_cols)
-
-        sig_max = np.max(max_data)
-        sig_min = np.min(min_data[np.nonzero(min_data)])
-
-        max_loc = np.where(max_data == sig_max)
-        min_loc = np.where(min_data == sig_min)
-
-        piu = 100 * (1 - (sig_max - sig_min) / (sig_max + sig_min))
+        # Uniformity calculation
+        piu = 100 * (1 - (max_value - min_value) / (max_value + min_value))
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -170,7 +150,7 @@ class ACRUniformity(HazenTask):
                 c="yellow",
             )
             axes[1].annotate(
-                "Min = " + str(np.round(sig_min, 1)),
+                "Min = " + str(np.round(min_value, 1)),
                 [min_loc[1], min_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
@@ -181,7 +161,7 @@ class ACRUniformity(HazenTask):
                 c="yellow",
             )
             axes[1].annotate(
-                "Max = " + str(np.round(sig_max, 1)),
+                "Max = " + str(np.round(max_value, 1)),
                 [max_loc[1], max_loc[0] + 10 / self.ACR_obj.dx],
                 c="white",
             )
