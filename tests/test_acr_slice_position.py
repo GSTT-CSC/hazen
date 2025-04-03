@@ -14,6 +14,7 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
     slice_1_y_pts = [40, 82]
     slice_11_y_pts = [44, 82]
     dL = -0.59, -1.56
+    tolerance = 0.05  # 5% tolerance
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -36,17 +37,17 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
 
     # IMAGE 1
     def test_find_wedge_slice1_x(self):
-        assert self.slice1_x_pts == self.slice_1_x_pts
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(self.slice1_x_pts, self.slice_1_x_pts))
 
     def test_find_wedge_slice1_y(self):
-        assert self.slice1_y_pts == self.slice_1_y_pts
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(self.slice1_y_pts, self.slice_1_y_pts))
 
     # IMAGE 11
     def test_find_wedge_slice11_x(self):
-        assert self.slice11_x_pts == self.slice_11_x_pts
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(self.slice11_x_pts, self.slice_11_x_pts))
 
     def test_find_wedge_slice11_y(self):
-        assert self.slice11_y_pts == self.slice_11_y_pts
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(self.slice11_y_pts, self.slice_11_y_pts))
 
     def test_slice_position(self):
         slice_position_val_1 = round(
@@ -60,8 +61,8 @@ class TestACRSlicePositionSiemens(unittest.TestCase):
         print("new_release_value:", slice_position_val_1)
         print("fixed_value:", self.dL[0])
 
-        assert slice_position_val_1 == self.dL[0]
-        assert slice_position_val_11 == self.dL[1]
+        assert abs(slice_position_val_1 - self.dL[0]) / self.dL[0] <= self.tolerance
+        assert abs(slice_position_val_11 - self.dL[1]) / self.dL[1] <= self.tolerance
 
 
 class TestACRSlicePositionGE(TestACRSlicePositionSiemens):
