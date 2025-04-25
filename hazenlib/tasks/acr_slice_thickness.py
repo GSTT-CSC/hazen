@@ -19,17 +19,15 @@ import sys
 import traceback
 import numpy as np
 import cv2
-from tkinter import Tk, filedialog
 
 from scipy.signal import find_peaks, medfilt
 from scipy.optimize import curve_fit
 from scipy.ndimage import gaussian_filter1d
-import skimage.morphology
 
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import get_image_orientation, get_dicom_files
+from hazenlib.utils import get_image_orientation
 from hazenlib.utils import Point, Line, XY
 
 
@@ -46,7 +44,9 @@ class ACRSliceThickness(HazenTask):
 
             fitted = self._fit_piecewise_sigmoid()
 
-            peaks, props = find_peaks(fitted.y, height=0, prominence=np.max(fitted.y).item() / 4)
+            peaks, props = find_peaks(
+                fitted.y, height=0, prominence=np.max(fitted.y).item() / 4
+            )
             peak_height = np.max(props["peak_heights"])
 
             backgroundL = fitted.y[0]
@@ -118,7 +118,9 @@ class ACRSliceThickness(HazenTask):
             def blending_weight(x, transition_x, transition_width):
                 return 1 / (1 + np.exp(-(x - transition_x) / transition_width))
 
-            W = blending_weight(smoothed.x, peak, 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak))
+            W = blending_weight(
+                smoothed.x, peak, 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak)
+            )
             fitted = XY(smoothed.x, (1 - W) * sigmoidL.y + W * sigmoidR.y)
 
             return fitted
@@ -184,7 +186,9 @@ class ACRSliceThickness(HazenTask):
         lines = self.place_lines(img)
         for line in lines:
             line.get_FWHM()
-        slice_thickness = 0.2 * (lines[0].FWHM * lines[1].FWHM) / (lines[0].FWHM + lines[1].FWHM)
+        slice_thickness = (
+            0.2 * (lines[0].FWHM * lines[1].FWHM) / (lines[0].FWHM + lines[1].FWHM)
+        )
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -194,10 +198,17 @@ class ACRSliceThickness(HazenTask):
             for i, line in enumerate(lines):
                 axes[0].plot([line.start.x, line.end.x], [line.start.y, line.end.y])
                 axes[i + 1].plot(
-                    line.signal.x, line.signal.y, label="Raw signal", alpha=0.25, color=f"C{i}"
+                    line.signal.x,
+                    line.signal.y,
+                    label="Raw signal",
+                    alpha=0.25,
+                    color=f"C{i}",
                 )
                 axes[i + 1].plot(
-                    line.fitted.x, line.fitted.y, label="Fitted piecewise sigmoid", color=f"C{i}"
+                    line.fitted.x,
+                    line.fitted.y,
+                    label="Fitted piecewise sigmoid",
+                    color=f"C{i}",
                 )
                 axes[i + 1].legend(loc="lower right", bbox_to_anchor=(1, -0.2))
 
@@ -214,7 +225,9 @@ class ACRSliceThickness(HazenTask):
             plt.tight_layout()
 
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png")
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
+                )
             )
 
             fig.savefig(img_path, dpi=600)
@@ -235,12 +248,18 @@ class ACRSliceThickness(HazenTask):
         # Normalize to uint8, enhance contast and binarize using otsu thresh
 
         img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(img_uint8)
-        _, img_binary = cv2.threshold(contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(
+            img_uint8
+        )
+        _, img_binary = cv2.threshold(
+            contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
 
         # Find contour by x-span sort
         contours, _ = cv2.findContours(
-            img_binary.astype(np.uint8), mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE
+            img_binary.astype(np.uint8),
+            mode=cv2.RETR_TREE,
+            method=cv2.CHAIN_APPROX_NONE,
         )
 
         def get_aspect_ratio(contour):
