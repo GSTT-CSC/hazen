@@ -15,21 +15,115 @@ yassine.azma@rmh.nhs.uk
 
 import os
 import sys
+
 import traceback
 import numpy as np
+import cv2
 
-import scipy
-import skimage.morphology
-import skimage.measure
+from scipy.signal import find_peaks, medfilt
+from scipy.optimize import curve_fit
+from scipy.ndimage import gaussian_filter1d
+
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib.utils import get_image_orientation
-
+from hazenlib.utils import Point, Line, XY
 
 
 class ACRSliceThickness(HazenTask):
     """Slice width measurement class for DICOM images of the ACR phantom."""
+
+    class SignalLine(Line):
+        """Subclass of Line to implement functionality related to the ACR phantom's ramps"""
+
+        def get_FWHM(self):
+            """Calculates the FWHM by fitting a piecewise sigmoid to signal across line"""
+            if not hasattr(self, "signal"):
+                raise ValueError("Signal across line has not been computed!")
+
+            fitted = self._fit_piecewise_sigmoid()
+
+            peaks, props = find_peaks(
+                fitted.y, height=0, prominence=np.max(fitted.y).item() / 4
+            )
+            peak_height = np.max(props["peak_heights"])
+
+            backgroundL = fitted.y[0]
+            backgroundR = fitted.y[-1]
+
+            halfMaxL = (peak_height - backgroundL) / 2 + backgroundL
+            halfMaxR = (peak_height - backgroundR) / 2 + backgroundR
+
+            def simple_interpolate(targetY: float, signal: XY) -> float:
+                crossing_index = np.where(signal.y > targetY)[0][0]
+                x1, x2 = signal.x[crossing_index - 1], signal.x[crossing_index]
+                y1, y2 = signal.y[crossing_index - 1], signal.y[crossing_index]
+                targetX = x1 + (targetY - y1) * (x2 - x1) / (y2 - y1)
+                return targetX
+
+            xL = simple_interpolate(halfMaxL, fitted)
+            xR = simple_interpolate(halfMaxR, fitted[:, ::-1])
+
+            self.FWHM = xR - xL
+            self.fitted = fitted
+
+        def _fit_piecewise_sigmoid(self) -> XY:
+
+            smoothed = self.signal.copy()
+            k = round(len(smoothed.y) / 20)
+            if k % 2 == 0:
+                k += 1
+            smoothed.y = medfilt(smoothed.y, k)
+            smoothed.y = gaussian_filter1d(smoothed.y, round(k / 2.5))
+
+            peaks, props = find_peaks(
+                smoothed.y, height=0, prominence=np.max(smoothed.y).item() / 4
+            )
+            heights = props["peak_heights"]
+            peak = peaks[np.argmax(heights)]
+
+            def get_specific_sigmoid(wholeData: XY, fitStart: int, fitEnd: int) -> XY:
+                fitData = wholeData[:, fitStart:fitEnd]
+                A = np.max(fitData.y) - np.min(fitData.y)
+                b = np.min(fitData.y)
+
+                dy = np.diff(fitData.y)
+                dx = np.diff(fitData.x)
+                dx[dx == 0] = 1e-6
+                absDeriv = np.abs(dy / dx)
+                absGradMax = np.max(absDeriv)
+                k = np.sign(fitData.y[-1] - fitData.y[0]) * absGradMax * 0.5
+                x0 = fitData.x[np.argmax(absDeriv)]
+
+                p0 = [A, k, x0, b]
+
+                def sigmoid(x, A, k, x0, b):
+                    exp_term = np.exp(-k * (x - x0))
+                    return A / (1 + exp_term) + b
+
+                popt, _ = curve_fit(sigmoid, fitData.x, fitData.y, p0=p0)
+
+                def specific_sigmoid(x):
+                    return sigmoid(x, *popt)
+
+                return specific_sigmoid
+
+            sigmoidL_func = get_specific_sigmoid(smoothed, 0, peak)
+            sigmoidR_func = get_specific_sigmoid(smoothed, peak, len(smoothed.x))
+
+            sigmoidL = XY(smoothed.x, sigmoidL_func(smoothed.x))
+            sigmoidR = XY(smoothed.x, sigmoidR_func(smoothed.x))
+
+            def blending_weight(x, transition_x, transition_width):
+                return 1 / (1 + np.exp(-(x - transition_x) / transition_width))
+
+            W = blending_weight(
+                smoothed.x, peak, 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak)
+            )
+            fitted = XY(smoothed.x, (1 - W) * sigmoidL.y + W * sigmoidR.y)
+
+            return fitted
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -48,7 +142,7 @@ class ACRSliceThickness(HazenTask):
         # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
-        if ori == 'Sagittal':
+        if ori == "Sagittal":
             # Get the pixel array from the DICOM file
             img = slice_thickness_dcm.pixel_array
 
@@ -78,120 +172,6 @@ class ACRSliceThickness(HazenTask):
 
         return results
 
-    def find_ramps(self, img, centre):
-        """Find ramps in the pixel array and return the co-ordinates of their location.
-
-        Args:
-            img (np.ndarray): dcm.pixel_array
-            centre (list): x,y coordinates of the phantom centre
-
-        Returns:
-            tuple: x and y coordinates of ramp.
-        """
-        # X
-        investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
-
-        if np.mod(investigate_region, 2) == 0:
-            investigate_region = investigate_region + 1
-
-        # Line profiles around the central row
-        invest_x = [
-            skimage.measure.profile_line(
-                img, (centre[1] + k, 1), (centre[1] + k, img.shape[1]), mode="constant"
-            )
-            for k in range(investigate_region)
-        ]
-
-        invest_x = np.array(invest_x).T
-        mean_x_profile = np.mean(invest_x, 1)
-        abs_diff_x_profile = np.absolute(np.diff(mean_x_profile))
-
-        # find the points corresponding to the transition between:
-        # [0] - background and the hyperintense phantom
-        # [1] - hyperintense phantom and hypointense region with ramps
-        # [2] - hypointense region with ramps and hyperintense phantom
-        # [3] - hyperintense phantom and background
-
-        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 4)
-        x_locs = np.sort(x_peaks) - 1
-
-        width_pts = [x_locs[1], x_locs[2]]
-        width = np.max(width_pts) - np.min(width_pts)
-
-        # take rough estimate of x points for later line profiles
-        x = np.round([np.min(width_pts) + 0.2 * width, np.max(width_pts) - 0.2 * width])
-
-        # Y
-        c = skimage.measure.profile_line(
-            img,
-            (centre[1] - 2 * investigate_region, centre[0]),
-            (centre[1] + 2 * investigate_region, centre[0]),
-            mode="constant",
-        ).flatten()
-
-        abs_diff_y_profile = np.absolute(np.diff(c))
-
-        y_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_y_profile, 2)
-        y_locs = centre[1] - 2 * investigate_region + 1 + y_peaks
-        height = np.max(y_locs) - np.min(y_locs)
-
-        y = np.round([np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height])
-
-        return x, y
-
-    def FWHM(self, data):
-        """Calculate full width at half maximum of the line profile.
-
-        Args:
-            data (np.ndarray): slice profile curve.
-
-        Returns:
-            tuple: co-ordinates of the half-maximum points on the line profile.
-        """
-        baseline = np.min(data)
-        data -= baseline
-        # TODO create separate variable so that data value isn't being overwritten
-        half_max = np.max(data) * 0.5
-
-        # Naive attempt
-        half_max_crossing_indices = np.argwhere(
-            np.diff(np.sign(data - half_max))
-        ).flatten()
-
-        # Interpolation
-        def simple_interp(x_start, ydata):
-            """Simple interpolation - obtaining more accurate x co-ordinates.
-
-            Args:
-                x_start (int or float): x coordinate of the half maximum.
-                ydata (np.ndarray): y coordinates.
-
-            Returns:
-                float: true x coordinate of the half maximum.
-            """
-            x_points = np.arange(x_start - 5, x_start + 6)
-            # Check if expected x_pts (indices) will be out of range ( >= len(ydata))
-            inrange = np.where(x_points == len(ydata))[0]
-            if np.size(inrange) > 0:
-                # locate index of where ydata ends within x_pts
-                # crop x_pts until len(ydata)
-                x_pts = x_points[: inrange.flatten()[0]]
-            else:
-                x_pts = x_points
-
-            y_pts = ydata[x_pts]
-
-            grad = (y_pts[-1] - y_pts[0]) / (x_pts[-1] - x_pts[0])
-
-            x_true = x_start + (half_max - ydata[x_start]) / grad
-
-            return x_true
-
-        FWHM_pts = simple_interp(half_max_crossing_indices[0], data), simple_interp(
-            half_max_crossing_indices[-1], data
-        )
-        return FWHM_pts
-
     def get_slice_thickness(self, dcm):
         """Measure slice thickness. \n
         Identify the ramps, measure the line profile, measure the FWHM, and use this to calculate the slice thickness.
@@ -203,140 +183,122 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
-        x_pts, y_pts = self.find_ramps(img, cxy)
-
-        interp_factor = 1 / 5
-        interp_factor_dx = interp_factor * self.ACR_obj.dx
-        sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
-        new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
-        offsets = np.arange(-3, 4)
-        ramp_length = np.zeros((2, 7))
-
-        line_store = []
-        fwhm_store = []
-        for i, offset in enumerate(offsets):
-            lines = [
-                skimage.measure.profile_line(
-                    img,
-                    (offset + y_pts[0], x_pts[0]),
-                    (offset + y_pts[0], x_pts[1]),
-                    linewidth=2,
-                    mode="constant",
-                ).flatten(),
-                skimage.measure.profile_line(
-                    img,
-                    (offset + y_pts[1], x_pts[0]),
-                    (offset + y_pts[1], x_pts[1]),
-                    linewidth=2,
-                    mode="constant",
-                ).flatten(),
-            ]
-
-            interp_lines = [
-                scipy.interpolate.interp1d(sample, line)(new_sample) for line in lines
-            ]
-            fwhm = [self.FWHM(interp_line) for interp_line in interp_lines]
-            ramp_length[0, i] = interp_factor_dx * np.diff(fwhm[0])
-            ramp_length[1, i] = interp_factor_dx * np.diff(fwhm[1])
-
-            line_store.append(interp_lines)
-            fwhm_store.append(fwhm)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
-
-        dz = dz[~np.isnan(dz)]
-        # TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
-        z_ind = np.argmin(np.abs(dcm.SliceThickness - dz))
-
-        slice_thickness = dz[z_ind]
+        lines = self.place_lines(img)
+        for line in lines:
+            line.get_FWHM()
+        slice_thickness = (
+            0.2 * (lines[0].FWHM * lines[1].FWHM) / (lines[0].FWHM + lines[1].FWHM)
+        )
 
         if self.report:
             import matplotlib.pyplot as plt
 
-            fig, axes = plt.subplots(4, 1)
-            fig.set_size_inches(8, 24)
-            fig.tight_layout(pad=4)
-
-            x_ramp = new_sample * self.ACR_obj.dx
-            x_extent = np.max(x_ramp)
-            y_ramp = line_store[z_ind][1]
-            y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * interp_factor_dx
-
+            fig, axes = plt.subplots(1, 3, figsize=(16, 8))
             axes[0].imshow(img)
-            axes[0].scatter(cxy[0], cxy[1], c="red")
+            for i, line in enumerate(lines):
+                axes[0].plot([line.start.x, line.end.x], [line.start.y, line.end.y])
+                axes[i + 1].plot(
+                    line.signal.x,
+                    line.signal.y,
+                    label="Raw signal",
+                    alpha=0.25,
+                    color=f"C{i}",
+                )
+                axes[i + 1].plot(
+                    line.fitted.x,
+                    line.fitted.y,
+                    label="Fitted piecewise sigmoid",
+                    color=f"C{i}",
+                )
+                axes[i + 1].legend(loc="lower right", bbox_to_anchor=(1, -0.2))
+
             axes[0].axis("off")
-            axes[0].set_title("Centroid Location")
 
-            axes[1].imshow(img)
-            axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[0], y_pts[0]], "b-"
-            )
-            axes[1].plot(
-                [x_pts[0], x_pts[1]], offsets[z_ind] + [y_pts[1], y_pts[1]], "r-"
-            )
-            axes[1].axis("off")
-            axes[1].set_title("Line Profiles")
+            axes[0].set_title("Plot showing placement of profile lines.")
+            axes[1].set_title("Pixel profile across blue line.")
+            axes[1].set_xlabel("Distance along blue line (pixels)")
+            axes[1].set_ylabel("Pixel value")
 
-            xmin = fwhm_store[z_ind][1][0] * interp_factor_dx / x_extent
-            xmax = fwhm_store[z_ind][1][1] * interp_factor_dx / x_extent
-
-            axes[2].plot(
-                x_ramp,
-                y_ramp,
-                "r",
-                label=f"FWHM={np.round(ramp_length[1][z_ind], 2)}mm",
-            )
-            axes[2].axhline(
-                0.5 * y_extent, linestyle="dashdot", color="k", xmin=xmin, xmax=xmax
-            )
-            axes[2].axvline(
-                max_loc, linestyle="dashdot", color="k", ymin=0, ymax=10 / 11
-            )
-
-            axes[2].set_xlabel("Relative Position (mm)")
-            axes[2].set_xlim([0, x_extent])
-            axes[2].set_ylim([0, y_extent * 1.1])
-            axes[2].set_title("Upper Ramp")
-            axes[2].grid()
-            axes[2].legend(loc="best")
-
-            xmin = fwhm_store[z_ind][0][0] * interp_factor_dx / x_extent
-            xmax = fwhm_store[z_ind][0][1] * interp_factor_dx / x_extent
-            x_ramp = new_sample * self.ACR_obj.dx
-            x_extent = np.max(x_ramp)
-            y_ramp = line_store[z_ind][0]
-            y_extent = np.max(y_ramp)
-            max_loc = np.argmax(y_ramp) * interp_factor_dx
-
-            axes[3].plot(
-                x_ramp,
-                y_ramp,
-                "b",
-                label=f"FWHM={np.round(ramp_length[0][z_ind], 2)}mm",
-            )
-            axes[3].axhline(
-                0.5 * y_extent, xmin=xmin, xmax=xmax, linestyle="dashdot", color="k"
-            )
-            axes[3].axvline(
-                max_loc, ymin=0, ymax=10 / 11, linestyle="dashdot", color="k"
-            )
-
-            axes[3].set_xlabel("Relative Position (mm)")
-            axes[3].set_xlim([0, x_extent])
-            axes[3].set_ylim([0, y_extent * 1.1])
-            axes[3].set_title("Lower Ramp")
-            axes[3].grid()
-            axes[3].legend(loc="best")
+            axes[2].set_title("Pixel profile across orange line.")
+            axes[2].set_xlabel("Distance along orange line (pixels)")
+            axes[2].set_ylabel("Pixel value")
+            plt.tight_layout()
 
             img_path = os.path.realpath(
                 os.path.join(
                     self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
                 )
             )
-            fig.savefig(img_path)
+
+            fig.savefig(img_path, dpi=600)
             self.report_files.append(img_path)
 
         return slice_thickness
+
+    def place_lines(self, img: np.ndarray) -> list["Line"]:
+        """Places line on image within ramps insert.
+        Works for a rotated phantom.
+
+        Args:
+            img (np.ndarray): Pixel array from DICOM image.
+
+        Returns:
+            finalLines (list): A list of the two lines as Line objects.
+        """
+        # Normalize to uint8, enhance contast and binarize using otsu thresh
+
+        img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(
+            img_uint8
+        )
+        _, img_binary = cv2.threshold(
+            contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+
+        # Find contour by x-span sort
+        contours, _ = cv2.findContours(
+            img_binary.astype(np.uint8),
+            mode=cv2.RETR_TREE,
+            method=cv2.CHAIN_APPROX_NONE,
+        )
+
+        def get_aspect_ratio(contour):
+            _, (width, height), _ = cv2.minAreaRect(contour)
+            return min(width, height) / max(width, height)
+
+        # filter out tiny contours from noise
+        threshArea = 15 * 15
+        contours = [cont for cont in contours if cv2.contourArea(cont) >= threshArea]
+        # select central insert
+        contours_sorted = sorted(
+            contours,
+            key=lambda c: get_aspect_ratio(c),
+        )
+        insertContour = contours_sorted[0]
+
+        # Create list of Point objects for the four corners of the contour
+        insertCorners = cv2.boxPoints(cv2.minAreaRect(insertContour))
+        corners = [Point(*p) for p in insertCorners]
+
+        # Define short sides of contours by list of line objects
+        corners = sorted(corners, key=lambda point: corners[0].get_distance_to(point))
+        shortSides = [Line(*corners[:2]), Line(*corners[2:])]
+
+        # Get sublines of short sides and force start point to be higher in y
+        sublines = [line.get_subline(perc=30) for line in shortSides]
+        for line in sublines:
+            if line.start.y < line.end.y:
+                line.point_swap()
+
+        # Define connecting lines
+        connectingLines = [
+            self.SignalLine(sublines[0].start, sublines[1].start),
+            self.SignalLine(sublines[0].end, sublines[1].end),
+        ]
+
+        # Final lines are sublines of connecting lines
+        finalLines = [line.get_subline(perc=95) for line in connectingLines]
+        for line in finalLines:
+            line.get_signal(img)
+
+        return finalLines
