@@ -184,6 +184,10 @@ class ACRObject:
         centre_y = round(detected_circles[1])
         radius = round(detected_circles[2])
 
+        logger.info(
+            "Phantom center found at (%i,%i) with radius %f",
+            centre_x, centre_y, radius,
+        )
         return (centre_x, centre_y), radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
