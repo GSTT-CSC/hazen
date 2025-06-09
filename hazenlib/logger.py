@@ -1,6 +1,10 @@
+"""Logger object and log decorator."""
+
 import sys
 import logging
 import colorlog
+from functools import wraps
+from typing import Callable, ParamSpec, TypeVar
 
 
 def configure_logger():
@@ -30,6 +34,21 @@ def configure_logger():
     logger.addHandler(stream_handler)
     logger.addHandler(file_handler)
 
-
 logger = logging.getLogger(__name__)
 configure_logger()
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+def log(fn: Callable[P, T]) -> Callable[P, T]:
+    """Log the inputs and outputs to a function."""
+    @wraps(fn)
+    def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+        logger.debug(
+            "Calling %s with arguments: (%s) and keyword arguments: (%s)",
+            fn.__name__, args, kwargs,
+        )
+        result = fn(*args, **kwargs)
+        logger.debug("%s returned %s", fn.__name__, result)
+        return result
+    return inner
