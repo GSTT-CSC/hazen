@@ -211,8 +211,9 @@ class ACRObject:
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
             image
         ):
-            print(
-                "Large intensity variations detected in image. Using local thresholding!"
+            logger.warning(
+                "Large intensity variations detected in image."
+                " Using local thresholding!"
             )
             initial_mask = skimage.filters.threshold_sauvola(
                 image, window_size=3, k=0.95
