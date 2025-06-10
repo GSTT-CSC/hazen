@@ -2,11 +2,11 @@ import os
 import sys
 import traceback
 
-import numpy as np
 import cv2 as cv
-
-from hazenlib.utils import rescale_to_byte, get_pixel_size, get_pe_direction
+import numpy as np
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
 
 
 class Ghosting(HazenTask):
@@ -37,7 +37,11 @@ class Ghosting(HazenTask):
             results["measurement"] = {"ghosting %": round(ghosting_value, 3)}
 
         except Exception as e:
-            print(f"Could not calculate the ghosting for {img_desc} because of : {e}")
+            logger.exception(
+                "Could not calculate the ghosting for %s because of : %s",
+                img_desc,
+                e,
+            )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
