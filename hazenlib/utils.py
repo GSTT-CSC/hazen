@@ -49,6 +49,7 @@ def is_dicom_file(filename):
     if data == b"DICM":
         return True
     else:
+        logger.debug("%s is not a DICOM file.", filename)
         return False
 
 
@@ -112,7 +113,9 @@ def get_manufacturer(dcm: pydicom.Dataset) -> str:
         if item in manufacturer:
             return item
 
-    raise Exception(f"{manufacturer} not recognised manufacturer")
+    msg = f"{manufacturer} not recognised manufacturer"
+    logger.error(msg)
+    raise Exception(msg)
 
 
 def get_average(dcm: pydicom.Dataset) -> float:
@@ -186,7 +189,9 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
                 .SliceThickness
             )
         except Exception:
-            raise Exception("Unrecognised metadata Field for Slice Thickness")
+            msg = "Unrecognised metadata Field for Slice Thickness"
+            logger.exception(msg)
+            raise Exception(msg)
     else:
         slice_thickness = dcm.SliceThickness
 
@@ -213,13 +218,15 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
         else:
             dx, dy = dcm.PixelSpacing
     except:
-        print("Warning: Could not find PixelSpacing.")
+        logger.warning("Could not find PixelSpacing")
         if "ge" in manufacturer:
             fov = get_field_of_view(dcm)
             dx = fov / dcm.Columns
             dy = fov / dcm.Rows
         else:
-            raise Exception("Manufacturer not recognised")
+            msg = "Manufacturer not recognised"
+            logger.error(msg)
+            raise Exception(msg)
 
     return dx, dy
 
@@ -261,10 +268,11 @@ def get_rows(dcm: pydicom.Dataset) -> float:
     try:
         rows = dcm.Rows
     except:
-        logger.warning(
-            "Could not find Number of matrix rows. Using default value of 256"
-        )
         rows = 256
+        logger.warning(
+            "Could not find Number of matrix rows. Using default value of %i",
+            rows,
+        )
 
     return rows
 
@@ -281,10 +289,11 @@ def get_columns(dcm: pydicom.Dataset) -> float:
     try:
         columns = dcm.Columns
     except:
-        logger.warning(
-            "Could not find matrix size (columns). Using default value of 256."
-        )
         columns = 256
+        logger.warning(
+            "Could not find matrix size (columns). Using default value of %i",
+            columns,
+        )
     return columns
 
 
@@ -339,6 +348,7 @@ def get_field_of_view(dcm: pydicom.Dataset):
     elif "toshiba" in manufacturer:
         fov = dcm.Columns * dcm.PixelSpacing[0]
     else:
+        logger.error("Manufacturer %s not supported", manufacturer)
         raise NotImplementedError(
             "Manufacturer not GE, Siemens, Toshiba or Philips so FOV cannot be calculated."
         )
@@ -449,10 +459,8 @@ def determine_orientation(dcm_list):
         ):
             return "axial", z
         else:
-            logger.warning("Unable to determine orientation based on DICOM metadata")
-            logger.info("x %s", set(x))
-            logger.info("y %s", set(y))
-            logger.info("z %s", set(z))
+            logger.warning("Unable to determine orientation based on DICOM metadata"
+            logger.info("x %s\ny %s\nz %s" set(x), set(y), set(z))
             return "unexpected", [x, y, z]
 
 
@@ -522,6 +530,11 @@ class Rod:
             x1, y1 = other.centroid
             return (-y0, x0) < (-y1, x1)
         except AttributeError:
+            logger.error(
+                "Object other (type %s) has no property 'centroid'"
+                " which is required for comparison.",
+                type(other),
+            )
             return NotImplemented
 
     def __eq__(self, other):
@@ -593,9 +606,13 @@ class ShapeDetector:
 
             # otherwise, we assume the shape is a circle
             else:
+                logger.debug(
+                    "%i vertices detected - assuming a circle", len(approx)
+                )
                 shape = "circle"
 
             # return the name of the shape
+            logger.debug("%s detected", shape)
             self.shapes[shape].append(c)
 
     def get_shape(self, shape):
@@ -618,10 +635,18 @@ class ShapeDetector:
 
         if shape not in self.shapes.keys():
             # print(self.shapes.keys())
+            logger.error(
+                "No valid shape detected - got %s but expected one of %s"
+                shape, self.shape.keys(),
+            )
             raise exc.ShapeDetectionError(shape)
 
         if len(self.shapes[shape]) > 1:
             shapes = [{shape: len(contours)} for shape, contours in self.shapes.items()]
+            logger.error(
+                "Multiple (%i) shapes were detected - should be just 1",
+                len(self.shape[shape]),
+            )
             raise exc.MultipleShapesError(shapes)
 
         contour = self.shapes[shape][0]
