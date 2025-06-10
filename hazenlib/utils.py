@@ -459,8 +459,8 @@ def determine_orientation(dcm_list):
         ):
             return "axial", z
         else:
-            logger.warning("Unable to determine orientation based on DICOM metadata"
-            logger.info("x %s\ny %s\nz %s" set(x), set(y), set(z))
+            logger.warning("Unable to determine orientation based on DICOM metadata")
+            logger.info("x %s\ny %s\nz %s", set(x), set(y), set(z))
             return "unexpected", [x, y, z]
 
 
@@ -636,7 +636,7 @@ class ShapeDetector:
         if shape not in self.shapes.keys():
             # print(self.shapes.keys())
             logger.error(
-                "No valid shape detected - got %s but expected one of %s"
+                "No valid shape detected - got %s but expected one of %s",
                 shape, self.shape.keys(),
             )
             raise exc.ShapeDetectionError(shape)
