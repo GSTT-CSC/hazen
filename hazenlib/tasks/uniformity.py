@@ -21,11 +21,12 @@ neil.heraghty@nhs.net
 import os
 import sys
 import traceback
-import numpy as np
 
-import hazenlib.utils
 import hazenlib.exceptions as exc
+import hazenlib.utils
+import numpy as np
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
 
 
 class Uniformity(HazenTask):
@@ -57,8 +58,10 @@ class Uniformity(HazenTask):
                 "vertical %": round(vertical_uniformity, 2),
             }
         except Exception as e:
-            print(
-                f"Could not calculate the uniformity for {self.img_desc(self.single_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the uniformity for %s because of : %s",
+                self.img_desc(self.single_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -172,8 +175,8 @@ class Uniformity(HazenTask):
 
         if self.report:
             import matplotlib.pyplot as plt
-            from matplotlib.patches import Rectangle
             from matplotlib.collections import PatchCollection
+            from matplotlib.patches import Rectangle
 
             fig, ax = plt.subplots()
             rects = [
