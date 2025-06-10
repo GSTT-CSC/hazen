@@ -645,7 +645,7 @@ class ShapeDetector:
             shapes = [{shape: len(contours)} for shape, contours in self.shapes.items()]
             logger.error(
                 "Multiple (%i) shapes were detected - should be just 1",
-                len(self.shape[shape]),
+                len(self.shapes[shape]),
             )
             raise exc.MultipleShapesError(shapes)
 
