@@ -25,6 +25,7 @@ from scipy import ndimage
 import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRSNR(HazenTask):
@@ -73,8 +74,9 @@ class ACRSNR(HazenTask):
                     "normalised": round(normalised_snr, 2),
                 }
             except Exception as e:
-                print(
-                    f"Could not calculate the SNR for {self.img_desc(snr_dcm)} because of : {e}"
+                logger.exception(
+                    "Could not calculate the SNR for %s because of : %s",
+                    self.img_desc(snr_dcm), e,
                 )
                 traceback.print_exc(file=sys.stdout)
         # SUBTRACTION METHOD
@@ -98,9 +100,12 @@ class ACRSNR(HazenTask):
                     "normalised": round(normalised_snr, 2),
                 }
             except Exception as e:
-                print(
-                    f"Could not calculate the SNR for {self.img_desc(snr_dcm)} and "
-                    f"{self.img_desc(snr_dcm2)} because of : {e}"
+                logger.exception(
+                    "Could not calculate the SNR for %s and %s"
+                    " because of : %s",
+                    self.img_desc(snr_dcm),
+                    self.img_desc(snr_dcm2),
+                    e,
                 )
                 traceback.print_exc(file=sys.stdout)
 
