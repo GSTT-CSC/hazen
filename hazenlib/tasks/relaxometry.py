@@ -126,25 +126,21 @@ import os.path
 import pathlib
 
 import cv2 as cv
-import numpy as np
+import hazenlib.exceptions
 import matplotlib.pyplot as plt
+import numpy as np
 import pydicom
-import skimage.morphology
 import scipy.ndimage
 import scipy.optimize
+import skimage.morphology
+from hazenlib.data.relaxometry_params import (MAX_RICIAN_NOISE,
+                                              SEED_RICIAN_NOISE, SMOOTH_TIMES,
+                                              TEMPLATE_FIT_ITERS,
+                                              TEMPLATE_VALUES, TERMINATION_EPS)
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
 from scipy.interpolate import UnivariateSpline
 from scipy.special import i0e, ive
-
-import hazenlib.exceptions
-from hazenlib.HazenTask import HazenTask
-from hazenlib.data.relaxometry_params import (
-    MAX_RICIAN_NOISE,
-    SEED_RICIAN_NOISE,
-    TEMPLATE_VALUES,
-    SMOOTH_TIMES,
-    TEMPLATE_FIT_ITERS,
-    TERMINATION_EPS,
-)
 
 # Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches
@@ -224,9 +220,10 @@ class Relaxometry(HazenTask):
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
-                print(
-                    f"Could not find template with plate number: {plate_number}."
-                    f" Please pass plate number as arg."
+                logger.exception(
+                    "Could not find template with plate number: %s."
+                    " Please pass plate number as arg.",
+                    plate_number,
                 )
                 exit()
         elif calc in ["T2", "t2"]:
@@ -236,13 +233,16 @@ class Relaxometry(HazenTask):
                     TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
                 )
             except KeyError:
-                print(
-                    f"Could not find template with plate number: {plate_number}."
-                    f" Please pass plate number as arg."
+                logger.exception(
+                    "Could not find template with plate number: %s."
+                    " Please pass plate number as arg.",
+                    plate_number,
                 )
                 exit()
         else:
-            print("Please provide 'T1' or 'T2' for the --calc argument.")
+            logger.critical(
+                "Please provide 'T1' or 'T2' for the --calc argument.",
+            )
             exit()
 
         warp_matrix = image_stack.template_fit(template_dcm)
@@ -652,9 +652,9 @@ class ImageStack:
         b0_val = self.images[0]["MagneticFieldStrength"].value
         if b0_val not in [1.5, 3.0]:
             # TODO incorporate warning through e.g. logging module
-            print(
-                "Unable to match B0 to default values. Using 1.5T.\n"
-                f" {self.images[0]['MagneticFieldStrength']}"
+            logger.warning(
+                "Unable to match B0 to default values. Using 1.5T.\n%s",
+                self.images[0]['MagneticFieldStrength'],
             )
             self.b0_str = "1.5T"
         else:
