@@ -25,6 +25,7 @@ import skimage.measure
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib.utils import get_image_orientation
+from hazenlib.logger import logger
 
 
 
@@ -67,8 +68,10 @@ class ACRSliceThickness(HazenTask):
             result = self.get_slice_thickness(slice_thickness_dcm)
             results["measurement"] = {"slice width mm": round(result, 2)}
         except Exception as e:
-            print(
-                f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the slice thickness for %s"
+                " because of : %s",
+                self.img_desc(slice_thickness_dcm), e,
             )
             traceback.print_exc(file=sys.stdout)
 
