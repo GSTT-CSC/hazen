@@ -64,6 +64,10 @@ class ACRSNR(HazenTask):
 
         # SINGLE METHOD (SMOOTHING)
         if self.subtract is None:
+            logger.debug(
+                "Calculating SNR on %s with the single (smoothing) method",
+                self.img_desc(snr_dcm),
+            )
             try:
                 results["file"] = self.img_desc(snr_dcm)
                 snr, normalised_snr = self.snr_by_smoothing(
@@ -89,6 +93,13 @@ class ACRSNR(HazenTask):
             ]
             data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
+
+            logger.debug(
+                "Calculating SNR on %s and %s with the subtraction method",
+                self.img_desc(snr_dcm),
+                self.img_desc(snr_dcm2),
+            )
+
             results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
