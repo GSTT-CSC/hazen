@@ -4,7 +4,7 @@ import sys
 import logging
 import colorlog
 from functools import wraps
-from typing import Callable, ParamSpec, TypeVar
+from typing import Any, Callable, TypeVar
 
 
 def configure_logger():
@@ -37,13 +37,12 @@ def configure_logger():
 logger = logging.getLogger(__name__)
 configure_logger()
 
-P = ParamSpec("P")
 T = TypeVar("T")
 
-def log(fn: Callable[P, T]) -> Callable[P, T]:
+def log(fn: Callable[..., T]) -> Callable[..., T]:
     """Log the inputs and outputs to a function."""
     @wraps(fn)
-    def inner(*args: P.args, **kwargs: P.kwargs) -> T:
+    def inner(*args: Any, **kwargs: Any) -> T:
         logger.debug(
             "Calling %s with arguments: (%s) and keyword arguments: (%s)",
             fn.__name__, args, kwargs,
