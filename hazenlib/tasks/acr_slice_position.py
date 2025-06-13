@@ -35,6 +35,7 @@ import skimage.measure
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRSlicePosition(HazenTask):
@@ -67,8 +68,10 @@ class ACRSlicePosition(HazenTask):
                     "length difference": round(result, 2)
                 }
             except Exception as e:
-                print(
-                    f"Could not calculate the bar length difference for {self.img_desc(dcm)} because of : {e}"
+                logger.exception(
+                    "Could not calculate the bar length difference for %s"
+                    " because of : %s",
+                    self.img_desc(dcm), e,
                 )
                 traceback.print_exc(file=sys.stdout)
                 continue

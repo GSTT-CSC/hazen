@@ -22,6 +22,7 @@ import numpy as np
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRGhosting(HazenTask):
@@ -46,8 +47,11 @@ class ACRGhosting(HazenTask):
             result = self.get_signal_ghosting(self.ACR_obj.slice_stack[6])
             results["measurement"] = {"signal ghosting %": round(result, 3)}
         except Exception as e:
-            print(
-                f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice_stack[6])} because of : {e}"
+            logger.exception(
+                "Could not calculate the percent-signal ghosting for %s"
+                "because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[6]),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 

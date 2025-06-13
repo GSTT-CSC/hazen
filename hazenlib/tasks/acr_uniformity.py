@@ -23,6 +23,7 @@ import numpy as np
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 
 
 class ACRUniformity(HazenTask):
@@ -47,9 +48,11 @@ class ACRUniformity(HazenTask):
             result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
             results["measurement"] = {"integral uniformity %": round(result, 2)}
         except Exception as e:
-            print(
-                f"Could not calculate the percent integral uniformity for"
-                f"{self.img_desc(self.ACR_obj.slice_stack[6])} because of : {e}"
+            logger.exception(
+                "Could not calculate the percent integral uniformity for %s"
+                " because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[6]),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 

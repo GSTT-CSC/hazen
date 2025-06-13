@@ -88,8 +88,11 @@ class ACRSpatialResolution(HazenTask):
                 "fitted mtf50": round(fitted_res, 2),
             }
         except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(mtf_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the spatial resolution for %s"
+                " because of : %s",
+                self.img_desc(mtf_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 

@@ -184,6 +184,10 @@ class ACRObject:
         centre_y = round(detected_circles[1])
         radius = round(detected_circles[2])
 
+        logger.info(
+            "Phantom center found at (%i,%i) with radius %f",
+            centre_x, centre_y, radius,
+        )
         return (centre_x, centre_y), radius
 
     def get_mask_image(self, image, mag_threshold=0.07, open_threshold=500):
@@ -207,8 +211,9 @@ class ACRObject:
         if np.percentile(test_vals, 80) - np.percentile(test_vals, 10) > 0.9 * np.max(
             image
         ):
-            print(
-                "Large intensity variations detected in image. Using local thresholding!"
+            logger.warning(
+                "Large intensity variations detected in image."
+                " Using local thresholding!"
             )
             initial_mask = skimage.filters.threshold_sauvola(
                 image, window_size=3, k=0.95
