@@ -63,8 +63,11 @@ class ACRGeometricAccuracy(HazenTask):
                 "Vertical distance": round(lengths_1[1], 2),
             }
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[0])} because of : {e}"
+            logger.exception(
+                "Could not calculate the geometric accuracy for"
+                " %s because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[0]),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
@@ -77,10 +80,12 @@ class ACRGeometricAccuracy(HazenTask):
                 "Diagonal distance SE": round(lengths_5[3], 2),
             }
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[4])} because of : {e}"
+            logger.exception(
+                "Could not calculate the geometric accuracy for"
+                " %s because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[4]),
+                e,
             )
-
             traceback.print_exc(file=sys.stdout)
 
         L = lengths_1 + lengths_5

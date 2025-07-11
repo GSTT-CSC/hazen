@@ -42,8 +42,10 @@ class SliceWidth(HazenTask):
         try:
             results["measurement"] = self.get_slice_width(self.single_dcm)
         except Exception as e:
-            print(
-                f"Could not calculate the slice_width for {self.img_desc(self.single_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the slice_width for %s because of : %s",
+                self.img_desc(self.single_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 

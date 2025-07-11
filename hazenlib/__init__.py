@@ -101,9 +101,12 @@ def init_task(selected_task, files, report, report_dir, **kwargs):
                 input_data=files, report=report, report_dir=report_dir, **kwargs
             )
         else:
-            raise Exception(
-                f"Task {task_module} has multiple class definitions: {class_list}"
+            msg = (
+                f"Task {task_module} has multiple class definitions:"
+                " {class_list}"
             )
+            logger.error(msg)
+            raise Exception(msg)
 
     return task
 

@@ -48,8 +48,11 @@ class SpatialResolution(HazenTask):
                 "frequency encoding direction mm": round(fe_result, 2),
             }
         except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the spatial resolution for %s"
+                " because of : %s",
+                self.img_desc(self.single_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
