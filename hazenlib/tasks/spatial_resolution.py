@@ -136,7 +136,7 @@ class SpatialResolution(HazenTask):
                 rect = tuple(rectAsList)
 
                 box = cv.boxPoints(rect)
-                box = np.int8(box)
+                box = np.intp(box)
                 w, h = rect[1]
                 ar = w / float(h)
 
