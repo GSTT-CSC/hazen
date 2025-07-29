@@ -3148,7 +3148,7 @@ class TestSpatialResolution(unittest.TestCase):
 
 class TestPhilipsResolution(TestSpatialResolution):
     RESOLUTION_DATA = pathlib.Path(TEST_DATA_DIR / "resolution")
-    # dicom = pydicom.read_file(str(RESOLUTION_DATA / 'philips' / "IM-0004-0002.dcm"))
+    # dicom = pydicom.dcmread(str(RESOLUTION_DATA / 'philips' / "IM-0004-0002.dcm"))
     files = get_dicom_files(os.path.join(TEST_DATA_DIR, "resolution", "philips"))
     TEST_SQUARE = [[293, 203], [215, 218], [230, 297], [308, 282]]
     CIRCLE = [[[257, 245, 199]]]

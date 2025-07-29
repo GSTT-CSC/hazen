@@ -831,7 +831,7 @@ class TestRelaxometry(unittest.TestCase):
         np.testing.assert_allclose(op, self.COORDS_TRANS_ROTATE)
 
     def test_template_fit(self):
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         t1_image_stack = T1ImageStack([target_dcm])
@@ -887,7 +887,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_generate_time_series_target_POIs(self):
         # Test on target and check image fitting too.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
 
         target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         target_image_stack = T1ImageStack([target_dcm])
@@ -907,7 +907,7 @@ class TestRelaxometry(unittest.TestCase):
         # Test that ROI pixel value extraction works. Use template DICOM for
         # both template and image to avoid errors due to slight variation in
         # fitting.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = T1ImageStack([template_dcm])
         # set warp_matrix to identity matrix
@@ -924,7 +924,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_template_roi_means(self):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = T1ImageStack([template_dcm])
 
@@ -948,7 +948,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t1_calc_magnitude_image(self):
         """Test T1 value for plate 5 spheres."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [
             pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in self.T1_FILES
         ]
@@ -969,7 +969,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t2_calc_magnitude_image(self):
         """Test T2 value for plate 4 spheres."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T2)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T2)
         t2_dcms = [
             pydicom.dcmread(os.path.join(self.T2_DIR, fname)) for fname in self.T2_FILES
         ]
@@ -988,7 +988,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t1_calc_signed_image(self):
         """Test T1 value for signed plate 5 spheres (site 2)."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [
             pydicom.dcmread(os.path.join(self.SITE2_T1_DIR, fname))
             for fname in self.SITE2_T1_FILES
@@ -1076,7 +1076,7 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_scale_up_template(self):
         """Test fit for 256x256 GE image with 192x192 template"""
-        template_dcm = pydicom.read_file(TEMPLATE_VALUES["plate4"]["t1"]["filename"])
+        template_dcm = pydicom.dcmread(TEMPLATE_VALUES["plate4"]["t1"]["filename"])
 
         target_dcm = pydicom.dcmread(self.PATH_256_MATRIX)
         t1_image_stack = T1ImageStack([target_dcm])

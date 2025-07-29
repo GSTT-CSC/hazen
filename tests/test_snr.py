@@ -80,8 +80,8 @@ class TestSnrPhilips(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "Philips"), sort=True
@@ -113,8 +113,8 @@ class TestSnrGE(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "GE"), sort=True
@@ -143,8 +143,8 @@ class TestSnrThreshold(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr_threshold", "VIDA"), sort=True

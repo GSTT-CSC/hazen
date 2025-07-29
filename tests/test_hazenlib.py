@@ -13,7 +13,7 @@ class TestCliParser(unittest.TestCase):
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm")
-        self.dcm = pydicom.read_file(self.file)
+        self.dcm = pydicom.dcmread(self.file)
 
     def test1_logger(self):
         path = str(TEST_DATA_DIR / "resolution" / "RESOLUTION")
