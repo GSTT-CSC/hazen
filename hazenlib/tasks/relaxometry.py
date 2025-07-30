@@ -524,7 +524,7 @@ def pixel_rescale(dcm):
 
         return (dcm.pixel_array - si) / ss
     else:
-        return pydicom.pixel_data_handlers.util.apply_modality_lut(dcm.pixel_array, dcm)
+        return pydicom.pixels.apply_modality_lut(dcm.pixel_array, dcm)
 
 
 class ROITimeSeries:
