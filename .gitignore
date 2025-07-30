@@ -1,6 +1,7 @@
 # virtual environments
 hazen-venv
 /venv/
+.venv/
 
 # tests
 .coverage
@@ -39,3 +40,4 @@ build
 
 # miscellaneous
 .vscode
+*~
