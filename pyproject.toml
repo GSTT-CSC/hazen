@@ -11,10 +11,17 @@ dependencies = [
     "matplotlib>=3.9.4",
     "numpy>=2.0.2",
     "opencv-python>=4.11.0.86",
+    "opencv-python-headless>=4.11.0.86",
     "pydicom>=2.4.4",
     "scikit-image>=0.24.0",
     "scipy>=1.13.1",
 ]
+
+[tool.uv]
+package = true
+
+[project.scripts]
+hazen = "hazenlib:main"
 
 [dependency-groups]
 dev = [
@@ -25,3 +32,4 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
 ]
+
