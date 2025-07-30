@@ -2,6 +2,10 @@
 name = "hazen"
 version = "1.3.4"
 description = "An automatic MRI QA tool"
+authors = [
+        {name = "Alex Drysdale", email = "alexander.drysdale@wales.nhs.uk"},
+        {name = "Shuaib, Haris", email = "mohammad_haris.shuaib@kcl.ac.uk"},
+]
 readme = "README.md"
 requires-python = ">=3.9,<3.14"
 dependencies = [
