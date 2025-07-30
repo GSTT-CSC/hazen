@@ -1,10 +1,17 @@
-import unittest
-import numpy as np
+# Python imports
+import logging
 import os.path
-import matplotlib
+import unittest
 
+# Module imports
+import matplotlib as mpl
+import numpy as np
+
+# Local imports
 from hazenlib.tasks.snr_map import SNRMap
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class TestSnrMap(unittest.TestCase):
@@ -53,7 +60,7 @@ class TestSnrMap(unittest.TestCase):
 
     def test_smooth(self):
         np.testing.assert_almost_equal(self.original.cumsum().sum(), 1484467722691)
-        np.testing.assert_almost_equal(self.smoothed.cumsum().sum(), 1484468146211.5635)
+        np.testing.assert_allclose(self.smoothed.cumsum().sum(), 1484468146211.5635)
         np.testing.assert_almost_equal(abs(self.noise).sum(), 2147755.9753086423)
 
     def test_get_rois(self):
@@ -67,19 +74,24 @@ class TestSnrMap(unittest.TestCase):
     def test_calc_snr_map(self):
         snr_map_cumsum = self.snr_map.cumsum().sum()
 
-        print("\ntest_calc_snr_map.py::TestCalcSnrMap::test_calc_snr_map")
-        print("new_release_value:", snr_map_cumsum)
-        print("fixed_value:", 128077116718.40483)
+        fixed_val = 128077116718.40483
+        logger.debug(
+            "\ntest_calc_snr_map.py::TestCalcSnrMap::test_calc_snr_map"
+            "new_release_value: %s\n"
+            "fixed_value: %s,",
+            snr_map_cumsum,
+            fixed_val,
+        )
 
-        np.testing.assert_almost_equal(snr_map_cumsum, 128077116718.40483)
+        np.testing.assert_almost_equal(snr_map_cumsum, fixed_val)
 
     def test_plot_detailed(self):
         # Just check a valid figure handle is returned
-        assert isinstance(self.detailed_fig, matplotlib.figure.Figure)
+        assert isinstance(self.detailed_fig, mpl.figure.Figure)
 
     def test_plot_summary(self):
         # Just check a valid figure handle is returned
-        assert isinstance(self.summary_fig, matplotlib.figure.Figure)
+        assert isinstance(self.summary_fig, mpl.figure.Figure)
 
 
 if __name__ == "__main__":
