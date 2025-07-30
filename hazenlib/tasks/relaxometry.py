@@ -523,8 +523,23 @@ def pixel_rescale(dcm):
         si = dcm["2005100d"].value  # Scale intercept
 
         return (dcm.pixel_array - si) / ss
-    else:
+    # From pydicom v3.0.0 pydicom.pixels should be used in favor
+    # of pydicom.pixel_data_handlers.util
+    # https://pydicom.github.io/pydicom/stable/release_notes/index.html#version-3-0-0
+    try:
         return pydicom.pixels.apply_modality_lut(dcm.pixel_array, dcm)
+    except AttributeError as err:
+        logger.warning(
+            "pydicom.pixel_data_handlers.util be depreciated in favor"
+            " of pydicom.pixels in pydicom v4."
+            " Once Python 3.9 support is dropped (Oct 2025) then pydicom"
+            " v3 will be enforced. Current pydicom version %s raised %s",
+            pydicom.__version__,
+            err,
+        )
+        return pydicom.pixel_data_handlers.util.apply_modality_lut(
+            dcm.pixel_array, dcm,
+        )
 
 
 class ROITimeSeries:
