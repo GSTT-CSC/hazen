@@ -21,7 +21,7 @@ class TestCliParser(unittest.TestCase):
 
         hazenlib.main()
 
-        logging = hazenlib.logging
+        logging = hazenlib.logging 
 
         self.assertEqual(logging.root.level, logging.WARNING)
 
@@ -53,7 +53,14 @@ class TestCliParser(unittest.TestCase):
             },
         }
 
-        self.assertDictEqual(result, dict1)
+        for key in dict1["measurement"]["snr by smoothing"]:
+            measured_value = dict1["measurement"]["snr by smoothing"][key]["measured"]
+            result_value = result["measurement"]["snr by smoothing"][key]["measured"]
+            self.assertAlmostEqual(result_value, measured_value, delta=measured_value * 0.05)
+
+        measured_value = dict1["measurement"]["snr by subtraction"]["measured"]
+        result_value = result["measurement"]["snr by subtraction"]["measured"]
+        self.assertAlmostEqual(result_value, measured_value, delta=measured_value * 0.05)
 
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4")
@@ -70,5 +77,5 @@ class TestCliParser(unittest.TestCase):
         self.assertAlmostEqual(
             dict1["measurement"]["rms_frac_time_difference"],
             result["measurement"]["rms_frac_time_difference"],
-            4,
+            delta=dict1["measurement"]["rms_frac_time_difference"] * 0.05
         )

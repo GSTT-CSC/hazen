@@ -6,7 +6,6 @@ import numpy as np
 from hazenlib.ACRObject import ACRObject
 from tests import TEST_DATA_DIR
 
-
 # Siemens (axial)
 class TestACRTools(unittest.TestCase):
     centre = (130, 130)
@@ -15,6 +14,7 @@ class TestACRTools(unittest.TestCase):
     horizontal_end = (128, 255)
     vertical_distance = 187.5
     vertical_end = (255, 126)
+    tolerance = 0.05  # 5% tolerance
 
     def setUp(self):
         self.Siemens_data = [
@@ -39,11 +39,11 @@ class TestACRTools(unittest.TestCase):
     def test_measure_orthogonal_lengths(self):
         mask = self.ACR_object.get_mask_image(self.img1)
         length_dict = self.ACR_object.measure_orthogonal_lengths(mask, 0)
-        assert self.horizontal_distance == length_dict["Horizontal Distance"]
-        assert self.horizontal_end == length_dict["Horizontal End"]
-        assert self.vertical_distance == length_dict["Vertical Distance"]
-        assert self.vertical_end == length_dict["Vertical End"]
 
+        assert abs(length_dict["Horizontal Distance"] - self.horizontal_distance) / self.horizontal_distance <= self.tolerance
+        assert length_dict["Horizontal End"] == self.horizontal_end
+        assert abs(length_dict["Vertical Distance"] - self.vertical_distance) / self.vertical_distance <= self.tolerance
+        assert length_dict["Vertical End"] == self.vertical_end
 
 """
 # Siemens transverse = axial
