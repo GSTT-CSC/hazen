@@ -58,5 +58,10 @@ jobs:
       with:
         version: "latest"
 
+    - name: Download artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: release-dists
+
     - name: Publish package
-      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }} dist/
+      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }} release-dists/
