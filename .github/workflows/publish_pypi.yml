@@ -64,4 +64,4 @@ jobs:
         name: release-dists
 
     - name: Publish package
-      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }} release-dist/
+      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }} release-dists/
