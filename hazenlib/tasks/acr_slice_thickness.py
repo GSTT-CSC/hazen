@@ -140,6 +140,18 @@ class ACRSliceThickness(HazenTask):
 
         y = np.round([np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height])
 
+        y_profiles = [skimage.measure.profile_line(img, (1, x_coord), (img.shape[0], x_coord), mode="constant")for x_coord in x]
+
+        # Calculate the angle of the ramps
+        angles = []
+        for profile in y_profiles:
+            profile_diff = np.diff(profile)
+            ramp_indices = np.where(profile_diff != 0)[0]  # Simplistic approach to find ramps
+            if len(ramp_indices) >= 2:
+                y_diff = ramp_indices[-1] - ramp_indices[0]
+                x_diff = np.diff(x)[0]  # The difference between x coordinates
+                angle = np.arctan2(y_diff, x_diff)
+                angles.append(np.degrees(angle))
         return x, y
 
     def FWHM(self, data):
@@ -206,15 +218,17 @@ class ACRSliceThickness(HazenTask):
             float: measured slice thickness.
         """
         img = dcm.pixel_array
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        mask = self.ACR_obj.get_mask_image(img)
+        cx, cy = mask.shape[1] // 2, mask.shape[0] // 2
+        cxy=(cx,cy)
         x_pts, y_pts = self.find_ramps(img, cxy)
 
         interp_factor = 1 / 5
         interp_factor_dx = interp_factor * self.ACR_obj.dx
         sample = np.arange(1, x_pts[1] - x_pts[0] + 2)
         new_sample = np.arange(1, x_pts[1] - x_pts[0] + interp_factor, interp_factor)
-        offsets = np.arange(-3, 4)
-        ramp_length = np.zeros((2, 7))
+        offsets = np.arange(-10, 11)
+        ramp_length = np.zeros((2, 21))
 
         line_store = []
         fwhm_store = []
@@ -245,9 +259,16 @@ class ACRSliceThickness(HazenTask):
 
             line_store.append(interp_lines)
             fwhm_store.append(fwhm)
-
-        with np.errstate(divide="ignore", invalid="ignore"):
-            dz = 0.2 * (np.prod(ramp_length, axis=0)) / np.sum(ramp_length, axis=0)
+        expected_ramp_length = 10 * 5 / self.ACR_obj.dx
+        tol_20percent = expected_ramp_length * 0.2 #trying to only include results where the line profile is actually over the ramp ie. filtering out completely unrealistic results - is this approach valid?
+        upper_tol = expected_ramp_length + tol_20percent
+        lower_tol = expected_ramp_length - tol_20percent
+        ramp_length_filtered_top = ramp_length[0][(ramp_length[0] >= lower_tol) & (ramp_length[0] <= upper_tol)]
+        ramp_length_filtered_bottom = ramp_length[1][(ramp_length[1] >= lower_tol) & (ramp_length[1] <= upper_tol)]
+        ramp_length_filtered_top_median = np.median(ramp_length_filtered_top)
+        ramp_length_filtered_bottom_median = np.median(ramp_length_filtered_bottom)
+        #calculation from ACR guidance:
+        dz = 0.2 * (ramp_length_filtered_top_median * ramp_length_filtered_bottom_median) / (ramp_length_filtered_top_median + ramp_length_filtered_bottom_median)
 
         dz = dz[~np.isnan(dz)]
         # TODO check this - if it's taking the value closest to the DICOM slice thickness this is potentially not accurate?
