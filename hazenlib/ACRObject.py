@@ -155,7 +155,9 @@ class ACRObject:
         """
 
         img_blur = cv2.GaussianBlur(img, (1, 1), 0)
-        img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
+        #img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
+        img_gr = cv2.threshold(img_blur, 37, 255, cv2.THRESH_BINARY)
+        img_grad = cv2.normalize(img_gr[1], dst=None, alpha=0, beta=255,norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
 
         try:
             detected_circles = cv2.HoughCircles(
