@@ -53,5 +53,10 @@ jobs:
       - release-build
 
     steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
     - name: Publish package
       run: uv publish --token ${{ secrets.PYPI_API_TOKEN }} dist/
