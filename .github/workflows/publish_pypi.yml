@@ -51,4 +51,4 @@ jobs:
       id-token: write
 
     - name: Publish package
-      run: uv publish
+      run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
