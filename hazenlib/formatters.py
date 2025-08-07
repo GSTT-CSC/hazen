@@ -6,11 +6,13 @@ from __future__ import annotations
 
 # Python imports
 import csv
+import itertools
 import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence, TextIO, TypeAlias, TypedDict
+from typing import (Any, Literal, Mapping, Sequence, TextIO, TypeAlias,
+                    TypedDict)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class CsvRow(TypedDict, total=False):
     subfile: str | None         # for the inner dict keys when present
     measured: float | None
     normalised: float | None
+    report_image: str | None
 
 # ----------------------------------------------------------------------
 # Public API
@@ -63,14 +66,11 @@ def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
         If *fmt* is not one of the supported literals.
 
     """
-    path = None if path == "-" else path
-    try:
-        with Path(path).open("w", newline="") as fp:
-            _format_results(data, fmt, fp)
-    except TypeError:
-        logger.debug("Couldn't write to %s - falling back to STDOUT.", path)
-        _format_results(data, fmt, sys.stdout)
-
+    if path == "-":
+         _format_results(data, fmt, sys.stdout)
+         return
+    with Path(path).open("w", newline="") as fp:
+        _format_results(data, fmt, fp)
 
 # ----------------------------------------------------------------------
 # Private API
@@ -142,14 +142,15 @@ def _build_rows(data: Mapping[str, Any]) -> list[CsvRow]:
     task = data.get("task", "")
     files: Sequence[str] = data.get("file", [])
     measurement = data.get("measurement", {})
+    report_images = data.get("report_image", [])
 
     # The measurement dict can contain multiple top-level keys
-    # e.g. ("snr by smoothing", "snr by subtraction", …)
+    # e.g. ("snr by smoothing", "snr by subtraction",  )
     for meas_type, inner in measurement.items():
-        # ``inner`` may be a dict of per‑file entries (as in the example)
+        # ``inner`` may be a dict of per file entries (as in the example)
         # or a flat dict with the scalar values directly.
         if isinstance(inner, Mapping):
-            # Detect the two‑level case: inner keys are file names
+            # Detect the two level case: inner keys are file names
             for sub_key, leaf in inner.items():
                 # ``leaf`` may itself be a mapping with "measured"/"normalised"
                 if isinstance(leaf, Mapping):
@@ -172,6 +173,7 @@ def _build_rows(data: Mapping[str, Any]) -> list[CsvRow]:
                         subfile=None,
                         measured=measured,
                         normalised=normalised,
+                        report_image=report_images[len(rows)],
                     ),
                 )
         else:
