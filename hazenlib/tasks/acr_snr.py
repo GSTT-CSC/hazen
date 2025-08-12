@@ -56,7 +56,7 @@ class ACRSNR(HazenTask):
             self.subtract = Path(subtract)
         except TypeError:
             self.subtract = None
-        finally:
+        else:
             if not self.subtract.is_dir():
                 self.subtract = None
 
