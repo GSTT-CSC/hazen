@@ -13,39 +13,53 @@ Created by Neil Heraghty (Adapted by Yassine Azma, yassine.azma@rmh.nhs.uk)
 method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
+from __future__ import annotations
 
+import contextlib
+# Python imports
 import os
 import sys
 import traceback
-import pydicom
+from pathlib import Path
+from typing import Any
 
-import numpy as np
-from scipy import ndimage
-
+# Module imports
 import hazenlib.utils
-from hazenlib.HazenTask import HazenTask
+import numpy as np
+import pydicom
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from scipy import ndimage
 
 
 class ACRSNR(HazenTask):
     """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom."""
 
-    def __init__(self, **kwargs):
+    def __init__(
+            self,
+            subtract: Path | str | None = None,
+            measured_slice_width: float | None = None,
+            **kwargs: Any,
+    ) -> None:
+        """Initialise the Hazen ACR SNR Object."""
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
+
         # measured slice width is expected to be a floating point number
-        try:
-            self.measured_slice_width = float(kwargs["measured_slice_width"])
-        except:
-            self.measured_slice_width = None
+        self.measured_slice_width = measured_slice_width
+        with contextlib.suppress(TypeError):
+            self.measured_slice_width = float(measured_slice_width)
 
         # subtract is expected to be a path to a folder
         try:
-            if os.path.isdir(kwargs["subtract"]):
-                self.subtract = kwargs["subtract"]
-        except:
+            self.subtract = Path(subtract)
+        except TypeError:
             self.subtract = None
+        finally:
+            if not self.subtract.is_dir():
+                self.subtract = None
+
 
     def run(self) -> dict:
         """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
@@ -240,8 +254,8 @@ class ACRSNR(HazenTask):
         ]
 
         if ax:
-            from matplotlib.patches import Rectangle
             from matplotlib.collections import PatchCollection
+            from matplotlib.patches import Rectangle
 
             # for patches: [column/x, row/y] format
 
