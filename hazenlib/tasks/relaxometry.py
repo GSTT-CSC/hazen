@@ -346,7 +346,7 @@ class Relaxometry(HazenTask):
                 frac_time_difference=frac_time_diff.tolist(),
             )
             # , output_graphics=output_files_path
-            results["additional data"] = metadata
+            results["additional_data"] = metadata
 
             detailed_output["measurement details"] = {
                 "Echo Time": [im.EchoTime for im in image_stack.images],

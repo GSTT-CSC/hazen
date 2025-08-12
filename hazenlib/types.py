@@ -43,6 +43,7 @@ class Result(_FixedDict):
         task: str,
         file: str | Sequence[str] | None = None,
         measurement: Measurement | Mapping[str, Measurement] | None = None,
+        additional_data: Mapping[str, Any] | None = None,
         report_image: Sequence[str] | None = None,
     ) -> None:
         """Initialise the typed dictionary."""
@@ -51,6 +52,7 @@ class Result(_FixedDict):
             task=task,
             file=file,
             measurement=measurement,
+            additional_data=additional_data,
             report_image=report_image,
         )
 

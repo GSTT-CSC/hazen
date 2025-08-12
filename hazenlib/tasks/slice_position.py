@@ -54,7 +54,7 @@ class SlicePosition(HazenTask):
             position_errors = self.slice_position_error(truncated_data)
             if self.verbose:
                 rounded_positions = [round(pos, 3) for pos in position_errors]
-                results["additional data"] = {"slice positions": rounded_positions}
+                results["additional_data"] = {"slice positions": rounded_positions}
 
             # Round calculated values to the appropriate decimal places
             max_pos = round(np.max(position_errors), 2)
