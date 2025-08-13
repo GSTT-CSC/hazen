@@ -84,17 +84,26 @@ class ACRSpatialResolution(HazenTask):
             raw_res, fitted_res = self.get_mtf50(mtf_dcm)
             results.add_measurement(
                 Measurement(
-                    name="estimate rotation angle", value=round(rot_ang, 2),
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="estimate rotation angle",
+                    value=round(rot_ang, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="raw mtf50", value=round(raw_res, 2),
+                    name="SpatialResolution",
+                    type="raw",
+                    subtype="mtf50",
+                    value=round(raw_res, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="fitted mtf50", value=round(fitted_res, 2),
+                    name="SpatialResolution",
+                    type="fitted",
+                    subtype="mtf50",
+                    value=round(fitted_res, 2),
                 ),
             )
 

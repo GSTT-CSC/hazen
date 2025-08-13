@@ -90,15 +90,17 @@ class ACRSNR(HazenTask):
                 )
                 results.add_measurement(
                     Measurement(
-                        name="snr by smoothing",
+                        name="SNR",
                         type="measured",
+                        subtype="smoothing",
                         value=round(snr, 2),
                     ),
                 )
                 results.add_measurement(
                     Measurement(
-                        name="snr by smoothing",
+                        name="SNR",
                         type="normalised",
+                        subtype="smoothing",
                         value=round(normalised_snr, 2),
                     ),
                 )
@@ -134,15 +136,17 @@ class ACRSNR(HazenTask):
 
                 results.add_measurement(
                     Measurement(
-                        name="snr by subtraction",
+                        name="SNR",
                         type="measured",
+                        subtype="subtraction",
                         value=round(snr, 2),
                     ),
                 )
                 results.add_measurement(
                     Measurement(
-                        name="snr by subtraction",
+                        name="SNR",
                         type="normalised",
+                        subtype="subtraction",
                         value=round(normalised_snr, 2),
                     ),
                 )

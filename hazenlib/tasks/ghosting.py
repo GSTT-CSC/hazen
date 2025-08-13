@@ -37,7 +37,8 @@ class Ghosting(HazenTask):
             ghosting_value = self.get_ghosting(self.single_dcm)
             results.add_measurement(
                 Measurement(
-                    name="ghosting",
+                    name="Ghosting",
+                    type="measured",
                     unit="%",
                     value=round(ghosting_value, 3),
                 ),

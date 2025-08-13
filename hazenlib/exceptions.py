@@ -1,5 +1,8 @@
 """ Application-specific errors"""
 
+# Python imports
+from collections.abc import Sequence
+
 
 class ShapeError(Exception):
     """Base exception for shapes."""
@@ -39,4 +42,27 @@ class ArgumentCombinationError(Exception):
     """Argument combination not valid."""
 
     def __init__(self, msg="Invalid combination of arguments."):
+        super().__init__(msg)
+
+
+class InvalidMeasurementNameError(ValueError):
+    """Invalid Measurement Name Error."""
+
+    def __init__(self, name: str, valid_names: Sequence[str]) -> None:
+        """Initialise the error."""
+        msg = f"Invalid measurement name: {name}. Must be one of {valid_names}"
+        super().__init__(msg)
+
+
+class InvalidMeasurementTypeError(ValueError):
+    """Invalid Measurement Type Error."""
+
+    def __init__(
+        self, measurement_type: str, valid_types: Sequence[str],
+    ) -> None:
+        """Initialise the error."""
+        msg = (
+            f"Invalid measurement type: {measurement_type}."
+            f" Must be one of {valid_types}"
+        )
         super().__init__(msg)

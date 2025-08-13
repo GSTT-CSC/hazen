@@ -72,7 +72,7 @@ class TestCliParser(unittest.TestCase):
                     for t, val in vi.items():
                         dict1.add_measurement(
                             Measurement(
-                                name=k, value=val, type=t, subtype=ki,
+                                name=k, value=val, type=t, description=ki,
                             ),
                         )
                 except AttributeError:
@@ -91,7 +91,7 @@ class TestCliParser(unittest.TestCase):
             m_r = result.get_measurement(
                 name=m_d.name,
                 measurement_type=m_d.type,
-                subtype=m_d.subtype,
+                description=m_d.description,
                 unit=m_d.unit,
             )[0]
             self.assertAlmostEqual(m_r.value, m_d.value)

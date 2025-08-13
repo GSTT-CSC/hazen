@@ -56,14 +56,20 @@ class Uniformity(HazenTask):
             )
             results.add_measurement(
                 Measurement(
-                    name="horizontal",
+                    name="Uniformity",
+                    type="measured",
+                    subtype="Horizontal",
                     unit="%",
                     value=round(horizontal_uniformity, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="vertical", unit="%", value=round(vertical_uniformity, 2),
+                    name="Uniformity",
+                    type="measured",
+                    subtype="vertical",
+                    unit="%",
+                    value=round(vertical_uniformity, 2),
                 ),
             )
         except Exception as e:

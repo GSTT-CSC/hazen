@@ -113,7 +113,12 @@ class SNRMap(HazenTask):
         snr_map = self.calc_snr_map(original, noise)
 
         results.add_measurement(
-            Measurement("snr by smoothing", round(snr, 2)),
+            Measurement(
+                name="SNR",
+                type="measured",
+                subtype="smoothing",
+                value=round(snr, 2),
+            ),
         )
 
         if self.report:

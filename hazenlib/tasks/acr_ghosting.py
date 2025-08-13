@@ -48,7 +48,9 @@ class ACRGhosting(HazenTask):
             result = self.get_signal_ghosting(self.ACR_obj.slice_stack[6])
             results.add_measurement(
                 Measurement(
-                    name="signal ghosting",
+                    name="Ghosting",
+                    type="measurement",
+                    subtype="signal ghosting",
                     value=round(result, 3),
                     unit="%",
                 ),

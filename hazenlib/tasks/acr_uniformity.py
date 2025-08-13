@@ -49,7 +49,9 @@ class ACRUniformity(HazenTask):
             result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
             results.add_measurement(
                 Measurement(
-                    name="integral uniformity",
+                    name="Uniformity",
+                    type="measured",
+                    subtype="Integral uniformity",
                     unit="%",
                     value=round(result, 2),
                 ),

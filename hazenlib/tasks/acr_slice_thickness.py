@@ -67,7 +67,11 @@ class ACRSliceThickness(HazenTask):
             result = self.get_slice_thickness(slice_thickness_dcm)
             results.add_measurement(
                 Measurement(
-                    name="slice width", unit="mm", value=(result, 2),
+                    name="SliceThickness",
+                    type="measurement",
+                    subtype="slice width",
+                    unit="mm",
+                    value=(result, 2),
                 ),
             )
         except Exception as e:

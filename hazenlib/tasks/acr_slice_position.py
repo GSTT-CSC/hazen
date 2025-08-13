@@ -65,8 +65,10 @@ class ACRSlicePosition(HazenTask):
                 result = self.get_slice_position(dcm)
                 results.add_measurement(
                     Measurement(
-                        name=self.img_desc(dcm),
-                        type="length difference",
+                        name="SlicePosition",
+                        type="measured",
+                        subtype="length difference",
+                        description=self.img_desc(dcm),
                         value=round(result, 2),
                     ),
                 )

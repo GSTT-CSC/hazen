@@ -61,10 +61,22 @@ class SlicePosition(HazenTask):
             avg_pos = round(np.mean(position_errors), 2)
 
             results.add_measurement(
-                Measurement(name="maximum", unit="mm", value=max_pos),
+                Measurement(
+                    name="SlicePosition",
+                    type="measured",
+                    subtype="maximum",
+                    unit="mm",
+                    value=max_pos,
+                ),
             )
             results.add_measurement(
-                Measurement(name="average", unit="mm", value=avg_pos),
+                Measurement(
+                    name="SlicePosition",
+                    type="measured",
+                    subtype="average",
+                    unit="mm",
+                    value=avg_pos,
+                ),
             )
 
         except Exception as e:

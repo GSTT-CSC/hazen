@@ -61,10 +61,12 @@ class ACRGeometricAccuracy(HazenTask):
             for len_1, t in zip(lengths_1, ("Horizontal", "Vertical")):
                 results.add_measurement(
                     Measurement(
-                        name=self.img_desc(self.ACR_obj.slice_stack[0]),
-                        type=f"{t} distance",
+                        name="GeometricAccuracy",
+                        type="distance",
+                        subtype=t,
+                        description=self.img_desc(self.ACR_obj.slice_stack[0]),
                         value=round(len_1, 2),
-                        unit="",
+                        unit="mm",
                     ),
                 )
 
@@ -82,17 +84,19 @@ class ACRGeometricAccuracy(HazenTask):
             for len_5, t in zip(
                     lengths_5,
                     (
-                        "Horizontal distance",
-                        "Vertical distance",
-                        "Diagonal distance SW",
-                        "Diagonal distance SE",
+                        "Horizontal",
+                        "Vertical",
+                        "Diagonal SW",
+                        "Diagonal SE",
                     ),
             ):
                 results.add_measurement(
                     Measurement(
-                        name=self.img_desc(self.ACR_obj.slice_stack[4]),
+                        name="GeometricAccuracy",
+                        type="distance",
+                        subtype=t,
+                        description=self.img_desc(self.ACR_obj.slice_stack[4]),
                         value= round(len_5, 2),
-                        type=t,
                         unit="",
                     ),
                 )
@@ -112,21 +116,25 @@ class ACRGeometricAccuracy(HazenTask):
         results.add_measurement(
             Measurement(
                 name="distortion",
-                type="Mean relative measurement error",
+                type="measurement",
+                subtype="Mean relative error",
                 value=round(mean_err, 2),
             ),
         )
         results.add_measurement(
             Measurement(
                 name="distortion",
-                type="Max absolute measurement error",
+                type="measurement",
+                subtype="Max absolute error",
                 value=round(max_err, 2),
             ),
         )
         results.add_measuremetn(
             name="distortion",
-            type="Coefficient of variation %",
+            type="fitted",
+            subtype="Coefficient of variation",
             value=round(cov_l, 2),
+            unit="%",
         )
 
         # only return reports if requested

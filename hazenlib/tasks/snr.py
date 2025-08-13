@@ -82,14 +82,16 @@ class SNR(HazenTask):
             )
             results.add_measurement(
                 Measurement(
-                    name="snr by subtraction",
+                    name="SNR",
+                    subtype="subtraction",
                     type="measured",
                     value=round(snr, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="snr by subtraction",
+                    name="SNR",
+                    subtype="subtraction",
                     type="normalised",
                     value=round(normalised_snr, 2),
                 ),
@@ -100,17 +102,19 @@ class SNR(HazenTask):
             snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
             results.add_measurement(
                 Measurement(
-                    name="snr by smoothing",
+                    name="SNR",
+                    subtype="smoothing",
                     type="measured",
-                    subtype=self.img_desc(dcm),
+                    description=self.img_desc(dcm),
                     value=round(snr, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="snr by smoothing",
+                    name="SNR",
+                    subtype="smoothing",
                     type="normalised",
-                    subtype=self.img_desc(dcm),
+                    description=self.img_desc(dcm),
                     value=round(normalised_snr, 2),
                 ),
             )

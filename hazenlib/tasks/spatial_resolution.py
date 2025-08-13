@@ -45,14 +45,17 @@ class SpatialResolution(HazenTask):
             pe_result, fe_result = self.calculate_mtf(self.single_dcm)
             results.add_measurement(
                 Measurement(
-                    name="phase encoding direction",
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="phase encoding direction",
                     unit="mm",
                     value=round(pe_result, 2),
                 ),
             )
             results.add_measurement(
                 Measurement(
-                    name="frequency encoding direction",
+                    name="SpatialResolution",
+                    subtype="frequency encoding direction",
                     unit="mm",
                     value=round(fe_result, 2),
                 ),

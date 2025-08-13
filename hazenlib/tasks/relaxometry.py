@@ -274,7 +274,9 @@ class Relaxometry(HazenTask):
 
         results.add_measurement(
             Measurement(
-                name="rms_frac_time_difference",
+                name="Relaxometry",
+                type="measured",
+                subtype="rms_frac_time_difference",
                 value=round(RMS_frac_error, 3),
             ),
         )
