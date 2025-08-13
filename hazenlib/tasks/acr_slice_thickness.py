@@ -16,17 +16,16 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import get_image_orientation
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-
+from hazenlib.types import Measurement
+from hazenlib.utils import get_image_orientation
 
 
 class ACRSliceThickness(HazenTask):
@@ -62,11 +61,15 @@ class ACRSliceThickness(HazenTask):
 
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(slice_thickness_dcm)
+        results.files = self.img_desc(slice_thickness_dcm)
 
         try:
             result = self.get_slice_thickness(slice_thickness_dcm)
-            results["measurement"] = {"slice width mm": round(result, 2)}
+            results.add_measurement(
+                Measurement(
+                    name="slice width", unit="mm", value=(result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice thickness for %s"
@@ -77,7 +80,7 @@ class ACRSliceThickness(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

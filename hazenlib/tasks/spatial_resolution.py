@@ -9,18 +9,18 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
     Replace shape finding functions with hazenlib.utils equivalents
     
 """
+import copy
 import os
 import sys
-import copy
 import traceback
 
 import cv2 as cv
 import numpy as np
-from numpy.fft import fftfreq
-
-from hazenlib.utils import rescale_to_byte, get_pixel_size, get_pe_direction
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
+from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
+from numpy.fft import fftfreq
 
 
 class SpatialResolution(HazenTask):
@@ -40,13 +40,23 @@ class SpatialResolution(HazenTask):
             dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
         try:
             pe_result, fe_result = self.calculate_mtf(self.single_dcm)
-            results["measurement"] = {
-                "phase encoding direction mm": round(pe_result, 2),
-                "frequency encoding direction mm": round(fe_result, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="phase encoding direction",
+                    unit="mm",
+                    value=round(pe_result, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="frequency encoding direction",
+                    unit="mm",
+                    value=round(fe_result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the spatial resolution for %s"
@@ -58,7 +68,7 @@ class SpatialResolution(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 
@@ -129,7 +139,7 @@ class SpatialResolution(HazenTask):
                 # OpenCV 4.5 adjustment
                 # - cv.minAreaRect() output tuple order changed since v3.4
                 # - swap rect[1] order & rotate rect[2] by -90
-                # – convert tuple>list>tuple to do this
+                #   convert tuple>list>tuple to do this
                 rectAsList = list(rect)
                 rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
                 rectAsList[2] = rectAsList[2] - 90

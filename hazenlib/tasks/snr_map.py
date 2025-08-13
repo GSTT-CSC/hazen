@@ -32,16 +32,16 @@ method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 """
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
+
 import matplotlib.patches as patches
-
-from scipy import ndimage
-from skimage import filters
+import matplotlib.pyplot as plt
+import numpy as np
 import skimage.morphology
-
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
+from scipy import ndimage
+from skimage import filters
 
 
 class SNRMap(HazenTask):
@@ -75,7 +75,7 @@ class SNRMap(HazenTask):
         """
         results = self.init_result_dict()
         img_desc = self.img_desc(self.single_dcm)
-        results["file"] = img_desc
+        results.files = img_desc
 
         #  Create original, smoothed and noise images
         #  ==========================================
@@ -112,7 +112,9 @@ class SNRMap(HazenTask):
         #  =================================
         snr_map = self.calc_snr_map(original, noise)
 
-        results["measurement"] = {"snr by smoothing": round(snr, 2)}
+        results.add_measurement(
+            Measurement("snr by smoothing", round(snr, 2)),
+        )
 
         if self.report:
             #  Plot images
@@ -137,7 +139,7 @@ class SNRMap(HazenTask):
             self.report_files.append(summary_image_path)
             self.report_files.append(detailed_image_path)
 
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

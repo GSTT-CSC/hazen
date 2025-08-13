@@ -21,7 +21,7 @@ from typing import Any
 ################
 
 class JsonSerializableMixin:
-    """Mixim that supplies a shallow dict and json representation."""
+    """Mix-in that supplies a shallow dict and json representation."""
 
     def to_dict(self) -> dict[str, Any]:
         """Return a shallow dictionary representation of the instance."""

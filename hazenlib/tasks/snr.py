@@ -25,6 +25,7 @@ import pydicom
 import skimage.filters
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
 from scipy import ndimage
 
 
@@ -72,30 +73,51 @@ class SNR(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = [self.img_desc(img) for img in self.dcm_list]
-        results["measurement"]["snr by smoothing"] = {}
+        results.files = [self.img_desc(img) for img in self.dcm_list]
 
         # SUBTRACTION METHOD with a pair of input files
         if len(self.dcm_list) == 2:
             snr, normalised_snr = self.snr_by_subtraction(
                 self.dcm_list[0], self.dcm_list[1], self.measured_slice_width
             )
-            results["measurement"]["snr by subtraction"] = {
-                "measured": round(snr, 2),
-                "normalised": round(normalised_snr, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="snr by subtraction",
+                    type="measured",
+                    value=round(snr, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="snr by subtraction",
+                    type="normalised",
+                    value=round(normalised_snr, 2),
+                ),
+            )
 
         # SINGLE METHOD (SMOOTHING) for every input file
-        for idx, dcm in enumerate(self.dcm_list):
+        for dcm in self.dcm_list:
             snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
-            results["measurement"]["snr by smoothing"][self.img_desc(dcm)] = {
-                "measured": round(snr, 2),
-                "normalised": round(normalised_snr, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="snr by smoothing",
+                    type="measured",
+                    subtype=self.img_desc(dcm),
+                    value=round(snr, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="snr by smoothing",
+                    type="normalised",
+                    subtype=self.img_desc(dcm),
+                    value=round(normalised_snr, 2),
+                ),
+            )
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

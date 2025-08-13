@@ -1,12 +1,15 @@
 import sys
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 import unittest
-import pydicom
+
 import hazenlib
-from hazenlib.utils import get_dicom_files, is_dicom_file
-from hazenlib.tasks.snr import SNR
+import numpy as np
+import pydicom
 from hazenlib.tasks.relaxometry import Relaxometry
-from hazenlib.types import Result
+from hazenlib.tasks.snr import SNR
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import get_dicom_files, is_dicom_file
+
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestCliParser(unittest.TestCase):
@@ -42,26 +45,57 @@ class TestCliParser(unittest.TestCase):
         snr_task = SNR(input_data=files, report=False, measured_slice_width=5)
         result = snr_task.run()
 
-        dict1 = Result(
-            task="SNR",
-            file=["SNR_SAG_MEAS1_23_1", "SNR_SAG_MEAS2_24_1"],
-            measurement={
-                "snr by smoothing": {
-                    "SNR_SAG_MEAS1_23_1": {
-                        "measured": 184.41, "normalised": 1522.17,
-                    },
-                    "SNR_SAG_MEAS2_24_1": {
-                        "measured": 189.38, "normalised": 1563.2,
-                    },
+        measurement = {
+            "snr by subtraction": {
+                "measured": 183.97, "normalised": 1518.61,
+            },
+            "snr by smoothing": {
+                "SNR_SAG_MEAS1_23_1": {
+                    "measured": 184.41, "normalised": 1522.17,
                 },
-                "snr by subtraction": {
-                    "measured": 183.97, "normalised": 1518.61,
+                "SNR_SAG_MEAS2_24_1": {
+                    "measured": 189.38, "normalised": 1563.2,
                 },
             },
+        }
 
+
+        dict1 = Result(
+            task="SNR",
+            files=["SNR_SAG_MEAS1_23_1", "SNR_SAG_MEAS2_24_1"],
         )
 
-        self.assertDictEqual(result, dict1)
+        # Transformation from old-style measurement data to standardized  output
+        for k, v in measurement.items():
+            for ki, vi in v.items():
+                try:
+                    for t, val in vi.items():
+                        dict1.add_measurement(
+                            Measurement(
+                                name=k, value=val, type=t, subtype=ki,
+                            ),
+                        )
+                except AttributeError:
+                    dict1.add_measurement(
+                        Measurement(
+                            name=k, value=np.float64(vi), type=ki,
+                        ),
+                    )
+
+        self.assertEqual(vars(result).keys(), vars(dict1).keys())
+        for k, v in vars(result).items():
+            if k != "measurement":
+                self.assertEqual(v, vars(dict1)[k])
+
+        for m_d in dict1.measurements:
+            m_r = result.get_measurement(
+                name=m_d.name,
+                measurement_type=m_d.type,
+                subtype=m_d.subtype,
+                unit=m_d.unit,
+            )[0]
+            self.assertAlmostEqual(m_r.value, m_d.value)
+
 
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4")
@@ -71,12 +105,15 @@ class TestCliParser(unittest.TestCase):
 
         dict1 = Result(
             task="Relaxometry",
-            file="Spin_Echo_34_2_4_t1",
-            measurement={"rms_frac_time_difference": 0.135},
+            files="Spin_Echo_34_2_4_t1",
         )
-        self.assertEqual(dict1.keys(), result.keys())
+
+        dict1.add_measurement(
+            Measurement(name="rms_frac_time_difference", value=0.135),
+        )
+        self.assertEqual(vars(dict1).keys(), vars(result).keys())
         self.assertAlmostEqual(
-            dict1["measurement"]["rms_frac_time_difference"],
-            result["measurement"]["rms_frac_time_difference"],
+            dict1.get_measurement("rms_frac_time_difference")[0].value,
+            result.get_measurement("rms_frac_time_difference")[0].value,
             4,
         )

@@ -25,14 +25,14 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import skimage.measure
-import skimage.transform
 import skimage.morphology
-
-from hazenlib.HazenTask import HazenTask
+import skimage.transform
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.types import Measurement
 
 
 class ACRGeometricAccuracy(HazenTask):
@@ -51,17 +51,23 @@ class ACRGeometricAccuracy(HazenTask):
 
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = [
+        results.files = [
             self.img_desc(self.ACR_obj.slice_stack[0]),
             self.img_desc(self.ACR_obj.slice_stack[4]),
         ]
 
         try:
             lengths_1 = self.get_geometric_accuracy(0)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[0])] = {
-                "Horizontal distance": round(lengths_1[0], 2),
-                "Vertical distance": round(lengths_1[1], 2),
-            }
+            for len_1, t in zip(lengths_1, ("Horizontal", "Vertical")):
+                results.add_measurement(
+                    Measurement(
+                        name=self.img_desc(self.ACR_obj.slice_stack[0]),
+                        type=f"{t} distance",
+                        value=round(len_1, 2),
+                        unit="",
+                    ),
+                )
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the geometric accuracy for"
@@ -73,12 +79,23 @@ class ACRGeometricAccuracy(HazenTask):
 
         try:
             lengths_5 = self.get_geometric_accuracy(4)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[4])] = {
-                "Horizontal distance": round(lengths_5[0], 2),
-                "Vertical distance": round(lengths_5[1], 2),
-                "Diagonal distance SW": round(lengths_5[2], 2),
-                "Diagonal distance SE": round(lengths_5[3], 2),
-            }
+            for len_5, t in zip(
+                    lengths_5,
+                    (
+                        "Horizontal distance",
+                        "Vertical distance",
+                        "Diagonal distance SW",
+                        "Diagonal distance SE",
+                    ),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name=self.img_desc(self.ACR_obj.slice_stack[4]),
+                        value= round(len_5, 2),
+                        type=t,
+                        unit="",
+                    ),
+                )
         except Exception as e:
             logger.exception(
                 "Could not calculate the geometric accuracy for"
@@ -92,15 +109,29 @@ class ACRGeometricAccuracy(HazenTask):
 
         mean_err, max_err, cov_l = self.get_distortion_metrics(L)
 
-        results["measurement"]["distortion"] = {
-            "Mean relative measurement error": round(mean_err, 2),
-            "Max absolute measurement error": round(max_err, 2),
-            "Coefficient of variation %": round(cov_l, 2),
-        }
+        results.add_measurement(
+            Measurement(
+                name="distortion",
+                type="Mean relative measurement error",
+                value=round(mean_err, 2),
+            ),
+        )
+        results.add_measurement(
+            Measurement(
+                name="distortion",
+                type="Max absolute measurement error",
+                value=round(max_err, 2),
+            ),
+        )
+        results.add_measuremetn(
+            name="distortion",
+            type="Coefficient of variation %",
+            value=round(cov_l, 2),
+        )
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

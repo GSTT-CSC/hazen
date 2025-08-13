@@ -30,6 +30,7 @@ import pydicom
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
 from scipy import ndimage
 
 
@@ -83,14 +84,25 @@ class ACRSNR(HazenTask):
                 self.img_desc(snr_dcm),
             )
             try:
-                results["file"] = self.img_desc(snr_dcm)
+                results.files = self.img_desc(snr_dcm)
                 snr, normalised_snr = self.snr_by_smoothing(
                     snr_dcm, self.measured_slice_width
                 )
-                results["measurement"]["snr by smoothing"] = {
-                    "measured": round(snr, 2),
-                    "normalised": round(normalised_snr, 2),
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="snr by smoothing",
+                        type="measured",
+                        value=round(snr, 2),
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="snr by smoothing",
+                        type="normalised",
+                        value=round(normalised_snr, 2),
+                    ),
+                )
+
             except Exception as e:
                 logger.exception(
                     "Could not calculate the SNR for %s because of : %s",
@@ -114,16 +126,27 @@ class ACRSNR(HazenTask):
                 self.img_desc(snr_dcm2),
             )
 
-            results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
+            results.files = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
                     snr_dcm, snr_dcm2, self.measured_slice_width
                 )
 
-                results["measurement"]["snr by subtraction"] = {
-                    "measured": round(snr, 2),
-                    "normalised": round(normalised_snr, 2),
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="snr by subtraction",
+                        type="measured",
+                        value=round(snr, 2),
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="snr by subtraction",
+                        type="normalised",
+                        value=round(normalised_snr, 2),
+                    ),
+                )
+
             except Exception as e:
                 logger.exception(
                     "Could not calculate the SNR for %s and %s"
@@ -136,7 +159,7 @@ class ACRSNR(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

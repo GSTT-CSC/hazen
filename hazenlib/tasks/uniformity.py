@@ -27,6 +27,7 @@ import hazenlib.utils
 import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
 
 
 class Uniformity(HazenTask):
@@ -47,16 +48,24 @@ class Uniformity(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
 
         try:
             horizontal_uniformity, vertical_uniformity = self.get_fractional_uniformity(
                 self.single_dcm
             )
-            results["measurement"] = {
-                "horizontal %": round(horizontal_uniformity, 2),
-                "vertical %": round(vertical_uniformity, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="horizontal",
+                    unit="%",
+                    value=round(horizontal_uniformity, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="vertical", unit="%", value=round(vertical_uniformity, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the uniformity for %s because of : %s",
@@ -67,7 +76,7 @@ class Uniformity(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

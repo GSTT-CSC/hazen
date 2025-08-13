@@ -20,8 +20,8 @@ class TestUniformity(unittest.TestCase):
 
     def test_uniformity(self):
         results = self.uniformity_task.run()
-        horizontal_ipem = results["measurement"]["horizontal %"]
-        vertical_ipem = results["measurement"]["vertical %"]
+        horizontal_ipem = results.get_measurement("horizontal")[0].value
+        vertical_ipem = results.get_measurement("vertical")[0].value
 
         print("\ntest_uniformity.py::TestUniformity::test_uniformity")
         print("new_release_value:", vertical_ipem)

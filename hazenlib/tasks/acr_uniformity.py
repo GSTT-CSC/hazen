@@ -19,11 +19,12 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
-import numpy as np
 
-from hazenlib.HazenTask import HazenTask
+import numpy as np
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
 
 
 class ACRUniformity(HazenTask):
@@ -42,11 +43,17 @@ class ACRUniformity(HazenTask):
         """
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
+        results.files = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
             result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
-            results["measurement"] = {"integral uniformity %": round(result, 2)}
+            results.add_measurement(
+                Measurement(
+                    name="integral uniformity",
+                    unit="%",
+                    value=round(result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the percent integral uniformity for %s"
@@ -58,7 +65,7 @@ class ACRUniformity(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

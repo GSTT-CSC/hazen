@@ -179,7 +179,7 @@ def main():
             for file in files:
                 task = init_task(selected_task, [file], report, report_dir)
                 result = task.run()
-                result_string = json.dumps(result, indent=2)
+                result_string = result.to_json()
                 print(result_string)
             return
         else:

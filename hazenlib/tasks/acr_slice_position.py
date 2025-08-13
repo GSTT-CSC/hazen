@@ -27,15 +27,15 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement
 
 
 class ACRSlicePosition(HazenTask):
@@ -58,15 +58,19 @@ class ACRSlicePosition(HazenTask):
 
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = [self.img_desc(dcm) for dcm in dcms]
-        results["measurement"] = {}
+        results.files = [self.img_desc(dcm) for dcm in dcms]
 
         for dcm in dcms:
             try:
                 result = self.get_slice_position(dcm)
-                results["measurement"][self.img_desc(dcm)] = {
-                    "length difference": round(result, 2)
-                }
+                results.add_measurement(
+                    Measurement(
+                        name=self.img_desc(dcm),
+                        type="length difference",
+                        value=round(result, 2),
+                    ),
+                )
+
             except Exception as e:
                 logger.exception(
                     "Could not calculate the bar length difference for %s"
@@ -78,7 +82,7 @@ class ACRSlicePosition(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 

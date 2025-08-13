@@ -18,6 +18,7 @@ from skimage.measure import regionprops
 
 from hazenlib.HazenTask import HazenTask
 from hazenlib.utils import Rod
+from hazenlib.types import Measurement
 
 
 class SliceWidth(HazenTask):
@@ -38,9 +39,11 @@ class SliceWidth(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
         try:
-            results["measurement"] = self.get_slice_width(self.single_dcm)
+            for measurement in self.get_slice_width(self.single_dcm):
+                results.add_measurement(measurement)
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice_width for %s because of : %s",
@@ -51,7 +54,7 @@ class SliceWidth(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.report_images = self.report_files
 
         return results
 
@@ -845,7 +848,7 @@ class SliceWidth(HazenTask):
 
         return trapezoid_fit_coefficients, baseline_fit_coefficients
 
-    def get_slice_width(self, dcm):
+    def get_slice_width(self, dcm) -> Measurement:
         """Calculates slice width using double wedge image
 
         Args:
@@ -1107,12 +1110,46 @@ class SliceWidth(HazenTask):
             "horizontal mm": round(horizontal_linearity_mm, 2),
         }
 
-        return {
-            "slice width mm": round(
-                slice_width_mm["combined"]["aapm_tilt_corrected"], 2
+        return [
+            Measurement(
+                "slice width",
+                round(slice_width_mm["combined"]["aapm_tilt_corrected"], 2),
+                unit="mm",
             ),
-            "distortion values": distortion_values,
-            "linearity values": linearity_values,
-            "horizontal distances mm": horz_distances_mm,
-            "vertical distances mm": vert_distances_mm,
-        }
+            Measurement(
+                "distortion",
+                value=round(vert_distortion_mm, 2),
+                unit="mm",
+                type="vertical",
+            ),
+            Measurement(
+                "distortion",
+                value=round(horz_distortion_mm, 2),
+                unit="mm",
+                type="horizontal",
+            ),
+            Measurement(
+                "linearity",
+                value=round(vertical_linearity_mm, 2),
+                unit="mm",
+                type="vertical",
+            ),
+            Measurement(
+                "linearity",
+                value=round(horizontal_linearity_mm, 2),
+                unit="mm",
+                type="horizontal",
+            ),
+            Measurement(
+                "distance",
+                value=horz_distances_mm,
+                unit="mm",
+                type="horizontal",
+            ),
+            Measurement(
+                "distance",
+                value=vert_distances_mm,
+                unit="mm",
+                type="vertical",
+            ),
+        ]
