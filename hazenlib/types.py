@@ -116,10 +116,10 @@ class Measurement(JsonSerializableMixin):
     def __post_init__(self) -> None:
         """Validate the measurement inputs."""
         if self.name not in get_args(MEASUREMENT_NAMES):
-            raise InvalidMeasurementNameError(self.name, MEASUREMENT_NAMES)
+            raise InvalidMeasurementNameError(self.name)
 
         if self.type not in get_args(MEASUREMENT_TYPES):
-            raise InvalidMeasurementTypeError(self.type, MEASUREMENT_TYPES)
+            raise InvalidMeasurementTypeError(self.type)
 
 @dataclass(slots=True)
 class Metadata(JsonSerializableMixin):
@@ -167,9 +167,13 @@ class Result(JsonSerializableMixin):
         self._measurements.append(measurement)
 
 
-    def add_report_image(self, image_path: str) -> None:
+    def add_report_image(self, image_path: str | Sequence[str]) -> None:
         """Add a report image location to the report_images."""
-        self._report_images.append(image_path)
+        if isinstance(image_path, Sequence) and not isinstance(image_path, str):
+            paths = image_path
+        else:
+            paths = [image_path]
+        self._report_images.append(*paths)
 
 
     def get_measurement(

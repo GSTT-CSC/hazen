@@ -3,6 +3,9 @@
 # Python imports
 from collections.abc import Sequence
 
+# Local imports
+from hazenlib.types import MEASUREMENT_NAMES, MEASUREMENT_TYPES
+
 
 class ShapeError(Exception):
     """Base exception for shapes."""
@@ -48,21 +51,22 @@ class ArgumentCombinationError(Exception):
 class InvalidMeasurementNameError(ValueError):
     """Invalid Measurement Name Error."""
 
-    def __init__(self, name: str, valid_names: Sequence[str]) -> None:
+    def __init__(self, name: str) -> None:
         """Initialise the error."""
-        msg = f"Invalid measurement name: {name}. Must be one of {valid_names}"
+        msg = (
+            f"Invalid measurement name: {name}."
+            " Must be one of {MEASUREMENT_NAMES}"
+        )
         super().__init__(msg)
 
 
 class InvalidMeasurementTypeError(ValueError):
     """Invalid Measurement Type Error."""
 
-    def __init__(
-        self, measurement_type: str, valid_types: Sequence[str],
-    ) -> None:
+    def __init__(self, measurement_type: str) -> None:
         """Initialise the error."""
         msg = (
             f"Invalid measurement type: {measurement_type}."
-            f" Must be one of {valid_types}"
+            f" Must be one of {MEASUREMENT_TYPES}"
         )
         super().__init__(msg)
