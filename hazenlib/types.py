@@ -8,17 +8,17 @@ from typing import TYPE_CHECKING
 from hazenlib.logger import logger
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     import numpy as np
     from numpy.typing import NDArray
 
 # Python imports
 import json
-from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Literal, get_args
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
+from typing import Any, get_args
 
 # Local imports
+from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
 from hazenlib.exceptions import (InvalidMeasurementNameError,
                                  InvalidMeasurementTypeError)
 
@@ -78,25 +78,6 @@ class JsonSerializableMixin:
             ensure_ascii=ensure_ascii,
             **extra_kwargs,
         )
-
-#######################################
-# Allowed measurement types and names #
-#######################################
-
-MEASUREMENT_NAMES = Literal[
-    "GeometricAccuracy",
-    "Ghosting",
-    "Relaxometry",
-    "SlicePosition",
-    "SliceWidth",
-    "SNR",
-    "SNRMap",
-    "SpatialResolution",
-    "Uniformity",
-]
-
-MEASUREMENT_TYPES = Literal["measured", "normalised", "fitted", "raw"]
-
 
 ####################################################
 # The canonical result that every task must return #

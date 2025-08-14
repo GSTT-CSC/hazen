@@ -1,10 +1,7 @@
 """ Application-specific errors"""
 
-# Python imports
-from collections.abc import Sequence
-
 # Local imports
-from hazenlib.types import MEASUREMENT_NAMES, MEASUREMENT_TYPES
+from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
 
 
 class ShapeError(Exception):
@@ -55,7 +52,7 @@ class InvalidMeasurementNameError(ValueError):
         """Initialise the error."""
         msg = (
             f"Invalid measurement name: {name}."
-            " Must be one of {MEASUREMENT_NAMES}"
+            f" Must be one of {MEASUREMENT_NAMES}"
         )
         super().__init__(msg)
 
