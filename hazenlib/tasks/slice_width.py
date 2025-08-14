@@ -11,14 +11,14 @@ from math import pi
 
 import numpy as np
 import scipy.optimize as opt
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement
+from hazenlib.utils import Rod
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from skimage.measure import regionprops
-
-from hazenlib.HazenTask import HazenTask
-from hazenlib.utils import Rod
-from hazenlib.types import Measurement
 
 
 class SliceWidth(HazenTask):
@@ -82,8 +82,8 @@ class SliceWidth(HazenTask):
             arr (np.array): DICOM pixel array
 
         Returns:
-            rods : array_like – centroid coordinates of rods
-            rods_initial : array_like  – initial guess at rods (center-of mass)
+            rods : array_like   centroid coordinates of rods
+            rods_initial : array_like    initial guess at rods (center-of mass)
 
         Notes:
             The rod indices are ordered as:
@@ -165,7 +165,7 @@ class SliceWidth(HazenTask):
             bbox["y_start"].append(rprop.bbox[1] - bbox["radius"])
             bbox["y_end"].append(rprop.bbox[3] + bbox["radius"])
 
-            # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
+            # print(f'Rod {idx}   Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
 
         x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
 
@@ -499,7 +499,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
         C = np.mean(
             [
                 cropped_data[0, 0],
@@ -507,7 +507,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
 
         # print("A:", A)
         # print("box_radius:", box_radius)
@@ -1167,6 +1167,6 @@ class SliceWidth(HazenTask):
                 subtype="distance",
                 value=vert_distances_mm,
                 unit="mm",
-                dscription="Vertical",
+                description="Vertical",
             ),
         ]
