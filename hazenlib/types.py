@@ -5,6 +5,8 @@ from __future__ import annotations
 # Typing imports
 from typing import TYPE_CHECKING
 
+from hazenlib.logger import logger
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
@@ -29,7 +31,18 @@ class JsonSerializableMixin:
 
     def to_dict(self) -> dict[str, Any]:
         """Return a shallow dictionary representation of the instance."""
-        data = asdict(self) if is_dataclass(self) else dict(self.__dict__)
+        try:
+            data = asdict(self)
+
+        except TypeError as err:
+            logger.debug(
+                "JsonSerializableMixin should only really be inhereted from by"
+                " dataclasses but got  %s which raised error %s. "
+                "Falling back to using __dict__",
+                type(self),
+                err,
+            )
+            data = dict(self.__dict__)
         return {k: v for k, v in data.items() if not k.startswith("_")}
 
     def to_json(
@@ -75,7 +88,7 @@ MEASUREMENT_NAMES = Literal[
     "Ghosting",
     "Relaxometry",
     "SlicePosition",
-    "SliceThickness",
+    "SliceWidth",
     "SNR",
     "SNRMap",
     "SpatialResolution",
@@ -134,8 +147,8 @@ class Result(JsonSerializableMixin):
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""
-        self._measurements = []
-        self._report_images = []
+        self._measurements: list[Measurement] = []
+        self._report_images: list[str] = []
         self.metadata = Metadata()
 
     @property
@@ -151,8 +164,7 @@ class Result(JsonSerializableMixin):
 
     def add_measurement(self, measurement: Measurement) -> Measurement:
         """Add a measurement to the results."""
-        self.measurements.append(measurement)
-        return measurement
+        self._measurements.append(measurement)
 
 
     def add_report_image(self, image_path: str) -> None:
