@@ -67,7 +67,7 @@ class Uniformity(HazenTask):
                 Measurement(
                     name="Uniformity",
                     type="measured",
-                    subtype="vertical",
+                    subtype="Vertical",
                     unit="%",
                     value=round(vertical_uniformity, 2),
                 ),
