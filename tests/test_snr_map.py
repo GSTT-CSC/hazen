@@ -56,7 +56,9 @@ class TestSnrMap(unittest.TestCase):
     def test_snr_value(self):
         np.testing.assert_allclose(
             192.88188017908504,
-            self.results.get_measurement("snr by smoothing")[0].value,
+            self.results.get_measurement(
+                name="SNR", measurement_type="measured", subtype="smoothing",
+            )[0].value,
             2,
         )
 

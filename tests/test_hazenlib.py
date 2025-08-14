@@ -45,42 +45,56 @@ class TestCliParser(unittest.TestCase):
         snr_task = SNR(input_data=files, report=False, measured_slice_width=5)
         result = snr_task.run()
 
-        measurement = {
-            "snr by subtraction": {
-                "measured": 183.97, "normalised": 1518.61,
-            },
-            "snr by smoothing": {
-                "SNR_SAG_MEAS1_23_1": {
-                    "measured": 184.41, "normalised": 1522.17,
-                },
-                "SNR_SAG_MEAS2_24_1": {
-                    "measured": 189.38, "normalised": 1563.2,
-                },
-            },
-        }
-
+        measurements = [
+            Measurement(
+                name="SNR",
+                subtype="subtraction",
+                value=183.97,
+                type="measured",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="subtraction",
+                value=1518.61,
+                type="normalised",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=184.41,
+                type="measured",
+                description="SNR_SAG_MEAS1_23_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=1522.17,
+                type="normalised",
+                description="SNR_SAG_MEAS1_23_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=189.38,
+                type="measured",
+                description="SNR_SAG_MEAS2_24_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=1563.2,
+                type="normalised",
+                description="SNR_SAG_MEAS2_24_1",
+            ),
+        ]
 
         dict1 = Result(
             task="SNR",
             files=["SNR_SAG_MEAS1_23_1", "SNR_SAG_MEAS2_24_1"],
         )
 
-        # Transformation from old-style measurement data to standardized  output
-        for k, v in measurement.items():
-            for ki, vi in v.items():
-                try:
-                    for t, val in vi.items():
-                        dict1.add_measurement(
-                            Measurement(
-                                name=k, value=val, type=t, description=ki,
-                            ),
-                        )
-                except AttributeError:
-                    dict1.add_measurement(
-                        Measurement(
-                            name=k, value=np.float64(vi), type=ki,
-                        ),
-                    )
+        for m in measurements:
+            dict1.add_measurement(m)
 
         self.assertEqual(vars(result).keys(), vars(dict1).keys())
         for k, v in vars(result).items():
@@ -91,6 +105,7 @@ class TestCliParser(unittest.TestCase):
             m_r = result.get_measurement(
                 name=m_d.name,
                 measurement_type=m_d.type,
+                subtype=m_d.subtype,
                 description=m_d.description,
                 unit=m_d.unit,
             )[0]
@@ -108,12 +123,16 @@ class TestCliParser(unittest.TestCase):
             files="Spin_Echo_34_2_4_t1",
         )
 
-        dict1.add_measurement(
-            Measurement(name="rms_frac_time_difference", value=0.135),
+        measurement = Measurement(
+            name="Relaxometry",
+            type="measured",
+            subtype="rms_frac_time_difference",
+            value=0.135,
         )
+        dict1.add_measurement(measurement)
         self.assertEqual(vars(dict1).keys(), vars(result).keys())
         self.assertAlmostEqual(
-            dict1.get_measurement("rms_frac_time_difference")[0].value,
-            result.get_measurement("rms_frac_time_difference")[0].value,
+            measurement.value,
+            result.get_measurement(name="Relaxometry")[0].value,
             4,
         )

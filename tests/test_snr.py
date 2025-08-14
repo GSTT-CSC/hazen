@@ -44,18 +44,21 @@ class TestSnr(unittest.TestCase):
         val = self.snr.run()
         img_desc = self.snr.img_desc(self.snr.dcm_list[0])
         smoothing_snr = val.get_measurement(
-            "snr by smoothing",
+            name="SNR",
+            subtype="smoothing",
             measurement_type="normalised",
             description=img_desc,
         )[0].value
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR
+            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR,
         )
         subtract_snr = val.get_measurement(
-            "snr by subtraction", measurement_type="normalised",
+            name="SNR",
+            subtype="subtraction",
+            measurement_type="normalised",
         )[0].value
         self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR
+            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR,
         )
 
     def test_SNR_factor(self):
