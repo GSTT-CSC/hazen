@@ -12,8 +12,7 @@ import hazenlib.utils
 import numpy as np
 import pydicom
 from hazenlib.HazenTask import HazenTask
-from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 from skimage import filters, measure
 
 
@@ -31,7 +30,7 @@ class SlicePosition(HazenTask):
         else:
             self.verbose = False
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice position measurement
 
         Notes:

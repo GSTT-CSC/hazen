@@ -46,7 +46,7 @@ import skimage.morphology
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 
 
 class ACRSpatialResolution(HazenTask):
@@ -59,7 +59,7 @@ class ACRSpatialResolution(HazenTask):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing spatial resolution measurement
         using slice 1 from the ACR phantom image set
 

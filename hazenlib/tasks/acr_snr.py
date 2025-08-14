@@ -30,7 +30,7 @@ import pydicom
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 from scipy import ndimage
 
 
@@ -62,7 +62,7 @@ class ACRSNR(HazenTask):
                 self.subtract = None
 
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
         smoothing or subtraction method depending on user-provided input.
 

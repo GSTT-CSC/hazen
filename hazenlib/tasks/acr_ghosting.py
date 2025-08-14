@@ -23,7 +23,7 @@ import numpy as np
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 
 
 class ACRGhosting(HazenTask):
@@ -34,7 +34,7 @@ class ACRGhosting(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing ghosting measurement using slice 7 from the ACR phantom image set.
 
         Returns:

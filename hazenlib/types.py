@@ -32,7 +32,7 @@ class JsonSerializableMixin:
     def to_dict(self) -> dict[str, Any]:
         """Return a shallow dictionary representation of the instance."""
         try:
-            data = asdict(self)
+            data = asdict(self)  # type: ignore[call-overload]
 
         except TypeError as err:
             logger.debug(
@@ -133,17 +133,17 @@ class Result(JsonSerializableMixin):
         self.metadata = Metadata()
 
     @property
-    def measurements(self) -> tuple[Measurement]:
+    def measurements(self) -> tuple[Measurement, ...]:
         """Tuple of result measurements."""
         return tuple(self._measurements)
 
     @property
-    def report_images(self) -> tuple[str]:
+    def report_images(self) -> tuple[str, ...]:
         """Tuple of report image locations."""
         return tuple(self._report_images)
 
 
-    def add_measurement(self, measurement: Measurement) -> Measurement:
+    def add_measurement(self, measurement: Measurement) -> None:
         """Add a measurement to the results."""
         self._measurements.append(measurement)
 
@@ -154,7 +154,7 @@ class Result(JsonSerializableMixin):
             paths = image_path
         else:
             paths = [image_path]
-        self._report_images.append(*paths)
+        self._report_images += paths
 
 
     def get_measurement(

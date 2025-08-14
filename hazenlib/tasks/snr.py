@@ -25,7 +25,7 @@ import pydicom
 import skimage.filters
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 from scipy import ndimage
 
 
@@ -61,7 +61,7 @@ class SNR(HazenTask):
             self.kernel_size = 9
 
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing signal-to-noise ratio measurement
 
         Notes:

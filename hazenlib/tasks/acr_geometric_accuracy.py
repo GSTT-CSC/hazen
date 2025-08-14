@@ -32,7 +32,7 @@ import skimage.morphology
 import skimage.transform
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 
 
 class ACRGeometricAccuracy(HazenTask):
@@ -42,7 +42,7 @@ class ACRGeometricAccuracy(HazenTask):
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
@@ -129,7 +129,7 @@ class ACRGeometricAccuracy(HazenTask):
                 value=round(max_err, 2),
             ),
         )
-        results.add_measuremetn(
+        results.add_measurement(
             name="distortion",
             type="fitted",
             subtype="Coefficient of variation",

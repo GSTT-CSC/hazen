@@ -35,7 +35,7 @@ import skimage.morphology
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 
 
 class ACRSlicePosition(HazenTask):
@@ -46,7 +46,7 @@ class ACRSlicePosition(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice position measurement
         using the first and last slices from the ACR phantom image set.
 

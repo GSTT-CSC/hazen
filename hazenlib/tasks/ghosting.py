@@ -6,7 +6,7 @@ import cv2 as cv
 import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
 
 
@@ -20,7 +20,7 @@ class Ghosting(HazenTask):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing ghosting measurement
 
         Returns:

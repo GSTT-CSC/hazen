@@ -27,7 +27,7 @@ import hazenlib.utils
 import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.types import Measurement
+from hazenlib.types import Measurement, Result
 
 
 class Uniformity(HazenTask):
@@ -41,7 +41,7 @@ class Uniformity(HazenTask):
         # Set the single DICOM input to be the first in the list
         self.single_dcm = self.dcm_list[0]
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing uniformity measurement
 
         Returns:
