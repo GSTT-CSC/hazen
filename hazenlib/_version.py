@@ -1,1 +1,5 @@
-__version__ = '1.3.4'
+"""Single point place to retrieve the version."""
+
+import importlib.metadata
+
+__version__ = importlib.metadata.version("hazen")
