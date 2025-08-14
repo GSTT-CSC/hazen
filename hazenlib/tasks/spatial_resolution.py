@@ -71,7 +71,7 @@ class SpatialResolution(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results.report_images = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

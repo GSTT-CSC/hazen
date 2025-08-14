@@ -144,7 +144,7 @@ class SNRMap(HazenTask):
             self.report_files.append(summary_image_path)
             self.report_files.append(detailed_image_path)
 
-            results.report_images = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

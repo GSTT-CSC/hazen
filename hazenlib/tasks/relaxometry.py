@@ -380,7 +380,7 @@ class Relaxometry(HazenTask):
             self.report_files.append(("further_details", detailed_outpath))
 
         if self.report:
-            results.report_images = self.report_files
+            results.add_report_image(self.report_files)
 
         # plt.show()
         return results
