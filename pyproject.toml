@@ -35,6 +35,8 @@ dev = [
     "sphinx>=7.4.7",
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
-    "toml>=0.10.2",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hazenlib"]
