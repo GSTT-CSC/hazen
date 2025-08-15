@@ -3,18 +3,17 @@ Local Otsu thresholding
 http://scikit-image.org/docs/0.11.x/auto_examples/plot_local_otsu.html
 
 """
-import os
 import copy
+import os
 
-import pydicom
 import cv2 as cv
-import numpy as np
-from skimage import measure, filters
-
-import hazenlib.utils
 import hazenlib.exceptions
+import hazenlib.utils
+import numpy as np
+import pydicom
 from hazenlib.HazenTask import HazenTask
-from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+from skimage import filters, measure
 
 
 class SlicePosition(HazenTask):
@@ -23,15 +22,12 @@ class SlicePosition(HazenTask):
     Inherits from HazenTask class
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, verbose: bool = False, **kwargs):
         # Whether the position of each of the 40 slices to be included in the results
-        if "verbose" in kwargs.keys():
-            self.verbose = kwargs["verbose"]
-        else:
-            self.verbose = False
+        self.verbose = verbose
+        super().__init__(**kwargs)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice position measurement
 
         Notes:
@@ -48,25 +44,43 @@ class SlicePosition(HazenTask):
         truncated_data = slice_data[10:50]  # ignore first and last 10 dicom
 
         results = self.init_result_dict()
-        results["file"] = self.img_desc(truncated_data[18])
+        results.files = self.img_desc(truncated_data[18])
 
         try:
             position_errors = self.slice_position_error(truncated_data)
             if self.verbose:
                 rounded_positions = [round(pos, 3) for pos in position_errors]
-                results["additional data"] = {"slice positions": rounded_positions}
+                results.metadata.slice_position = rounded_positions
 
             # Round calculated values to the appropriate decimal places
             max_pos = round(np.max(position_errors), 2)
             avg_pos = round(np.mean(position_errors), 2)
 
-            results["measurement"] = {"maximum mm": max_pos, "average mm": avg_pos}
+            results.add_measurement(
+                Measurement(
+                    name="SlicePosition",
+                    type="measured",
+                    subtype="maximum",
+                    unit="mm",
+                    value=max_pos,
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SlicePosition",
+                    type="measured",
+                    subtype="average",
+                    unit="mm",
+                    value=avg_pos,
+                ),
+            )
+
         except Exception as e:
             raise
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

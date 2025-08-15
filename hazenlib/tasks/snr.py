@@ -11,17 +11,22 @@ Created by Neil Heraghty
 
 04/05/2018
 """
-import os
-import pydicom
-import cv2 as cv
-import numpy as np
-import skimage.filters
-from scipy import ndimage
+from __future__ import annotations
 
-import hazenlib.utils
+import contextlib
+import os
+from typing import Any
+
+import cv2 as cv
 import hazenlib.exceptions as exc
+import hazenlib.utils
+import numpy as np
+import pydicom
+import skimage.filters
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+from scipy import ndimage
 
 
 class SNR(HazenTask):
@@ -30,26 +35,33 @@ class SNR(HazenTask):
     Inherits from HazenTask class
     """
 
-    def __init__(self, **kwargs):
+    def __init__(
+            self,
+            measured_slice_width: float | None = None,
+            coil: str | None = None,
+            **kwargs: Any,
+    ) -> None:
+        """Initialise the Hazen ACR SNR Object."""
         super().__init__(**kwargs)
 
         # measured slice width is expected to be a floating point number
-        try:
-            self.measured_slice_width = float(kwargs["measured_slice_width"])
-        except:
-            self.measured_slice_width = None
+        self.measured_slice_width = measured_slice_width
+        with contextlib.suppress(TypeError):
+            self.measured_slice_width = float(measured_slice_width)
+
 
         # Determining kernel size based on coil choice. Values of 9 and 25 come from McCann 2013 paper.
         try:
-            coil = kwargs["coil"]
-            if coil is None or coil.lower() in ["hc", "head"]:
+            if coil.lower() in ["hc", "head"]:
                 self.kernel_size = 9
             elif coil.lower() in ["bc", "body"]:
                 self.kernel_size = 25
-        except:
+
+        except AttributeError:
             self.kernel_size = 9
 
-    def run(self) -> dict:
+
+    def run(self) -> Result:
         """Main function for performing signal-to-noise ratio measurement
 
         Notes:
@@ -61,30 +73,55 @@ class SNR(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = [self.img_desc(img) for img in self.dcm_list]
-        results["measurement"]["snr by smoothing"] = {}
+        results.files = [self.img_desc(img) for img in self.dcm_list]
 
         # SUBTRACTION METHOD with a pair of input files
         if len(self.dcm_list) == 2:
             snr, normalised_snr = self.snr_by_subtraction(
                 self.dcm_list[0], self.dcm_list[1], self.measured_slice_width
             )
-            results["measurement"]["snr by subtraction"] = {
-                "measured": round(snr, 2),
-                "normalised": round(normalised_snr, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="SNR",
+                    subtype="subtraction",
+                    type="measured",
+                    value=round(snr, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SNR",
+                    subtype="subtraction",
+                    type="normalised",
+                    value=round(normalised_snr, 2),
+                ),
+            )
 
         # SINGLE METHOD (SMOOTHING) for every input file
-        for idx, dcm in enumerate(self.dcm_list):
+        for dcm in self.dcm_list:
             snr, normalised_snr = self.snr_by_smoothing(dcm, self.measured_slice_width)
-            results["measurement"]["snr by smoothing"][self.img_desc(dcm)] = {
-                "measured": round(snr, 2),
-                "normalised": round(normalised_snr, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="SNR",
+                    subtype="smoothing",
+                    type="measured",
+                    description=self.img_desc(dcm),
+                    value=round(snr, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SNR",
+                    subtype="smoothing",
+                    type="normalised",
+                    description=self.img_desc(dcm),
+                    value=round(normalised_snr, 2),
+                ),
+            )
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -284,8 +321,8 @@ class SNR(HazenTask):
         ]
 
         if ax:
-            from matplotlib.patches import Rectangle
             from matplotlib.collections import PatchCollection
+            from matplotlib.patches import Rectangle
 
             # for patches: [column/x, row/y] format
 

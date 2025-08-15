@@ -6,6 +6,7 @@ import cv2 as cv
 import numpy as np
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
 
 
@@ -19,7 +20,7 @@ class Ghosting(HazenTask):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing ghosting measurement
 
         Returns:
@@ -30,11 +31,18 @@ class Ghosting(HazenTask):
             self.single_dcm,
             properties=["SeriesDescription", "EchoTime", "NumberOfAverages"],
         )
-        results["file"] = img_desc
+        results.files = img_desc
 
         try:
             ghosting_value = self.get_ghosting(self.single_dcm)
-            results["measurement"] = {"ghosting %": round(ghosting_value, 3)}
+            results.add_measurement(
+                Measurement(
+                    name="Ghosting",
+                    type="measured",
+                    unit="%",
+                    value=round(ghosting_value, 3),
+                ),
+            )
 
         except Exception as e:
             logger.exception(
@@ -46,7 +54,7 @@ class Ghosting(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
