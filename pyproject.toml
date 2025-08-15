@@ -35,6 +35,7 @@ dev = [
     "sphinx>=7.4.7",
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
+    "types-docopt>=0.6.11.20241107",
 ]
 
 [tool.setuptools.packages.find]

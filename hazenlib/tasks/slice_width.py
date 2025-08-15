@@ -11,13 +11,14 @@ from math import pi
 
 import numpy as np
 import scipy.optimize as opt
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement
+from hazenlib.utils import Rod
 from matplotlib import pyplot as plt
 from scipy import ndimage
 from scipy.interpolate import interp1d
 from skimage.measure import regionprops
-
-from hazenlib.HazenTask import HazenTask
-from hazenlib.utils import Rod
 
 
 class SliceWidth(HazenTask):
@@ -38,9 +39,11 @@ class SliceWidth(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
         try:
-            results["measurement"] = self.get_slice_width(self.single_dcm)
+            for measurement in self.get_slice_width(self.single_dcm):
+                results.add_measurement(measurement)
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice_width for %s because of : %s",
@@ -51,7 +54,7 @@ class SliceWidth(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -79,8 +82,8 @@ class SliceWidth(HazenTask):
             arr (np.array): DICOM pixel array
 
         Returns:
-            rods : array_like – centroid coordinates of rods
-            rods_initial : array_like  – initial guess at rods (center-of mass)
+            rods : array_like   centroid coordinates of rods
+            rods_initial : array_like    initial guess at rods (center-of mass)
 
         Notes:
             The rod indices are ordered as:
@@ -162,7 +165,7 @@ class SliceWidth(HazenTask):
             bbox["y_start"].append(rprop.bbox[1] - bbox["radius"])
             bbox["y_end"].append(rprop.bbox[3] + bbox["radius"])
 
-            # print(f'Rod {idx} – Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
+            # print(f'Rod {idx}   Bounding Box, x: ({bbox["x_start"][-1]}, {bbox["x_end"][-1]}), y: ({bbox["y_start"][-1]}, {bbox["y_end"][-1]})')
 
         x0, y0, x0_im, y0_im = ([None] * 9 for i in range(4))
 
@@ -496,7 +499,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
         C = np.mean(
             [
                 cropped_data[0, 0],
@@ -504,7 +507,7 @@ class SliceWidth(HazenTask):
                 cropped_data[0, w_crop - 1],
                 cropped_data[h_crop - 1, w_crop - 1],
             ]
-        )  # background – np.min(outside of rod within cropped_data)
+        )  # background   np.min(outside of rod within cropped_data)
 
         # print("A:", A)
         # print("box_radius:", box_radius)
@@ -845,7 +848,7 @@ class SliceWidth(HazenTask):
 
         return trapezoid_fit_coefficients, baseline_fit_coefficients
 
-    def get_slice_width(self, dcm):
+    def get_slice_width(self, dcm) -> Measurement:
         """Calculates slice width using double wedge image
 
         Args:
@@ -1107,12 +1110,63 @@ class SliceWidth(HazenTask):
             "horizontal mm": round(horizontal_linearity_mm, 2),
         }
 
-        return {
-            "slice width mm": round(
-                slice_width_mm["combined"]["aapm_tilt_corrected"], 2
+        return [
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="slice width",
+                value=round(
+                    slice_width_mm["combined"]["aapm_tilt_corrected"],
+                    2,
+                ),
+                unit="mm",
             ),
-            "distortion values": distortion_values,
-            "linearity values": linearity_values,
-            "horizontal distances mm": horz_distances_mm,
-            "vertical distances mm": vert_distances_mm,
-        }
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distortion",
+                description="Vertical",
+                value=round(vert_distortion_mm, 2),
+                unit="mm",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distortion",
+                description="Horizontal",
+                value=round(horz_distortion_mm, 2),
+                unit="mm",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="linearity",
+                value=round(vertical_linearity_mm, 2),
+                unit="mm",
+                description="Vertical",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="linearity",
+                value=round(horizontal_linearity_mm, 2),
+                unit="mm",
+                description="Horizontal",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distance",
+                value=horz_distances_mm,
+                unit="mm",
+                description="Horizontal",
+            ),
+            Measurement(
+                name="SliceWidth",
+                type="measured",
+                subtype="distance",
+                value=vert_distances_mm,
+                unit="mm",
+                description="Vertical",
+            ),
+        ]

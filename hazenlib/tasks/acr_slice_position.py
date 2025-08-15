@@ -27,26 +27,31 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRSlicePosition(HazenTask):
     """Slice position measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice position measurement
         using the first and last slices from the ACR phantom image set.
 
@@ -58,15 +63,21 @@ class ACRSlicePosition(HazenTask):
 
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = [self.img_desc(dcm) for dcm in dcms]
-        results["measurement"] = {}
+        results.files = [self.img_desc(dcm) for dcm in dcms]
 
         for dcm in dcms:
             try:
                 result = self.get_slice_position(dcm)
-                results["measurement"][self.img_desc(dcm)] = {
-                    "length difference": round(result, 2)
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="SlicePosition",
+                        type="measured",
+                        subtype="length difference",
+                        description=self.img_desc(dcm),
+                        value=round(result, 2),
+                    ),
+                )
+
             except Exception as e:
                 logger.exception(
                     "Could not calculate the bar length difference for %s"
@@ -78,7 +89,7 @@ class ACRSlicePosition(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

@@ -404,7 +404,7 @@ class TestSliceWidth(unittest.TestCase):
 
     def test_slice_width(self):
         result = self.slice_width.run()
-        slice_width_mm = result["measurement"]["slice width mm"]
+        slice_width_mm = result.get_measurement(name="SliceWidth")[0].value
 
         print("\ntest_slice_width.py::TestSliceWidth::test_slice_width")
         print("new_release_value:", slice_width_mm)

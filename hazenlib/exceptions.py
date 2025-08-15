@@ -1,5 +1,8 @@
 """ Application-specific errors"""
 
+# Local imports
+from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
+
 
 class ShapeError(Exception):
     """Base exception for shapes."""
@@ -39,4 +42,28 @@ class ArgumentCombinationError(Exception):
     """Argument combination not valid."""
 
     def __init__(self, msg="Invalid combination of arguments."):
+        super().__init__(msg)
+
+
+class InvalidMeasurementNameError(ValueError):
+    """Invalid Measurement Name Error."""
+
+    def __init__(self, name: str) -> None:
+        """Initialise the error."""
+        msg = (
+            f"Invalid measurement name: {name}."
+            f" Must be one of {MEASUREMENT_NAMES}"
+        )
+        super().__init__(msg)
+
+
+class InvalidMeasurementTypeError(ValueError):
+    """Invalid Measurement Type Error."""
+
+    def __init__(self, measurement_type: str) -> None:
+        """Initialise the error."""
+        msg = (
+            f"Invalid measurement type: {measurement_type}."
+            f" Must be one of {MEASUREMENT_TYPES}"
+        )
         super().__init__(msg)
