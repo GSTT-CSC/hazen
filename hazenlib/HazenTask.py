@@ -28,6 +28,7 @@ class HazenTask:
         self,
         input_data: Sequence,
         *,
+        verbose: bool = False,
         report: bool = False,
         report_dir: str | Path | None = None,
     ) -> None:

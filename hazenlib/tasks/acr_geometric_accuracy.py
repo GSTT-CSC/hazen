@@ -32,6 +32,7 @@ import skimage.morphology
 import skimage.transform
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
+from hazenlib.logging import logger
 from hazenlib.types import Measurement, Result
 
 
@@ -39,6 +40,11 @@ class ACRGeometricAccuracy(HazenTask):
     """Geometric accuracy measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                self.__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 

@@ -22,13 +22,10 @@ class SlicePosition(HazenTask):
     Inherits from HazenTask class
     """
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *, verbose: bool = False, **kwargs):
         # Whether the position of each of the 40 slices to be included in the results
-        if "verbose" in kwargs.keys():
-            self.verbose = kwargs["verbose"]
-        else:
-            self.verbose = False
+        self.verbose = verbose
+        super().__init__(**kwargs)
 
     def run(self) -> Result:
         """Main function for performing slice position measurement
