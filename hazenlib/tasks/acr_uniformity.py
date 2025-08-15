@@ -31,6 +31,11 @@ class ACRUniformity(HazenTask):
     """Uniformity measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)

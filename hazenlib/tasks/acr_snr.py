@@ -47,7 +47,7 @@ class ACRSNR(HazenTask):
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
-                self.__name__,
+                type(self).__name__,
             )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
