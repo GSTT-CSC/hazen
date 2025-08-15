@@ -7,7 +7,7 @@ authors = [
         {name = "Shuaib, Haris", email = "mohammad_haris.shuaib@kcl.ac.uk"},
 ]
 readme = "README.md"
-requires-python = ">=3.9,<3.14"
+requires-python = ">=3.11,<3.14"
 dependencies = [
     "colorlog>=6.9.0",
     "docopt>=0.6.2",
@@ -36,6 +36,8 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
     "types-docopt>=0.6.11.20241107",
-    "toml>=0.10.2",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hazenlib"]

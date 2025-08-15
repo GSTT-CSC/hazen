@@ -1,6 +1,7 @@
 # Python imports
 import logging
 import sys
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -9,10 +10,12 @@ import numpy as np
 import pydicom
 from hazenlib.tasks.relaxometry import Relaxometry
 from hazenlib.tasks.snr import SNR
-from hazenlib.types import Measurement, Result
-from hazenlib.utils import get_dicom_files, is_dicom_file
 
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import get_dicom_files
+
+# Local imports
+from tests import TEST_DATA_DIR
 
 
 logger = logging.getLogger(__name__)
@@ -27,31 +30,8 @@ class TestCliParser(unittest.TestCase):
 
     def test_version(self):
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-
-        # In order to preserve backwards comparability with Python 3.9 and 3.10
-        # we try and load tomllib (preferred) and fall back to loading toml
-        # which is currently a development dependency.
-        # Once Python 3.10 support is dropped (October 2026) then toml can be
-        # dropped as a development dependency and this code can be streamlined.
-        try:
-            import tomllib
-        except ModuleNotFoundError:
-            logger.exception("tomllib not found - using toml 3rd party package")
-            import toml
-            toml_loader = toml.load
-            mode = "r"
-        else:
-            toml_loader = tomllib.load
-            mode = "rb"
-
-            logger.warning(
-                "tomllib is avaiable in the standard library,"
-                " consider removing toml as a development dependency"
-                " if Python 3.10 is no longer supported.",
-            )
-
-        with pyproject_path.open(mode) as fp:
-            pyproject_data = toml_loader(fp)
+        with pyproject_path.open("rb") as fp:
+            pyproject_data = tomllib.load(fp)
 
         expected_version = pyproject_data["project"]["version"]
         self.assertEqual(
