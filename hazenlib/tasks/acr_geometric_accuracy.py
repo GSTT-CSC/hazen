@@ -68,7 +68,7 @@ class ACRGeometricAccuracy(HazenTask):
                 results.add_measurement(
                     Measurement(
                         name="GeometricAccuracy",
-                        type="measured",
+                        type="measurement",
                         subtype=f"{t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[0]),
                         value=round(len_1, 2),
@@ -99,7 +99,7 @@ class ACRGeometricAccuracy(HazenTask):
                 results.add_measurement(
                     Measurement(
                         name="GeometricAccuracy",
-                        type="measured",
+                        type="measurement",
                         subtype=f"{t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[4]),
                         value= round(len_5, 2),
