@@ -6,13 +6,11 @@ from __future__ import annotations
 
 # Python imports
 import csv
-import itertools
 import json
 import logging
 import sys
 from pathlib import Path
-from typing import (Any, Literal, Mapping, Sequence, TextIO, TypeAlias,
-                    TypedDict)
+from typing import Any, Literal, Mapping, Sequence, TextIO, TypeAlias
 
 logger = logging.getLogger(__name__)
 
@@ -21,21 +19,6 @@ logger = logging.getLogger(__name__)
 # ----------------------------------------------------------------------
 
 Format: TypeAlias = Literal["json", "csv", "tsv"]
-
-# ----------------------------------------------------------------------
-# Row definition for the CSV/TSV output
-# ----------------------------------------------------------------------
-
-class CsvRow(TypedDict, total=False):
-    """CSV Row datatype."""
-
-    task: str
-    file: str
-    measurement_type: str       # e.g. "snr by smoothing"
-    subfile: str | None         # for the inner dict keys when present
-    measured: float | None
-    normalised: float | None
-    report_image: str | None
 
 # ----------------------------------------------------------------------
 # Public API
@@ -94,7 +77,7 @@ def _format_results(
     """
     match fmt:
         case "json":
-            json.dump(data, out_fh, indent=2)
+            print(data.to_json(), file=out_fh)
         case "csv":
             _write_csv(data, out_fh, delimiter=",")
         case "tsv":
@@ -125,61 +108,13 @@ def _write_csv(
         writer.writerow(row)
 
 
-def _build_rows(data: Mapping[str, Any]) -> list[CsvRow]:
+def _build_rows(data: Mapping[str, Any]) -> list[dict]:
     """Convert nested data to flat rows.
 
-    Convert the nested measurement dictionary
+    Convert the nested result dictionary
     into a list of flat rows suitable for CSV.
-
-    The algorithm walks the structure
-    and emits one row for each *leaf* measurement
-    (i.e. each measured/normalised pair).
-    The hierarchy is captured in the columns
-    ``measurement_type`` and ``subfile``.
     """
-    rows: list[CsvRow] = []
-
-    task = data.get("task", "")
-    files: Sequence[str] = data.get("file", [])
-    measurement = data.get("measurement", {})
-    report_images = data.get("report_image", [])
-
-    # The measurement dict can contain multiple top-level keys
-    # e.g. ("snr by smoothing", "snr by subtraction",  )
-    for meas_type, inner in measurement.items():
-        # ``inner`` may be a dict of per file entries (as in the example)
-        # or a flat dict with the scalar values directly.
-        if isinstance(inner, Mapping):
-            # Detect the two level case: inner keys are file names
-            for sub_key, leaf in inner.items():
-                # ``leaf`` may itself be a mapping with "measured"/"normalised"
-                if isinstance(leaf, Mapping):
-                    measured = _to_python_scalar(leaf.get("measured"))
-                    normalised = _to_python_scalar(leaf.get("normalised"))
-                else:
-                    # Unexpected shape - fall back to a single value
-                    measured = _to_python_scalar(leaf)
-                    normalised = None
-
-                # If we have an explicit list of files, match them;
-                # otherwise just use the sub_key as the file identifier.
-                file_name = sub_key if sub_key in files else sub_key
-
-                rows.append(
-                    CsvRow(
-                        task=task,
-                        file=file_name,
-                        measurement_type=meas_type,
-                        subfile=None,
-                        measured=measured,
-                        normalised=normalised,
-                        report_image=report_images[len(rows)],
-                    ),
-                )
-        else:
-            # ``inner`` is a scalar
-            # explicitly raise an error as this shouldn't happen
-            msg = "Measurement should be a dict"
-            logger.critical("No measurement type found in %s. %s.", data, msg)
-            raise TypeError(msg)
-    return rows
+    d = data.to_dict()
+    measurements = d.pop("measurements", {})
+    metadata = d.pop("metadata", {})
+    return [{**m, **d, **metadata} for m in measurements]
