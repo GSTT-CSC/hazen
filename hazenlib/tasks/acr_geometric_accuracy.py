@@ -68,8 +68,8 @@ class ACRGeometricAccuracy(HazenTask):
                 results.add_measurement(
                     Measurement(
                         name="GeometricAccuracy",
-                        type="distance",
-                        subtype=t,
+                        type="measured",
+                        subtype=f"{t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[0]),
                         value=round(len_1, 2),
                         unit="mm",
@@ -99,8 +99,8 @@ class ACRGeometricAccuracy(HazenTask):
                 results.add_measurement(
                     Measurement(
                         name="GeometricAccuracy",
-                        type="distance",
-                        subtype=t,
+                        type="measured",
+                        subtype=f"{t} distance",
                         description=self.img_desc(self.ACR_obj.slice_stack[4]),
                         value= round(len_5, 2),
                         unit="",
