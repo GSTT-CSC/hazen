@@ -121,24 +121,27 @@ class ACRGeometricAccuracy(HazenTask):
 
         results.add_measurement(
             Measurement(
-                name="distortion",
+                name="GeometricAccuracy",
                 type="measurement",
-                subtype="Mean relative error",
+                subtype="distortion",
+                description="Mean relative error",
                 value=round(mean_err, 2),
             ),
         )
         results.add_measurement(
             Measurement(
-                name="distortion",
+                name="GeometricAccuracy",
                 type="measurement",
-                subtype="Max absolute error",
+                subtype="distortion",
+                description="Max absolute error",
                 value=round(max_err, 2),
             ),
         )
         results.add_measurement(
-            name="distortion",
+            name="GeometricAccuracy",
             type="fitted",
-            subtype="Coefficient of variation",
+            subtype="distortion",
+            description="Coefficient of variation",
             value=round(cov_l, 2),
             unit="%",
         )
