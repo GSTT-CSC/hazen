@@ -190,7 +190,7 @@ def main():
             task = init_task(selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
 
-    result_string result.to_json()
+    result_string = result.to_json()
     print(result_string)
 
 
