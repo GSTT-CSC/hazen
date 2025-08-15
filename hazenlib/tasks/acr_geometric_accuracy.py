@@ -32,7 +32,7 @@ import skimage.morphology
 import skimage.transform
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.logging import logger
+from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
 
 
