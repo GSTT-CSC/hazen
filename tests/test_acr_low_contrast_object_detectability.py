@@ -2,7 +2,7 @@
 
 # ruff: noqa:PT009
 
-# Python imports
+# Python imporst
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
@@ -110,3 +110,7 @@ class TestACRLowContrastObjectDetectabilityGE(
         SliceScore(10, 8),
         SliceScore(11, 7),
     )
+
+
+if __name__ == "__main__":
+    unittest.main(failfast=True, exit=False)

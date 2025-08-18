@@ -9,6 +9,7 @@ from typing import Literal
 MEASUREMENT_NAMES = Literal[
     "GeometricAccuracy",
     "Ghosting",
+    "LowContrastObjectDetectability",
     "Relaxometry",
     "SlicePosition",
     "SliceWidth",
