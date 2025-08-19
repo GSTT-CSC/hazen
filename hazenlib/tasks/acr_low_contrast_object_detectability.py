@@ -57,6 +57,7 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -68,11 +69,13 @@ from typing import Any
 
 # Module imports
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import scipy as sp
 import statsmodels as sm
 import statsmodels.api
+from matplotlib.patches import Circle
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
@@ -106,6 +109,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 self.ACR_obj.slice_stack[0].pixel_array,
             ),
         )
+        self.lcod_center = None
 
         # Pass threshold is at least N spokes total for both the T1 and T2
         # acquisitions where:
@@ -188,7 +192,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return results
 
 
-    def count_spokes(self, dcm: pydicom.Dataset, alpha: float = 0.05) -> int:
+    def count_spokes(
+        self,
+        dcm: pydicom.Dataset,
+        alpha: float = 0.05,
+        report_window: float = 0.2,
+    ) -> int:
         """Count the number of spokes."""
         if np.min(dcm.pixel_array) < 0:
             msg = "Pixel data should be positive"
@@ -242,40 +251,115 @@ class ACRLowContrastObjectDetectability(HazenTask):
             if np.sum(g) == 3 and np.sum(params_vec_fdr[i, :] > 0) == 3:
                 img = self.angle_image(
                     angle_vec[i],
-                    cX_inner,
                     cY_inner,
+                    cX_inner,
                     img_all.shape[1],
                     img_all.shape[0],
                 )
                 img_all = np.logical_or(img_all, img)
                 pass_vec[spoke_vec[i]] += 1
 
+        if self.report:
+            fig, axes = plt.subplots(1, 1)
+            center_val = dcm.pixel_array[int(cY_inner), int(cX_inner)]
+            axes.imshow(
+                dcm.pixel_array,
+                cmap="gray",
+                alpha=0.5,
+                vmin=center_val * (1 - report_window),
+                vmax=center_val * (1 + report_window),
+            )
+            axes.imshow(img_all, alpha=img_all * 0.5)
+            axes.scatter(cX_inner, cY_inner, marker="x")
+            axes.set_title(
+                f"Detected Spokes {int(np.sum(pass_vec > 0))}/10",
+            )
+
+            data_path = Path(self.dcm_list[0].filename).parent.name
+            img_path = (
+                Path(self.report_path)
+                / f"spokes_{data_path}_{self.img_desc(dcm)}.png"
+            )
+            fig.savefig(img_path)
+
+            self.report_files.append(img_path)
+
         return pass_vec
 
 
-    def find_center(self, dcm: pydicom.Dataset) -> tuple[int]:
+    def find_center(
+        self,
+        dcm: pydicom.Dataset,
+        thresh: float = 0.5,
+        crop_ratio: float = 0.7,
+    ) -> tuple[int]:
         """Find the center of the LCOD phantom."""
+        if self.lcod_center is not None:
+            return self.lcod_center
+
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
             dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy,
         )
-        r = main_radius * 2/3
+        r = main_radius * crop_ratio
         cropped_image = dcm.pixel_array[
             max(0, int(main_cy - r)):int(main_cy + r + 1),
             max(0, int(main_cx - r)):int(main_cx + r + 1),
         ]
+        cropped_image = (
+            (cropped_image - cropped_image.min())
+            * 255.0 / (cropped_image.max() - cropped_image.min())
+        ).astype(np.uint8)
 
         img_blur = cv2.GaussianBlur(cropped_image, (1, 1), 0)
-        img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
+        img_grad = img_blur.max() - img_blur
+
         detected_circles = cv2.HoughCircles(
             img_grad,
             method=cv2.HOUGH_GRADIENT,
             dp=2,
-            minDist=cropped_image.shape[0] // 4,
+            minDist=cropped_image.shape[0] // 2,
         ).flatten()
-        return (
-            dc + max(0, main_c - r)
+        self.lcod_center = tuple(
+            dc + max(0, int(main_c - r))
             for dc, main_c in zip(detected_circles[:2], (main_cx, main_cy))
         )
+
+        if self.report:
+            fig, axes = plt.subplots(2, 2, constrained_layout=True)
+
+            axes[0, 0].imshow(cropped_image)
+            axes[0, 0].scatter(
+                detected_circles[0],
+                detected_circles[1],
+                marker="x",
+                color="red",
+            )
+            axes[0, 0].set_title("Cropped Image")
+
+            axes[0, 1].imshow(img_blur)
+            axes[0, 1].set_title("Blur")
+
+            axes[1, 0].imshow(img_grad)
+            axes[1, 0].set_title("Inverse")
+
+            cx, cy, r = detected_circles[:3]
+            circle = Circle(
+                (cx, cy), r, fill=False, edgecolor="red", linewidth=2,
+            )
+            axes[1, 1].imshow(cropped_image, cmap="gray")
+            axes[1, 1].add_patch(circle)
+            axes[1, 1].set_title("Detected Circle")
+
+            fig.suptitle("LCOD Center Detection")
+
+            data_path = Path(self.dcm_list[0].filename).parent.name
+            img_path = (
+                Path(self.report_path)
+                / f"center_{data_path}_{self.img_desc(dcm)}.png"
+            )
+            fig.savefig(img_path)
+
+        return self.lcod_center
 
 
     @staticmethod
