@@ -84,7 +84,9 @@ logger = logging.getLogger(__name__)
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
 
-    def __init__(self, alpha: float = 0.0125, **kwargs: Any) -> None:
+    def __init__(
+            self, alpha: float = 0.0125, **kwargs: Any,
+    ) -> None:
         """Initialise the LCOD object."""
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
@@ -99,6 +101,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
+        self.rotation = np.int64(
+            self.ACR_obj.determine_rotation(
+                self.ACR_obj.slice_stack[0].pixel_array,
+            ),
+        )
 
         # Pass threshold is at least N spokes total for both the T1 and T2
         # acquisitions where:
@@ -117,6 +124,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     self.ACR_obj.slice_stack[0]["MagneticFieldStrength"].value,
                 )
 
+
     def run(self) -> Result:
         """Run the LCOD analysis."""
         results = self.init_result_dict()
@@ -127,7 +135,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         total_spokes = 0
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
-            slice_no = i + self.slice_range.start
+            slice_no = i + self.slice_range.start + 1
             result = self.count_spokes(dcm, alpha=self.alpha)
             try:
                 num_spokes = np.where(result != 3)[0][0]
@@ -180,7 +188,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return results
 
 
-    def count_spokes(self, dcm: pydicom.Dataset, alpha: float = 0.0125) -> int:
+    def count_spokes(self, dcm: pydicom.Dataset, alpha: float = 0.05) -> int:
         """Count the number of spokes."""
         if np.min(dcm.pixel_array) < 0:
             msg = "Pixel data should be positive"
@@ -190,7 +198,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             raise ValueError(msg)
         norm_img = dcm.pixel_array / np.max(dcm.pixel_array)
         image_threshold = self.histogram_threshold(norm_img)
-        cX_inner, cY_inner = self.find_center(image_threshold)
+        cX_inner, cY_inner = self.find_center(dcm)
 
         img_all = np.zeros_like(dcm.pixel_array)
         pass_vec = np.zeros(10)
@@ -198,7 +206,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         params_vec = []
         angle_vec = []
         spoke_vec = []
-        the_angle = np.int64(self.ACR_obj.determine_rotation(dcm.pixel_array))
+        the_angle = self.rotation
 
         for spoke_number, alpha_degree_initial in enumerate(
                 range(the_angle, -360, -36),
@@ -245,6 +253,31 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return pass_vec
 
 
+    def find_center(self, dcm: pydicom.Dataset) -> tuple[int]:
+        """Find the center of the LCOD phantom."""
+        (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
+            dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy,
+        )
+        r = main_radius * 2/3
+        cropped_image = dcm.pixel_array[
+            max(0, int(main_cy - r)):int(main_cy + r + 1),
+            max(0, int(main_cx - r)):int(main_cx + r + 1),
+        ]
+
+        img_blur = cv2.GaussianBlur(cropped_image, (1, 1), 0)
+        img_grad = cv2.Sobel(img_blur, 0, dx=1, dy=1)
+        detected_circles = cv2.HoughCircles(
+            img_grad,
+            method=cv2.HOUGH_GRADIENT,
+            dp=2,
+            minDist=cropped_image.shape[0] // 4,
+        ).flatten()
+        return (
+            dc + max(0, main_c - r)
+            for dc, main_c in zip(detected_circles[:2], (main_cx, main_cy))
+        )
+
+
     @staticmethod
     def histogram_threshold(
             img: np.ndarray,
@@ -273,15 +306,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             thresh,
             structure=np.ones((5, 5), dtype=int),
         )
-
-
-    @staticmethod
-    def find_center(thresh_inner: np.ndarray) -> tuple[int]:
-        """Find the center of the LCOD circle."""
-        M_inner = cv2.moments(np.uint8(thresh_inner))
-        cY_inner = int(M_inner["m10"] / M_inner["m00"])
-        cX_inner = int(M_inner["m01"] / M_inner["m00"])
-        return (cX_inner, cY_inner)
 
 
     @staticmethod
@@ -393,22 +417,22 @@ class ACRLowContrastObjectDetectability(HazenTask):
             y_range = np.arange(cY, Y)
             x_values = cX + (y_range - cY) / np.tan(alpha)
             valid_indices = (x_values >= 0) & (x_values < X-1)
-            Im[np.round(x_values[valid_indices]).astype(int), y_range[valid_indices]] = 1
         elif 135 <= abs(alpha_degree) < 225:
             x_range = np.arange(cX, X)
             y_values = cY + np.tan(alpha) * (x_range - cX)
             valid_indices = (y_values >= 0) & (y_values < Y-1)
-            Im[x_range[valid_indices], np.round(y_values[valid_indices]).astype(int)] = 1
         elif 225 <= abs(alpha_degree) < 315:
             y_range = np.arange(0, cY)
             x_values = cX + (y_range - cY) / np.tan(alpha)
             valid_indices = (x_values >= 0) & (x_values < X-1)
-            Im[np.round(x_values[valid_indices]).astype(int), y_range[valid_indices]] = 1
         else:
             x_range = np.arange(0, cX)
             y_values = cY + np.tan(alpha) * (x_range - cX)
             valid_indices = (y_values >= 0) & (y_values < Y-1)
-            Im[x_range[valid_indices], np.round(y_values[valid_indices]).astype(int)] = 1
+        Im[
+            np.round(x_range[valid_indices]).astype(int),
+            np.round(y_values[valid_indices]).astype(int),
+        ] = 1
 
         return Im
 
