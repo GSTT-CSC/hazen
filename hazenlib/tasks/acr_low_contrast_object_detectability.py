@@ -411,28 +411,45 @@ class ACRLowContrastObjectDetectability(HazenTask):
         Im = np.zeros((X, Y))
         alpha = np.radians(alpha_degree)
 
+        def _fmt_idx(
+            values: np.ndarray, indices: np.ndarray,
+        ) -> np.ndarray:
+            return values[indices].astype(int)
+
         if alpha_degree == 90:
             Im[cX, cY:Y] = 1  # Direct assignment for vertical line
         elif 45 <= abs(alpha_degree) < 135:
             y_range = np.arange(cY, Y)
             x_values = cX + (y_range - cY) / np.tan(alpha)
             valid_indices = (x_values >= 0) & (x_values < X-1)
+            Im[
+                _fmt_idx(x_values, valid_indices),
+                _fmt_idx(y_range, valid_indices),
+            ] = 1
         elif 135 <= abs(alpha_degree) < 225:
             x_range = np.arange(cX, X)
             y_values = cY + np.tan(alpha) * (x_range - cX)
             valid_indices = (y_values >= 0) & (y_values < Y-1)
+            Im[
+                _fmt_idx(x_range, valid_indices),
+                _fmt_idx(y_values, valid_indices),
+            ] = 1
         elif 225 <= abs(alpha_degree) < 315:
             y_range = np.arange(0, cY)
             x_values = cX + (y_range - cY) / np.tan(alpha)
             valid_indices = (x_values >= 0) & (x_values < X-1)
+            Im[
+                _fmt_idx(x_values, valid_indices),
+                _fmt_idx(y_range, valid_indices),
+            ] = 1
         else:
             x_range = np.arange(0, cX)
             y_values = cY + np.tan(alpha) * (x_range - cX)
             valid_indices = (y_values >= 0) & (y_values < Y-1)
-        Im[
-            np.round(x_range[valid_indices]).astype(int),
-            np.round(y_values[valid_indices]).astype(int),
-        ] = 1
+            Im[
+                _fmt_idx(x_range, valid_indices),
+                _fmt_idx(y_values, valid_indices),
+            ] = 1
 
         return Im
 
