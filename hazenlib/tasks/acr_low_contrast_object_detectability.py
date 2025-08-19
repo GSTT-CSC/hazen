@@ -39,8 +39,8 @@ Implementation overview:
 
 - Normalise image intensity for each slice (independently) to within [0, 1].
 - Background removal process performed using histogram thresholding.
-- Contrast disk is identified by detecting and labelling connected components.
-- Center of Gravity (CoG) method used to detect center of circle.
+- Contrast disk is identified.
+        - Detect center of phantom, crop and then find a large circle.
 - 90 Angular radials profile in a specific angle are generated.
 - Known phantom geometry and rotation used to calculate position of first spoke.
         - Circles at 12.5, 25.0 and 38.0mm from CoG.
@@ -86,6 +86,9 @@ logger = logging.getLogger(__name__)
 
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
+
+    OBJECTS_PER_SPOKE = 3
+    NUM_SPOKES = 10
 
     def __init__(
             self, alpha: float = 0.0125, **kwargs: Any,
@@ -142,7 +145,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             slice_no = i + self.slice_range.start + 1
             result = self.count_spokes(dcm, alpha=self.alpha)
             try:
-                num_spokes = np.where(result != 3)[0][0]
+                num_spokes = np.where(result != self.OBJECTS_PER_SPOKE)[0][0]
             except IndexError:
                 num_spokes = result.size
 
@@ -150,11 +153,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
             # and further analysis
             # If this results in hose-pipping then it might be best to remove
             for j, r in enumerate(result):
+                spoke_no = j + 1
                 results.add_measurement(
                     Measurement(
                         name="LowContrastObjectDetectability",
                         type="measured",
-                        subtype=f"slice {slice_no} spoke {j + 1}",
+                        subtype=f"slice {slice_no} spoke {spoke_no}",
                         value=r,
                     ),
                 )
@@ -207,7 +211,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             raise ValueError(msg)
         norm_img = dcm.pixel_array / np.max(dcm.pixel_array)
         image_threshold = self.histogram_threshold(norm_img)
-        cX_inner, cY_inner = self.find_center(dcm)
+        cx_inner, cy_inner = self.find_center(dcm)
 
         img_all = np.zeros_like(dcm.pixel_array)
         pass_vec = np.zeros(10)
@@ -220,7 +224,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for spoke_number, alpha_degree_initial in enumerate(
                 range(the_angle, -360, -36),
         ):
-            if spoke_number > 9:
+            if spoke_number >= self.NUM_SPOKES:
                 break
             for angle in np.arange(
                     alpha_degree_initial - 8,
@@ -230,9 +234,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 p_vals, params = self.angle_stat_test(
                     image_threshold,
                     angle,
-                    spoke_number + 1,
-                    cX_inner,
-                    cY_inner,
+                    spoke_number,
+                    cx_inner,
+                    cy_inner,
                 )
                 if p_vals is not None and params is not None:
                     params_vec.extend(params[0:3])
@@ -243,16 +247,21 @@ class ACRLowContrastObjectDetectability(HazenTask):
         p_vals_vec_fdr = sm.stats.multitest.fdrcorrection(
             p_vals_vec, alpha=alpha, method="indep", is_sorted=False,
         )
-        pvals_fdr = p_vals_vec_fdr[0].reshape(-1, 3)
-        params_vec_fdr = np.array(params_vec).reshape(-1, 3)
+        pvals_fdr = p_vals_vec_fdr[0].reshape(-1, self.OBJECTS_PER_SPOKE)
+        params_vec_fdr = np.array(params_vec).reshape(
+            -1, self.OBJECTS_PER_SPOKE,
+        )
 
         # check if all three p-values of a spoke pass significant threshold
         for i, g in enumerate(pvals_fdr):
-            if np.sum(g) == 3 and np.sum(params_vec_fdr[i, :] > 0) == 3:
+            if (
+                np.sum(g) == self.OBJECTS_PER_SPOKE
+                and np.sum(params_vec_fdr[i, :] > 0) == self.OBJECTS_PER_SPOKE
+            ):
                 img = self.angle_image(
                     angle_vec[i],
-                    cY_inner,
-                    cX_inner,
+                    cy_inner,
+                    cx_inner,
                     img_all.shape[1],
                     img_all.shape[0],
                 )
@@ -261,7 +270,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         if self.report:
             fig, axes = plt.subplots(1, 1)
-            center_val = dcm.pixel_array[int(cY_inner), int(cX_inner)]
+            center_val = dcm.pixel_array[int(cy_inner), int(cx_inner)]
             axes.imshow(
                 dcm.pixel_array,
                 cmap="gray",
@@ -270,7 +279,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 vmax=center_val * (1 + report_window),
             )
             axes.imshow(img_all, alpha=img_all * 0.5)
-            axes.scatter(cX_inner, cY_inner, marker="x")
+            axes.scatter(cx_inner, cy_inner, marker="x")
             axes.set_title(
                 f"Detected Spokes {int(np.sum(pass_vec > 0))}/10",
             )
@@ -281,6 +290,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 / f"spokes_{data_path}_{self.img_desc(dcm)}.png"
             )
             fig.savefig(img_path)
+            plt.close()
 
             self.report_files.append(img_path)
 
@@ -290,7 +300,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def find_center(
         self,
         dcm: pydicom.Dataset,
-        thresh: float = 0.5,
         crop_ratio: float = 0.7,
     ) -> tuple[int]:
         """Find the center of the LCOD phantom."""
@@ -358,6 +367,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 / f"center_{data_path}_{self.img_desc(dcm)}.png"
             )
             fig.savefig(img_path)
+            plt.close()
 
         return self.lcod_center
 
@@ -392,29 +402,29 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
 
-    @staticmethod
     def angle_stat_test(
+            self,
             image_thresholded: np.ndarray,
             angle: float,
             spoke_number: int,
-            cX: int,
-            cY: int,
+            cx: int,
+            cy: int,
     ) -> tuple:
         """Perform statistical test for s specific angle."""
         # Normalize the image
         image_min, image_max = np.min(image_thresholded), np.max(image_thresholded)
         image_normalized = (image_thresholded - image_min) / (image_max - image_min)
-        [X, Y] = image_thresholded.shape
+        [x, y] = image_thresholded.shape
 
         # Generate angle image and radial profile
-        Im = ACRLowContrastObjectDetectability.angle_image(angle, cX, cY,X,Y)
-        df = ACRLowContrastObjectDetectability.angle_profile_radial(
-            image_normalized, Im, cX, cY,
+        im = self.angle_image(angle, cx, cy, x, y)
+        df = self.angle_profile_radial(
+            image_normalized, im, cx, cy,
         )
         p = np.array(df["profile"])
 
         # Truncate the profile
-        idx_l, idx_h = ACRLowContrastObjectDetectability.truncate_profile(
+        idx_l, idx_h = self.truncate_profile(
             p, 0.5,
         )
         if idx_l is None or idx_h is None or idx_l >= idx_h:
@@ -455,12 +465,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Cross-correlation for alignment
         profile_all = np.sum(
-            ACRLowContrastObjectDetectability.template_profile_separate(
+            self.template_profile_separate(
                 spoke_number,
             ),
             axis=1,
         )
-        _, part_smoothed, _ = ACRLowContrastObjectDetectability.shift_for_max_corr(
+        _, part_smoothed, _ = self.shift_for_max_corr(
             profile_all, part_smoothed, 5,
         )
 
@@ -468,7 +478,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         y = part_smoothed.reshape(90, 1)
         predicted = predicted.reshape(90, 1)
         profiles_with_bias = np.append(
-            ACRLowContrastObjectDetectability.template_profile_separate(
+            self.template_profile_separate(
                 spoke_number,
             ),
             np.ones((90, 1)),
@@ -479,6 +489,36 @@ class ACRLowContrastObjectDetectability(HazenTask):
         glm_model = sm.api.GLM(y, profiles_with_bias)
         glm_results = glm_model.fit()
 
+        #############
+        # Reporting #
+        #############
+        #
+        # This report generates A LOT of graphs.
+        # Not only does this slow the computer down,
+        # but it also floods the report_directory.
+        # These profile figures are only really useful
+        # when debugging so to enable them - debug mode must
+        # also be enabled.
+        if self.report and logger.level == logging.DEBUG:
+            fig, axes = plt.subplots(1, 1, constrained_layout=True)
+
+            axes.plot(df["distance"], df["profile"], label="profile")
+            axes.plot(
+                sp.signal.resample(df["distance"][idx_l:idx_h], predicted.size),
+                predicted,
+                label="fit",
+            )
+            axes.set_title(f"Spoke {spoke_number} @ angle {angle:.2f}")
+            axes.legend()
+
+            data_path = Path(self.dcm_list[0].filename).parent.name
+            img_path = (
+                Path(self.report_path)
+                / f"profile_{data_path}_spoke={spoke_number}_angle={angle}.png"
+            )
+            fig.savefig(img_path)
+            plt.close()
+
         # Return statistical results
         return glm_results.pvalues, glm_results.params
 
@@ -486,79 +526,75 @@ class ACRLowContrastObjectDetectability(HazenTask):
     @staticmethod
     def angle_image(
         alpha_degree: float,
-        cX: int,
-        cY: int,
-        X: int,
-        Y: int,
+        cx: int,
+        cy: int,
+        width: int,
+        height: int,
     ) -> np.ndarray:
-        """Get an angle and generate a 1D profile of the image along the angle."""
-        Im = np.zeros((X, Y))
-        alpha = np.radians(alpha_degree)
+        """Generate a binary mask for a radial line.
 
-        def _fmt_idx(
-            values: np.ndarray, indices: np.ndarray,
-        ) -> np.ndarray:
-            return values[indices].astype(int)
+        ANGLE CONVENTION (CUSTOM FOR ACR PHANTOM):
+        - 0 = vertical line (UPWARD)
+        - 90 = horizontal line (TO THE RIGHT)
+        - 180 = vertical line (DOWNWARD)
+        - 270 = horizontal line (TO THE LEFT)
 
-        if alpha_degree == 90:
-            Im[cX, cY:Y] = 1  # Direct assignment for vertical line
-        elif 45 <= abs(alpha_degree) < 135:
-            y_range = np.arange(cY, Y)
-            x_values = cX + (y_range - cY) / np.tan(alpha)
-            valid_indices = (x_values >= 0) & (x_values < X-1)
-            Im[
-                _fmt_idx(x_values, valid_indices),
-                _fmt_idx(y_range, valid_indices),
-            ] = 1
-        elif 135 <= abs(alpha_degree) < 225:
-            x_range = np.arange(cX, X)
-            y_values = cY + np.tan(alpha) * (x_range - cX)
-            valid_indices = (y_values >= 0) & (y_values < Y-1)
-            Im[
-                _fmt_idx(x_range, valid_indices),
-                _fmt_idx(y_values, valid_indices),
-            ] = 1
-        elif 225 <= abs(alpha_degree) < 315:
-            y_range = np.arange(0, cY)
-            x_values = cX + (y_range - cY) / np.tan(alpha)
-            valid_indices = (x_values >= 0) & (x_values < X-1)
-            Im[
-                _fmt_idx(x_values, valid_indices),
-                _fmt_idx(y_range, valid_indices),
-            ] = 1
+        This convention matches the ACR phantom geometry where
+        the first spoke is typically positioned vertically.
+
+        Args:
+            alpha_degree: Angle in degrees.
+            cx: Center x-coordinate (horizontal position)
+            cy: Center y-coordinate (vertical position)
+            width: Image width in pixels
+            height: Image height in pixels
+
+        Returns:
+            Binary mask with 1s along the radial line
+        """
+        # Adjust angle: add 90° to make 0° vertical instead of horizontal
+        adjusted_alpha = alpha_degree + 90
+        alpha = np.radians(adjusted_alpha)
+
+        mask = np.zeros((height, width), dtype=bool)
+
+        # Handle vertical line case
+        if np.isclose(np.cos(alpha), 0, atol=1e-6):
+            y_vals = np.arange(0, height)
+            x_vals = np.full_like(y_vals, cx)
         else:
-            x_range = np.arange(0, cX)
-            y_values = cY + np.tan(alpha) * (x_range - cX)
-            valid_indices = (y_values >= 0) & (y_values < Y-1)
-            Im[
-                _fmt_idx(x_range, valid_indices),
-                _fmt_idx(y_values, valid_indices),
-            ] = 1
+            m = np.tan(alpha)
+            b = cy - m * cx
+            x_vals = np.arange(0, width)
+            y_vals = m * x_vals + b
 
-        return Im
+        valid = (y_vals >= 0) & (y_vals < height)
+        mask[y_vals[valid].astype(int), x_vals[valid].astype(int)] = True
+
+        return mask
 
 
     @staticmethod
     def angle_profile_radial(
         image: np.ndarray,
         image_profile: np.ndarray,
-        cX: np.ndarray,
-        cY: np.ndarray,
+        cx: np.ndarray,
+        cy: np.ndarray,
     ) -> pd.DataFrame:
         """Get the angular profile as a function of distance."""
         # Get indices where the profile image is not zero
         coords = np.argwhere(image_profile == 1)
 
         # Calculate the profile, distances, and store results
-        X, Y = coords[:, 0], coords[:, 1]
-        profile = image[X, Y]
-        distances = np.sqrt((cX - X) ** 2 + (cY - Y) ** 2)
+        x, y = coords[:, 0], coords[:, 1]
+        profile = image[x, y]
+        distances = np.sqrt((cx - x) ** 2 + (cy - y) ** 2)
 
         # Create the DataFrame
         df = pd.DataFrame({
             "profile": profile,
-            "X": X,
-            "Y": Y,
+            "x": x,
+            "y": y,
             "distance": distances,
         })
 
@@ -569,14 +605,14 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return df
 
     @staticmethod
-    def truncate_profile(p: float, M: np.ndarray) -> tuple[float] | tuple[None]:
+    def truncate_profile(p: float, m: np.ndarray) -> tuple[float] | tuple[None]:
         """Get a 1D array of profile (p) and a background threshold (M).
 
         and eliminate backgrounds from the begining and end of the profile
         and returns the index of the first and last element with higher value
-        than M
+        than m
         """
-        indices = np.where(p >= M)[0]
+        indices = np.where(p >= m)[0]
         # Return the first and last indices
         if indices.size == 0:
             # Handle edge case where no value meets the condition
@@ -588,16 +624,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def template_profile_separate(spoke_number: int) -> np.ndarray:
         """Generate expected reference profile depending on the spoke number."""
         profile = np.zeros((90,3))
-        pixel_size = 0.5
-        radi = [12/0.5, 25/0.5, 38/0.5] ## in milimeter
-        D = [7, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.5]
-        d = D[spoke_number-1]
-        for i,r in enumerate(radi):
-            profile[round(r-d):round(r+d),i] = 1
+        dist = [12/0.5, 25/0.5, 38/0.5]  # in millimeter
+        radi = [7, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.5]
+        r = radi[spoke_number]
+        for i, d in enumerate(dist):
+            profile[round(d - r):round(d + r), i] = 1
         return profile
 
-
-    def shift_for_max_corr(x: int,y: int ,max_shift: int) -> tuple:
+    @staticmethod
+    def shift_for_max_corr(x: int, y: int, max_shift: int) -> tuple:
         """Jitter generated 1D profile to align with the spoke reference."""
         cc_vec = []
         shifts = np.arange(-max_shift, max_shift + 1)
