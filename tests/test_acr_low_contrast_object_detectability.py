@@ -45,6 +45,7 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         self.acr_object_detectability = ACRLowContrastObjectDetectability(
             input_data=input_files,
             report_dir=Path(TEST_REPORT_DIR),
+            report=True,
         )
         self.results = self.acr_object_detectability.run()
 
@@ -113,4 +114,4 @@ class TestACRLowContrastObjectDetectabilityGE(
 
 
 if __name__ == "__main__":
-    unittest.main(failfast=True, exit=False)
+    unittest.main(failfast=True)
