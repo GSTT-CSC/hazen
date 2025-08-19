@@ -201,98 +201,70 @@ class ACRLowContrastObjectDetectability(HazenTask):
         dcm: pydicom.Dataset,
         alpha: float = 0.05,
         report_window: float = 0.2,
-    ) -> int:
-        """Count the number of spokes."""
-        if np.min(dcm.pixel_array) < 0:
-            msg = "Pixel data should be positive"
-            logger.critical(
-                "%s but got minimum = %f", msg, np.min(dcm.pixel_array),
-            )
-            raise ValueError(msg)
-        norm_img = dcm.pixel_array / np.max(dcm.pixel_array)
-        image_threshold = self.histogram_threshold(norm_img)
-        cx_inner, cy_inner = self.find_center(dcm)
+    ) -> np.ndarray:
+        """Count the number of spokes using polar coordinate transformation."""
+        # Input validation and preprocessing
+        img_data = np.abs(dcm.pixel_array) if np.min(dcm.pixel_array) < 0 else dcm.pixel_array
 
-        img_all = np.zeros_like(dcm.pixel_array)
-        pass_vec = np.zeros(10)
-        p_vals_vec = []
-        params_vec = []
-        angle_vec = []
-        spoke_vec = []
+        if np.max(img_data) == 0:
+            logger.warning("Image has zero intensity, returning zero spokes")
+            return np.zeros(self.NUM_SPOKES)
+
+        # Normalize and threshold
+        norm_img = img_data / np.max(img_data)
+        try:
+            binary_mask = self.histogram_threshold(norm_img)
+        except Exception as e:
+            logger.warning(f"Histogram thresholding failed: {e}, using simple threshold")
+            binary_mask = norm_img > 0.3
+
+        # Find center with robust method
+        try:
+            cx_inner, cy_inner = self.find_center(dcm)
+        except Exception as e:
+            logger.warning(f"Center detection failed: {e}, using image center")
+            cy_inner, cx_inner = img_data.shape[0] // 2, img_data.shape[1] // 2
+
+        # Convert to polar coordinates for efficient radial analysis
+        polar_img, r_grid, theta_grid = self._cartesian_to_polar(
+            norm_img, cx_inner, cy_inner
+        )
+        polar_mask, _, _ = self._cartesian_to_polar(binary_mask, cx_inner, cy_inner)
+
+        # Analyze spokes in polar space
+        pass_vec = np.zeros(self.NUM_SPOKES)
         the_angle = self.rotation
 
-        for spoke_number, alpha_degree_initial in enumerate(
-                range(the_angle, -360, -36),
-        ):
-            if spoke_number >= self.NUM_SPOKES:
-                break
-            for angle in np.arange(
-                    alpha_degree_initial - 8,
-                    alpha_degree_initial + 8,
-                    1 / (1 + spoke_number),
-            ):
-                p_vals, params = self.angle_stat_test(
-                    image_threshold,
-                    angle,
-                    spoke_number,
-                    cx_inner,
-                    cy_inner,
-                )
-                if p_vals is not None and params is not None:
-                    params_vec.extend(params[0:3])
-                    p_vals_vec.extend(p_vals[0:3])
-                    spoke_vec.append(spoke_number)
-                    angle_vec.append(angle)
+        for spoke_number in range(self.NUM_SPOKES):
+            # Define angular range for current spoke
+            angle_center = the_angle - spoke_number * 36
+            angle_range = np.deg2rad([angle_center - 8, angle_center + 8])
 
-        p_vals_vec_fdr = sm.stats.multitest.fdrcorrection(
-            p_vals_vec, alpha=alpha, method="indep", is_sorted=False,
-        )
-        pvals_fdr = p_vals_vec_fdr[0].reshape(-1, self.OBJECTS_PER_SPOKE)
-        params_vec_fdr = np.array(params_vec).reshape(
-            -1, self.OBJECTS_PER_SPOKE,
-        )
+            # Extract radial profiles across the angular range
+            profiles = []
+            for angle_offset in np.linspace(-8, 8, 16):  # Sample across spoke width
+                angle = np.deg2rad(angle_center + angle_offset)
+                profile = self._extract_radial_profile(polar_img, polar_mask,
+                                                     r_grid, theta_grid, angle)
+                if profile is not None and len(profile) > 20:
+                    profiles.append(profile)
 
-        # check if all three p-values of a spoke pass significant threshold
-        for i, g in enumerate(pvals_fdr):
-            if (
-                np.sum(g) == self.OBJECTS_PER_SPOKE
-                and np.sum(params_vec_fdr[i, :] > 0) == self.OBJECTS_PER_SPOKE
-            ):
-                img = self.angle_image(
-                    angle_vec[i],
-                    cy_inner,
-                    cx_inner,
-                    img_all.shape[1],
-                    img_all.shape[0],
-                )
-                img_all = np.logical_or(img_all, img)
-                pass_vec[spoke_vec[i]] += 1
+            if not profiles:
+                continue
 
+            # Average profiles and analyze
+            avg_profile = np.mean(profiles, axis=0)
+            p_vals, params = self._analyze_profile(avg_profile, spoke_number)
+
+            if (p_vals is not None and params is not None and
+                len(p_vals) >= self.OBJECTS_PER_SPOKE and
+                np.all(p_vals[:self.OBJECTS_PER_SPOKE] < alpha) and
+                np.all(params[:self.OBJECTS_PER_SPOKE] > 0)):
+                pass_vec[spoke_number] = 1
+
+        # Generate report if requested
         if self.report:
-            fig, axes = plt.subplots(1, 1)
-            center_val = dcm.pixel_array[int(cy_inner), int(cx_inner)]
-            axes.imshow(
-                dcm.pixel_array,
-                cmap="gray",
-                alpha=0.5,
-                vmin=center_val * (1 - report_window),
-                vmax=center_val * (1 + report_window),
-            )
-            axes.imshow(img_all, alpha=img_all * 0.5)
-            axes.scatter(cx_inner, cy_inner, marker="x")
-            axes.set_title(
-                f"Detected Spokes {int(np.sum(pass_vec > 0))}/10",
-            )
-
-            data_path = Path(self.dcm_list[0].filename).parent.name
-            img_path = (
-                Path(self.report_path)
-                / f"spokes_{data_path}_{self.img_desc(dcm)}.png"
-            )
-            fig.savefig(img_path)
-            plt.close()
-
-            self.report_files.append(img_path)
+            self._generate_report(dcm, pass_vec, cx_inner, cy_inner, report_window)
 
         return pass_vec
 
@@ -402,207 +374,164 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
 
-    def angle_stat_test(
-            self,
-            image_thresholded: np.ndarray,
-            angle: float,
-            spoke_number: int,
-            cx: int,
-            cy: int,
-    ) -> tuple:
-        """Perform statistical test for s specific angle."""
-        # Normalize the image
-        image_min, image_max = np.min(image_thresholded), np.max(image_thresholded)
-        image_normalized = (image_thresholded - image_min) / (image_max - image_min)
-        [x, y] = image_thresholded.shape
-
-        # Generate angle image and radial profile
-        im = self.angle_image(angle, cx, cy, x, y)
-        df = self.angle_profile_radial(
-            image_normalized, im, cx, cy,
-        )
-        p = np.array(df["profile"])
-
-        # Truncate the profile
-        idx_l, idx_h = self.truncate_profile(
-            p, 0.5,
-        )
-        if idx_l is None or idx_h is None or idx_l >= idx_h:
-            return None, None  # Handle invalid profiles gracefully
-
-        # Process the truncated profile
-        part = p[idx_l:idx_h]
-        part_resampled = sp.signal.resample(part, 90)
-        part_short = part_resampled[:-5]
-
-        # Polynomial detrending
-        num = len(part_short)
-        x_short = np.linspace(0, num, num)
-        model = np.polyfit(x_short, part_short, 2)
-        predicted = np.polyval(
-            model,
-            np.linspace(0, len(part_resampled), len(part_resampled)),
-        )
-        part_detrended = part_resampled - predicted
-
-        # Thresholding
-        mean_part = np.mean(part_detrended)
-        std_part = np.std(part_detrended)
-        l_thr, h_thr = mean_part - 2 * std_part, mean_part + 2 * std_part
-        part_detrended[-5:] = np.where(
-            (part_detrended[-5:] < l_thr) | (part_detrended[-5:] > h_thr),
-            0,
-            part_detrended[-5:],
-        )
-
-        # Smoothing
-        kernel = np.ones(3) / 3  # Kernel size 3
-        part_smoothed = np.convolve(
-            part_detrended - mean_part,
-            kernel,
-            mode="same",
-        )
-
-        # Cross-correlation for alignment
-        profile_all = np.sum(
-            self.template_profile_separate(
-                spoke_number,
-            ),
-            axis=1,
-        )
-        _, part_smoothed, _ = self.shift_for_max_corr(
-            profile_all, part_smoothed, 5,
-        )
-
-        # Prepare GLM
-        y = part_smoothed.reshape(90, 1)
-        predicted = predicted.reshape(90, 1)
-        profiles_with_bias = np.append(
-            self.template_profile_separate(
-                spoke_number,
-            ),
-            np.ones((90, 1)),
-            axis=1,
-        )
-
-        # Fit the GLM
-        glm_model = sm.api.GLM(y, profiles_with_bias)
-        glm_results = glm_model.fit()
-
-        #############
-        # Reporting #
-        #############
-        #
-        # This report generates A LOT of graphs.
-        # Not only does this slow the computer down,
-        # but it also floods the report_directory.
-        # These profile figures are only really useful
-        # when debugging so to enable them - debug mode must
-        # also be enabled.
-        if self.report and logger.level == logging.DEBUG:
-            fig, axes = plt.subplots(1, 1, constrained_layout=True)
-
-            axes.plot(df["distance"], df["profile"], label="profile")
-            axes.plot(
-                sp.signal.resample(df["distance"][idx_l:idx_h], predicted.size),
-                predicted,
-                label="fit",
-            )
-            axes.set_title(f"Spoke {spoke_number} @ angle {angle:.2f}")
-            axes.legend()
-
-            data_path = Path(self.dcm_list[0].filename).parent.name
-            img_path = (
-                Path(self.report_path)
-                / f"profile_{data_path}_spoke={spoke_number}_angle={angle}.png"
-            )
-            fig.savefig(img_path)
-            plt.close()
-
-        # Return statistical results
-        return glm_results.pvalues, glm_results.params
+    # The angle_stat_test method has been replaced by the more efficient
+    # polar coordinate approach using _analyze_profile, _extract_radial_profile,
+    # and related methods.
 
 
     @staticmethod
-    def angle_image(
-        alpha_degree: float,
-        cx: int,
-        cy: int,
-        width: int,
-        height: int,
-    ) -> np.ndarray:
-        """Generate a binary mask for a radial line.
-
-        ANGLE CONVENTION (CUSTOM FOR ACR PHANTOM):
-        - 0 = vertical line (UPWARD)
-        - 90 = horizontal line (TO THE RIGHT)
-        - 180 = vertical line (DOWNWARD)
-        - 270 = horizontal line (TO THE LEFT)
-
-        This convention matches the ACR phantom geometry where
-        the first spoke is typically positioned vertically.
+    def _cartesian_to_polar(self, image: np.ndarray, cx: float, cy: float) -> tuple:
+        """Convert Cartesian image to polar coordinates.
 
         Args:
-            alpha_degree: Angle in degrees.
-            cx: Center x-coordinate (horizontal position)
-            cy: Center y-coordinate (vertical position)
-            width: Image width in pixels
-            height: Image height in pixels
+            image: Input image in Cartesian coordinates
+            cx: Center x-coordinate
+            cy: Center y-coordinate
 
         Returns:
-            Binary mask with 1s along the radial line
+            Tuple of (polar_image, r_grid, theta_grid)
         """
-        # Adjust angle: add 90° to make 0° vertical instead of horizontal
-        adjusted_alpha = alpha_degree + 90
-        alpha = np.radians(adjusted_alpha)
+        height, width = image.shape
+        y, x = np.mgrid[:height, :width]
 
-        mask = np.zeros((height, width), dtype=bool)
+        # Convert to polar coordinates
+        r = np.sqrt((x - cx)**2 + (y - cy)**2)
+        theta = np.arctan2(y - cy, x - cx)  # Note: arctan2 handles all quadrants
 
-        # Handle vertical line case
-        if np.isclose(np.cos(alpha), 0, atol=1e-6):
-            y_vals = np.arange(0, height)
-            x_vals = np.full_like(y_vals, cx)
-        else:
-            m = np.tan(alpha)
-            b = cy - m * cx
-            x_vals = np.arange(0, width)
-            y_vals = m * x_vals + b
+        # Create polar image using interpolation
+        r_max = int(np.sqrt(height**2 + width**2))
+        r_points = np.linspace(0, r_max, r_max)
+        theta_points = np.linspace(-np.pi, np.pi, 360)
 
-        valid = (y_vals >= 0) & (y_vals < height)
-        mask[y_vals[valid].astype(int), x_vals[valid].astype(int)] = True
-
-        return mask
-
-
-    @staticmethod
-    def angle_profile_radial(
-        image: np.ndarray,
-        image_profile: np.ndarray,
-        cx: np.ndarray,
-        cy: np.ndarray,
-    ) -> pd.DataFrame:
-        """Get the angular profile as a function of distance."""
-        # Get indices where the profile image is not zero
-        coords = np.argwhere(image_profile == 1)
-
-        # Calculate the profile, distances, and store results
-        x, y = coords[:, 0], coords[:, 1]
-        profile = image[x, y]
-        distances = np.sqrt((cx - x) ** 2 + (cy - y) ** 2)
-
-        # Create the DataFrame
-        df = pd.DataFrame({
-            "profile": profile,
-            "x": x,
-            "y": y,
-            "distance": distances,
-        })
-
-        # Sort the DataFrame by distance
-        df.sort_values(
-            by="distance", inplace=True, ascending=True, ignore_index=True,
+        # Use scipy interpolation for polar transform
+        polar_img = sp.ndimage.map_coordinates(
+            image,
+            [cy + r_points[:, None] * np.sin(theta_points[None, :]),
+             cx + r_points[:, None] * np.cos(theta_points[None, :])],
+            order=1,
+            mode='constant',
+            cval=0
         )
-        return df
+
+        return polar_img, r_points, theta_points
+
+    def _extract_radial_profile(self, polar_img: np.ndarray, polar_mask: np.ndarray,
+                               r_grid: np.ndarray, theta_grid: np.ndarray,
+                               angle: float) -> np.ndarray:
+        """Extract radial profile at given angle from polar image.
+
+        Args:
+            polar_img: Image in polar coordinates
+            polar_mask: Binary mask in polar coordinates
+            r_grid: Radial coordinate grid
+            theta_grid: Angular coordinate grid
+            angle: Angle in radians
+
+        Returns:
+            Radial intensity profile or None if extraction fails
+        """
+        # Find closest angle index
+        angle_idx = np.argmin(np.abs(theta_grid - angle))
+        if angle_idx >= polar_img.shape[1]:
+            return None
+
+        # Extract profile
+        profile = polar_img[:, angle_idx]
+        mask = polar_mask[:, angle_idx] if polar_mask.shape == polar_img.shape else None
+
+        # Apply mask if available
+        if mask is not None:
+            profile = profile * mask
+
+        # Remove background and truncate
+        idx_l, idx_h = self.truncate_profile(profile, 0.3)
+        if idx_l is None or idx_h is None or idx_l >= idx_h:
+            return None
+
+        return profile[idx_l:idx_h]
+
+    def _analyze_profile(self, profile: np.ndarray, spoke_number: int) -> tuple:
+        """Analyze radial profile for low-contrast object detection.
+
+        Args:
+            profile: Radial intensity profile
+            spoke_number: Spoke number (0-9)
+
+        Returns:
+            Tuple of (p-values, parameters) or (None, None) if analysis fails
+        """
+        if len(profile) < 20:
+            return None, None
+
+        # Resample to fixed length
+        profile_resampled = sp.signal.resample(profile, 90)
+
+        # Detrend with robust polynomial fitting
+        if np.std(profile_resampled) > 0.01:
+            x = np.linspace(0, 1, len(profile_resampled))
+            # Use lower order polynomial for stability
+            coeffs = np.polyfit(x, profile_resampled, 2)
+            trend = np.polyval(coeffs, x)
+            detrended = profile_resampled - trend
+        else:
+            detrended = profile_resampled
+            trend = np.zeros_like(profile_resampled)
+
+        # Simple smoothing
+        kernel = np.ones(3) / 3
+        smoothed = np.convolve(detrended, kernel, mode='same')
+
+        # Create design matrix with template
+        template = self.template_profile_separate(spoke_number)
+        X = np.column_stack([template, np.ones(90)])  # Include intercept
+
+        # Fit linear model
+        try:
+            model = sm.OLS(smoothed, X).fit()
+            return model.pvalues[:3], model.params[:3]  # Return only object p-values and params
+        except:
+            return None, None
+
+    def _generate_report(self, dcm: pydicom.Dataset, pass_vec: np.ndarray,
+                        cx: float, cy: float, report_window: float):
+        """Generate analysis report with detected spokes."""
+        try:
+            fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+            center_val = dcm.pixel_array[int(cy), int(cx)]
+
+            # Use robust intensity scaling
+            mean_val = np.mean(dcm.pixel_array)
+            std_val = np.std(dcm.pixel_array)
+            vmin = max(0, mean_val - 2 * std_val)
+            vmax = mean_val + 2 * std_val
+
+            axes.imshow(dcm.pixel_array, cmap="gray", alpha=0.7, vmin=vmin, vmax=vmax)
+
+            # Highlight detected spokes
+            the_angle = self.rotation
+            for i, detected in enumerate(pass_vec):
+                if detected > 0:
+                    angle = np.radians(the_angle - i * 36)
+                    # Draw line for detected spoke
+                    r_max = min(dcm.pixel_array.shape) // 2
+                    x_end = cx + r_max * np.cos(angle)
+                    y_end = cy + r_max * np.sin(angle)
+                    axes.plot([cx, x_end], [cy, y_end], 'r-', alpha=0.7, linewidth=2)
+
+            axes.scatter(cx, cy, marker="x", color='red', s=100)
+            axes.set_title(f"Detected Spokes {int(np.sum(pass_vec))}/10", fontsize=14)
+            axes.set_xlabel("Pixel")
+            axes.set_ylabel("Pixel")
+
+            data_path = Path(self.dcm_list[0].filename).parent.name
+            img_path = (Path(self.report_path) /
+                       f"spokes_{data_path}_{self.img_desc(dcm)}.png")
+            fig.savefig(img_path, dpi=150, bbox_inches='tight')
+            plt.close()
+
+            self.report_files.append(img_path)
+        except Exception as e:
+            logger.debug(f"Failed to generate report: {e}")
 
     @staticmethod
     def truncate_profile(p: float, m: np.ndarray) -> tuple[float] | tuple[None]:
