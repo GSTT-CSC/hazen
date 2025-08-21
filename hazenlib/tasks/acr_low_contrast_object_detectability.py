@@ -25,7 +25,13 @@ year = {2025},
 month = jul
 
 An implementation by the authors can be found on GitHub:
-        https://github.com/aligoles/ACR-Low-Contrast-Object-Detectability
+    https://github.com/aligoles/ACR-Low-Contrast-Object-Detectability
+
+With the original paper:
+    https://doi.org/10.1002/acm2.70173
+
+ACR Low Contrast Object Detectability:
+    https://mriquestions.com/uploads/3/4/5/7/34572113/largephantomguidance.pdf
 
 Notes from the paper:
 
