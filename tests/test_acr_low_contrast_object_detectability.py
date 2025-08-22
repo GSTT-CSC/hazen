@@ -32,8 +32,15 @@ class DummyDICOM:
     ) -> None:
         """Initialise the DummyDICOM."""
         # content not used in LCODTemplate.mask()
-        self.pixel_array = np.zeros(shape, dtype=np.int16)
+        self.pixel_array = np.ones(shape, dtype=np.int16)
         self.PixelSpacing = pixel_spacing
+
+@dataclass
+class SliceScore:
+    """Dataclass for the slice scores."""
+
+    index: int
+    score: int
 
 
 class TestLowContrastObjects(unittest.TestCase):
@@ -178,12 +185,41 @@ class TestLCODTemplateMask(unittest.TestCase):
             self.assertTrue(np.all(mask[p:, p:] == mask_shifted[:-p, :-p]))
 
 
-@dataclass
-class SliceScore:
-    """Dataclass for the slice scores."""
+class TestFindSpokes(unittest.TestCase):
+    """Validate that ``find_spokes`` returns a correct set of spokes."""
 
-    index: int
-    score: int
+    def setUp(self) -> None:
+        """Set up the fake data and find spokes."""
+        dim = 256
+        self.dcm = DummyDICOM(shape=(dim, dim))
+
+        # Sets up a DummyDICOM image with spokes.
+        self.cx = dim // 2 - 12
+        self.cy = dim // 2 + 12
+        self.theta = 12
+
+        self.template = LCODTemplate(self.cx, self.cy, self.theta)
+        self.dcm.pixel_array = self.template.mask(self.dcm) * self.dcm.pixel_array
+
+
+        # By pass constructor - only need the attributes used by find_spokes
+        self.task = ACRLowContrastObjectDetectability.__new__(
+            ACRLowContrastObjectDetectability,
+        )
+        self.task.rotation = 0.0
+        self.task.find_center = lambda _: (dim / 2, dim / 2)
+
+    def test_find_spokes(self) -> None:
+        """Test spoke finding algorithm."""
+        spokes = self.task.find_spokes(self.dcm)
+
+        for spoke, spoke_true in zip(spokes, self.template.spokes):
+            for obj, obj_true in zip(spoke, spoke_true):
+                self.assertAlmostEqual(obj.x, obj_true.x, places=0)
+                self.assertAlmostEqual(obj.y, obj_true.y, places=0)
+            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)
+            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=0)
+            self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=1)
 
 
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
