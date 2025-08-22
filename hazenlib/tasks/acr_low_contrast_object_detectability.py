@@ -63,32 +63,160 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
-from pathlib import Path
+import functools
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import pydicom
 
 # Python imports
 import logging
-from typing import Any
+from dataclasses import dataclass, field
+from pathlib import Path
 
 # Module imports
 import cv2
 import matplotlib.pyplot as plt
+import nevergrad as ng
 import numpy as np
-import pandas as pd
 import scipy as sp
 import statsmodels as sm
 import statsmodels.api
-from matplotlib.patches import Circle
-
-# Local imports
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import Measurement, Result
+from hazenlib.types import Measurement, P_HazenTask, Result
+from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LowContrastObject:
+    """Class for the Low Contrast Present within each spoke."""
+
+    x: int
+    y: int
+    diameter: float
+    value: float | None = None
+
+
+@dataclass
+class Spoke:
+    """Spoke radiating from the center to the edge of the LCOD disk.
+
+    Also contains the LowContrastObjects along the spoke.
+    """
+
+    cx: float
+    cy: float
+    theta: float        # Degrees
+
+    diameter: float
+
+    # Distance from the center (mm)
+    dist: tuple[float] = (24.0, 50.0, 76.0)
+
+    passed: bool = False
+
+    objects: Sequence[LowContrastObject] = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Initialise the objects within the spoke."""
+        self.objects = tuple(
+            LowContrastObject(
+                x=self.cx + d * np.sin(np.deg2rad(self.theta)),
+                y=self.cy + d * np.cos(np.deg2rad(self.theta)),
+                diameter=self.diameter,
+            )
+            for d in self.dist
+        )
+
+
+    def __len__(self) -> int:
+        """Objects within the spoke."""
+        return len(self.objects)
+
+    def __iter__(self) -> LowContrastObject:
+        """Iterate over the low contrast objects."""
+        return iter(self.objects)
+
+    def profile(self, dcm: pydicom.FileDataset) -> np.ndarray:
+        """Return the 1D profile of the DICOM for the spoke."""
+        raise NotImplementedError
+
+
+@dataclass
+class LCODTemplate:
+    """Template for the LCOD object."""
+
+    # Position of the center of the LCOD on the image.
+    cx: float
+    cy: float
+
+    # Angle of rotation for the 1st spoke (degrees)
+    theta: float
+
+    # Radius of each low contrast object (mm)
+    # Starting with the largest spoke and moving clockwise.
+    radi: tuple[float]  = (
+        7.00, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.50,
+    )
+
+
+    @functools.cached_property
+    def spokes(self) -> Sequence[Spoke]:
+        """Position of each of the low contrast object spokes."""
+        return self._calc_spokes(
+            self.cx, self.cy, self.theta, self.radi,
+        )
+
+    @staticmethod
+    @functools.lru_cache(maxsize=10)
+    def _calc_spokes(
+        cx: float,
+        cy: float,
+        theta: float,
+        radi: tuple[float],
+    ) -> tuple[Spoke]:
+        return tuple(
+            Spoke(cx, cy, theta + i * (360 / len(radi)), 2 * r)
+            for i, r in enumerate(radi)
+        )
+
+    def mask(
+        self,
+        dcm: pydicom.FileDataset,
+        offset: tuple[float] = (0.0, 0.0),
+    ) -> np.ndarray:
+        """Mask the DICOM pixel array from the Spoke geometry.
+
+        DICOM file is used for relating pixel geometry to
+        the geometry of the acquisition.
+
+        Similarly, offset (y, x) is used to account for cropped images.
+        """
+        mask = np.zeros_like(dcm.pixel_array, dtype=np.bool)
+
+        # Convert from real coordinates to pixel coordinates
+        y_grid, x_grid = np.meshgrid(
+            *[
+                np.linspace(v0, v0 + s * dv, num=s, endpoint=False)
+                for v0, dv, s in zip(offset, dcm.PixelSpacing, mask.shape)
+            ],
+            indexing="ij",
+        )
+
+        for spoke in self.spokes:
+            for obj in spoke:
+                is_object = (
+                    (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2
+                    <= (obj.diameter / 2) ** 2
+                )
+                mask |= is_object
+        return mask
+
 
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
@@ -97,7 +225,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
     NUM_SPOKES = 10
 
     def __init__(
-            self, alpha: float = 0.0125, **kwargs: Any,
+            self, alpha: float = 0.0125, **kwargs: P_HazenTask.kwargs,
     ) -> None:
         """Initialise the LCOD object."""
         if kwargs.pop("verbose", None) is not None:
@@ -210,69 +338,41 @@ class ACRLowContrastObjectDetectability(HazenTask):
     ) -> np.ndarray:
         """Count the number of spokes using polar coordinate transformation."""
         # Input validation and preprocessing
-        img_data = np.abs(dcm.pixel_array) if np.min(dcm.pixel_array) < 0 else dcm.pixel_array
+        img_data = (
+            np.abs(dcm.pixel_array)
+            if np.min(dcm.pixel_array) < 0
+            else dcm.pixel_array
+        )
 
         if np.max(img_data) == 0:
             logger.warning("Image has zero intensity, returning zero spokes")
-            return np.zeros(self.NUM_SPOKES)
+            return [0] * self.NUM_SPOKES
 
-        # Normalize and threshold
-        norm_img = img_data / np.max(img_data)
-        try:
-            binary_mask = self.histogram_threshold(norm_img)
-        except Exception as e:
-            logger.warning(f"Histogram thresholding failed: {e}, using simple threshold")
-            binary_mask = norm_img > 0.3
+        # TODO(@abdrysdale): Apply smoothing before spoke detection
+        # https://github.com/sbu-physics-mri/hazen-wales/issues/18
 
-        # Find center with robust method
-        try:
-            cx_inner, cy_inner = self.find_center(dcm)
-        except Exception as e:
-            logger.warning(f"Center detection failed: {e}, using image center")
-            cy_inner, cx_inner = img_data.shape[0] // 2, img_data.shape[1] // 2
+        # Find the position of each spoke
+        # (with the pixel coordinates of the each of the object centers)
+        spokes, (cx, cy) = self.find_spokes(dcm, return_center=True)
 
-        # Convert to polar coordinates for efficient radial analysis
-        polar_img, r_grid, theta_grid = self._cartesian_to_polar(
-            norm_img, cx_inner, cy_inner
-        )
-        polar_mask, _, _ = self._cartesian_to_polar(binary_mask, cx_inner, cy_inner)
-
-        # Analyze spokes in polar space
-        pass_vec = np.zeros(self.NUM_SPOKES)
-        the_angle = self.rotation
-
-        for spoke_number in range(self.NUM_SPOKES):
-            # Define angular range for current spoke
-            angle_center = the_angle - spoke_number * 36
-            angle_range = np.deg2rad([angle_center - 8, angle_center + 8])
-
-            # Extract radial profiles across the angular range
-            profiles = []
-            for angle_offset in np.linspace(-8, 8, 16):  # Sample across spoke width
-                angle = np.deg2rad(angle_center + angle_offset)
-                profile = self._extract_radial_profile(polar_img, polar_mask,
-                                                     r_grid, theta_grid, angle)
-                if profile is not None and len(profile) > 20:
-                    profiles.append(profile)
-
-            if not profiles:
-                continue
-
-            # Average profiles and analyze
-            avg_profile = np.mean(profiles, axis=0)
-            p_vals, params = self._analyze_profile(avg_profile, spoke_number)
+        for spoke_number, spoke in enumerate(spokes):
+            p_vals, params = self._analyze_profile(
+                spoke.profile(dcm),
+                spoke_number,
+            )
 
             if (p_vals is not None and params is not None and
-                len(p_vals) >= self.OBJECTS_PER_SPOKE and
-                np.all(p_vals[:self.OBJECTS_PER_SPOKE] < alpha) and
-                np.all(params[:self.OBJECTS_PER_SPOKE] > 0)):
-                pass_vec[spoke_number] = 1
+                len(p_vals) >= len(spoke) and
+                np.all(p_vals[:len(spoke)] < alpha) and
+                np.all(params[:len(spoke)] > 0)
+            ):
+                spoke.passed = True
 
         # Generate report if requested
         if self.report:
-            self._generate_report(dcm, pass_vec, cx_inner, cy_inner, report_window)
+            self._generate_report(dcm, spokes, cx, cy, report_window)
 
-        return pass_vec
+        return [s.passed for s in spokes]
 
 
     def find_center(
@@ -350,111 +450,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return self.lcod_center
 
 
-    @staticmethod
-    def histogram_threshold(
-            img: np.ndarray,
-            low: float = 0.05,
-            high: float = 0.65,
-            step: float = 0.001,
-            prop: tuple[float] = (0.1, 0.2),
-    ) -> np.ndarray:
-        """Histogram thesholding to extract the central disk."""
-        # Image must be normalised!
-        if np.max(img) > 1.0:
-            img /= np.max(img)
+    def find_spokes(
+        self, dcm: pydicom.Dataset, *, return_center: bool = False,
+    ) -> Sequence[Spoke]:
+        """Find the position of the spokes within the LCOD disk."""
 
-        structure = np.ones((3, 3), dtype=int)
+        # Initial position and rotation of the LCOD disk center.
+        cx_0, cy_0 = self.find_center(dcm)
+        theta_0 = self.rotation
 
-        for thr in np.arange(low, high, step):
-            ret, thresh = cv2.threshold(img, thr, 1, 0)
-            labelled, ncomponents = sp.ndimage.measurements.label(
-                thresh, structure,
-            )
-            thresh_inner = labelled == np.max(labelled)
-            if prop[0] < np.sum(thresh_inner != 0) / np.sum(img != 0) < prop[1]:
-                break
-
-        return img * sp.ndimage.binary_fill_holes(
-            thresh,
-            structure=np.ones((5, 5), dtype=int),
-        )
-
-
-    # The angle_stat_test method has been replaced by the more efficient
-    # polar coordinate approach using _analyze_profile, _extract_radial_profile,
-    # and related methods.
-
-
-    @staticmethod
-    def _cartesian_to_polar(self, image: np.ndarray, cx: float, cy: float) -> tuple:
-        """Convert Cartesian image to polar coordinates.
-
-        Args:
-            image: Input image in Cartesian coordinates
-            cx: Center x-coordinate
-            cy: Center y-coordinate
-
-        Returns:
-            Tuple of (polar_image, r_grid, theta_grid)
-        """
-        height, width = image.shape
-        y, x = np.mgrid[:height, :width]
-
-        # Convert to polar coordinates
-        r = np.sqrt((x - cx)**2 + (y - cy)**2)
-        theta = np.arctan2(y - cy, x - cx)  # Note: arctan2 handles all quadrants
-
-        # Create polar image using interpolation
-        r_max = int(np.sqrt(height**2 + width**2))
-        r_points = np.linspace(0, r_max, r_max)
-        theta_points = np.linspace(-np.pi, np.pi, 360)
-
-        # Use scipy interpolation for polar transform
-        polar_img = sp.ndimage.map_coordinates(
-            image,
-            [cy + r_points[:, None] * np.sin(theta_points[None, :]),
-             cx + r_points[:, None] * np.cos(theta_points[None, :])],
-            order=1,
-            mode='constant',
-            cval=0
-        )
-
-        return polar_img, r_points, theta_points
-
-    def _extract_radial_profile(self, polar_img: np.ndarray, polar_mask: np.ndarray,
-                               r_grid: np.ndarray, theta_grid: np.ndarray,
-                               angle: float) -> np.ndarray:
-        """Extract radial profile at given angle from polar image.
-
-        Args:
-            polar_img: Image in polar coordinates
-            polar_mask: Binary mask in polar coordinates
-            r_grid: Radial coordinate grid
-            theta_grid: Angular coordinate grid
-            angle: Angle in radians
-
-        Returns:
-            Radial intensity profile or None if extraction fails
-        """
-        # Find closest angle index
-        angle_idx = np.argmin(np.abs(theta_grid - angle))
-        if angle_idx >= polar_img.shape[1]:
-            return None
-
-        # Extract profile
-        profile = polar_img[:, angle_idx]
-        mask = polar_mask[:, angle_idx] if polar_mask.shape == polar_img.shape else None
-
-        # Apply mask if available
-        if mask is not None:
-            profile = profile * mask
-
-        # Remove background and truncate
-        idx_l, idx_h = self.truncate_profile(profile, 0.3)
-        if idx_l is None or idx_h is None or idx_l >= idx_h:
-            return None
-
-        return profile[idx_l:idx_h]
 
     def _analyze_profile(self, profile: np.ndarray, spoke_number: int) -> tuple:
         """Analyze radial profile for low-contrast object detection.
@@ -539,21 +543,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         except Exception as e:
             logger.debug(f"Failed to generate report: {e}")
 
-    @staticmethod
-    def truncate_profile(p: float, m: np.ndarray) -> tuple[float] | tuple[None]:
-        """Get a 1D array of profile (p) and a background threshold (M).
-
-        and eliminate backgrounds from the begining and end of the profile
-        and returns the index of the first and last element with higher value
-        than m
-        """
-        indices = np.where(p >= m)[0]
-        # Return the first and last indices
-        if indices.size == 0:
-            # Handle edge case where no value meets the condition
-            return None, None
-        idx_l, idx_h = indices[0], indices[-1]
-        return idx_l, idx_h
 
     @staticmethod
     def template_profile_separate(spoke_number: int) -> np.ndarray:
@@ -565,27 +554,3 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for i, d in enumerate(dist):
             profile[round(d - r):round(d + r), i] = 1
         return profile
-
-    @staticmethod
-    def shift_for_max_corr(x: int, y: int, max_shift: int) -> tuple:
-        """Jitter generated 1D profile to align with the spoke reference."""
-        cc_vec = []
-        shifts = np.arange(-max_shift, max_shift + 1)
-
-        for shift in shifts:
-            y_shifted = np.roll(y, shift)
-            # Handle boundary conditions
-            if shift < 0:
-                y_shifted[shift:] = y_shifted[shift - 1]
-            elif shift > 0:
-                y_shifted[:shift] = y_shifted[shift - 1]
-
-            # Compute correlation
-            cc_vec.append(np.corrcoef(x, y_shifted)[0, 1])
-
-        # Find the optimal shift with the maximum correlation
-        optimal_shift_idx = np.argmax(cc_vec)
-        optimal_shift = shifts[optimal_shift_idx]
-        y_aligned = np.roll(y, optimal_shift)
-
-        return x, y_aligned, optimal_shift

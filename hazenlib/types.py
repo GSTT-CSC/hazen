@@ -15,12 +15,18 @@ if TYPE_CHECKING:
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from typing import Any, get_args
+from typing import Any, ParamSpec, get_args
 
 # Local imports
 from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
 from hazenlib.exceptions import (InvalidMeasurementNameError,
                                  InvalidMeasurementTypeError)
+
+#########################################
+# ParamSpec for public methods/function #
+#########################################
+
+P_HazenTask = ParamSpec("P_HazenTask")
 
 ################
 # Base Classes #
