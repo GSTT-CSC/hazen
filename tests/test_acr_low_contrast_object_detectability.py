@@ -127,30 +127,28 @@ class TestLCODTemplateSpokes(unittest.TestCase):
         centre, therefore the returned values must match the y-coordinates
         used for the sampling.
         """
-        shape = (100, 100)                     # rows, cols
+        shape = (128, 128)                     # rows, cols
         pixel_spacing = (1.0, 1.0)              # square pixels
         dcm = DummyDICOM(shape=shape, pixel_spacing=pixel_spacing)
 
-        y_vals = np.arange(shape[0], dtype=np.float32).reshape(-1, 1)
-        dcm.pixel_array = np.repeat(y_vals, shape[1], axis=1)
+        for cy, cx in ([64, 64], [68, 64], [60, 68]):
+            y_grid, x_grid = np.meshgrid(*[np.linspace(0, s, s) for s in shape])
 
-        cx, cy, theta = 50.0, 20.0, 0.0      # centre in the middle of the array
-        diameter = 10.0
-        spoke = Spoke(cx, cy, theta, diameter)
+            vals = np.sqrt((y_grid - cy) ** 2 + (x_grid - cx) ** 2)
+            dcm.pixel_array = vals
 
-        size = 7
-        profile = spoke.profile(dcm, size=size)
+            theta = 0.0      # centre in the middle of the array
+            diameter = shape[1] - cy
 
-        r_coords = np.linspace(0, diameter * dcm.PixelSpacing[0], size)
-        expected_y = r_coords + (cy + 0.0) * dcm.PixelSpacing[0]
+            spoke = Spoke(cx, cy, theta, diameter)
 
-        np.testing.assert_allclose(profile, expected_y, rtol=1e-6, atol=1e-6)
+            size = int(diameter)
+            profile = spoke.profile(dcm, size=size)
 
-        self.assertEqual(profile.shape, (size,))
-        self.assertTrue(
-            np.all(np.diff(profile) > 0),
-            "Profile should be strictly increasing",
-        )
+            expected_v = dcm.pixel_array[cy:, cx]
+
+            self.assertEqual(profile.shape, (size,))
+            np.testing.assert_allclose(profile, expected_v, rtol=1e-6, atol=1e-6)
 
 
 class TestLCODTemplateMask(unittest.TestCase):
@@ -239,7 +237,8 @@ class TestFindSpokes(unittest.TestCase):
             ACRLowContrastObjectDetectability,
         )
         self.task.rotation = 0.0
-        self.task.find_center = lambda _: (dim / 2, dim / 2)
+        self.task.find_center = lambda : (dim / 2, dim / 2)
+        self.task.lcod_center = None
 
     def test_find_spokes(self) -> None:
         """Test spoke finding algorithm."""

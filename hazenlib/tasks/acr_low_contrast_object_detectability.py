@@ -92,6 +92,9 @@ from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
 
+# TODO(@abdrysdale): Window the results output correctly
+# (from the Window Level in DIOCM headers)
+
 
 @dataclass
 class LowContrastObject:
@@ -154,7 +157,9 @@ class Spoke:
             msg = "Only square pixels are supported"
             logger.critcal("%s but got (%f, %f)", msg, *dcm.PixelSpacing)
             raise ValueError(msg)
-        r_coords = np.linspace(0, self.diameter * dcm.PixelSpacing[0], size)
+        r_coords = np.linspace(
+            0, self.diameter * dcm.PixelSpacing[0], size, endpoint=False,
+        )
         theta_coords = np.zeros_like(r_coords) + self.theta
 
         x_coords = (
@@ -261,7 +266,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         self.alpha = alpha
 
-        self.slice_range = slice(7,11)
+        # Start at last slice (highest contrast) and work backwards
+        self.slice_range = slice(11,7,-1)
 
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
@@ -300,7 +306,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         total_spokes = 0
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
-            slice_no = i + self.slice_range.start + 1
+            slice_no = self.slice_range.step * i + self.slice_range.start + 1
             result = self.count_spokes(dcm, alpha=self.alpha)
             try:
                 num_spokes = np.where(result != self.OBJECTS_PER_SPOKE)[0][0]
@@ -381,7 +387,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         for spoke_number, spoke in enumerate(spokes):
             p_vals, params = self._analyze_profile(
-                spoke.profile(dcm),
+                spoke.profile(dcm, size=90),
                 spoke_number,
             )
 
@@ -401,16 +407,18 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def find_center(
         self,
-        dcm: pydicom.Dataset,
         crop_ratio: float = 0.7,
     ) -> tuple[int]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
             return self.lcod_center
 
+        dcm = self.ACR_obj.slice_stack[0]
         (main_cx, main_cy), main_radius = self.ACR_obj.find_phantom_center(
             dcm.pixel_array, self.ACR_obj.dx, self.ACR_obj.dy,
         )
+
+        dcm = self.ACR_obj.slice_stack[-1]
         r = main_radius * crop_ratio
         cropped_image = dcm.pixel_array[
             max(0, int(main_cy - r)):int(main_cy + r + 1),
@@ -430,7 +438,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             dp=2,
             minDist=cropped_image.shape[0] // 2,
         ).flatten()
-        self.lcod_center = tuple(
+
+        lcod_center = tuple(
             dc + max(0, int(main_c - r))
             for dc, main_c in zip(detected_circles[:2], (main_cx, main_cy))
         )
@@ -471,7 +480,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             fig.savefig(img_path)
             plt.close()
 
-        return self.lcod_center
+        return lcod_center
+
 
 
     def find_spokes(
@@ -488,31 +498,38 @@ class ACRLowContrastObjectDetectability(HazenTask):
         optimiser: str = "MultiSQPPlus"
         budget: int = 1000
 
-        # Initial position and rotation of the LCOD disk center.
-        cx_0, cy_0 = self.find_center(dcm)
-        theta_0 = self.rotation
-
         def minimiser(cx: float, cy: float, theta: float) -> float:
             template = LCODTemplate(cx, cy, theta)
             return - np.sum(template.mask(dcm) * dcm.pixel_array)
 
-        parametrization = ng.p.Instrumentation(
-            cx=ng.p.Scalar(
+
+        theta_0 = self.rotation
+        theta_p = ng.p.Scalar(
+            init=float(theta_0),
+            lower=theta_0 - 90,
+            upper=theta_0 + 90,
+        )
+
+        if self.lcod_center is None:
+            cx_0, cy_0 = self.find_center()
+
+            parametrization = ng.p.Instrumentation(
+                cx=ng.p.Scalar(
                 init=float(cx_0),
                 lower=float(cx_0) * (1 - center_search_tolerance),
                 upper=float(cx_0) * (1 + center_search_tolerance),
-            ),
-            cy=ng.p.Scalar(
-                init=float(cy_0),
-                lower=float(cy_0) * (1 - center_search_tolerance),
-                upper=float(cy_0) * (1 + center_search_tolerance),
-            ),
-            theta=ng.p.Scalar(
-                init=float(theta_0),
-                lower=theta_0 - 90,
-                upper=theta_0 + 90,
-            ),
-        )
+                ),
+                cy=ng.p.Scalar(
+                    init=float(cy_0),
+                    lower=float(cy_0) * (1 - center_search_tolerance),
+                    upper=float(cy_0) * (1 + center_search_tolerance),
+                ),
+                theta=theta_p,
+            )
+        else:
+            parametrization = ng.p.Instrumentation(theta=theta_p)
+
+
         if random_state is not None:
             parametrization.random_state = random_state
 
@@ -528,6 +545,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
 
         _, values = recommendation.value
+        if self.lcod_center is not None:
+            values["cx"] = self.lcod_center[0]
+            values["cy"] = self.lcod_center[1]
+        else:
+            self.lcod_center = (values["cx"], values["cy"])
+
         spokes = LCODTemplate(**values).spokes
         if return_center:
             return (
@@ -537,48 +560,53 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return spokes
 
 
-    def _analyze_profile(self, profile: np.ndarray, spoke_number: int) -> tuple:
+    def _analyze_profile(
+            self,
+            profile:
+            np.ndarray,
+            spoke_number: int,
+            *,
+            std_tol: float = 0.01,
+    ) -> tuple:
         """Analyze radial profile for low-contrast object detection.
 
         Args:
             profile: Radial intensity profile
             spoke_number: Spoke number (0-9)
+            std_tol: Tolerance for the standard deviation for
+                detecting polynomial coefficients.
 
         Returns:
             Tuple of (p-values, parameters) or (None, None) if analysis fails
 
         """
-        if len(profile) < 20:
-            return None, None
-
-        # Resample to fixed length
-        profile_resampled = sp.signal.resample(profile, 90)
-
-        # Detrend with robust polynomial fitting
-        if np.std(profile_resampled) > 0.01:
-            x = np.linspace(0, 1, len(profile_resampled))
+        # De-trend with robust polynomial fitting
+        if np.std(profile) > std_tol:
+            x = np.linspace(0, 1, len(profile))
             # Use lower order polynomial for stability
-            coeffs = np.polyfit(x, profile_resampled, 2)
+            coeffs = np.polyfit(x, profile, 2)
             trend = np.polyval(coeffs, x)
-            detrended = profile_resampled - trend
         else:
-            detrended = profile_resampled
-            trend = np.zeros_like(profile_resampled)
+            trend = np.zeros_like(profile)
+
+        detrended = profile - trend
 
         # Simple smoothing
         kernel = np.ones(3) / 3
-        smoothed = np.convolve(detrended, kernel, mode='same')
+        smoothed = np.convolve(detrended, kernel, mode="same")
 
         # Create design matrix with template
         template = self.template_profile_separate(spoke_number)
-        X = np.column_stack([template, np.ones(90)])  # Include intercept
+        # Include intercept
+        data = np.column_stack([template, np.ones_like(profile)])
 
         # Fit linear model
         try:
-            model = sm.OLS(smoothed, X).fit()
-            return model.pvalues[:3], model.params[:3]  # Return only object p-values and params
+            model = sm.OLS(smoothed, data).fit()
+            return model.pvalues[:3], model.params[:3]
         except:
             return None, None
+
 
     def _generate_report(self, dcm: pydicom.Dataset, pass_vec: np.ndarray,
                         cx: float, cy: float, report_window: float):
