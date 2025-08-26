@@ -14,13 +14,11 @@ import numpy as np
 
 # Local imports
 from hazenlib.tasks.acr_low_contrast_object_detectability import (
-    ACRLowContrastObjectDetectability,
-    LCODTemplate,
-    LowContrastObject,
-    Spoke,
-)
+    ACRLowContrastObjectDetectability, LCODTemplate, LowContrastObject, Spoke)
 from hazenlib.utils import get_dicom_files
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+
 
 class DummyDICOM:
     """A minimal stand-in for a pydicom FileDataset."""
@@ -55,10 +53,10 @@ class TestLowContrastObjects(unittest.TestCase):
         self.assertEqual(len(spoke), 3) # three distances defined
         self.assertTrue(all(isinstance(o, LowContrastObject) for o in spoke))
 
-        # Verify coordinates follow the expected polar conversion
+        # Verify coordinates
         for d, obj in zip(spoke.dist, spoke):
-            expected_x = cx + d * np.cos(theta)
-            expected_y = cy + d * np.sin(theta)
+            expected_x = cx + d * np.sin(np.deg2rad(theta))
+            expected_y = cy + d * np.cos(np.deg2rad(theta))
             self.assertAlmostEqual(obj.x, expected_x)
             self.assertAlmostEqual(obj.y, expected_y)
             self.assertEqual(obj.diameter, diameter)
@@ -119,6 +117,40 @@ class TestLCODTemplateSpokes(unittest.TestCase):
 
         # The first call populates the cache, second call should be a hit
         self.assertEqual(after, before + 1)
+
+    def test_spoke_profile_extraction(self) -> None:
+        """Spoke.profile should return the correct radial intensity profile.
+
+        The test builds a synthetic DICOM where the pixel value equals the
+        row index (i.e. intensity = y-coordinate).  With a spoke pointing
+        straight up the profile samples a vertical line through the
+        centre, therefore the returned values must match the y-coordinates
+        used for the sampling.
+        """
+        shape = (100, 100)                     # rows, cols
+        pixel_spacing = (1.0, 1.0)              # square pixels
+        dcm = DummyDICOM(shape=shape, pixel_spacing=pixel_spacing)
+
+        y_vals = np.arange(shape[0], dtype=np.float32).reshape(-1, 1)
+        dcm.pixel_array = np.repeat(y_vals, shape[1], axis=1)
+
+        cx, cy, theta = 50.0, 20.0, 0.0      # centre in the middle of the array
+        diameter = 10.0
+        spoke = Spoke(cx, cy, theta, diameter)
+
+        size = 7
+        profile = spoke.profile(dcm, size=size)
+
+        r_coords = np.linspace(0, diameter * dcm.PixelSpacing[0], size)
+        expected_y = r_coords + (cy + 0.0) * dcm.PixelSpacing[0]
+
+        np.testing.assert_allclose(profile, expected_y, rtol=1e-6, atol=1e-6)
+
+        self.assertEqual(profile.shape, (size,))
+        self.assertTrue(
+            np.all(np.diff(profile) > 0),
+            "Profile should be strictly increasing",
+        )
 
 
 class TestLCODTemplateMask(unittest.TestCase):
@@ -211,14 +243,16 @@ class TestFindSpokes(unittest.TestCase):
 
     def test_find_spokes(self) -> None:
         """Test spoke finding algorithm."""
-        spokes = self.task.find_spokes(self.dcm)
+        seed = 26082025
+        random_state = np.random.RandomState(seed)
+        spokes = self.task.find_spokes(self.dcm, random_state=random_state)
 
         for spoke, spoke_true in zip(spokes, self.template.spokes):
             for obj, obj_true in zip(spoke, spoke_true):
-                self.assertAlmostEqual(obj.x, obj_true.x, places=0)
-                self.assertAlmostEqual(obj.y, obj_true.y, places=0)
-            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)
-            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=0)
+                self.assertAlmostEqual(obj.x, obj_true.x, places=1)
+                self.assertAlmostEqual(obj.y, obj_true.y, places=1)
+            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=1)
+            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=1)
             self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=1)
 
 

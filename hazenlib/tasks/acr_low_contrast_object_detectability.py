@@ -73,6 +73,7 @@ if TYPE_CHECKING:
 
 # Python imports
 import logging
+from concurrent import futures
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -142,9 +143,32 @@ class Spoke:
         """Iterate over the low contrast objects."""
         return iter(self.objects)
 
-    def profile(self, dcm: pydicom.FileDataset) -> np.ndarray:
+    def profile(
+        self,
+        dcm: pydicom.FileDataset,
+        size: int = 128,
+        offset: tuple[float] = (0.0, 0.0),
+    ) -> np.ndarray:
         """Return the 1D profile of the DICOM for the spoke."""
-        raise NotImplementedError
+        if dcm.PixelSpacing[0] != dcm.PixelSpacing[1]:
+            msg = "Only square pixels are supported"
+            logger.critcal("%s but got (%f, %f)", msg, *dcm.PixelSpacing)
+            raise ValueError(msg)
+        r_coords = np.linspace(0, self.diameter * dcm.PixelSpacing[0], size)
+        theta_coords = np.zeros_like(r_coords) + self.theta
+
+        x_coords = (
+            r_coords * np.sin(np.rad2deg(theta_coords))
+            + (self.cx + offset[1]) * dcm.PixelSpacing[1]
+        )
+        y_coords = (
+            r_coords * np.cos(np.rad2deg(theta_coords))
+            + (self.cy + offset[0]) * dcm.PixelSpacing[0]
+        )
+
+        return sp.ndimage.map_coordinates(
+            dcm.pixel_array, [y_coords.ravel(), x_coords.ravel()], order=1,
+        )
 
 
 @dataclass
@@ -451,13 +475,66 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
 
     def find_spokes(
-        self, dcm: pydicom.Dataset, *, return_center: bool = False,
+        self,
+        dcm: pydicom.Dataset,
+        center_search_tolerance: float = 0.2,
+        *,
+        random_state: np.random.RandomState | None = None,
+        return_center: bool = False,
     ) -> Sequence[Spoke]:
         """Find the position of the spokes within the LCOD disk."""
+        # Optimisation parameters that are hard-coded
+        # to ensure standardisation.
+        optimiser: str = "MultiSQPPlus"
+        budget: int = 1000
 
         # Initial position and rotation of the LCOD disk center.
         cx_0, cy_0 = self.find_center(dcm)
         theta_0 = self.rotation
+
+        def minimiser(cx: float, cy: float, theta: float) -> float:
+            template = LCODTemplate(cx, cy, theta)
+            return - np.sum(template.mask(dcm) * dcm.pixel_array)
+
+        parametrization = ng.p.Instrumentation(
+            cx=ng.p.Scalar(
+                init=float(cx_0),
+                lower=float(cx_0) * (1 - center_search_tolerance),
+                upper=float(cx_0) * (1 + center_search_tolerance),
+            ),
+            cy=ng.p.Scalar(
+                init=float(cy_0),
+                lower=float(cy_0) * (1 - center_search_tolerance),
+                upper=float(cy_0) * (1 + center_search_tolerance),
+            ),
+            theta=ng.p.Scalar(
+                init=float(theta_0),
+                lower=theta_0 - 90,
+                upper=theta_0 + 90,
+            ),
+        )
+        if random_state is not None:
+            parametrization.random_state = random_state
+
+        opt = ng.optimizers.registry[optimiser](
+            parametrization=parametrization,
+            budget=budget,
+            num_workers=4,
+        )
+
+        with futures.ThreadPoolExecutor(max_workers=opt.num_workers) as executor:
+            recommendation = opt.minimize(
+                minimiser, executor=executor, batch_mode=False,
+            )
+
+        _, values = recommendation.value
+        spokes = LCODTemplate(**values).spokes
+        if return_center:
+            return (
+                spokes,
+                (values["cx"], values["cy"]),
+            )
+        return spokes
 
 
     def _analyze_profile(self, profile: np.ndarray, spoke_number: int) -> tuple:
@@ -469,6 +546,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         Returns:
             Tuple of (p-values, parameters) or (None, None) if analysis fails
+
         """
         if len(profile) < 20:
             return None, None
