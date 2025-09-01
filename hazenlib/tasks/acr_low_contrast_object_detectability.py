@@ -88,13 +88,10 @@ import statsmodels.api
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.types import Measurement, P_HazenTask, Result
+from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
-
-# TODO(@abdrysdale): Window the results output correctly
-# (from the Window Level in DIOCM headers)
-
 
 @dataclass
 class LowContrastObject:
@@ -120,7 +117,7 @@ class Spoke:
     diameter: float
 
     # Distance from the center (mm)
-    dist: tuple[float] = (24.0, 50.0, 76.0)
+    dist: tuple[float] = (12.5, 25, 38.0)
 
     passed: bool = False
 
@@ -128,10 +125,15 @@ class Spoke:
 
     def __post_init__(self) -> None:
         """Initialise the objects within the spoke."""
+        # y increases as the you down the image
+        # hence the minus sign is so that theta = 0
+        # corresponds to the object being visually
+        # above the center rather than below.
+        logger.debug("Creating objects along spoke angle: %f", self.theta)
         self.objects = tuple(
             LowContrastObject(
                 x=self.cx + d * np.sin(np.deg2rad(self.theta)),
-                y=self.cy + d * np.cos(np.deg2rad(self.theta)),
+                y=self.cy - d * np.cos(np.deg2rad(self.theta)),
                 diameter=self.diameter,
             )
             for d in self.dist
@@ -153,22 +155,23 @@ class Spoke:
         offset: tuple[float] = (0.0, 0.0),
     ) -> np.ndarray:
         """Return the 1D profile of the DICOM for the spoke."""
-        if dcm.PixelSpacing[0] != dcm.PixelSpacing[1]:
+        px_x, px_y = get_pixel_size(dcm)
+        if px_x != px_y:
             msg = "Only square pixels are supported"
-            logger.critcal("%s but got (%f, %f)", msg, *dcm.PixelSpacing)
+            logger.critcal("%s but got (%f, %f)", msg, px_x, px_y)
             raise ValueError(msg)
         r_coords = np.linspace(
-            0, self.diameter * dcm.PixelSpacing[0], size, endpoint=False,
+            0, self.diameter * px_x, size, endpoint=False,
         )
         theta_coords = np.zeros_like(r_coords) + self.theta
 
         x_coords = (
-            r_coords * np.sin(np.rad2deg(theta_coords))
-            + (self.cx + offset[1]) * dcm.PixelSpacing[1]
+            r_coords * np.sin(np.deg2rad(theta_coords))
+            + (self.cx + offset[1]) * px_x
         )
         y_coords = (
-            r_coords * np.cos(np.rad2deg(theta_coords))
-            + (self.cy + offset[0]) * dcm.PixelSpacing[0]
+            r_coords * np.cos(np.deg2rad(theta_coords))
+            + (self.cy + offset[0]) * px_y
         )
 
         return sp.ndimage.map_coordinates(
@@ -209,6 +212,7 @@ class LCODTemplate:
         theta: float,
         radi: tuple[float],
     ) -> tuple[Spoke]:
+        # Spokes start with the largest and decrease in size clockwise
         return tuple(
             Spoke(cx, cy, theta + i * (360 / len(radi)), 2 * r)
             for i, r in enumerate(radi)
@@ -218,6 +222,8 @@ class LCODTemplate:
         self,
         dcm: pydicom.FileDataset,
         offset: tuple[float] = (0.0, 0.0),
+        *,
+        warn_if_object_out_of_bounds: bool = False,
     ) -> np.ndarray:
         """Mask the DICOM pixel array from the Spoke geometry.
 
@@ -229,20 +235,48 @@ class LCODTemplate:
         mask = np.zeros_like(dcm.pixel_array, dtype=np.bool)
 
         # Convert from real coordinates to pixel coordinates
+        dx, dy = get_pixel_size(dcm)
         y_grid, x_grid = np.meshgrid(
             *[
                 np.linspace(v0, v0 + s * dv, num=s, endpoint=False)
-                for v0, dv, s in zip(offset, dcm.PixelSpacing, mask.shape)
+                for v0, dv, s in zip(
+                    offset, (dy, dx), mask.shape,
+                )
             ],
             indexing="ij",
         )
 
-        for spoke in self.spokes:
-            for obj in spoke:
+        for sidx, spoke in enumerate(self.spokes):
+            for oidx, obj in enumerate(spoke):
+                # I genuinely have no idea why this correction factor is needed
+                # but without it the objects in the mask have twice the radius
+                # as the actual objects in the image.
+                # TODO(@abdrysdale) : Remove the correction factor.
+                cf = 2
                 is_object = (
                     (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2
-                    <= (obj.diameter / 2) ** 2
+                    <= (obj.diameter / (cf * 2)) ** 2
                 )
+                # Compare actual to measured area to check if object is on the
+                # grid.
+                mask_area = (cf ** 2) * np.sum(is_object) * (dx * dy)
+                obj_area = np.pi * (obj.diameter / 2) ** 2
+                if warn_if_object_out_of_bounds and not np.isclose(
+                    mask_area, obj_area, rtol=1e-1, atol=dx * dy,
+                ):
+                    logger.warning(
+                        "Object %d in spoke %d is out of bounds.\n"
+                        "File: %s\n"
+                        "Object area:\t%f\nMask area:\t%f\n"
+                        "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
+                        "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
+                        oidx,
+                        sidx,
+                        dcm.filename,
+                        obj_area, mask_area,
+                        obj.x, obj.y, obj.diameter,
+                        dx, dy, *mask.shape,
+                    )
                 mask |= is_object
         return mask
 
@@ -306,11 +340,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         total_spokes = 0
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
-            slice_no = self.slice_range.step * i + self.slice_range.start + 1
-            result = self.count_spokes(dcm, alpha=self.alpha)
+            slice_no = self.slice_range.step * i + self.slice_range.start
+            result = self.count_spokes(dcm, slice_no=slice_no, alpha=self.alpha)
             try:
-                num_spokes = np.where(result != self.OBJECTS_PER_SPOKE)[0][0]
-            except IndexError:
+                num_spokes = min(i for i, r in enumerate(result) if not r)
+            except (IndexError):
                 num_spokes = result.size
 
             # Add individual spoke measurements for debugging
@@ -363,8 +397,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def count_spokes(
         self,
         dcm: pydicom.Dataset,
+        slice_no: int = -1,
         alpha: float = 0.05,
-        report_window: float = 0.2,
     ) -> np.ndarray:
         """Count the number of spokes using polar coordinate transformation."""
         # Input validation and preprocessing
@@ -383,7 +417,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Find the position of each spoke
         # (with the pixel coordinates of the each of the object centers)
-        spokes, (cx, cy) = self.find_spokes(dcm, return_center=True)
+        spokes, (cx, cy), theta = self.find_spokes(
+            dcm, return_center=True, return_theta=True,
+        )
 
         for spoke_number, spoke in enumerate(spokes):
             p_vals, params = self._analyze_profile(
@@ -400,7 +436,40 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Generate report if requested
         if self.report:
-            self._generate_report(dcm, spokes, cx, cy, report_window)
+            fig, axes = plt.subplots(1, 1, figsize=(8, 8))
+
+            # Use robust intensity scaling
+            mean_val = np.mean(dcm.pixel_array)
+            std_val = np.std(dcm.pixel_array)
+            vmin = max(0, mean_val - 2 * std_val)
+            vmax = mean_val + 2 * std_val
+
+            axes.imshow(dcm.pixel_array, cmap="gray", alpha=0.7, vmin=vmin, vmax=vmax)
+
+            template = LCODTemplate(cx, cy, theta)
+
+            # Highlight detected spokes
+            mask = template.mask(dcm, warn_if_object_out_of_bounds=True)
+            axes.imshow(mask, alpha=0.3 * mask)
+
+            axes.scatter(cx, cy, marker="x", color="red", s=100)
+            axes.set_title(
+                f"Slice {slice_no}"
+                f" Detected Spokes {int(np.sum(s.passed for s in spokes))}/10",
+                fontsize=14,
+            )
+            axes.set_xlabel("Pixel")
+            axes.set_ylabel("Pixel")
+
+            data_path = Path(self.dcm_list[0].filename).parent.name
+            img_path = (
+                Path(self.report_path) /
+                f"spokes_{data_path}_{self.img_desc(dcm)}_slice_{slice_no}.png"
+            )
+            fig.savefig(img_path, dpi=150)
+            plt.close()
+
+            self.report_files.append(img_path)
 
         return [s.passed for s in spokes]
 
@@ -408,7 +477,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def find_center(
         self,
         crop_ratio: float = 0.7,
-    ) -> tuple[int]:
+    ) -> tuple[float]:
         """Find the center of the LCOD phantom."""
         if self.lcod_center is not None:
             return self.lcod_center
@@ -440,8 +509,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
         ).flatten()
 
         lcod_center = tuple(
-            dc + max(0, int(main_c - r))
-            for dc, main_c in zip(detected_circles[:2], (main_cx, main_cy))
+            (dc + max(0, int(main_c - r))) * dv
+            for dc, main_c, dv in zip(
+                detected_circles[:2],
+                (main_cx, main_cy),
+                (self.ACR_obj.dx, self.ACR_obj.dy),
+            )
         )
 
         if self.report:
@@ -487,27 +560,28 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def find_spokes(
         self,
         dcm: pydicom.Dataset,
-        center_search_tolerance: float = 0.2,
+        center_search_tolerance: float = 0.05,
         *,
         random_state: np.random.RandomState | None = None,
         return_center: bool = False,
+        return_theta: bool = False,
     ) -> Sequence[Spoke]:
         """Find the position of the spokes within the LCOD disk."""
         # Optimisation parameters that are hard-coded
         # to ensure standardisation.
         optimiser: str = "MultiSQPPlus"
         budget: int = 1000
+        initial_rotation_offset: float = 25
 
         def minimiser(cx: float, cy: float, theta: float) -> float:
             template = LCODTemplate(cx, cy, theta)
             return - np.sum(template.mask(dcm) * dcm.pixel_array)
 
-
-        theta_0 = self.rotation
+        theta_0 = self.rotation + initial_rotation_offset
         theta_p = ng.p.Scalar(
             init=float(theta_0),
-            lower=theta_0 - 90,
-            upper=theta_0 + 90,
+            lower=theta_0 - 18,
+            upper=theta_0 + 18,
         )
 
         if self.lcod_center is None:
@@ -526,8 +600,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 ),
                 theta=theta_p,
             )
+
         else:
-            parametrization = ng.p.Instrumentation(theta=theta_p)
+            cx, cy = self.lcod_center
+            parametrization = ng.p.Instrumentation(
+                cx=cx, cy=cy, theta=theta_p,
+            )
 
 
         if random_state is not None:
@@ -552,10 +630,18 @@ class ACRLowContrastObjectDetectability(HazenTask):
             self.lcod_center = (values["cx"], values["cy"])
 
         spokes = LCODTemplate(**values).spokes
-        if return_center:
-            return (
-                spokes,
-                (values["cx"], values["cy"]),
+
+        if any([return_center, return_theta]):
+            return tuple(
+                out
+                for out, rtn in zip(
+                        (
+                            spokes,
+                            (values["cx"], values["cy"]),
+                            values["theta"],
+                        ),
+                        (True, return_center, return_theta),
+                )
             )
         return spokes
 
@@ -606,48 +692,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             return model.pvalues[:3], model.params[:3]
         except:
             return None, None
-
-
-    def _generate_report(self, dcm: pydicom.Dataset, pass_vec: np.ndarray,
-                        cx: float, cy: float, report_window: float):
-        """Generate analysis report with detected spokes."""
-        try:
-            fig, axes = plt.subplots(1, 1, figsize=(8, 8))
-            center_val = dcm.pixel_array[int(cy), int(cx)]
-
-            # Use robust intensity scaling
-            mean_val = np.mean(dcm.pixel_array)
-            std_val = np.std(dcm.pixel_array)
-            vmin = max(0, mean_val - 2 * std_val)
-            vmax = mean_val + 2 * std_val
-
-            axes.imshow(dcm.pixel_array, cmap="gray", alpha=0.7, vmin=vmin, vmax=vmax)
-
-            # Highlight detected spokes
-            the_angle = self.rotation
-            for i, detected in enumerate(pass_vec):
-                if detected > 0:
-                    angle = np.radians(the_angle - i * 36)
-                    # Draw line for detected spoke
-                    r_max = min(dcm.pixel_array.shape) // 2
-                    x_end = cx + r_max * np.cos(angle)
-                    y_end = cy + r_max * np.sin(angle)
-                    axes.plot([cx, x_end], [cy, y_end], 'r-', alpha=0.7, linewidth=2)
-
-            axes.scatter(cx, cy, marker="x", color='red', s=100)
-            axes.set_title(f"Detected Spokes {int(np.sum(pass_vec))}/10", fontsize=14)
-            axes.set_xlabel("Pixel")
-            axes.set_ylabel("Pixel")
-
-            data_path = Path(self.dcm_list[0].filename).parent.name
-            img_path = (Path(self.report_path) /
-                       f"spokes_{data_path}_{self.img_desc(dcm)}.png")
-            fig.savefig(img_path, dpi=150, bbox_inches='tight')
-            plt.close()
-
-            self.report_files.append(img_path)
-        except Exception as e:
-            logger.debug(f"Failed to generate report: {e}")
 
 
     @staticmethod

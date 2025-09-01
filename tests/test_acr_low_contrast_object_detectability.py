@@ -282,11 +282,14 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
     def test_slice_score(self) -> None:
         """Test the score for a slice."""
         for score in self.SCORES:
-            slice_score = self.results.get_measurement(
+            result = self.results.get_measurement(
                 name="LowContrastObjectDetectability",
                 measurement_type="measured",
                 subtype=f"slice {score.index}",
-            )[0].value
+            )
+            self.assertEqual(len(result), 1)
+
+            slice_score = result[0].value
             self.assertEqual(slice_score, score.score)
 
 
