@@ -119,6 +119,9 @@ class Spoke:
     # Distance from the center (mm)
     dist: tuple[float] = (12.5, 25, 38.0)
 
+    # Spoke length
+    length: float = 45.0
+
     passed: bool = False
 
     objects: Sequence[LowContrastObject] = field(init=False)
@@ -153,6 +156,8 @@ class Spoke:
         dcm: pydicom.FileDataset,
         size: int = 128,
         offset: tuple[float] = (0.0, 0.0),
+        *,
+        return_coords: bool = False,
     ) -> np.ndarray:
         """Return the 1D profile of the DICOM for the spoke."""
         px_x, px_y = get_pixel_size(dcm)
@@ -161,22 +166,26 @@ class Spoke:
             logger.critcal("%s but got (%f, %f)", msg, px_x, px_y)
             raise ValueError(msg)
         r_coords = np.linspace(
-            0, self.diameter * px_x, size, endpoint=False,
+            0, self.length / px_x, size, endpoint=False,
         )
         theta_coords = np.zeros_like(r_coords) + self.theta
 
         x_coords = (
-            r_coords * np.sin(np.deg2rad(theta_coords))
-            + (self.cx + offset[1]) * px_x
+            (self.cx + offset[1]) / px_x
+            + r_coords * np.sin(np.deg2rad(theta_coords))
         )
         y_coords = (
-            r_coords * np.cos(np.deg2rad(theta_coords))
-            + (self.cy + offset[0]) * px_y
+            (self.cy + offset[0]) / px_y
+            - r_coords * np.cos(np.deg2rad(theta_coords))
         )
 
-        return sp.ndimage.map_coordinates(
+        profile = sp.ndimage.map_coordinates(
             dcm.pixel_array, [y_coords.ravel(), x_coords.ravel()], order=1,
         )
+
+        if return_coords:
+            return profile, (x_coords, y_coords)
+        return profile
 
 
 @dataclass
@@ -417,15 +426,47 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Find the position of each spoke
         # (with the pixel coordinates of the each of the object centers)
-        spokes, (cx, cy), theta = self.find_spokes(
-            dcm, return_center=True, return_theta=True,
-        )
+        template = self.find_spokes(dcm)
+        spokes  = template.spokes
+        cx, cy = (template.cx, template.cy)
+        dx, dy = get_pixel_size(dcm)
+        theta = template.theta
 
         for spoke_number, spoke in enumerate(spokes):
-            p_vals, params = self._analyze_profile(
-                spoke.profile(dcm, size=90),
-                spoke_number,
+            profile, (x_coords, y_coords) = spoke.profile(
+                dcm, size=90, return_coords=True,
             )
+            p_vals, params = self._analyze_profile(profile, spoke_number)
+
+            if self.report:
+                fig, axes = plt.subplots(2, 1, figsize=(8, 16))
+
+                axes[0].imshow(dcm.pixel_array)
+                axes[0].imshow(
+                    template.mask(dcm),
+                    alpha=template.mask(dcm) * 0.1,
+                    cmap="gray",
+                )
+                axes[0].scatter(cx / dx, cy / dy, marker="o", c="y")
+                axes[0].scatter(
+                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
+                )
+                axes[0].scatter(x_coords, y_coords, marker="x", c="r", s=0.01)
+                axes[0].set_title(f"Slice {slice_no}, Spoke {spoke_number}")
+
+                axes[1].plot(profile)
+                axes[1].set_title(f"{self.img_desc}\nRadial profile")
+
+                data_path = Path(self.dcm_list[0].filename).parent.name
+                img_path = (
+                    Path(self.report_path) /
+                    (
+                        f"spokes_{data_path}_slice_{slice_no}"
+                        f"_spoke_{spoke_number}_{self.img_desc(dcm)}.png"
+                    )
+                )
+                fig.savefig(img_path, dpi=150)
+                plt.close()
 
             if (p_vals is not None and params is not None and
                 len(p_vals) >= len(spoke) and
@@ -563,9 +604,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         center_search_tolerance: float = 0.05,
         *,
         random_state: np.random.RandomState | None = None,
-        return_center: bool = False,
-        return_theta: bool = False,
-    ) -> Sequence[Spoke]:
+    ) -> LCODTemplate:
         """Find the position of the spokes within the LCOD disk."""
         # Optimisation parameters that are hard-coded
         # to ensure standardisation.
@@ -629,21 +668,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         else:
             self.lcod_center = (values["cx"], values["cy"])
 
-        spokes = LCODTemplate(**values).spokes
-
-        if any([return_center, return_theta]):
-            return tuple(
-                out
-                for out, rtn in zip(
-                        (
-                            spokes,
-                            (values["cx"], values["cy"]),
-                            values["theta"],
-                        ),
-                        (True, return_center, return_theta),
-                )
-            )
-        return spokes
+        return LCODTemplate(**values)
 
 
     def _analyze_profile(
