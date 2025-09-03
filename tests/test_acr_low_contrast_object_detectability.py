@@ -33,6 +33,10 @@ class DummyDICOM:
         self.pixel_array = np.ones(shape, dtype=np.int16)
         self.PixelSpacing = pixel_spacing
 
+        # Needed for getting pixel spacing
+        self.Manufacturer = "GE"
+        self.SOPClassUID = "1.2.840.10008.5.1.4.1.1.4"  # Not an enhanced DICOM
+
 @dataclass
 class SliceScore:
     """Dataclass for the slice scores."""
@@ -56,7 +60,7 @@ class TestLowContrastObjects(unittest.TestCase):
         # Verify coordinates
         for d, obj in zip(spoke.dist, spoke):
             expected_x = cx + d * np.sin(np.deg2rad(theta))
-            expected_y = cy + d * np.cos(np.deg2rad(theta))
+            expected_y = cy - d * np.cos(np.deg2rad(theta))
             self.assertAlmostEqual(obj.x, expected_x)
             self.assertAlmostEqual(obj.y, expected_y)
             self.assertEqual(obj.diameter, diameter)
@@ -138,14 +142,15 @@ class TestLCODTemplateSpokes(unittest.TestCase):
             dcm.pixel_array = vals
 
             theta = 0.0      # centre in the middle of the array
-            diameter = shape[1] - cy
+            diameter = cy + 1
 
             spoke = Spoke(cx, cy, theta, diameter)
+            spoke.length = diameter
 
             size = int(diameter)
             profile = spoke.profile(dcm, size=size)
 
-            expected_v = dcm.pixel_array[cy:, cx]
+            expected_v = dcm.pixel_array[cy::-1, cx]
 
             self.assertEqual(profile.shape, (size,))
             np.testing.assert_allclose(profile, expected_v, rtol=1e-6, atol=1e-6)
@@ -224,8 +229,8 @@ class TestFindSpokes(unittest.TestCase):
         self.dcm = DummyDICOM(shape=(dim, dim))
 
         # Sets up a DummyDICOM image with spokes.
-        self.cx = dim // 2 - 12
-        self.cy = dim // 2 + 12
+        self.cx = dim * 0.52
+        self.cy = dim * 0.49
         self.theta = 12
 
         self.template = LCODTemplate(self.cx, self.cy, self.theta)
@@ -244,15 +249,15 @@ class TestFindSpokes(unittest.TestCase):
         """Test spoke finding algorithm."""
         seed = 26082025
         random_state = np.random.RandomState(seed)
-        spokes = self.task.find_spokes(self.dcm, random_state=random_state)
-
+        template = self.task.find_spokes(self.dcm, random_state=random_state)
+        spokes = template.spokes
         for spoke, spoke_true in zip(spokes, self.template.spokes):
+            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=0)
+            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=0)
+            self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=0)
             for obj, obj_true in zip(spoke, spoke_true):
-                self.assertAlmostEqual(obj.x, obj_true.x, places=1)
-                self.assertAlmostEqual(obj.y, obj_true.y, places=1)
-            self.assertAlmostEqual(spoke.cx, spoke_true.cx, places=1)
-            self.assertAlmostEqual(spoke.cy, spoke_true.cy, places=1)
-            self.assertAlmostEqual(spoke.theta, spoke_true.theta, places=1)
+                self.assertAlmostEqual(obj.x, obj_true.x, places=0)
+                self.assertAlmostEqual(obj.y, obj_true.y, places=0)
 
 
 class TestACRLowContrastObjectDetectability(unittest.TestCase):
