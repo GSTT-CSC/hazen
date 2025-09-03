@@ -83,8 +83,7 @@ import matplotlib.pyplot as plt
 import nevergrad as ng
 import numpy as np
 import scipy as sp
-import statsmodels as sm
-import statsmodels.api
+import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.types import Measurement, P_HazenTask, Result
@@ -92,6 +91,7 @@ from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class LowContrastObject:
@@ -101,6 +101,7 @@ class LowContrastObject:
     y: int
     diameter: float
     value: float | None = None
+    detected: bool = False
 
 
 @dataclass
@@ -232,6 +233,7 @@ class LCODTemplate:
         dcm: pydicom.FileDataset,
         offset: tuple[float] = (0.0, 0.0),
         *,
+        subset: str = "all",
         warn_if_object_out_of_bounds: bool = False,
     ) -> np.ndarray:
         """Mask the DICOM pixel array from the Spoke geometry.
@@ -286,7 +288,19 @@ class LCODTemplate:
                         obj.x, obj.y, obj.diameter,
                         dx, dy, *mask.shape,
                     )
-                mask |= is_object
+                match subset:
+                    case "all":
+                        object_considered_for_mask = True
+                    case "passed":
+                        object_considered_for_mask = obj.detected
+                    case "failed":
+                        object_considered_for_mask = not obj.detected
+                    case _:
+                        logger.warning("Unrecognised mask subset %s", subset)
+                        object_considered_for_mask = True
+
+                if object_considered_for_mask:
+                    mask |= is_object
         return mask
 
 
@@ -310,7 +324,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self.alpha = alpha
 
         # Start at last slice (highest contrast) and work backwards
-        self.slice_range = slice(11,7,-1)
+        self.slice_range = slice(10, 6, -1)
 
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
@@ -438,62 +452,77 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             p_vals, params = self._analyze_profile(profile, spoke_number)
 
-            if self.report:
-                fig, axes = plt.subplots(2, 1, figsize=(8, 16))
+            for p, param, obj in zip(p_vals, params, spoke):
+                obj.detected = param > 0 and p < alpha
 
-                axes[0].imshow(dcm.pixel_array)
-                axes[0].imshow(
-                    template.mask(dcm),
-                    alpha=template.mask(dcm) * 0.1,
-                    cmap="gray",
-                )
-                axes[0].scatter(cx / dx, cy / dy, marker="o", c="y")
-                axes[0].scatter(
-                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
-                )
-                axes[0].scatter(x_coords, y_coords, marker="x", c="r", s=0.01)
-                axes[0].set_title(f"Slice {slice_no}, Spoke {spoke_number}")
-
-                axes[1].plot(profile)
-                axes[1].set_title(f"{self.img_desc}\nRadial profile")
-
-                data_path = Path(self.dcm_list[0].filename).parent.name
-                img_path = (
-                    Path(self.report_path) /
-                    (
-                        f"spokes_{data_path}_slice_{slice_no}"
-                        f"_spoke_{spoke_number}_{self.img_desc(dcm)}.png"
-                    )
-                )
-                fig.savefig(img_path, dpi=150)
-                plt.close()
-
-            if (p_vals is not None and params is not None and
-                len(p_vals) >= len(spoke) and
+            if (len(p_vals) >= len(spoke) and
                 np.all(p_vals[:len(spoke)] < alpha) and
                 np.all(params[:len(spoke)] > 0)
             ):
                 spoke.passed = True
 
+            if self.report:
+                fig, axes = plt.subplots(2, 1, figsize=(8, 16))
+
+                axes[0].imshow(dcm.pixel_array)
+                axes[0].scatter(cx / dx, cy / dy, marker="o", c="y")
+                axes[0].scatter(
+                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
+                )
+                axes[0].scatter(x_coords, y_coords, marker="x", c="r", s=0.01)
+                axes[0].set_title(
+                    f"Slice {slice_no}, Spoke {spoke_number},"
+                    f" Passed={spoke.passed}",
+                )
+
+                axes[1].plot(profile)
+                axes[1].set_title(f"{self.img_desc(dcm)}\nRadial profile")
+
+                data_path = Path(self.dcm_list[0].filename).parent.name
+                img_path = (
+                    Path(self.report_path) /
+                    (
+                        f"spokes_{data_path}_slice_{str(slice_no).zfill(2)}"
+                        f"_spoke_{str(spoke_number).zfill(2)}"
+                        f"_{self.img_desc(dcm)}.png"
+                    )
+                )
+                fig.savefig(img_path, dpi=150)
+                plt.close()
+
         # Generate report if requested
         if self.report:
             fig, axes = plt.subplots(1, 1, figsize=(8, 8))
 
-            # Use robust intensity scaling
+            # Use intensity scaling
             mean_val = np.mean(dcm.pixel_array)
             std_val = np.std(dcm.pixel_array)
             vmin = max(0, mean_val - 2 * std_val)
             vmax = mean_val + 2 * std_val
 
-            axes.imshow(dcm.pixel_array, cmap="gray", alpha=0.7, vmin=vmin, vmax=vmax)
+            axes.imshow(
+                dcm.pixel_array, cmap="gray", alpha=1, vmin=vmin, vmax=vmax,
+            )
 
             template = LCODTemplate(cx, cy, theta)
 
             # Highlight detected spokes
-            mask = template.mask(dcm, warn_if_object_out_of_bounds=True)
-            axes.imshow(mask, alpha=0.3 * mask)
+            mask = template.mask(
+                dcm,
+                subset="passed",
+                warn_if_object_out_of_bounds=True,
+            )
+            axes.imshow(mask, alpha=0.3 * mask, cmap="Greens")
 
-            axes.scatter(cx, cy, marker="x", color="red", s=100)
+            # Highlight undetected spokes
+            mask = template.mask(
+                dcm,
+                subset="failed",
+                warn_if_object_out_of_bounds=True,
+            )
+            axes.imshow(mask, alpha=0.3 * mask, cmap="Reds")
+
+            axes.scatter(cx / dx, cy / dy, marker="x", color="red", s=100)
             axes.set_title(
                 f"Slice {slice_no}"
                 f" Detected Spokes {int(np.sum(s.passed for s in spokes))}/10",
@@ -707,22 +736,23 @@ class ACRLowContrastObjectDetectability(HazenTask):
         smoothed = np.convolve(detrended, kernel, mode="same")
 
         # Create design matrix with template
-        template = self.template_profile_separate(spoke_number)
+        template = self.template_profile_separate(
+            spoke_number, size=profile.size,
+        )
         # Include intercept
         data = np.column_stack([template, np.ones_like(profile)])
 
         # Fit linear model
-        try:
-            model = sm.OLS(smoothed, data).fit()
-            return model.pvalues[:3], model.params[:3]
-        except:
-            return None, None
+        model = sm.OLS(smoothed, data).fit()
+        return model.pvalues[:3], model.params[:3]
 
 
     @staticmethod
-    def template_profile_separate(spoke_number: int) -> np.ndarray:
+    def template_profile_separate(
+            spoke_number: int, size: int = 90,
+    ) -> np.ndarray:
         """Generate expected reference profile depending on the spoke number."""
-        profile = np.zeros((90,3))
+        profile = np.zeros((size,3))
         dist = [12/0.5, 25/0.5, 38/0.5]  # in millimeter
         radi = [7, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.5]
         r = radi[spoke_number]
