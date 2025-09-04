@@ -89,15 +89,15 @@ class TestLCODTemplateSpokes(unittest.TestCase):
     def test_spokes_geometry(self) -> None:
         """Each Spoke should have the correct angle and diameter."""
         spokes = self.template.spokes
-        self.assertEqual(len(spokes), len(self.template.radi))
+        self.assertEqual(len(spokes), len(self.template.diameters))
 
-        for i, (spoke, radius) in enumerate(zip(spokes, self.template.radi)):
+        for i, (spoke, diameter) in enumerate(zip(spokes, self.template.diameters)):
             # Expected angle: theta + i * (360 / N)
-            expected_theta = self.template.theta + i * (360 / len(self.template.radi))
+            expected_theta = self.template.theta + i * (360 / len(self.template.diameters))
             self.assertAlmostEqual(spoke.theta, expected_theta)
 
             # Diameter stored in Spoke is twice the radius
-            self.assertAlmostEqual(spoke.diameter, 2 * radius)
+            self.assertAlmostEqual(spoke.diameter, diameter)
 
     def test_calc_spokes_is_lru_cached(self) -> None:
         """Calling _calc_spokes with the same arguments should hit the LRU cache."""
@@ -106,7 +106,7 @@ class TestLCODTemplateSpokes(unittest.TestCase):
             self.template.cx,
             self.template.cy,
             self.template.theta,
-            self.template.radi,
+            self.template.diameters,
         )
         # Access the internal cache dict indirectly via the function's cache_info()
         before = self.template._calc_spokes.cache_info().hits
@@ -115,7 +115,7 @@ class TestLCODTemplateSpokes(unittest.TestCase):
             self.template.cx,
             self.template.cy,
             self.template.theta,
-            self.template.radi,
+            self.template.diameters,
         )
         after = self.template._calc_spokes.cache_info().hits
 

@@ -158,8 +158,9 @@ class Spoke:
         size: int = 128,
         offset: tuple[float] = (0.0, 0.0),
         *,
+        return_object_mask: bool = False,
         return_coords: bool = False,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray]:
         """Return the 1D profile of the DICOM for the spoke."""
         px_x, px_y = get_pixel_size(dcm)
         if px_x != px_y:
@@ -184,9 +185,25 @@ class Spoke:
             dcm.pixel_array, [y_coords.ravel(), x_coords.ravel()], order=1,
         )
 
+        rtn = [profile]
+
         if return_coords:
-            return profile, (x_coords, y_coords)
-        return profile
+            rtn.append((x_coords, y_coords))
+        if return_object_mask:
+            object_mask = np.zeros((size, len(self)), dtype=bool)
+            r = np.linspace(0, self.length, size)
+            for i, obj in enumerate(self):
+                obj_r_pos = np.sqrt(
+                    (obj.x - self.cx) ** 2
+                    + (obj.y - self.cy) ** 2,
+                )
+                object_mask[:, i] = np.abs(r - obj_r_pos) <= obj.diameter / 4
+
+            rtn.append(object_mask)
+
+        if len(rtn) == 1:
+            return rtn[0]
+        return tuple(rtn)
 
 
 @dataclass
@@ -200,9 +217,9 @@ class LCODTemplate:
     # Angle of rotation for the 1st spoke (degrees)
     theta: float
 
-    # Radius of each low contrast object (mm)
+    # Diameters of each low contrast object (mm)
     # Starting with the largest spoke and moving clockwise.
-    radi: tuple[float]  = (
+    diameters: tuple[float]  = (
         7.00, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.50,
     )
 
@@ -211,7 +228,7 @@ class LCODTemplate:
     def spokes(self) -> Sequence[Spoke]:
         """Position of each of the low contrast object spokes."""
         return self._calc_spokes(
-            self.cx, self.cy, self.theta, self.radi,
+            self.cx, self.cy, self.theta, self.diameters,
         )
 
     @staticmethod
@@ -220,12 +237,12 @@ class LCODTemplate:
         cx: float,
         cy: float,
         theta: float,
-        radi: tuple[float],
+        diameters: tuple[float],
     ) -> tuple[Spoke]:
         # Spokes start with the largest and decrease in size clockwise
         return tuple(
-            Spoke(cx, cy, theta + i * (360 / len(radi)), 2 * r)
-            for i, r in enumerate(radi)
+            Spoke(cx, cy, theta + i * (360 / len(diameters)), d)
+            for i, d in enumerate(diameters)
         )
 
     def mask(
@@ -259,18 +276,13 @@ class LCODTemplate:
 
         for sidx, spoke in enumerate(self.spokes):
             for oidx, obj in enumerate(spoke):
-                # I genuinely have no idea why this correction factor is needed
-                # but without it the objects in the mask have twice the radius
-                # as the actual objects in the image.
-                # TODO(@abdrysdale) : Remove the correction factor.
-                cf = 2
                 is_object = (
                     (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2
-                    <= (obj.diameter / (cf * 2)) ** 2
+                    <= (obj.diameter / 2) ** 2
                 )
                 # Compare actual to measured area to check if object is on the
                 # grid.
-                mask_area = (cf ** 2) * np.sum(is_object) * (dx * dy)
+                mask_area = 2 * np.sum(is_object) * (dx * dy)
                 obj_area = np.pi * (obj.diameter / 2) ** 2
                 if warn_if_object_out_of_bounds and not np.isclose(
                     mask_area, obj_area, rtol=1e-1, atol=dx * dy,
@@ -296,7 +308,11 @@ class LCODTemplate:
                     case "failed":
                         object_considered_for_mask = not obj.detected
                     case _:
-                        logger.warning("Unrecognised mask subset %s", subset)
+                        logger.warning(
+                            "Unrecognised mask subset %s."
+                            " Object included in mask.",
+                            subset,
+                        )
                         object_considered_for_mask = True
 
                 if object_considered_for_mask:
@@ -440,10 +456,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
         theta = template.theta
 
         for spoke_number, spoke in enumerate(spokes):
-            profile, (x_coords, y_coords) = spoke.profile(
-                dcm, size=90, return_coords=True,
+            profile, (x_coords, y_coords), object_mask = spoke.profile(
+                dcm, size=90, return_coords=True, return_object_mask=True,
             )
-            p_vals, params = self._analyze_profile(profile, spoke_number)
+            p_vals, params = self._analyze_profile(profile, object_mask)
 
             for p, param, obj in zip(p_vals, params, spoke):
                 obj.detected = param > 0 and p < alpha
@@ -724,7 +740,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def _analyze_profile(
             self,
             profile: np.ndarray,
-            spoke_number: int,
+            object_mask: np.ndarray,
             *,
             std_tol: float = 0.01,
     ) -> tuple:
@@ -732,8 +748,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         Args:
             profile: Radial intensity profile
-            spoke_number: Spoke number (0-9)
-            slice_no : Slice number 7-11.
+            object_mask : A 3 x N array containing boolean mask of each object.
             std_tol: Tolerance for the standard deviation for
                 detecting polynomial coefficients.
 
@@ -756,12 +771,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
         kernel = np.ones(3) / 3
         smoothed = np.convolve(detrended, kernel, mode="same")
 
-        # Create design matrix with template
-        template = self.template_profile_separate(
-            spoke_number, size=profile.size,
-        )
         # Include intercept
-        data = np.column_stack([template, np.ones_like(profile)])
+        data = np.column_stack([object_mask, np.ones_like(profile)])
 
         # Fit linear model
         model = sm.OLS(smoothed, data).fit()
@@ -777,8 +788,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
             for i in range(3):
                 self.axes[0, 1].plot(
-                    x[template[:, i].astype(bool)],
-                    profile[template[:, i].astype(bool)],
+                    x[object_mask[:, i]],
+                    profile[object_mask[:, i]],
                     label=f"Object {i+1}",
                 )
             self.axes[0, 1].plot(x, trend, label="Trend", linestyle="dashed")
@@ -787,7 +798,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
             self.axes[1, 1].plot(x, smoothed, label="De-trended")
             for i in range(3):
-                obj_indexes = template[:, i].astype(bool)
+                obj_indexes = object_mask[:, i]
                 self.axes[1, 1].plot(
                     x[obj_indexes],
                     smoothed[obj_indexes],
@@ -816,20 +827,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
 
     @staticmethod
-    def template_profile_separate(
-            spoke_number: int, size: int = 90,
-    ) -> np.ndarray:
-        """Generate expected reference profile depending on the spoke number."""
-        profile = np.zeros((size,3))
-        dist = [12/0.5, 25/0.5, 38/0.5]  # in millimeter
-        radi = [7, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.5]
-        r = radi[spoke_number]
-        for i, d in enumerate(dist):
-            profile[round(d - r):round(d + r), i] = 1
-        return profile
-
-
-    @staticmethod
     def _window(dcm: pydicom.FileDataset) -> tuple[float]:
         """Return vmin, vmax values based on simple window method."""
         mean_val = np.mean(dcm.pixel_array)
@@ -837,4 +834,3 @@ class ACRLowContrastObjectDetectability(HazenTask):
         vmin = max(0, mean_val - 2 * std_val)
         vmax = mean_val + 2 * std_val
         return (vmin, vmax)
-    
