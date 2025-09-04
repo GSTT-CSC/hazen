@@ -83,6 +83,7 @@ import matplotlib.pyplot as plt
 import nevergrad as ng
 import numpy as np
 import scipy as sp
+import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
@@ -452,29 +453,46 @@ class ACRLowContrastObjectDetectability(HazenTask):
         dx, dy = get_pixel_size(dcm)
         theta = template.theta
 
-        for spoke_number, spoke in enumerate(spokes):
+        p_vals_all = []
+        params_all = []
+        for spoke in spokes:
             profile, (x_coords, y_coords), object_mask = spoke.profile(
                 dcm, size=90, return_coords=True, return_object_mask=True,
             )
             p_vals, params = self._analyze_profile(profile, object_mask)
 
-            for p, param, obj in zip(p_vals, params, spoke):
-                obj.detected = param > 0 and p < alpha
+            p_vals_all += list(p_vals)
+            params_all += list(params)
 
-            if (len(p_vals) >= len(spoke) and
-                np.all(p_vals[:len(spoke)] < alpha) and
-                np.all(params[:len(spoke)] > 0)
-            ):
-                spoke.passed = True
+        p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
+            p_vals_all,
+            alpha=alpha,
+            method="indep",
+            is_sorted=False,
+        )[0].reshape(-1, len(p_vals))
+        params_fdr = np.array(params_all).reshape(-1, len(params))
+
+        # Check if the p-values pass the significance test
+        spoke_can_pass = True
+        for spoke_number, spoke in enumerate(spokes):
+
+            for i, obj in enumerate(spoke):
+                obj.detected = (
+                    p_vals_fdr[spoke_number, i]
+                    and params_fdr[spoke_number, i] > 0
+                )
+            spoke.passed = all(obj.detected for obj in spoke) and spoke_can_pass
+            spoke_can_pass = spoke.passed
 
             if self.report:
                 # Figure and axes should be obtained from analyze profile
-                if self.fig is None or self.axes is None:
-                    logger.warning(
-                        "Figure should have been generated in _analyze_profile",
-                    )
-                    self.fig, self.axes =  plt.subplots(2, 1, figsize=(16, 8))
-                    self.axes = self.axes.reshape(2, 1)
+                profile, (x_coords, y_coords), object_mask = spoke.profile(
+                    dcm,
+                    size=90,
+                    return_coords=True,
+                    return_object_mask=True,
+                )
+                _ = self._analyze_profile(profile, object_mask)
 
                 self.fig.suptitle(
                     f"Slice {slice_no}, Spoke {spoke_number},"
