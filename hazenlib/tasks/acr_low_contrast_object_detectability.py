@@ -323,9 +323,6 @@ class LCODTemplate:
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
 
-    OBJECTS_PER_SPOKE = 3
-    NUM_SPOKES = 10
-
     def __init__(
             self, alpha: float = 0.0125, **kwargs: P_HazenTask.kwargs,
     ) -> None:
