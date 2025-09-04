@@ -45,7 +45,7 @@ class ACRGhosting(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:

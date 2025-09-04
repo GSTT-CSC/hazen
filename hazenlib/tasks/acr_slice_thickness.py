@@ -65,7 +65,7 @@ class ACRSliceThickness(HazenTask):
             slice_thickness_dcm.PixelData = rotated_img.tobytes()
 
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = self.img_desc(slice_thickness_dcm)
 
         try:

@@ -53,14 +53,14 @@ class HazenTask:
         self.report_path.mkdir(parents=True, exist_ok=True)
         self.report_files: Sequence[str] = []
 
-    def init_result_dict(self) -> Result:
+    def init_result_dict(self, desc: str = "") -> Result:
         """Initialise measurement results holder and input description.
 
         Returns
             d : holds measurement results and task input description.
 
         """
-        return Result(task=type(self).__name__)
+        return Result(task=type(self).__name__, desc=desc)
 
     def img_desc(
         self, dcm: pydicom.Dataset, properties: Sequence | None = None,

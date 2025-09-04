@@ -374,7 +374,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def run(self) -> Result:
         """Run the LCOD analysis."""
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = [
             self.img_desc(f)
             for f in self.ACR_obj.slice_stack[self.slice_range]
