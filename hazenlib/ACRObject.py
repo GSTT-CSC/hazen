@@ -32,6 +32,44 @@ class ACRObject:
         # Perform sorting of the image slices based on phantom orientation
         self.slice_stack = self.order_phantom_slices(sorted_dcms)
 
+
+    def acquisition_type(self, *, strict: bool = True) -> str:
+        """Get the acquisition type (T1w, T2w, Sagittal Localiser.
+
+        Identified by the following:
+        | Acquisition        | TR   |   TE | Slice Thick (mm) | Slice Gap |
+        |--------------------+------+------+------------------+-----------|
+        | Sagittal Localiser |  200 |   20 |              10* |       N/A |
+        | T1                 |  500 |   20 |                5 |         5 |
+        | T2                 | 2000 |   80 |                5 |         5 |
+        * Older protocols use 20mm
+        """
+        TR = self.slice_stack[0][(0x0018, 0x0080)].value        # noqa: N806
+        TE = self.slice_stack[0][(0x0018, 0x0081)].value        # noqa: N806
+
+        match (TR, TE):
+
+            case (200, 20):
+                return "Sagittal Localiser"
+
+            case (500, 20):
+                return "T1"
+
+            case (2000, 80):
+                return "T2"
+
+        msg = f"Could not match acquisition type from TE ({TE}) and TR ({TR})"
+        if strict:
+            logger.error(msg)
+            return "Unknown"
+
+        if abs(TE - 500) < abs(TE - 2000):
+            logger.warning("%s assuming T1", msg)
+            return "T1"
+        logger.warning("%s assuming T2", msg)
+        return "T2"
+
+
     def sort_dcms(self, dcm_list):
         """Sort a stack of DICOM images based on slice position.
 
