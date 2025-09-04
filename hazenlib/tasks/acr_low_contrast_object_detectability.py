@@ -121,7 +121,7 @@ class Spoke:
     dist: tuple[float] = (12.5, 25, 38.0)
 
     # Spoke length
-    length: float = 45.0
+    length: float = 44.0
 
     passed: bool = False
 
@@ -352,6 +352,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     self.ACR_obj.slice_stack[0]["MagneticFieldStrength"].value,
                 )
 
+        # Only used in reporting
+        self.fig = None
+        self.axes = None
+
 
     def run(self) -> Result:
         """Run the LCOD analysis."""
@@ -424,17 +428,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         alpha: float = 0.05,
     ) -> np.ndarray:
         """Count the number of spokes using polar coordinate transformation."""
-        # Input validation and preprocessing
-        img_data = (
-            np.abs(dcm.pixel_array)
-            if np.min(dcm.pixel_array) < 0
-            else dcm.pixel_array
-        )
-
-        if np.max(img_data) == 0:
-            logger.warning("Image has zero intensity, returning zero spokes")
-            return [0] * self.NUM_SPOKES
-
         # TODO(@abdrysdale): Apply smoothing before spoke detection
         # https://github.com/sbu-physics-mri/hazen-wales/issues/18
 
@@ -462,21 +455,47 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 spoke.passed = True
 
             if self.report:
-                fig, axes = plt.subplots(2, 1, figsize=(8, 16))
+                # Figure and axes should be obtained from analyze profile
+                if self.fig is None or self.axes is None:
+                    logger.warning(
+                        "Figure should have been generated in _analyze_profile",
+                    )
+                    self.fig, self.axes =  plt.subplots(2, 1, figsize=(16, 8))
+                    self.axes = self.axes.reshape(2, 1)
 
-                axes[0].imshow(dcm.pixel_array)
-                axes[0].scatter(cx / dx, cy / dy, marker="o", c="y")
-                axes[0].scatter(
-                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
-                )
-                axes[0].scatter(x_coords, y_coords, marker="x", c="r", s=0.01)
-                axes[0].set_title(
+                self.fig.suptitle(
                     f"Slice {slice_no}, Spoke {spoke_number},"
                     f" Passed={spoke.passed}",
                 )
 
-                axes[1].plot(profile)
-                axes[1].set_title(f"{self.img_desc(dcm)}\nRadial profile")
+                # Low contrast slice (no mask)
+                vmin, vmax = self._window(dcm)
+                self.axes[0, 0].imshow(
+                    dcm.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
+                )
+                self.axes[0, 0].scatter(cx / dx, cy / dy, marker="o", c="y")
+                self.axes[0, 0].scatter(
+                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
+                )
+                self.axes[0, 0].scatter(
+                    x_coords, y_coords, marker="x", c="r", s=0.01,
+                )
+
+
+                self.axes[1, 0].imshow(
+                    dcm.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
+                )
+                self.axes[1, 0].imshow(
+                    template.mask(dcm),
+                    alpha=template.mask(dcm) * 0.1,
+                )
+                self.axes[1, 0].scatter(cx / dx, cy / dy, marker="o", c="y")
+                self.axes[1, 0].scatter(
+                    spoke.cx / dx, spoke.cy / dy, marker="o", c="r", s=0.05,
+                )
+                self.axes[1, 0].scatter(
+                    x_coords, y_coords, marker="x", c="r", s=0.01,
+                )
 
                 data_path = Path(self.dcm_list[0].filename).parent.name
                 img_path = (
@@ -487,7 +506,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
                         f"_{self.img_desc(dcm)}.png"
                     )
                 )
-                fig.savefig(img_path, dpi=150)
+                self.fig.savefig(img_path, dpi=150)
+                self.report_files.append(img_path)
+
+                self.fig = None
+                self.axes = None
                 plt.close()
 
         # Generate report if requested
@@ -495,10 +518,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             fig, axes = plt.subplots(1, 1, figsize=(8, 8))
 
             # Use intensity scaling
-            mean_val = np.mean(dcm.pixel_array)
-            std_val = np.std(dcm.pixel_array)
-            vmin = max(0, mean_val - 2 * std_val)
-            vmax = mean_val + 2 * std_val
+            vmin, vmax = self._window(dcm)
 
             axes.imshow(
                 dcm.pixel_array, cmap="gray", alpha=1, vmin=vmin, vmax=vmax,
@@ -622,6 +642,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             )
             fig.savefig(img_path)
             plt.close()
+            self.report_files.append(img_path)
 
         return lcod_center
 
@@ -702,8 +723,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def _analyze_profile(
             self,
-            profile:
-            np.ndarray,
+            profile: np.ndarray,
             spoke_number: int,
             *,
             std_tol: float = 0.01,
@@ -713,11 +733,12 @@ class ACRLowContrastObjectDetectability(HazenTask):
         Args:
             profile: Radial intensity profile
             spoke_number: Spoke number (0-9)
+            slice_no : Slice number 7-11.
             std_tol: Tolerance for the standard deviation for
                 detecting polynomial coefficients.
 
         Returns:
-            Tuple of (p-values, parameters) or (None, None) if analysis fails
+            Tuple of (p-values, parameters).
 
         """
         # De-trend with robust polynomial fitting
@@ -744,6 +765,53 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Fit linear model
         model = sm.OLS(smoothed, data).fit()
+
+        # Reporting
+        if self.report:
+            plt.clf()
+            self.fig, self.axes = plt.subplots(2, 2, figsize=(16, 16))
+
+            x = np.arange(profile.size)
+
+            self.axes[0, 1].plot(x, profile, label="Profile")
+
+            for i in range(3):
+                self.axes[0, 1].plot(
+                    x[template[:, i].astype(bool)],
+                    profile[template[:, i].astype(bool)],
+                    label=f"Object {i+1}",
+                )
+            self.axes[0, 1].plot(x, trend, label="Trend", linestyle="dashed")
+            self.axes[0, 1].legend()
+            self.axes[0, 1].set_title("Radial Profile")
+
+            self.axes[1, 1].plot(x, smoothed, label="De-trended")
+            for i in range(3):
+                obj_indexes = template[:, i].astype(bool)
+                self.axes[1, 1].plot(
+                    x[obj_indexes],
+                    smoothed[obj_indexes],
+                    label=f"Object {i+1}",
+                )
+
+                idx_max = np.argmax(smoothed[obj_indexes])
+                y_max = smoothed[obj_indexes][idx_max] * 0.95
+                x_max = x[obj_indexes][idx_max]
+                x_text = x_max - (np.max(x) - np.min(x)) * 0.05
+                y_text = (
+                    (np.min(smoothed) + np.min(smoothed[obj_indexes])) / 2
+                )
+                self.axes[1, 1].annotate(
+                    f"p = {model.pvalues[i]:.4f}",
+                    (x_max, y_max),    # Annotation
+                    (x_text, y_text),   # Text
+                    arrowprops={
+                        "arrowstyle": "->", "connectionstyle": "arc",
+                    },
+                )
+            self.axes[1, 1].legend()
+            self.axes[1, 1].set_title("De-trended profile")
+
         return model.pvalues[:3], model.params[:3]
 
 
@@ -759,3 +827,14 @@ class ACRLowContrastObjectDetectability(HazenTask):
         for i, d in enumerate(dist):
             profile[round(d - r):round(d + r), i] = 1
         return profile
+
+
+    @staticmethod
+    def _window(dcm: pydicom.FileDataset) -> tuple[float]:
+        """Return vmin, vmax values based on simple window method."""
+        mean_val = np.mean(dcm.pixel_array)
+        std_val = np.std(dcm.pixel_array)
+        vmin = max(0, mean_val - 2 * std_val)
+        vmax = mean_val + 2 * std_val
+        return (vmin, vmax)
+    
