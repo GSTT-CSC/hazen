@@ -63,6 +63,7 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 # Typing
 from __future__ import annotations
 
+import copy
 import functools
 from typing import TYPE_CHECKING
 
@@ -437,13 +438,14 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def count_spokes(
         self,
-        dcm: pydicom.Dataset,
+        raw: pydicom.Dataset,
         slice_no: int = -1,
         alpha: float = 0.05,
     ) -> np.ndarray:
         """Count the number of spokes using polar coordinate transformation."""
         # TODO(@abdrysdale): Apply smoothing before spoke detection
         # https://github.com/sbu-physics-mri/hazen-wales/issues/18
+        dcm = self._preprocess(raw)
 
         # Find the position of each spoke
         # (with the pixel coordinates of the each of the object centers)
@@ -453,11 +455,16 @@ class ACRLowContrastObjectDetectability(HazenTask):
         dx, dy = get_pixel_size(dcm)
         theta = template.theta
 
+        # Pre-process
+
         p_vals_all = []
         params_all = []
         for spoke in spokes:
             profile, (x_coords, y_coords), object_mask = spoke.profile(
-                dcm, size=90, return_coords=True, return_object_mask=True,
+                self._preprocess(dcm),
+                size=90,
+                return_coords=True,
+                return_object_mask=True,
             )
             p_vals, params = self._analyze_profile(profile, object_mask)
 
@@ -500,9 +507,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
 
                 # Low contrast slice (no mask)
-                vmin, vmax = self._window(dcm)
+                vmin, vmax = self._window(raw)
                 self.axes[0, 0].imshow(
-                    dcm.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
+                    raw.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
                 )
                 self.axes[0, 0].scatter(cx / dx, cy / dy, marker="o", c="y")
                 self.axes[0, 0].scatter(
@@ -513,6 +520,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
 
 
+                vmin, vmax = self._window(dcm)
                 self.axes[1, 0].imshow(
                     dcm.pixel_array, cmap="gray", vmin=vmin, vmax=vmax,
                 )
@@ -784,13 +792,15 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # Simple smoothing
         kernel = np.ones(3) / 3
-        smoothed = np.convolve(detrended, kernel, mode="same")
+        smoothed = np.convolve(
+            detrended - np.mean(detrended), kernel, mode="same",
+        ).reshape((profile.size, 1))
 
-        # Include intercept
-        data = np.column_stack([object_mask, np.ones_like(profile)])
+        # Prepare GLM
+        data = np.column_stack(object_mask, np.ones_like(profile))
 
-        # Fit linear model
-        model = sm.OLS(smoothed, data).fit()
+        # Fit GLM
+        model = sm.GLM(smoothed, data).fit()
 
         # Reporting
         if self.report:
@@ -849,3 +859,38 @@ class ACRLowContrastObjectDetectability(HazenTask):
         vmin = max(0, mean_val - 2 * std_val)
         vmax = mean_val + 2 * std_val
         return (vmin, vmax)
+
+
+    @staticmethod
+    def _preprocess(
+        dcm: pydicom.FileDataset,
+        threshold_min: float = 0.05,
+        threshold_max: float = 0.65,
+        threshold_step: float = 0.001,
+        lower: float = 0.1,
+        upper: float = 0.2,
+    ) -> pydicom.FileDataset:
+        """Preprocess the DICOM."""
+        processed = copy.deepcopy(dcm)
+        data = processed.pixel_array
+
+        fdata = data / np.max(data)    # Normalise
+
+        # Threshold
+        structure = np.ones((3, 3), dtype=int)
+        for thr in np.arange(threshold_min, threshold_max, threshold_step):
+            ret, thresh = cv2.threshold(fdata, thr, 1, 0)
+            labelled, ncomponents = sp.ndimage.measurements.label(
+                thresh, structure,
+            )
+            thresh_inner = labelled == np.max(labelled)
+            if lower < np.sum(thresh_inner != 0) / np.sum(fdata != 0) < upper:
+                break
+        data *= thresh_inner
+
+        processed.set_pixel_data(
+            data,
+            dcm[(0x0028,0x0004)].value, # Photometric Interpretation
+            dcm[(0x0028,0x0101)].value, # Bits Stored
+        )
+        return processed
