@@ -187,28 +187,28 @@ def main():
                 result_string = result.to_json()
                 print(result_string)
             return
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info("Processing", fns)
+        if selected_task == "acr_all":
+            package = importlib.import_module("hazenlib.tasks")
+            selected_tasks = [
+                t
+                for _, m, _ in pkgutil.iter_modules(
+                    package.__path__, package.__name__ + ".",
+                )
+                if (t := m.split(".")[-1]).startswith("acr")
+            ]
         else:
-            # Slice Position task, all ACR tasks except SNR
-            # may be enhanced, may be multi-frame
-            fns = [os.path.basename(fn) for fn in files]
-            print("Processing", fns)
-            if selected_task == "acr_all":
-                package = importlib.import_module("hazenlib.tasks")
-                selected_tasks = [
-                    t
-                    for _, m, _ in pkgutil.iter_modules(
-                        package.__path__, package.__name__ + ".",
-                    )
-                    if (t := m.split(".")[-1]).startswith("acr")
-                ]
-            else:
-                selected_tasks = [task]
+            selected_tasks = [task]
 
-            for selected_task in selected_tasks:
-                task = init_task(
-                    selected_task, files, report, report_dir, verbose=verbose)
-                result = task.run()
-                print(result.to_json())
+        for selected_task in selected_tasks:
+            task = init_task(
+                selected_task, files, report, report_dir, verbose=verbose)
+            result = task.run()
+            write_result(result, fmt=fmt, path=result_file)
+        return
 
     write_result(result, fmt=fmt, path=result_file)
 
