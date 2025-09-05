@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy | acr_low_contrast_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -190,7 +190,7 @@ def main():
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
         fns = [os.path.basename(fn) for fn in files]
-        logger.info("Processing", fns)
+        logger.info("Processing: %s", fns)
         if selected_task == "acr_all":
             package = importlib.import_module("hazenlib.tasks")
             selected_tasks = [
@@ -201,7 +201,7 @@ def main():
                 if (t := m.split(".")[-1]).startswith("acr")
             ]
         else:
-            selected_tasks = [task]
+            selected_tasks = [selected_task]
 
         for selected_task in selected_tasks:
             task = init_task(

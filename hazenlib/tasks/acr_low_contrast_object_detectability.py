@@ -64,18 +64,14 @@ Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 from __future__ import annotations
 
 import copy
-import functools
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     import pydicom
 
 # Python imports
 import logging
 from concurrent import futures
-from dataclasses import dataclass, field
 from pathlib import Path
 
 # Module imports
@@ -88,239 +84,11 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import Measurement, P_HazenTask, Result
+from hazenlib.types import LCODTemplate, Measurement, P_HazenTask, Result
 from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class LowContrastObject:
-    """Class for the Low Contrast Present within each spoke."""
-
-    x: int
-    y: int
-    diameter: float
-    value: float | None = None
-    detected: bool = False
-
-
-@dataclass
-class Spoke:
-    """Spoke radiating from the center to the edge of the LCOD disk.
-
-    Also contains the LowContrastObjects along the spoke.
-    """
-
-    cx: float
-    cy: float
-    theta: float        # Degrees
-
-    diameter: float
-
-    # Distance from the center (mm)
-    dist: tuple[float] = (12.5, 25, 38.0)
-
-    # Spoke length
-    length: float = 44.0
-
-    passed: bool = False
-
-    objects: Sequence[LowContrastObject] = field(init=False)
-
-    def __post_init__(self) -> None:
-        """Initialise the objects within the spoke."""
-        # y increases as the you down the image
-        # hence the minus sign is so that theta = 0
-        # corresponds to the object being visually
-        # above the center rather than below.
-        logger.debug("Creating objects along spoke angle: %f", self.theta)
-        self.objects = tuple(
-            LowContrastObject(
-                x=self.cx + d * np.sin(np.deg2rad(self.theta)),
-                y=self.cy - d * np.cos(np.deg2rad(self.theta)),
-                diameter=self.diameter,
-            )
-            for d in self.dist
-        )
-
-
-    def __len__(self) -> int:
-        """Objects within the spoke."""
-        return len(self.objects)
-
-    def __iter__(self) -> LowContrastObject:
-        """Iterate over the low contrast objects."""
-        return iter(self.objects)
-
-    def profile(
-        self,
-        dcm: pydicom.FileDataset,
-        size: int = 128,
-        offset: tuple[float] = (0.0, 0.0),
-        *,
-        return_object_mask: bool = False,
-        return_coords: bool = False,
-    ) -> tuple[np.ndarray]:
-        """Return the 1D profile of the DICOM for the spoke."""
-        px_x, px_y = get_pixel_size(dcm)
-        if px_x != px_y:
-            msg = "Only square pixels are supported"
-            logger.critcal("%s but got (%f, %f)", msg, px_x, px_y)
-            raise ValueError(msg)
-        r_coords = np.linspace(
-            0, self.length / px_x, size, endpoint=False,
-        )
-        theta_coords = np.zeros_like(r_coords) + self.theta
-
-        x_coords = (
-            (self.cx + offset[1]) / px_x
-            + r_coords * np.sin(np.deg2rad(theta_coords))
-        )
-        y_coords = (
-            (self.cy + offset[0]) / px_y
-            - r_coords * np.cos(np.deg2rad(theta_coords))
-        )
-
-        profile = sp.ndimage.map_coordinates(
-            dcm.pixel_array, [y_coords.ravel(), x_coords.ravel()], order=1,
-        )
-
-        rtn = [profile]
-
-        if return_coords:
-            rtn.append((x_coords, y_coords))
-        if return_object_mask:
-            object_mask = np.zeros((size, len(self)), dtype=bool)
-            r = np.linspace(0, self.length, size)
-            for i, obj in enumerate(self):
-                obj_r_pos = np.sqrt(
-                    (obj.x - self.cx) ** 2
-                    + (obj.y - self.cy) ** 2,
-                )
-                object_mask[:, i] = np.abs(r - obj_r_pos) <= obj.diameter / 4
-
-            rtn.append(object_mask)
-
-        if len(rtn) == 1:
-            return rtn[0]
-        return tuple(rtn)
-
-
-@dataclass
-class LCODTemplate:
-    """Template for the LCOD object."""
-
-    # Position of the center of the LCOD on the image.
-    cx: float
-    cy: float
-
-    # Angle of rotation for the 1st spoke (degrees)
-    theta: float
-
-    # Diameters of each low contrast object (mm)
-    # Starting with the largest spoke and moving clockwise.
-    diameters: tuple[float]  = (
-        7.00, 6.39, 5.78, 5.17, 4.55, 3.94, 3.33, 2.72, 2.11, 1.50,
-    )
-
-
-    @functools.cached_property
-    def spokes(self) -> Sequence[Spoke]:
-        """Position of each of the low contrast object spokes."""
-        return self._calc_spokes(
-            self.cx, self.cy, self.theta, self.diameters,
-        )
-
-    @staticmethod
-    @functools.lru_cache(maxsize=10)
-    def _calc_spokes(
-        cx: float,
-        cy: float,
-        theta: float,
-        diameters: tuple[float],
-    ) -> tuple[Spoke]:
-        # Spokes start with the largest and decrease in size clockwise
-        return tuple(
-            Spoke(cx, cy, theta + i * (360 / len(diameters)), d)
-            for i, d in enumerate(diameters)
-        )
-
-    def mask(
-        self,
-        dcm: pydicom.FileDataset,
-        offset: tuple[float] = (0.0, 0.0),
-        *,
-        subset: str = "all",
-        warn_if_object_out_of_bounds: bool = False,
-    ) -> np.ndarray:
-        """Mask the DICOM pixel array from the Spoke geometry.
-
-        DICOM file is used for relating pixel geometry to
-        the geometry of the acquisition.
-
-        Similarly, offset (y, x) is used to account for cropped images.
-        """
-        mask = np.zeros_like(dcm.pixel_array, dtype=np.bool)
-
-        # Convert from real coordinates to pixel coordinates
-        dx, dy = get_pixel_size(dcm)
-        y_grid, x_grid = np.meshgrid(
-            *[
-                np.linspace(v0, v0 + s * dv, num=s, endpoint=False)
-                for v0, dv, s in zip(
-                    offset, (dy, dx), mask.shape,
-                )
-            ],
-            indexing="ij",
-        )
-
-        for sidx, spoke in enumerate(self.spokes):
-            for oidx, obj in enumerate(spoke):
-                is_object = (
-                    (y_grid - obj.y) ** 2 + (x_grid - obj.x) ** 2
-                    <= (obj.diameter / 2) ** 2
-                )
-                # Compare actual to measured area to check if object is on the
-                # grid.
-                mask_area = 2 * np.sum(is_object) * (dx * dy)
-                obj_area = np.pi * (obj.diameter / 2) ** 2
-                if warn_if_object_out_of_bounds and not np.isclose(
-                    mask_area, obj_area, rtol=1e-1, atol=dx * dy,
-                ):
-                    logger.warning(
-                        "Object %d in spoke %d is out of bounds.\n"
-                        "File: %s\n"
-                        "Object area:\t%f\nMask area:\t%f\n"
-                        "Object:\n\tCenter: (%f, %f)\n\tDiameter: %f\n"
-                        "Image:\n\tPixel size: (%f, %f)\n\tShape: (%d, %d)",
-                        oidx,
-                        sidx,
-                        dcm.filename,
-                        obj_area, mask_area,
-                        obj.x, obj.y, obj.diameter,
-                        dx, dy, *mask.shape,
-                    )
-                match subset:
-                    case "all":
-                        object_considered_for_mask = True
-                    case "passed":
-                        object_considered_for_mask = obj.detected
-                    case "failed":
-                        object_considered_for_mask = not obj.detected
-                    case _:
-                        logger.warning(
-                            "Unrecognised mask subset %s."
-                            " Object included in mask.",
-                            subset,
-                        )
-                        object_considered_for_mask = True
-
-                if object_considered_for_mask:
-                    mask |= is_object
-        return mask
-
 
 class ACRLowContrastObjectDetectability(HazenTask):
     """Low Contrast Object Detectability (LCOD) class for the ACR phantom."""
@@ -797,7 +565,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         ).reshape((profile.size, 1))
 
         # Prepare GLM
-        data = np.column_stack(object_mask, np.ones_like(profile))
+        data = np.column_stack((object_mask, np.ones_like(profile)))
 
         # Fit GLM
         model = sm.GLM(smoothed, data).fit()

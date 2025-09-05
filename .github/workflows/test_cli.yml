@@ -75,6 +75,11 @@ jobs:
         run: |
           uv run hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
 
+      - name: test acr_low_contrast_object_detectability
+        if: always()
+        run: |
+          uv run hazen acr_low_contrast_object_detectability tests/data/acr/SiemensMTF --report
+
       - name: test_acr_all
         if: always()
         run: |
