@@ -177,3 +177,16 @@ class Result(JsonSerializableMixin):
                     and (unit is None or m.unit == unit)
             )
         ]
+
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return dict."""
+        # JsonSerializableMixin  doesn't include properties
+        base = super().to_dict()
+
+        # Add properties to dict.
+        base["measurements"] = [m.to_dict() for m in self.measurements]
+        base["report_images"] = list(self.report_images)
+        base["metadata"]  = self.metadata.to_dict()
+
+        return base

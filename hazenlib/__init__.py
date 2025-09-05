@@ -26,6 +26,8 @@ General Options: available for all Tasks
     --output=<path>              Provide a folder where report images are to be saved.
     --verbose                    Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)
     --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
+    --format <fmt>               Output format for test results. Choices: json (default),csv or tsv
+    --result=<path>              Path to the results path. If "-", default, will write to stdout.
 
 acr_snr & snr Task options:
     --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)
@@ -38,6 +40,7 @@ relaxometry Task options:
 
 import importlib
 import inspect
+import json
 import logging
 import os
 import pkgutil
@@ -46,6 +49,7 @@ import sys
 from docopt import docopt
 
 from hazenlib._version import __version__
+from hazenlib.formatters import write_result
 from hazenlib.logger import logger
 from hazenlib.utils import get_dicom_files
 
@@ -127,12 +131,13 @@ def main():
         level = log_levels[arguments["--log"]]
         logging.getLogger().setLevel(level)
     else:
-        # logging.basicConfig()
         logging.getLogger().setLevel(logging.INFO)
 
     report = arguments["--report"]
     report_dir = arguments["--output"] if arguments["--output"] else None
     verbose = arguments["--verbose"]
+    fmt = arguments["--format"] if arguments["--format"] else "json"
+    result_file = arguments["--result"] if arguments["--result"] else "-"
 
     logger.debug("The following files were identified as valid DICOMs:")
     files = get_dicom_files(arguments["<folder>"])
@@ -205,8 +210,7 @@ def main():
                 result = task.run()
                 print(result.to_json())
 
-    result_string = result.to_json()
-    print(result_string)
+    write_result(result, fmt=fmt, path=result_file)
 
 
 if __name__ == "__main__":
