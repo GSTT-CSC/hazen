@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -43,6 +43,7 @@ import inspect
 import json
 import logging
 import os
+import pkgutil
 import sys
 
 from docopt import docopt
@@ -186,13 +187,28 @@ def main():
                 result_string = result.to_json()
                 print(result_string)
             return
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info("Processing", fns)
+        if selected_task == "acr_all":
+            package = importlib.import_module("hazenlib.tasks")
+            selected_tasks = [
+                t
+                for _, m, _ in pkgutil.iter_modules(
+                    package.__path__, package.__name__ + ".",
+                )
+                if (t := m.split(".")[-1]).startswith("acr")
+            ]
         else:
-            # Slice Position task, all ACR tasks except SNR
-            # may be enhanced, may be multi-frame
-            fns = [os.path.basename(fn) for fn in files]
-            print("Processing", fns)
-            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
+            selected_tasks = [task]
+
+        for selected_task in selected_tasks:
+            task = init_task(
+                selected_task, files, report, report_dir, verbose=verbose)
             result = task.run()
+            write_result(result, fmt=fmt, path=result_file)
+        return
 
     write_result(result, fmt=fmt, path=result_file)
 
