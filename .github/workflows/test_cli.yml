@@ -75,6 +75,11 @@ jobs:
         run: |
           uv run hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
 
+      - name: test_acr_all
+        if: always()
+        run: |
+          uv run hazen acr_all tests/data/acr/SiemensMTF --report
+
       - name: test slice_position
         if: always()
         run: |
