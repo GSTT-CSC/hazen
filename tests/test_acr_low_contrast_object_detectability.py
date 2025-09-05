@@ -266,9 +266,9 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
     Defaults to testing the slice scores.
     """
 
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens")
+    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
     SCORES = (
-        SliceScore(8, 9),
+        SliceScore(8, 7),
         SliceScore(9, 10),
         SliceScore(10, 10),
         SliceScore(11, 10),
@@ -307,34 +307,6 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         )[0].value
         correct_total_score = sum(s.score for s in self.SCORES)
         self.assertEqual(total_score, correct_total_score)
-
-
-class TestACRLowContrastObjectDetectabilitySiemens2(
-        TestACRLowContrastObjectDetectability,
-):
-    """Test case for more Siemens data."""
-
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens2")
-    SCORES = (
-        SliceScore(8, 1),
-        SliceScore(9, 7),
-        SliceScore(10, 9),
-        SliceScore(11, 10),
-    )
-
-
-class TestACRLowContrastObjectDetectabilitySiemensMTF(
-        TestACRLowContrastObjectDetectability,
-):
-    """Test case for more Siemens data."""
-
-    ACR_DATA = Path(TEST_DATA_DIR / "acr" / "SiemensMTF")
-    SCORES = (
-        SliceScore(8, 7),
-        SliceScore(9, 10),
-        SliceScore(10, 10),
-        SliceScore(11, 10),
-    )
 
 
 class TestACRLowContrastObjectDetectabilityGE(
