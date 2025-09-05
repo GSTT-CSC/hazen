@@ -3,7 +3,7 @@ Welcome to the hazen Command Line Interface
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
@@ -36,18 +36,18 @@ relaxometry Task options:
     --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
 """
 
-import os
-import sys
-import json
+import importlib
 import inspect
 import logging
-import importlib
+import os
+import pkgutil
+import sys
 
 from docopt import docopt
-from pydicom import dcmread
-from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files, is_enhanced_dicom
+
 from hazenlib._version import __version__
+from hazenlib.logger import logger
+from hazenlib.utils import get_dicom_files
 
 """Hazen is designed to measure the same parameters from multiple images.
     While some tasks require a set of multiple images (within the same folder),
@@ -187,8 +187,23 @@ def main():
             # may be enhanced, may be multi-frame
             fns = [os.path.basename(fn) for fn in files]
             print("Processing", fns)
-            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
-            result = task.run()
+            if selected_task == "acr_all":
+                package = importlib.import_module("hazenlib.tasks")
+                selected_tasks = [
+                    t
+                    for _, m, _ in pkgutil.iter_modules(
+                        package.__path__, package.__name__ + ".",
+                    )
+                    if (t := m.split(".")[-1]).startswith("acr")
+                ]
+            else:
+                selected_tasks = [task]
+
+            for selected_task in selected_tasks:
+                task = init_task(
+                    selected_task, files, report, report_dir, verbose=verbose)
+                result = task.run()
+                print(result.to_json())
 
     result_string = result.to_json()
     print(result_string)
