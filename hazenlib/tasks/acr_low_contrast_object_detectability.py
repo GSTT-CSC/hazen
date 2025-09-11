@@ -84,7 +84,9 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import LCODTemplate, Measurement, P_HazenTask, Result
+from hazenlib.types import (
+    FailedStatsModel, LCODTemplate, Measurement, P_HazenTask, Result,
+)
 from hazenlib.utils import get_pixel_size
 from matplotlib.patches import Circle
 
@@ -97,6 +99,11 @@ class ACRLowContrastObjectDetectability(HazenTask):
             self, alpha: float = 0.0125, **kwargs: P_HazenTask.kwargs,
     ) -> None:
         """Initialise the LCOD object."""
+        # TODO(abdrysdale) : Validate and remove this warning.
+        logger.warning(
+            "The ACR Low Contrast Object Detectability test has not been"
+            " calibrated. Do not use these values for actual QA!",
+        )
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -143,6 +150,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
     def run(self) -> Result:
         """Run the LCOD analysis."""
         results = self.init_result_dict()
+
+        # TODO(abdrysdale) : Validate and remove this description
+        results.desc = f"{results.desc} - INVALID!"
+
         results.files = [
             self.img_desc(f)
             for f in self.ACR_obj.slice_stack[self.slice_range]
@@ -150,7 +161,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         total_spokes = 0
         for i, dcm in enumerate(self.ACR_obj.slice_stack[self.slice_range]):
-            slice_no = self.slice_range.step * i + self.slice_range.start
+            slice_no = 1 + self.slice_range.step * i + self.slice_range.start
             result = self.count_spokes(dcm, slice_no=slice_no, alpha=self.alpha)
             try:
                 num_spokes = min(i for i, r in enumerate(result) if not r)
@@ -568,7 +579,16 @@ class ACRLowContrastObjectDetectability(HazenTask):
         data = np.column_stack((object_mask, np.ones_like(profile)))
 
         # Fit GLM
-        model = sm.GLM(smoothed, data).fit()
+        try:
+            model = sm.GLM(smoothed, data).fit()
+        except ValueError:
+            logger.exception(
+                "Fit could not be obtained from data"
+                " - failing object detection",
+            )
+            # We return ones for the pvalues and params
+            # to indicate a profile detection failure.
+            model = FailedStatsModel()
 
         # Reporting
         if self.report:

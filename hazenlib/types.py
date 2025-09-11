@@ -137,6 +137,7 @@ class Result(JsonSerializableMixin):
 
     task: str
     files: str | Sequence[str] | None = None
+    desc: str = ""
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""
@@ -440,3 +441,18 @@ class LCODTemplate:
                 if object_considered_for_mask:
                     mask |= is_object
         return mask
+
+
+@dataclass(frozen=True)
+class FailedStatsModel:
+    """Dataclass for the failed stats model."""
+
+    @property
+    def pvalues(self) -> np.ndarray:
+        """Return the p-values - all ones."""
+        return np.ones(3)
+
+    @property
+    def params(self) -> np.ndarray:
+        """Return the p-values - all ones."""
+        return np.ones(3)
