@@ -426,10 +426,43 @@ def determine_orientation(dcm_list):
     # Get the number of images in the list,
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
-    iop = dcm_list[0].ImageOrientationPatient
-    x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
-    y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
-    z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
+
+    try:
+        iop = dcm_list[0].ImageOrientationPatient
+        x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
+        y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
+        z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
+
+    except AttributeError:
+        iop = dcm_list[
+            0
+        ].PerFrameFunctionalGroupsSequence[
+            0
+        ].PlaneOrientationSequence[
+            0
+        ].ImageOrientationPatient
+
+        x = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[0],
+        ) for dcm in dcm_list])
+        y = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[1],
+        ) for dcm in dcm_list])
+        z = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[2],
+        ) for dcm in dcm_list])
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient
