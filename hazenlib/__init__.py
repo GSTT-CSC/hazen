@@ -201,7 +201,7 @@ def main():
                 if (t := m.split(".")[-1]).startswith("acr")
             ]
         else:
-            selected_tasks = [task]
+            selected_tasks = [selected_task]
 
         for selected_task in selected_tasks:
             task = init_task(
