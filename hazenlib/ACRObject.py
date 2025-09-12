@@ -44,8 +44,23 @@ class ACRObject:
         | T2                 | 2000 |   80 |                5 |         5 |
         * Older protocols use 20mm
         """
-        TR = self.slice_stack[0][(0x0018, 0x0080)].value        # noqa: N806
-        TE = self.slice_stack[0][(0x0018, 0x0081)].value        # noqa: N806
+        try:
+            TR = self.slice_stack[0][(0x0018, 0x0080)].value        # noqa: N806
+            TE = self.slice_stack[0][(0x0018, 0x0081)].value        # noqa: N806
+        except KeyError:
+            # Assuming enhanced DICOM
+            logger.debug(self.slice_stack[0])
+            TR = (      # noqa: N806
+                self.slice_stack[0]
+                .SharedFunctionalGroupsSequence[0] [(0x0018,0x9112)][0]
+                .RepetitionTime
+            )
+            TE = (      # noqa: N806
+                self.slice_stack[0]
+                .PerFrameFunctionalGroupsSequence[0]
+                .MREchoSequence[0]
+                .EffectiveEchoTime
+            )
 
         match (TR, TE):
 
