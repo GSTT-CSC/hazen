@@ -4,7 +4,7 @@ import scipy
 import skimage
 import numpy as np
 from hazenlib.logger import logger
-from hazenlib.utils import determine_orientation, detect_circle
+from hazenlib.utils import determine_orientation, detect_circle, get_pixel_size
 
 
 class ACRObject:
@@ -24,7 +24,7 @@ class ACRObject:
 
         # # Initialise an ACR object from a list of images of the ACR phantom
         # Store pixel spacing value from the first image (expected to be the same for all)
-        self.dx, self.dy = dcm_list[0].PixelSpacing
+        self.dx, self.dy = get_pixel_size(dcm_list[0])
 
         # Perform sorting of the input DICOM list based on position
         sorted_dcms = self.sort_dcms(dcm_list)

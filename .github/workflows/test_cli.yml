@@ -75,6 +75,16 @@ jobs:
         run: |
           uv run hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
 
+      - name: test acr_low_contrast_object_detectability
+        if: always()
+        run: |
+          uv run hazen acr_low_contrast_object_detectability tests/data/acr/SiemensMTF --report
+
+      - name: test_acr_all
+        if: always()
+        run: |
+          uv run hazen acr_all tests/data/acr/SiemensMTF --report
+
       - name: test slice_position
         if: always()
         run: |
@@ -112,4 +122,21 @@ jobs:
         run: |
           uv run hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc T1 --plate_number=5 --report
           uv run hazen relaxometry tests/data/relaxometry/T2/site3_ge/plate4/ --calc T2 --plate_number=4 --report
+
+      - name: test_output_formatting
+        if always()
+        run: |
+          uv run hazen snr tests/data/snr/Siemens --format json
+          uv run hazen snr tests/data/snr/Siemens --format csv
+          uv run hazen snr tests/data/snr/Siemens --format tsv
+          uv run hazen snr tests/data/snr/Siemens --result out.json
+          uv run hazen snr tests/data/snr/Siemens --format csv --result out.csv
+          uv run hazen snr tests/data/snr/Siemens --format tsv --result out.tsv
+          uv run hazen acr_snr tests/data/acr/Siemens --format json
+          uv run hazen acr_snr tests/data/acr/Siemens --format csv
+          uv run hazen acr_snr tests/data/acr/Siemens --format tsv
+          uv run hazen acr_snr tests/data/acr/Siemens --result out.json
+          uv run hazen acr_snr tests/data/acr/Siemens --format csv --result out.csv
+          uv run hazen acr_snr tests/data/acr/Siemens --format tsv --result out.tsv
+
 
