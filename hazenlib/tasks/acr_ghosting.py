@@ -53,7 +53,7 @@ class ACRGhosting(HazenTask):
             results.add_measurement(
                 Measurement(
                     name="Ghosting",
-                    type="measurement",
+                    type="measured",
                     subtype="signal ghosting",
                     value=round(result, 3),
                     unit="%",

@@ -198,14 +198,18 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
     return slice_thickness
 
 
-def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
+def get_pixel_size(
+        dcm: pydicom.Dataset, *, swap_indexes: bool = False,
+) -> (float, float):
     """Get the PixelSpacing field from the DICOM header
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
+        swap_indexes : If True, will return (dy, dx) else (dx, dy)
 
     Returns:
         tuple of float: x and y values of the PixelSpacing field from the DICOM header
+
     """
     manufacturer = get_manufacturer(dcm)
     try:
@@ -228,6 +232,8 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
             logger.error(msg)
             raise Exception(msg)
 
+    if swap_indexes:
+        return dy, dx
     return dx, dy
 
 
