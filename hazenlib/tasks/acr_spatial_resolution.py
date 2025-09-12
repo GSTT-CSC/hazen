@@ -82,7 +82,7 @@ class ACRSpatialResolution(HazenTask):
             )
 
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = self.img_desc(mtf_dcm)
 
         try:

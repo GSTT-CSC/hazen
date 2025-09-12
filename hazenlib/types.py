@@ -136,6 +136,7 @@ class Result(JsonSerializableMixin):
     """Canonical result any Task.run() must return."""
 
     task: str
+    desc: str = ""
     files: str | Sequence[str] | None = None
     desc: str = ""
 

@@ -149,7 +149,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     def run(self) -> Result:
         """Run the LCOD analysis."""
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
 
         # TODO(abdrysdale) : Validate and remove this description
         results.desc = f"{results.desc} - INVALID!"

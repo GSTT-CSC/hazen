@@ -62,7 +62,7 @@ class ACRSlicePosition(HazenTask):
         dcms = [self.ACR_obj.slice_stack[0], self.ACR_obj.slice_stack[-1]]
 
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = [self.img_desc(dcm) for dcm in dcms]
 
         for dcm in dcms:

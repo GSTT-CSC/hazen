@@ -80,7 +80,7 @@ class ACRSNR(HazenTask):
         # Identify relevant slice
         snr_dcm = self.ACR_obj.slice_stack[6]
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
 
         # SINGLE METHOD (SMOOTHING)
         if self.subtract is None:
