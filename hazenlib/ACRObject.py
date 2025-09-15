@@ -1,10 +1,22 @@
+from __future__ import annotations
+
+import copy
+# Typing imports
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
+
 import sys
+
 import cv2
+import numpy as np
 import scipy
 import skimage
-import numpy as np
+
 from hazenlib.logger import logger
-from hazenlib.utils import determine_orientation, detect_circle, get_pixel_size
+from hazenlib.utils import (detect_circle, determine_orientation,
+                            get_pixel_size, is_enhanced_dicom)
 
 
 class ACRObject:
@@ -26,11 +38,45 @@ class ACRObject:
         # Store pixel spacing value from the first image (expected to be the same for all)
         self.dx, self.dy = get_pixel_size(dcm_list[0])
 
+        # Correctly handle single enhanced DICOM images
+        if len(dcm_list) == 1 and is_enhanced_dicom(dcm_list[0]):
+            dcm_list = self._split_multiframe_dicom(dcm_list[0])
+
+
         # Perform sorting of the input DICOM list based on position
         sorted_dcms = self.sort_dcms(dcm_list)
 
         # Perform sorting of the image slices based on phantom orientation
         self.slice_stack = self.order_phantom_slices(sorted_dcms)
+
+
+    @staticmethod
+    def _split_multiframe_dicom(
+        dcm: pydicom.FileDataset,
+    ) -> list[pydicom.FileDataset]:
+        """Split a multiframe DICOM into individual single-frame DICOMs."""
+        if not is_enhanced_dicom(dcm):
+            msg = "DICOM is not an enhanced DICOM"
+            logger.error("%s - it should be!", msg)
+            raise ValueError(msg)
+
+        frame_count = dcm.NumberOfFrames
+        single_frames = []
+
+        for frame_idx in range(frame_count):
+            # Create new DICOM object for this frame
+            frame_dcm = copy.deepcopy(dcm)
+
+            # Extract single frame pixel data
+            frame_dcm.set_pixel_data(
+                dcm.pixel_array[frame_idx, :, :],
+                dcm[(0x0028,0x0004)].value, # Photometric Interpretation
+                dcm[(0x0028,0x0101)].value, # Bits Stored
+            )
+
+            single_frames.append(frame_dcm)
+
+        return single_frames
 
 
     def acquisition_type(self, *, strict: bool = True) -> str:
