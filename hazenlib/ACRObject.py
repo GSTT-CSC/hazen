@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import copy
 # Typing imports
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     import pydicom
 
+import copy
 import sys
 
 import cv2
@@ -20,31 +20,37 @@ from hazenlib.utils import (detect_circle, determine_orientation,
 
 
 class ACRObject:
-    """Base class for performing tasks on image sets of the ACR phantom. \n
+    """Base class for performing tasks on image sets of the ACR phantom.
+
     acquired following the ACR Large phantom guidelines
     """
 
-    def __init__(self, dcm_list):
-        """Initialise an ACR object instance
+    def __init__(self, dcm_list: list[pydicom.FileDataset]) -> None:
+        """Initialise an ACR object instance.
 
         Args:
-            dcm_list (list): list of pydicom.Dataset objects - DICOM files loaded
+            dcm_list (list): list of pydicom.Dataset objects
+                - DICOM files loaded
+
         """
         # First, need to determine if input DICOMs are
         # enhanced or normal, single or multi-frame
         # may be 11 in 1 or 11 separate DCM objects
 
         # # Initialise an ACR object from a list of images of the ACR phantom
-        # Store pixel spacing value from the first image (expected to be the same for all)
+        # Store pixel spacing value from the first image
+        # (expected to be the same for all)
         self.dx, self.dy = get_pixel_size(dcm_list[0])
 
         # Correctly handle single enhanced DICOM images
         if len(dcm_list) == 1 and is_enhanced_dicom(dcm_list[0]):
-            dcm_list = self._split_multiframe_dicom(dcm_list[0])
 
+            # Multi-frame DICOMs do not need sorting as already sorted.
+            sorted_dcms = self._split_multiframe_dicom(dcm_list[0])
 
-        # Perform sorting of the input DICOM list based on position
-        sorted_dcms = self.sort_dcms(dcm_list)
+        else:
+            # Perform sorting of the input DICOM list based on position
+            sorted_dcms = self.sort_dcms(dcm_list)
 
         # Perform sorting of the image slices based on phantom orientation
         self.slice_stack = self.order_phantom_slices(sorted_dcms)
