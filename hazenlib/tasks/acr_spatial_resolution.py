@@ -287,10 +287,14 @@ class ACRSpatialResolution(HazenTask):
         )
 
         popt, pcov = scipy.optimize.curve_fit(
-            func, x_data, crop_img.ravel(), p0=[0, 0, bright, dark], maxfev=1000
+            func,
+            x_data,
+            crop_img.ravel(),
+            p0=[0, 0, bright, dark],
+            maxfev=10000,
         )
         surface = func(x_data, popt[0], popt[1], popt[2], popt[3]).reshape(
-            crop_img.shape
+            crop_img.shape,
         )
 
         slope = 1 / popt[0] if direction in ("leftward", "upward") else -1 / popt[0]
