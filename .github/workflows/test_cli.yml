@@ -124,7 +124,7 @@ jobs:
           uv run hazen relaxometry tests/data/relaxometry/T2/site3_ge/plate4/ --calc T2 --plate_number=4 --report
 
       - name: test_output_formatting
-        if always()
+        if: always()
         run: |
           uv run hazen snr tests/data/snr/Siemens --format json
           uv run hazen snr tests/data/snr/Siemens --format csv
