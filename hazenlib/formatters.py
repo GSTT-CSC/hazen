@@ -52,8 +52,9 @@ def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
     if path == "-":
          _format_results(data, fmt, sys.stdout)
          return
-    with Path(path).open("w", newline="") as fp:
-        _format_results(data, fmt, fp)
+    with Path(path).open("a", newline="") as fp:
+        write_header = not Path(path).exists()
+        _format_results(data, fmt, fp, write_header=write_header)
 
 # ----------------------------------------------------------------------
 # Private API
@@ -70,6 +71,8 @@ def _format_results(
         data: Mapping[str, Any],
         fmt: Format,
         out_fh: TextIO,
+        *,
+        write_header: bool = True,
 ) -> None:
     """Dispatcher that writes *data* to *out_fh* in the requested *fmt*.
 
@@ -89,7 +92,11 @@ def _format_results(
 
 
 def _write_csv(
-    data: Mapping[str, Any], out_fh: TextIO, *, delimiter: str,
+    data: Mapping[str, Any],
+    out_fh: TextIO,
+    *,
+    delimiter: str,
+    write_header: bool = True,
 ) -> None:
     """Write a flat mapping as a two-row CSV/TSV file."""
     rows = _build_rows(data)
@@ -103,7 +110,8 @@ def _write_csv(
         fieldnames=rows[0].keys(),
         delimiter=delimiter,
     )
-    writer.writeheader()
+    if write_header:
+        writer.writeheader()
     for row in rows:
         writer.writerow(row)
 
