@@ -1,11 +1,24 @@
+# Python imports
+import logging
 import sys
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+import tomllib
 import unittest
-import pydicom
+from pathlib import Path
+
 import hazenlib
-from hazenlib.utils import get_dicom_files, is_dicom_file
-from hazenlib.tasks.snr import SNR
+import numpy as np
+import pydicom
 from hazenlib.tasks.relaxometry import Relaxometry
+from hazenlib.tasks.snr import SNR
+
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import get_dicom_files
+
+# Local imports
+from tests import TEST_DATA_DIR
+
+
+logger = logging.getLogger(__name__)
 
 
 class TestCliParser(unittest.TestCase):
@@ -13,7 +26,22 @@ class TestCliParser(unittest.TestCase):
 
     def setUp(self):
         self.file = str(TEST_DATA_DIR / "resolution" / "philips" / "IM-0004-0002.dcm")
-        self.dcm = pydicom.read_file(self.file)
+        self.dcm = pydicom.dcmread(self.file)
+
+    def test_version(self):
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with pyproject_path.open("rb") as fp:
+            pyproject_data = tomllib.load(fp)
+
+        expected_version = pyproject_data["project"]["version"]
+        self.assertEqual(
+            hazenlib.__version__,
+            expected_version,
+            (
+                f"Package version {hazenlib.__version__} does not match"
+                f" pyproject.toml version {expected_version}"
+            ),
+        )
 
     def test1_logger(self):
         path = str(TEST_DATA_DIR / "resolution" / "RESOLUTION")
@@ -41,19 +69,72 @@ class TestCliParser(unittest.TestCase):
         snr_task = SNR(input_data=files, report=False, measured_slice_width=5)
         result = snr_task.run()
 
-        dict1 = {
-            "task": "SNR",
-            "file": ["SNR_SAG_MEAS1_23_1", "SNR_SAG_MEAS2_24_1"],
-            "measurement": {
-                "snr by smoothing": {
-                    "SNR_SAG_MEAS1_23_1": {"measured": 184.41, "normalised": 1522.17},
-                    "SNR_SAG_MEAS2_24_1": {"measured": 189.38, "normalised": 1563.2},
-                },
-                "snr by subtraction": {"measured": 183.97, "normalised": 1518.61},
-            },
-        }
+        measurements = [
+            Measurement(
+                name="SNR",
+                subtype="subtraction",
+                value=183.97,
+                type="measured",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="subtraction",
+                value=1518.61,
+                type="normalised",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=184.41,
+                type="measured",
+                description="SNR_SAG_MEAS1_23_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=1522.17,
+                type="normalised",
+                description="SNR_SAG_MEAS1_23_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=189.38,
+                type="measured",
+                description="SNR_SAG_MEAS2_24_1",
+            ),
+            Measurement(
+                name="SNR",
+                subtype="smoothing",
+                value=1563.2,
+                type="normalised",
+                description="SNR_SAG_MEAS2_24_1",
+            ),
+        ]
 
-        self.assertDictEqual(result, dict1)
+        dict1 = Result(
+            task="SNR",
+            files=["SNR_SAG_MEAS1_23_1", "SNR_SAG_MEAS2_24_1"],
+        )
+
+        for m in measurements:
+            dict1.add_measurement(m)
+
+        self.assertEqual(vars(result).keys(), vars(dict1).keys())
+        for k, v in vars(result).items():
+            if k != "measurement":
+                self.assertEqual(v, vars(dict1)[k])
+
+        for m_d in dict1.measurements:
+            m_r = result.get_measurement(
+                name=m_d.name,
+                measurement_type=m_d.type,
+                subtype=m_d.subtype,
+                description=m_d.description,
+                unit=m_d.unit,
+            )[0]
+            self.assertAlmostEqual(m_r.value, m_d.value)
+
 
     def test_relaxometry(self):
         path = str(TEST_DATA_DIR / "relaxometry" / "T1" / "site3_ge" / "plate4")
@@ -61,14 +142,21 @@ class TestCliParser(unittest.TestCase):
         relaxometry_task = Relaxometry(input_data=files, report=False)
         result = relaxometry_task.run(calc="T1", plate_number=4, verbose=False)
 
-        dict1 = {
-            "task": "Relaxometry",
-            "file": "Spin_Echo_34_2_4_t1",
-            "measurement": {"rms_frac_time_difference": 0.135},
-        }
-        self.assertEqual(dict1.keys(), result.keys())
+        dict1 = Result(
+            task="Relaxometry",
+            files="Spin_Echo_34_2_4_t1",
+        )
+
+        measurement = Measurement(
+            name="Relaxometry",
+            type="measured",
+            subtype="rms_frac_time_difference",
+            value=0.135,
+        )
+        dict1.add_measurement(measurement)
+        self.assertEqual(vars(dict1).keys(), vars(result).keys())
         self.assertAlmostEqual(
-            dict1["measurement"]["rms_frac_time_difference"],
-            result["measurement"]["rms_frac_time_difference"],
+            measurement.value,
+            result.get_measurement(name="Relaxometry")[0].value,
             4,
         )

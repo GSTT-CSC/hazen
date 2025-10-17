@@ -38,7 +38,7 @@ class TestGhosting(unittest.TestCase):
     GHOSTING = 0.11803264099090763
 
     def setUp(self):
-        self.dcm = pydicom.read_file(
+        self.dcm = pydicom.dcmread(
             os.path.join(TEST_DATA_DIR, "ghosting", "GHOSTING", "IM_0001.dcm")
         )
         self.ghosting = Ghosting(
@@ -140,7 +140,7 @@ class TestCOLPEGhosting(TestGhosting):
     GHOSTING = 0.015138960417776908
 
     def setUp(self):
-        self.dcm = pydicom.read_file(
+        self.dcm = pydicom.dcmread(
             os.path.join(
                 TEST_DATA_DIR,
                 "ghosting",
@@ -184,7 +184,7 @@ class TestAxialPhilipsGhosting(TestGhosting):
     GHOSTING = 0.007246960909896829
 
     def setUp(self):
-        self.dcm = pydicom.read_file(
+        self.dcm = pydicom.dcmread(
             os.path.join(
                 TEST_DATA_DIR, "ghosting", "GHOSTING", "axial_philips_ghosting.dcm"
             )

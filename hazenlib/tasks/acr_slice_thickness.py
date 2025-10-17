@@ -16,28 +16,32 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
-from hazenlib.utils import get_image_orientation
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import get_image_orientation
 
 
 class ACRSliceThickness(HazenTask):
     """Slice width measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice width measurement
         using slice 1 from the ACR phantom image set.
 
@@ -61,12 +65,20 @@ class ACRSliceThickness(HazenTask):
             slice_thickness_dcm.PixelData = rotated_img.tobytes()
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(slice_thickness_dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(slice_thickness_dcm)
 
         try:
             result = self.get_slice_thickness(slice_thickness_dcm)
-            results["measurement"] = {"slice width mm": round(result, 2)}
+            results.add_measurement(
+                Measurement(
+                    name="SliceWidth",
+                    type="measurement",
+                    subtype="slice width",
+                    unit="mm",
+                    value=(result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the slice thickness for %s"
@@ -77,7 +89,7 @@ class ACRSliceThickness(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

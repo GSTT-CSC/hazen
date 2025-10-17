@@ -19,34 +19,48 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
-import numpy as np
 
-from hazenlib.HazenTask import HazenTask
+import numpy as np
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRUniformity(HazenTask):
     """Uniformity measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing uniformity measurement using slice 7 from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
             result = self.get_integral_uniformity(self.ACR_obj.slice_stack[6])
-            results["measurement"] = {"integral uniformity %": round(result, 2)}
+            results.add_measurement(
+                Measurement(
+                    name="Uniformity",
+                    type="measured",
+                    subtype="Integral uniformity",
+                    unit="%",
+                    value=round(result, 2),
+                ),
+            )
         except Exception as e:
             logger.exception(
                 "Could not calculate the percent integral uniformity for %s"
@@ -58,7 +72,7 @@ class ACRUniformity(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

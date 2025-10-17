@@ -25,24 +25,30 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import skimage.measure
-import skimage.transform
 import skimage.morphology
-
-from hazenlib.HazenTask import HazenTask
+import skimage.transform
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRGeometricAccuracy(HazenTask):
     """Geometric accuracy measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
@@ -50,18 +56,26 @@ class ACRGeometricAccuracy(HazenTask):
         """
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = [
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = [
             self.img_desc(self.ACR_obj.slice_stack[0]),
             self.img_desc(self.ACR_obj.slice_stack[4]),
         ]
 
         try:
             lengths_1 = self.get_geometric_accuracy(0)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[0])] = {
-                "Horizontal distance": round(lengths_1[0], 2),
-                "Vertical distance": round(lengths_1[1], 2),
-            }
+            for len_1, t in zip(lengths_1, ("Horizontal", "Vertical")):
+                results.add_measurement(
+                    Measurement(
+                        name="GeometricAccuracy",
+                        type="measured",
+                        subtype=f"{t} distance",
+                        description=self.img_desc(self.ACR_obj.slice_stack[0]),
+                        value=round(len_1, 2),
+                        unit="mm",
+                    ),
+                )
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the geometric accuracy for"
@@ -73,12 +87,25 @@ class ACRGeometricAccuracy(HazenTask):
 
         try:
             lengths_5 = self.get_geometric_accuracy(4)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[4])] = {
-                "Horizontal distance": round(lengths_5[0], 2),
-                "Vertical distance": round(lengths_5[1], 2),
-                "Diagonal distance SW": round(lengths_5[2], 2),
-                "Diagonal distance SE": round(lengths_5[3], 2),
-            }
+            for len_5, t in zip(
+                    lengths_5,
+                    (
+                        "Horizontal",
+                        "Vertical",
+                        "Diagonal SW",
+                        "Diagonal SE",
+                    ),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="GeometricAccuracy",
+                        type="measured",
+                        subtype=f"{t} distance",
+                        description=self.img_desc(self.ACR_obj.slice_stack[4]),
+                        value= round(len_5, 2),
+                        unit="",
+                    ),
+                )
         except Exception as e:
             logger.exception(
                 "Could not calculate the geometric accuracy for"
@@ -92,15 +119,38 @@ class ACRGeometricAccuracy(HazenTask):
 
         mean_err, max_err, cov_l = self.get_distortion_metrics(L)
 
-        results["measurement"]["distortion"] = {
-            "Mean relative measurement error": round(mean_err, 2),
-            "Max absolute measurement error": round(max_err, 2),
-            "Coefficient of variation %": round(cov_l, 2),
-        }
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="measured",
+                subtype="distortion",
+                description="Mean relative error",
+                value=round(mean_err, 2),
+            ),
+        )
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="measured",
+                subtype="distortion",
+                description="Max absolute error",
+                value=round(max_err, 2),
+            ),
+        )
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="fitted",
+                subtype="distortion",
+                description="Coefficient of variation",
+                value=round(cov_l, 2),
+                unit="%",
+            ),
+        )
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 

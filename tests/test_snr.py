@@ -43,13 +43,22 @@ class TestSnr(unittest.TestCase):
     def test_image_snr(self):
         val = self.snr.run()
         img_desc = self.snr.img_desc(self.snr.dcm_list[0])
-        smoothing_snr = val["measurement"]["snr by smoothing"][img_desc]["normalised"]
+        smoothing_snr = val.get_measurement(
+            name="SNR",
+            subtype="smoothing",
+            measurement_type="normalised",
+            description=img_desc,
+        )[0].value
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR
+            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR,
         )
-        subtract_snr = val["measurement"]["snr by subtraction"]["normalised"]
+        subtract_snr = val.get_measurement(
+            name="SNR",
+            subtype="subtraction",
+            measurement_type="normalised",
+        )[0].value
         self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR
+            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR,
         )
 
     def test_SNR_factor(self):
@@ -80,8 +89,8 @@ class TestSnrPhilips(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "Philips"), sort=True
@@ -113,8 +122,8 @@ class TestSnrGE(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "GE"), sort=True
@@ -143,8 +152,8 @@ class TestSnrThreshold(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
+        # self.test_file = pydicom.dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
+        # self.test_file_2 = pydicom.dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr_threshold", "VIDA"), sort=True

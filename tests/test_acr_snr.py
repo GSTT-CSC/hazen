@@ -52,7 +52,7 @@ class TestACRSNRSiemens(TestACRSNRGE):
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
         self.snr_dcm2 = ACRObject(
             [
-                pydicom.read_file(
+                pydicom.dcmread(
                     os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}")
                 )
                 for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens2"))

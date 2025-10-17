@@ -198,14 +198,18 @@ def get_slice_thickness(dcm: pydicom.Dataset) -> float:
     return slice_thickness
 
 
-def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
+def get_pixel_size(
+        dcm: pydicom.Dataset, *, swap_indexes: bool = False,
+) -> (float, float):
     """Get the PixelSpacing field from the DICOM header
 
     Args:
         dcm (pydicom.Dataset): DICOM image object
+        swap_indexes : If True, will return (dy, dx) else (dx, dy)
 
     Returns:
         tuple of float: x and y values of the PixelSpacing field from the DICOM header
+
     """
     manufacturer = get_manufacturer(dcm)
     try:
@@ -228,6 +232,8 @@ def get_pixel_size(dcm: pydicom.Dataset) -> (float, float):
             logger.error(msg)
             raise Exception(msg)
 
+    if swap_indexes:
+        return dy, dx
     return dx, dy
 
 
@@ -420,10 +426,43 @@ def determine_orientation(dcm_list):
     # Get the number of images in the list,
     # assuming each have a unique position in one of the 3 directions
     expected = len(dcm_list)
-    iop = dcm_list[0].ImageOrientationPatient
-    x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
-    y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
-    z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
+
+    try:
+        iop = dcm_list[0].ImageOrientationPatient
+        x = np.array([round(dcm.ImagePositionPatient[0]) for dcm in dcm_list])
+        y = np.array([round(dcm.ImagePositionPatient[1]) for dcm in dcm_list])
+        z = np.array([round(dcm.ImagePositionPatient[2]) for dcm in dcm_list])
+
+    except AttributeError:
+        iop = dcm_list[
+            0
+        ].PerFrameFunctionalGroupsSequence[
+            0
+        ].PlaneOrientationSequence[
+            0
+        ].ImageOrientationPatient
+
+        x = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[0],
+        ) for dcm in dcm_list])
+        y = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[1],
+        ) for dcm in dcm_list])
+        z = np.array([round(
+            dcm.PerFrameFunctionalGroupsSequence[
+                0
+            ].PlaneOrientationSequence[
+                0
+            ].ImageOrientationPatient[2],
+        ) for dcm in dcm_list])
 
     # Determine phantom orientation based on DICOM header metadata
     # Assume phantom orientation based on ImageOrientationPatient

@@ -143,7 +143,7 @@ class CanonTestSlicePosition(TestSlicePosition):
     ]
 
     def setUp(self):
-        # self.test_files = [pydicom.read_file(str(i), force=True) for i in (self.SLICE_POS / 'canon').iterdir()]
+        # self.test_files = [pydicom.dcmread(str(i), force=True) for i in (self.SLICE_POS / 'canon').iterdir()]
         # self.test_files.sort(key=lambda x: x.SliceLocation)
         self.hazen_slice_position = SlicePosition(
             input_data=get_dicom_files(os.path.join(self.SLICE_POS, "canon")),

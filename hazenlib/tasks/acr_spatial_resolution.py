@@ -37,16 +37,16 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
-import numpy as np
 
 import cv2
+import numpy as np
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRSpatialResolution(HazenTask):
@@ -56,10 +56,15 @@ class ACRSpatialResolution(HazenTask):
     """
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing spatial resolution measurement
         using slice 1 from the ACR phantom image set
 
@@ -77,16 +82,36 @@ class ACRSpatialResolution(HazenTask):
             )
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(mtf_dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(mtf_dcm)
 
         try:
             raw_res, fitted_res = self.get_mtf50(mtf_dcm)
-            results["measurement"] = {
-                "estimated rotation angle": round(rot_ang, 2),
-                "raw mtf50": round(raw_res, 2),
-                "fitted mtf50": round(fitted_res, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="estimate rotation angle",
+                    value=round(rot_ang, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="raw",
+                    subtype="mtf50",
+                    value=round(raw_res, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="fitted",
+                    subtype="mtf50",
+                    value=round(fitted_res, 2),
+                ),
+            )
+
         except Exception as e:
             logger.exception(
                 "Could not calculate the spatial resolution for %s"
@@ -98,7 +123,7 @@ class ACRSpatialResolution(HazenTask):
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -262,10 +287,14 @@ class ACRSpatialResolution(HazenTask):
         )
 
         popt, pcov = scipy.optimize.curve_fit(
-            func, x_data, crop_img.ravel(), p0=[0, 0, bright, dark], maxfev=1000
+            func,
+            x_data,
+            crop_img.ravel(),
+            p0=[0, 0, bright, dark],
+            maxfev=10000,
         )
         surface = func(x_data, popt[0], popt[1], popt[2], popt[3]).reshape(
-            crop_img.shape
+            crop_img.shape,
         )
 
         slope = 1 / popt[0] if direction in ("leftward", "upward") else -1 / popt[0]
@@ -461,8 +490,8 @@ class ACRSpatialResolution(HazenTask):
 
         if self.report:
             edge_loc = self.edge_location_for_plot(crop_img, edge_type)
-            import matplotlib.pyplot as plt
             import matplotlib.patches as patches
+            import matplotlib.pyplot as plt
 
             fig, axes = plt.subplots(5, 1)
             fig.set_size_inches(8, 40)

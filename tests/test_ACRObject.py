@@ -18,7 +18,7 @@ class TestACRTools(unittest.TestCase):
 
     def setUp(self):
         self.Siemens_data = [
-            pydicom.read_file(os.path.join(TEST_DATA_DIR, "acr", "Siemens", f"{i}"))
+            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "Siemens", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens"))
         ]
 
@@ -57,7 +57,7 @@ class TestACRToolsTRA(TestACRTools):
 
     def setUp(self):
         self.TRA_data = [
-            pydicom.read_file(
+            pydicom.dcmread(
                 os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_TRA_ONE", f"{i}")
             )
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_TRA_ONE"))
@@ -79,7 +79,7 @@ class TestACRToolsCOR(TestACRTools):
 
     def setUp(self):
         self.COR_data = [
-            pydicom.read_file(
+            pydicom.dcmread(
                 os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_COR_ONE", f"{i}")
             )
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_COR_ONE"))
@@ -101,7 +101,7 @@ class TestACRToolsSAG(TestACRTools):
 
     def setUp(self):
         self.SAG_data = [
-            pydicom.read_file(
+            pydicom.dcmread(
                 os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_SAG_ONE", f"{i}")
             )
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "ACR_BODY_SAG_ONE"))
@@ -125,7 +125,7 @@ class TestACRToolsGE(TestACRTools):
 
     def setUp(self):
         self.GE_data = [
-            pydicom.read_file(os.path.join(TEST_DATA_DIR, "acr", "GE", f"{i}"))
+            pydicom.dcmread(os.path.join(TEST_DATA_DIR, "acr", "GE", f"{i}"))
             for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "GE"))
         ]
 
