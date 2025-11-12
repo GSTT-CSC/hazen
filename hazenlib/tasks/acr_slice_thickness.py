@@ -127,8 +127,8 @@ class ACRSliceThickness(HazenTask):
         # Y
         c = skimage.measure.profile_line(
             img,
-            (centre[1] - 2 * investigate_region, centre[0]),
-            (centre[1] + 2 * investigate_region, centre[0]),
+            (centre[1] - 1.9 * investigate_region, centre[0]),
+            (centre[1] + 1.1 * investigate_region, centre[0]),
             mode="constant",
         ).flatten()
 
