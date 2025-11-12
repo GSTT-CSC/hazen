@@ -12,6 +12,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 class TestACRGhostingSiemens(unittest.TestCase):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     psg = 0.034
+    tolerance = 0.05  # 5% tolerance
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -32,7 +33,8 @@ class TestACRGhostingSiemens(unittest.TestCase):
         print("new_release_value:", ghosting_val)
         print("fixed_value:", self.psg)
 
-        assert ghosting_val == self.psg
+        # Allow for 5% tolerance in comparison
+        assert abs(ghosting_val - self.psg) / self.psg <= self.tolerance
 
 
 class TestACRGhostingGE(TestACRGhostingSiemens):

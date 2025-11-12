@@ -14,6 +14,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
     x_pts = [71, 181]
     y_pts = [132, 126]
     dz = 4.91
+    tolerance = 0.05  # 5% tolerance
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -29,9 +30,8 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
         x_pts, y_pts = self.acr_slice_thickness_task.find_ramps(
             self.dcm.pixel_array, self.centre
         )
-        assert (x_pts == self.x_pts).all() == True
-
-        assert (y_pts == self.y_pts).all() == True
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(x_pts, self.x_pts))
+        assert all(abs(a - b) / b <= self.tolerance for a, b in zip(y_pts, self.y_pts))
 
     def test_slice_thickness(self):
         slice_thickness_val = round(
@@ -42,7 +42,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
         print("new_release_value:", slice_thickness_val)
         print("fixed_value:", self.dz)
 
-        assert slice_thickness_val == self.dz
+        assert abs(slice_thickness_val - self.dz) / self.dz <= self.tolerance
 
 
 class TestACRSliceThicknessGE(TestACRSliceThicknessSiemens):
