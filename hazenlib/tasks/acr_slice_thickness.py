@@ -17,6 +17,8 @@ import os
 import sys
 import traceback
 import numpy as np
+import cv2
+import matplotlib.pyplot as plt
 
 import scipy
 import skimage.morphology
@@ -141,6 +143,82 @@ class ACRSliceThickness(HazenTask):
         y = np.round([np.max(y_locs) - 0.25 * height, np.min(y_locs) + 0.25 * height])
 
         return x, y
+
+    def offset_point(p1, p2, factor):
+        """Offsets a given point p1, by the vector between
+        points p2 and p1 divided by the factor parameter.
+    
+        Args:
+            p1 (list): Point 1, [x, y]
+            p2 (list): Point 2, [x, y]
+            factor (int): Scaling factor for the vector offset.
+    
+        Returns:
+            point (list): Point 1 after offset.
+        """
+        vector = [p2[0] - p1[0], p2[1] - p1[1]]
+        offset_vector = [x / factor for x in vector]
+        point = p1 + offset_vector
+    
+        return point
+
+    def position_lines(img):
+        """Position profile lines on the image.
+        Works for a rotated phantom.
+    
+        Args:
+            img (np.ndarray): Pixel array from DICOM image.
+    
+        Returns:
+            lines (list): A list of the two profile lines,
+                          each of the form [startPoint, endPoint]
+        """
+        # Applying canny edge to uint8 representation of imgage and dilating.
+        img_uint8 = np.uint8(cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX))
+        img_uint8 = cv2.GaussianBlur(img_uint8, ksize=(15, 15), sigmaX=0, sigmaY=0)
+        canny = cv2.dilate(
+            cv2.Canny(img_uint8, threshold1=25, threshold2=50), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        )
+    
+        # Find Contours. Sort by horizontal span and select second in list (which will be central insert)
+        contours, _ = cv2.findContours(canny, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_NONE)
+        contours = sorted(contours, key=lambda cont: abs(np.max(cont[:, 0, 0]) - np.min(cont[:, 0, 0])), reverse=True)
+        rectCont = np.intp(cv2.boxPoints(cv2.minAreaRect(contours[1])))
+    
+        # Offset points by 1/3 of distance to nearest point, towards that point
+        testPoint = rectCont[0]
+        _, closest, middle, furthest = sorted(rectCont, key=lambda x: np.linalg.norm(testPoint - x))
+        offset_points = [
+            self.offset_point(testPoint, closest, 3),
+            self.offset_point(closest, testPoint, 3),
+            self.offset_point(middle, furthest, 3),
+            self.offset_point(furthest, middle, 3),
+        ]
+    
+        # Offset points by 1/8 of distance to line pair point, towards that point
+        testPoint = offset_points[0]
+        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
+        offset_points = [
+            self.offset_point(testPoint, middle, 8),
+            self.offset_point(middle, testPoint, 8),
+            self.offset_point(closest, furthest, 8),
+            self.offset_point(furthest, closest, 8),
+        ]
+    
+        # Determine which points to join to form the lines.
+        testPoint = offset_points[0]
+        _, closest, middle, furthest = sorted(offset_points, key=lambda x: np.linalg.norm(testPoint - x))
+    
+        line1, line2 = [testPoint, middle], [closest, furthest]
+        lines = [line1, line2]
+    
+        # Temporary code to demonstrate proof of concept
+        for line in lines:
+            plt.plot([line[0][0], line[1][0]], [line[0][1], line[1][1]])
+        plt.imshow(img)
+        plt.show()
+    
+        return lines
 
     def FWHM(self, data):
         """Calculate full width at half maximum of the line profile.
