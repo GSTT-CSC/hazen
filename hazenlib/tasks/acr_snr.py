@@ -26,6 +26,7 @@ import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
 from hazenlib.logger import logger
+from scipy.ndimage import center_of_mass, shift as nd_shift
 
 
 class ACRSNR(HazenTask):
@@ -47,6 +48,65 @@ class ACRSNR(HazenTask):
         except:
             self.subtract = None
 
+    def detect_best_rotation(self, ref_img):
+        """
+        Detects the best rotation/flip to align the ACR phantom automatically.
+        Returns a tuple: (rotation_name, rotation_function).
+        """
+        transforms = [
+            (lambda x: x, 'identity'),
+            (lambda x: np.rot90(x, 1), 'rot90'),
+            (lambda x: np.rot90(x, 2), 'rot180'),
+            (lambda x: np.rot90(x, 3), 'rot270'),
+            (lambda x: np.fliplr(x), 'fliplr'),
+            (lambda x: np.flipud(x), 'flipud'),
+            (lambda x: np.fliplr(np.rot90(x, 1)), 'rot90+fliplr'),
+            (lambda x: np.flipud(np.rot90(x, 1)), 'rot90+flipud'),
+        ]
+
+        ref_img = ref_img.astype(np.float64)
+        ref_img = (ref_img - ref_img.min()) / (ref_img.max() - ref_img.min() + 1e-12)
+
+        # Use first slice as reference.
+        mov_img = self.ACR_obj.slice_stack[0].pixel_array.astype(np.float64)
+        mov_img = (mov_img - mov_img.min()) / (mov_img.max() - mov_img.min() + 1e-12)
+
+        best_mse = np.inf
+        best_name = 'identity'
+        best_func = lambda x: x
+
+        for func, name in transforms:
+            transformed = func(mov_img)
+            # Align by centroid
+            mask_ref = ref_img > 0.1
+            mask_mov = transformed > 0.1
+            cy_ref, cx_ref = center_of_mass(mask_ref)
+            cy_mov, cx_mov = center_of_mass(mask_mov)
+            shift_y = cy_ref - cy_mov
+            shift_x = cx_ref - cx_mov
+            aligned = nd_shift(transformed, shift=(shift_y, shift_x), order=1, mode='constant', cval=0.0)
+
+            # Compute mean squared error.
+            min_shape = tuple(np.minimum(ref_img.shape, aligned.shape))
+            mse = np.mean((ref_img[:min_shape[0], :min_shape[1]] - aligned[:min_shape[0], :min_shape[1]]) ** 2)
+
+            if mse < best_mse:
+                best_mse = mse
+                best_name = name
+                best_func = func
+
+        logger.info(f"Best rotation/flip detected: {best_name} (MSE={best_mse:.4e})")
+        return best_name, best_func
+
+    def apply_rotation_to_stack(self, rotation_func):
+        """
+        Applies a rotation/flip to all slices in self.ACR_obj.slice_stack.
+        Modifies pixel arrays in memory (safe, not written to disk).
+        """
+        for dcm in self.ACR_obj.slice_stack:
+            rotated = rotation_func(dcm.pixel_array)
+            dcm.PixelData = rotated.astype(dcm.pixel_array.dtype).tobytes()
+
     def run(self) -> dict:
         """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
         smoothing or subtraction method depending on user-provided input.
@@ -58,6 +118,11 @@ class ACRSNR(HazenTask):
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Identify relevant slice
+        ref_dcm = pydicom.dcmread("tests/data/acr/Siemens/0.dcm")
+        ref_img = ref_dcm.pixel_array.astype(np.float64)
+        ref_img = (ref_img - ref_img.min()) / (ref_img.max() - ref_img.min())
+        _, rotation_func = self.detect_best_rotation(ref_img)
+        self.apply_rotation_to_stack(rotation_func)
         snr_dcm = self.ACR_obj.slice_stack[6]
         # Initialise results dictionary
         results = self.init_result_dict()
