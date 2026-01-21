@@ -91,6 +91,12 @@ class ACRSNR(HazenTask):
                 for f in os.listdir(self.subtract)
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
+
+            count = -1
+            for file in filepaths:
+                count += 1
+                if ".DS_Store" in file:
+                    filepaths.pop(count)
             data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
 

@@ -76,9 +76,9 @@ class ACRUniformity(HazenTask):
             float: value of integral uniformity.
         """
         img = dcm.pixel_array
-        # Required pixel radius to produce ~200cm2 ROI
+        # Required pixel radius to produce ~200cm2 ROI (this produces 25000 mm2??)
         r_large = np.ceil(80 / self.ACR_obj.dx).astype(int)
-        # Required pixel radius to produce ~1cm2 ROI
+        # Required pixel radius to produce ~1cm2 ROI (produces 150mm2)
         r_small = np.ceil(np.sqrt(100 / np.pi) / self.ACR_obj.dx).astype(int)
         # Offset distance for rectangular void at top of phantom
         d_void = np.ceil(5 / self.ACR_obj.dy).astype(int)
