@@ -17,6 +17,7 @@ MEASUREMENT_NAMES = Literal[
     "SNRMap",
     "SpatialResolution",
     "Uniformity",
+    "ExecutionMetadata",
 ]
 
 MEASUREMENT_TYPES = Literal["measured", "normalised", "fitted", "raw"]

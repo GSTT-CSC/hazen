@@ -1,5 +1,8 @@
 """Application-specific errors"""
 
+# Python imports
+from collections.abc import Sequence
+
 # Local imports
 from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
 
@@ -66,4 +69,29 @@ class InvalidMeasurementTypeError(ValueError):
             f"Invalid measurement type: {measurement_type}."
             f" Must be one of {MEASUREMENT_TYPES}"
         )
+        super().__init__(msg)
+
+
+class UnknownAcquisitionTypeError(ValueError):
+    """Unknown Acquisition Type Error."""
+
+    def __init__(self, acquisition_type: str) -> None:
+        """Initialise the error."""
+        msg = f"Unknown acquisition type: {acquisition_type}"
+        super().__init__(msg)
+
+
+class UnknownTaskNameError(ValueError):
+    """Unknown Task Name Error."""
+
+    def __init__(
+        self,
+        task_name: str,
+        available_tasks: str | Sequence[str] | None,
+    ) -> None:
+        """Initialise the error."""
+        msg = f"Unknown task '{task_name}'"
+        if available_tasks is not None:
+            msg += f". Available tasks: {available_tasks}"
+
         super().__init__(msg)

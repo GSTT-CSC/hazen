@@ -20,6 +20,7 @@ from __future__ import annotations
 
 # Python imports
 import copy
+import multiprocessing
 import os
 import re
 from collections import defaultdict
@@ -1132,7 +1133,7 @@ def detect_roi_center(img, argx):
     return x, y
 
 
-def wait_on_parallel_results(fxn, arg_list=[]):
+def wait_on_parallel_results(fxn, arg_list=None, *, debug: bool = False):
     """Parallelises a function into n number of jobs. It uses Python's multiprocessing Pool to spawn several processes
     that accept each job instance and processes it. The main use in this project is as a way to keep the report writing
     as fast as possible when we have multiple images to write to disk.
@@ -1141,10 +1142,16 @@ def wait_on_parallel_results(fxn, arg_list=[]):
         fxn (function): function symbol to execute on arguments
         arg_list (list of tuple): List of tuples. Each tuple has the list of parameters to pass to function. Therefore,
             each tuple symbolizes a job we need to process using the specified function.
+        debug : If True, runs sequentially rather than using parallel.
 
     Returns:
         list: List of values returned by each job.
     """
+    arg_list = () if arg_list is None else arg_list
+    # Check if already in a daemon process
+    if multiprocessing.current_process().daemon or debug:
+        return [fxn(*args) for args in arg_list]
+
     with Pool() as pool:
         results = []
         result_handles = []

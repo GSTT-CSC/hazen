@@ -27,7 +27,7 @@ class ShapeSetUp(unittest.TestCase):
     )
 
     SAG_RECTANGLE_PHANTOM_FILE = str(TEST_DATA_DIR / "uniformity" / "sag.dcm")
-    rectangle_size = (204, 177.0)     # (Vertical, Horizontal)
+    rectangle_size = (204, 177.0)  # (Vertical, Horizontal)
     rectangle_angle = -90
     rectangle_centre = (130.500015, 134.499985)
 

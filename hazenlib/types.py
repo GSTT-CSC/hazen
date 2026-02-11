@@ -168,7 +168,7 @@ class Result(JsonSerializableMixin):
 
     task: str
     desc: str = ""
-    files: str | Sequence[str] | None = None
+    files: str | Sequence[str] | Sequence[Sequence[str]] | None = None
 
     def __post_init__(self) -> None:
         """Initialize the measurements, report_images and metadata."""

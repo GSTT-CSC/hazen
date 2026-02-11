@@ -33,89 +33,94 @@ jobs:
           uv sync
 
       # "if: always option" runs step even if previous fails - useful to ensure all CLI functions tested
+      - name: test_acr_all
+        if: always()
+        run: |
+          uv run hazen acr_all tests/data/acr/Siemens_Sola_1.5T_T1/ tests/data/acr/Siemens_Sola_1.5T_T2/ tests/data/acr/GE_Signa_1.5T_Sagittal_Localizer/ --report --profile
+
       - name: test_snr
         if: always()
         run: |
-          uv run hazen snr tests/data/snr/Siemens --report
+          uv run hazen snr tests/data/snr/Siemens --report --profile
           uv run hazen snr tests/data/snr/Siemens --measured_slice_width 5.0012 --report
 
       - name: test_acr_snr
         if: always()
         run: |
-          uv run hazen acr_snr tests/data/acr/Siemens --report
+          uv run hazen acr_snr tests/data/acr/Siemens --report --profile
           uv run hazen acr_snr tests/data/acr/Siemens --subtract tests/data/acr/Siemens2 --report
 
       - name: test acr_uniformity
         if: always()
         run: |
-          uv run hazen acr_uniformity tests/data/acr/Siemens --report
+          uv run hazen acr_uniformity tests/data/acr/Siemens --report --profile
       
       - name: test acr_ghosting
         if: always()
         run: |
-          uv run hazen acr_ghosting tests/data/acr/Siemens --report
+          uv run hazen acr_ghosting tests/data/acr/Siemens --report --profile
           
       - name: test acr_slice_position
         if: always()
         run: |
-          uv run hazen acr_slice_position tests/data/acr/Siemens --report
+          uv run hazen acr_slice_position tests/data/acr/Siemens --report --profile
 
       - name: test acr_slice_thickness
         if: always()
         run: |
-          uv run hazen acr_slice_thickness tests/data/acr/Siemens --report
+          uv run hazen acr_slice_thickness tests/data/acr/Siemens --report --profile
 
       - name: test acr_geometric_accuracy
         if: always()
         run: |
-          uv run hazen acr_geometric_accuracy tests/data/acr/Siemens --report
+          uv run hazen acr_geometric_accuracy tests/data/acr/Siemens --report --profile
 
       - name: test acr_spatial_resolution
         if: always()
         run: |
-          uv run hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report
+          uv run hazen acr_spatial_resolution tests/data/acr/SiemensMTF --report --profile
 
       - name: test acr_low_contrast_object_detectability
         if: always()
         run: |
-          uv run hazen acr_low_contrast_object_detectability tests/data/acr/SiemensMTF --report
+          uv run hazen acr_low_contrast_object_detectability tests/data/acr/SiemensMTF --report --profile
 
       - name: test slice_position
         if: always()
         run: |
-          uv run hazen slice_position tests/data/slicepos/SLICEPOSITION --report
+          uv run hazen slice_position tests/data/slicepos/SLICEPOSITION --report --profile
 
       - name: test slice_width
         if: always()
         run: |
           uv run hazen slice_width tests/data/slicewidth/512_matrix --report
-          uv run hazen slice_width tests/data/slicewidth/SLICEWIDTH --report
+          uv run hazen slice_width tests/data/slicewidth/SLICEWIDTH --report --profile
 
       - name: test spatial_resolution
         if: always()
         run: |
-          uv run hazen spatial_resolution tests/data/resolution/RESOLUTION/ --report
+          uv run hazen spatial_resolution tests/data/resolution/RESOLUTION/ --report --profile
 
       - name: test uniformity
         if: always()
         run: |
-           uv run hazen uniformity tests/data/uniformity --report
+           uv run hazen uniformity tests/data/uniformity --report --profile
 
       - name: test ghosting
         if: always()
         run: |
-          uv run hazen ghosting tests/data/ghosting/GHOSTING --report
+          uv run hazen ghosting tests/data/ghosting/GHOSTING --report --profile
           uv run hazen ghosting tests/data/ghosting/PE_COL_PHANTOM_BOTTOM_RIGHT --report
 
       - name: test snr_map
         if: always()
         run: |
-          uv run hazen snr_map tests/data/snr/Siemens --report
+          uv run hazen snr_map tests/data/snr/Siemens --report --profile
 
       - name: test relaxometry
         if: always()
         run: |
-          uv run hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc T1 --plate_number=5 --report
+          uv run hazen relaxometry tests/data/relaxometry/T1/site1_20200218/plate5 --calc T1 --plate_number=5 --report --profile
           uv run hazen relaxometry tests/data/relaxometry/T2/site3_ge/plate4/ --calc T2 --plate_number=4 --report
 
       - name: test_output_formatting

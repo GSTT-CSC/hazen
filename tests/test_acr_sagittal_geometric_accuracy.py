@@ -7,13 +7,15 @@ import pathlib
 import unittest
 
 import numpy as np
-from hazenlib.tasks.acr_sagittal_geometric_accuracy import \
-    ACRSagittalGeometricAccuracy
+from hazenlib.tasks.acr_sagittal_geometric_accuracy import (
+    ACRSagittalGeometricAccuracy,
+)
 from hazenlib.utils import get_dicom_files
 
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 logger = logging.getLogger(__name__)
+
 
 class TestACRSagittalGeometricAccuracySiemens(unittest.TestCase):
     """Base test class for the Siemens Sagittal Localizer Geometric Accuracy."""
@@ -41,8 +43,7 @@ class TestACRSagittalGeometricAccuracySiemens(unittest.TestCase):
     def test_geometric_accuracy_slice_1(self) -> None:
         """Test the geometric accuracy of slice 1."""
         logger.info(
-            "new_release: %f\n"
-            "fixed value: %f",
+            "new_release: %f\nfixed value: %f",
             self.slice1_val,
             self.L1,
         )

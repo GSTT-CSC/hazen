@@ -1,180 +1,36 @@
-"""
-Welcome to the hazen Command Line Interface
+"""Welcome to the hazen Command Line Interface.
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness |
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness |
 acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy |
 acr_low_contrast_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
 relaxometry
+
+Note that the acr_all task requires 3 directories as arguments
+(T1, T2 and Sagittal Localiser) whilst all other commands require
+a single positional directory argument. That is:
+
+hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 """
 
 import argparse
-import importlib
 import logging
 import os
 
 from hazenlib._version import __version__
+from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
-from hazenlib.types import PhantomType, TaskMetadata
+from hazenlib.orchestration import (
+    ACRLargePhantomProtocol,
+    TASK_REGISTRY,
+    init_task,
+)
 from hazenlib.utils import get_dicom_files
-
-TASK_REGISTRY = {
-    # MagNET #
-    "snr": TaskMetadata(
-        module_name="snr",
-        class_name="SNR",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "ghosting": TaskMetadata(
-        module_name="ghosting",
-        class_name="Ghosting",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "uniformity": TaskMetadata(
-        module_name="uniformity",
-        class_name="Uniformity",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "spatial_resolution": TaskMetadata(
-        module_name="spatial_resolution",
-        class_name="SpatialResolution",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_width": TaskMetadata(
-        module_name="slice_width",
-        class_name="SliceWidth",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_position": TaskMetadata(
-        module_name="slice_position",
-        class_name="SlicePosition",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "snr_map": TaskMetadata(
-        module_name="snr_map",
-        class_name="SNRMap",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    # ACR #
-    "acr_geometric_accuracy": TaskMetadata(
-        module_name="acr_geometric_accuracy",
-        class_name="ACRGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_ghosting": TaskMetadata(
-        module_name="acr_ghosting",
-        class_name="ACRGhosting",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_low_contrast_object_detectability": TaskMetadata(
-        module_name="acr_low_contrast_object_detectability",
-        class_name="ACRLowContrastObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_object_detectability": TaskMetadata(
-        module_name="acr_object_detectability",
-        class_name="ACRObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_position": TaskMetadata(
-        module_name="acr_slice_position",
-        class_name="ACRSlicePosition",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_thickness": TaskMetadata(
-        module_name="acr_slice_thickness",
-        class_name="ACRSliceThickness",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_snr": TaskMetadata(
-        module_name="acr_snr",
-        class_name="ACRSNR",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_spatial_resolution": TaskMetadata(
-        module_name="acr_spatial_resolution",
-        class_name="ACRSpatialResolution",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_sagittal_geometric_accuracy": TaskMetadata(
-        module_name="acr_sagittal_geometric_accuracy",
-        class_name="ACRSagittalGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_uniformity": TaskMetadata(
-        module_name="acr_uniformity",
-        class_name="ACRUniformity",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    # Caliber
-    "relaxometry": TaskMetadata(
-        module_name="relaxometry",
-        class_name="Relaxometry",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-}
-
-
-def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class.
-
-    Args:
-        selected_task (string): name of task script/module to load
-        files (list): list of filepaths to DICOM images
-        report (bool): whether to generate report images
-        report_dir (string): path to folder to save report images to
-        kwargs: any other key word arguments
-
-    Returns:
-        an object of the specified HazenTask class
-
-    """
-    try:
-        meta = TASK_REGISTRY[selected_task]
-    except KeyError:
-        msg = f"Unknown task: {selected_task}"
-        logger.error(
-            "%s. Supported tasks are:\n%s", "\n\t".join(TASK_REGISTRY)
-        )
-        raise ValueError(msg)
-
-    # Import module
-    task_module = importlib.import_module(f"hazenlib.tasks.{meta.module_name}")
-
-    # Get explicit class
-    try:
-        task_class = getattr(task_module, meta.class_name)
-    except AttributeError as err:
-        raise ImportError(
-            f"Module {meta.module_name} has no class '{meta.class_name}'"
-        ) from err
-
-    return task_class(
-        input_data=files, report=report, report_dir=report_dir, **kwargs
-    )
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -185,15 +41,23 @@ def get_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "task",
-        choices=list(TASK_REGISTRY.keys()),
+        # TODO(@abdrysdale): Add a list of protocols in registry.
+        choices=list(TASK_REGISTRY.keys()) + ["acr_all"],
         help="The task to run",
     )
     parser.add_argument(
         "folder",
         help="Path to folder containing DICOM files",
+        nargs="+",
     )
 
     # General options available for all tasks
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Include execution time metadata in results",
+    )
+
     parser.add_argument(
         "--report",
         action="store_true",
@@ -290,10 +154,15 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
-    """Main entrypoint to hazen"""
+def main() -> None:
+    """Primary entrypoint to hazen."""
     parser = get_parser()
     args = parser.parse_args()
+
+    execution_wrapper = (
+        timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+    )
+
     single_image_tasks = [
         task for task in TASK_REGISTRY.values() if task.single_image
     ]
@@ -315,13 +184,44 @@ def main():
     fmt = args.format
     result_file = args.result
 
-    logger.info(f"Hazen version: {__version__}")
-    logger.debug("The following files were identified as valid DICOMs:")
-    files = get_dicom_files(args.folder)
-    logger.debug("%s task will be set off on %s images", args.task, len(files))
-
     # Parse the task and optional arguments:
     selected_task = args.task.lower()
+
+    logger.info(f"Hazen version: {__version__}")
+
+    #################################
+    # Special Case the ACR ALL Task #
+    #################################
+
+    if selected_task == "acr_all":
+        task = ACRLargePhantomProtocol(
+            args.folder,
+            report=report,
+            report_dir=report_dir,
+            verbose=verbose,
+        )
+        protocol = execution_wrapper(task.run)
+        for result in protocol.results:
+            write_result(result, fmt=fmt, path=result_file)
+        return
+    if len(args.folder) != 1:
+        parser.error(
+            f"Task '{selected_task}' expects exactly one folder"
+            f" as a positional argument, but {len(args.folder)}"
+            " were provided",
+        )
+
+    #####################
+    # Single task usage #
+    #####################
+
+    logger.debug("The following files were identified as valid DICOMs:")
+    files = get_dicom_files(args.folder[0])
+    logger.debug(
+        "%s task will be set off on %s images",
+        args.task,
+        len(files),
+    )
 
     if selected_task == "snr":
         task = init_task(
@@ -332,7 +232,7 @@ def main():
             measured_slice_width=args.measured_slice_width,
             coil=args.coil,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
     elif selected_task == "acr_snr":
         task = init_task(
             selected_task,
@@ -342,7 +242,7 @@ def main():
             subtract=args.subtract,
             measured_slice_width=args.measured_slice_width,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
     elif selected_task == "relaxometry":
         missing_args = []
         if args.calc is None:
@@ -352,10 +252,11 @@ def main():
         if missing_args:
             parser.error(
                 f"relaxometry task requires the following arguments: "
-                f"{', '.join(missing_args)}"
+                f"{', '.join(missing_args)}",
             )
         task = init_task(selected_task, files, report, report_dir)
-        result = task.run(
+        result = execution_wrapper(
+            task.run,
             calc=args.calc,
             plate_number=args.plate_number,
             verbose=verbose,
@@ -366,7 +267,7 @@ def main():
             # for now these are most likely not enhanced, single-frame
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
-                result = task.run()
+                result = execution_wrapper(task.run)
                 write_result(result, fmt=fmt, path=result_file)
             return
         # Slice Position task, all ACR tasks except SNR
@@ -380,12 +281,8 @@ def main():
             report_dir,
             verbose=verbose,
         )
-        result = task.run()
+        result = execution_wrapper(task.run)
 
-        task = init_task(
-            selected_task, files, report, report_dir, verbose=verbose
-        )
-        result = task.run()
         write_result(result, fmt=fmt, path=result_file)
         return
 

@@ -88,9 +88,15 @@ import statsmodels
 import statsmodels.api as sm
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
-from hazenlib.types import (FailedStatsModel, LCODTemplate, Measurement,
-                            P_HazenTask, Result, SpokeReportData,
-                            StatsParameters)
+from hazenlib.types import (
+    FailedStatsModel,
+    LCODTemplate,
+    Measurement,
+    P_HazenTask,
+    Result,
+    SpokeReportData,
+    StatsParameters,
+)
 from matplotlib.gridspec import GridSpec
 from matplotlib.patches import Circle
 
@@ -258,7 +264,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         increments = [
             self.ACR_obj.dx * i
             for i in range(
-                - max_inc,
+                -max_inc,
                 max_inc + 1,
                 step,
             )
@@ -276,7 +282,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 for dx in increments
                 for dy in increments
             ],
-            key=lambda t: t.cx ** 2 + t.cy ** 2,
+            key=lambda t: t.cx**2 + t.cy**2,
         )
 
     def _get_params_and_p_vals(
@@ -307,12 +313,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     object_mask,
                 )
 
-                if (
-                    t_idx == 0
-                    or (
-                        np.sum(p_vals) < np.sum(min_pvals)      # noqa: F821
-                        and all(params > 0)
-                    )
+                if t_idx == 0 or (
+                    np.sum(p_vals) < np.sum(min_pvals)  # noqa: F821
+                    and all(params > 0)
                 ):
                     min_pvals = p_vals
                     min_params = params
@@ -350,7 +353,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Get analysis data
         report_data = [] if self.report else None
 
-
         for spoke_id, spoke in enumerate(spokes):
             profile, (x_coords, y_coords), object_mask = spoke.profile(
                 dcm,
@@ -384,7 +386,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
 
         sp = self._get_params_and_p_vals(
-            template, dcm, use_ensemble_template=True,
+            template,
+            dcm,
+            use_ensemble_template=True,
         )
 
         # FDR correction
@@ -784,7 +788,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 )
 
             for obj, detected in zip(
-                spoke_data.objects, spoke_data.detected, strict=True,
+                spoke_data.objects,
+                spoke_data.detected,
+                strict=True,
             ):
                 color = "green" if detected else "red"
                 circle = Circle(
@@ -1129,7 +1135,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         return processed
 
     def _smooth_profile(
-        self, profile: np.ndarray, sigma: int = 5,
+        self,
+        profile: np.ndarray,
+        sigma: int = 5,
     ) -> np.ndarray:
         return sp.ndimage.gaussian_filter(
             profile,
@@ -1137,7 +1145,6 @@ class ACRLowContrastObjectDetectability(HazenTask):
             mode="constant",
             cval=np.mean(profile),
         )
-
 
     def _detrend_profile(
         self,
@@ -1219,7 +1226,9 @@ class ACRLowContrastObjectDetectability(HazenTask):
         intersection_indices = []
         with contextlib.suppress(TypeError):
             for xi, yi in intersection_points:
-                distances = np.sqrt((x_coords - xi) ** 2 + (y_coords - yi) ** 2)
+                distances = np.sqrt(
+                    (x_coords - xi) ** 2 + (y_coords - yi) ** 2
+                )
                 closest_idx = np.argmin(distances)
                 intersection_indices.append(closest_idx)
 
@@ -1262,8 +1271,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         if len(intersection_indices) > 0:
             # Ensure indices are within bounds
             valid_indices = [
-                idx for idx in intersection_indices
-                if 0 <= idx < len(profile)
+                idx for idx in intersection_indices if 0 <= idx < len(profile)
             ]
             if valid_indices:
                 ax.scatter(

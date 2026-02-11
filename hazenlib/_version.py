@@ -36,6 +36,7 @@ Version resolution strategy
   2. If no such distribution is found or all lookups fail, read the
      version from ``pyproject.toml`` and append ``\"+dev\"``.
 """
+
 import importlib.metadata
 import pathlib
 import tomllib

@@ -193,25 +193,31 @@ class ACRSagittalGeometricAccuracy(HazenTask):
         img, _, _ = self.ACR_obj.get_presentation_pixels(dcm)
 
         cxy, _ = self.ACR_obj.find_phantom_center(
-            img, self.ACR_obj.dx, self.ACR_obj.dy, axial=False,
+            img,
+            self.ACR_obj.dx,
+            self.ACR_obj.dy,
+            axial=False,
         )
         offset = (int(np.round(-15 / self.ACR_obj.dx)), 0)
 
         length_dicts = []
         for threshold in np.linspace(0.05, 0.09, 10, endpoint=True):
             mask = self.ACR_obj.get_mask_image(
-                img, cxy, mag_threshold=threshold,
+                img,
+                cxy,
+                mag_threshold=threshold,
             )
             length_dicts.append(
                 self.ACR_obj.measure_orthogonal_lengths(
-                    mask, cxy, v_offset=offset,
+                    mask,
+                    cxy,
+                    v_offset=offset,
                 ),
             )
 
         length_dict = {}
         for key in ("Vertical Distance",):
             length_dict[key] = np.mean([d[key] for d in length_dicts])
-
 
         if self.report:
             length_dict["Vertical Extent"] = length_dicts[

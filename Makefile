@@ -9,6 +9,10 @@ DOCS_DIR = docs
 
 ACR_DATA = tests/data/acr/GE_Artist_1.5T_T1
 
+ACR_DATA_T1 = tests/data/acr/GE_Artist_1.5T_T1
+ACR_DATA_T2 = tests/data/acr/GE_Artist_1.5T_T2
+ACR_DATA_SL = tests/data/acr/GE_Signa_1.5T_Sagittal_Localizer
+
 ##################
 # Default Target #
 ##################
@@ -137,8 +141,14 @@ acr-object-detectability:
 	$(VENV_CMD) hazen \
 	acr_object_detectability  $(ACR_DATA)
 
+.PHONY: acr-large-phantom-all
+acr-large-phantom-all:
+	$(VENV_CMD) hazen --profile \
+	acr_all $(ACR_DATA_T1) $(ACR_DATA_T2) $(ACR_DATA_SL)
+
 .PHONY: cli-acr-all
-cli-acr-all: acr-snr \
+cli-acr-all: acr-large-phantom-all \
+	acr-snr \
 	acr-uniformity \
 	acr-ghosting \
 	acr-slice-position \
@@ -177,7 +187,7 @@ magnet-slice-thickness:
 
 .PHONY: magnet-geometric-accuracy
 magnet-geometric-accuracy:
-	$(VENV_CMD) hazen geometric_accuracy 
+	$(VENV_CMD) hazen geometric_accuracy
 
 .PHONY: magnet-spatial-resolution
 magnet-spatial-resolution:
