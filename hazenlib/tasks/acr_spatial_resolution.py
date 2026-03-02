@@ -123,12 +123,15 @@ class ACRSpatialResolution(HazenTask):
                     subtype="Hole Arrays",
                     unit="mm",
                     value=hole_arrays,
+                    visibility="intermediate",
                 ),
             )
 
-            for res, desc in zip(
+            for res, desc, visibility in zip(
                 self.get_best_resolution(hole_arrays),
                 ("Upper Left", "Lower Right", "Best"),
+                ("intermediate", "intermediate", "final"),
+                strict=True,
             ):
                 results.add_measurement(
                     Measurement(
@@ -137,6 +140,7 @@ class ACRSpatialResolution(HazenTask):
                         subtype=desc,
                         unit="mm",
                         value=res,
+                        visibility=visibility,
                     ),
                 )
 

@@ -1,6 +1,6 @@
 [project]
 name = "hazen"
-version = "2.0.0a3"
+version = "2.0.0a4"
 description = "An automatic MRI QA tool"
 authors = [
         {name = "Alex Drysdale", email = "alexander.drysdale@wales.nhs.uk"},
@@ -48,3 +48,9 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hazenlib", "tests"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (excluded from test-fast)",
+    "smoke: marks tests as smoke tests (essential functionality)",
+]

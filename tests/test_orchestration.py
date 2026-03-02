@@ -343,7 +343,9 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         ):
             mock_inst = Mock()
             mock_inst.acquisition_type.side_effect = [
-                "T1", "T2", "sagittal localizer",
+                "T1",
+                "T2",
+                "sagittal localizer",
             ]
             mock_acr.return_value = mock_inst
 

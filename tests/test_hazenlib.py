@@ -75,6 +75,7 @@ class TestCliParser(unittest.TestCase):
                 subtype="subtraction",
                 value=183.97,
                 type="measured",
+                visibility="intermediate",
             ),
             Measurement(
                 name="SNR",
@@ -88,6 +89,7 @@ class TestCliParser(unittest.TestCase):
                 value=184.41,
                 type="measured",
                 description="SNR_SAG_MEAS1_23_1",
+                visibility="intermediate",
             ),
             Measurement(
                 name="SNR",
@@ -102,6 +104,7 @@ class TestCliParser(unittest.TestCase):
                 value=189.38,
                 type="measured",
                 description="SNR_SAG_MEAS2_24_1",
+                visibility="intermediate",
             ),
             Measurement(
                 name="SNR",

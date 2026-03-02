@@ -113,7 +113,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 To always use the most up-to-date release of hazen use:
 
 ```bash
-uvx hazen
+uvx hazen ...
 ```
 That is, replace any and all hazen commands from `hazen ...` to `uvx hazen ...` like so:
 

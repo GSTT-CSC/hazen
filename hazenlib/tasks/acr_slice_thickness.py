@@ -211,6 +211,7 @@ class ACRSliceThickness(HazenTask):
                         subtype="Ramps",
                         unit="mm",
                         value=thickness_results["ramps"][ramp]["width"],
+                        visibility="intermediate",
                     ),
                 )
 

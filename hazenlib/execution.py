@@ -60,6 +60,7 @@ def timed_execution(
             description="analysis_duration",
             value=round(elapsed, 4),
             unit="s",
+            visibility="intermediate",
         ),
     )
     return result

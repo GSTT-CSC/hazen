@@ -20,8 +20,10 @@ hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 import argparse
 import logging
 import os
+from typing import get_args
 
 from hazenlib._version import __version__
+from hazenlib.constants import MEASUREMENT_VISIBILITY
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
@@ -106,6 +108,18 @@ def get_parser() -> argparse.ArgumentParser:
         action="version",
         version=__version__,
     )
+    parser.add_argument(
+        "--level",
+        type=str,
+        default="all",
+        choices=[*get_args(MEASUREMENT_VISIBILITY), "all"],
+        help=(
+            "Filter results by visibility:"
+            " 'final' (report-ready metrics),"
+            " 'intermediate' (scientist verification),"
+            " or 'all'."
+        ),
+    )
 
     # Task-specific options
     parser.add_argument(
@@ -182,6 +196,7 @@ def main() -> None:
     report_dir = args.output
     verbose = args.verbose
     fmt = args.format
+    level = args.level
     result_file = args.result
 
     # Parse the task and optional arguments:
@@ -202,7 +217,7 @@ def main() -> None:
         )
         protocol = execution_wrapper(task.run)
         for result in protocol.results:
-            write_result(result, fmt=fmt, path=result_file)
+            write_result(result, fmt=fmt, path=result_file, level=level)
         return
     if len(args.folder) != 1:
         parser.error(
@@ -268,7 +283,7 @@ def main() -> None:
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
                 result = execution_wrapper(task.run)
-                write_result(result, fmt=fmt, path=result_file)
+                write_result(result, fmt=fmt, path=result_file, level=level)
             return
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
@@ -283,10 +298,10 @@ def main() -> None:
         )
         result = execution_wrapper(task.run)
 
-        write_result(result, fmt=fmt, path=result_file)
+        write_result(result, fmt=fmt, path=result_file, level=level)
         return
 
-    write_result(result, fmt=fmt, path=result_file)
+    write_result(result, fmt=fmt, path=result_file, level=level)
 
 
 if __name__ == "__main__":

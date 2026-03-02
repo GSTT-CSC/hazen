@@ -85,6 +85,7 @@ class SNR(HazenTask):
                     subtype="subtraction",
                     type="measured",
                     value=round(snr, 2),
+                    visibility="intermediate",
                 ),
             )
             results.add_measurement(
@@ -108,6 +109,7 @@ class SNR(HazenTask):
                     type="measured",
                     description=self.img_desc(dcm),
                     value=round(snr, 2),
+                    visibility="intermediate",
                 ),
             )
             results.add_measurement(

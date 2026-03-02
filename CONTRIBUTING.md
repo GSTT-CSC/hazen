@@ -2,8 +2,9 @@
 - [1) Introduction](#1-introduction)
 - [2) How to make and test code changes](#2-how-to-make-and-test-code-changes)
 - [3) Developer Process for Contributing](#3-developer-process-for-contributing)
-- [4) Release Process](#4-release-process)
-- [5) Update Documentation](#5-update-documentation)
+- [4) Continuous Integration (CI)](#4-continuous-integration-ci)
+- [5) Release Process](#5-release-process)
+- [6) Update Documentation](#6-update-documentation)
 
 
 ## 1) Introduction
@@ -89,7 +90,55 @@ contribution - alternatively check [Hazen Wales' Issues](https://github.com/sbu-
    - Merge into `main` – thank you and congratulations on contributing to hazen!
 
 
-## 4) Release Process
+## 4) Continuous Integration (CI)
+
+hazen uses a three-tiered CI strategy to balance fast feedback with comprehensive testing. All CI workflows
+use Makefile targets as the single source of truth for how to run tasks, ensuring consistency between local
+development and CI.
+
+### CI Tiers
+
+| Tier | Trigger | Duration | Purpose | Make Target |
+|------|---------|----------|---------|-------------|
+| **Per-Commit** | Push to feature branches | < 1 min | Fast feedback | `make ci-commit` |
+| **Pre-Merge** | Pull request to `main` | < 15 min | Comprehensive validation | `make ci-pr` |
+| **Release** | Push to `main` or `release/*` | < 30 min | Exhaustive verification | `make ci-release` |
+
+### What Each Tier Runs
+
+- **Per-Commit (`make ci-commit`)**: Lint, format check, and fast unit tests (excludes slow tests)
+- **Pre-Merge (`make ci-pr`)**: Lint, format check, type checking, tests with coverage, and CLI smoke tests
+- **Release (`make ci-release`)**: Full check suite, comprehensive tests with coverage, and all CLI tests
+
+### Reproducing CI Locally
+
+You can reproduce the exact CI checks locally using the same Makefile targets:
+
+```bash
+# Run what CI runs on each commit (fast)
+make ci-commit
+
+# Run what CI runs on pull requests (comprehensive)
+make ci-pr
+
+# Run what CI runs on releases (exhaustive)
+make ci-release
+```
+
+### Available Makefile Targets
+
+Run `make help` to see all available targets. Key testing commands include:
+
+- `make test-fast`: Run tests quickly without coverage (excludes slow tests)
+- `make test`: Run tests with coverage
+- `make test-ci`: Run tests with CI-compatible output (JUnit XML + coverage)
+- `make test-cli-smoke`: Run essential CLI smoke tests
+- `make lint`: Run ruff linter
+- `make format-check`: Check code formatting
+- `make type-check`: Run type checkers (mypy and ty)
+
+
+## 5) Release Process
 
 The Release Process involves approving and then merging all PRs identified for the new release of hazen. 
 Follow these steps for a new Release:
@@ -156,7 +205,7 @@ For a new release: <br>
 > - Updated cli-test.yml by @laurencejackson in #195
 > - Release/0.5.2 by @tomaroberts in #196
 
-## 5) Update Documentation
+## 6) Update Documentation
 
 Create rst files describing the structure of the hazen Python Package
 

@@ -378,9 +378,7 @@ class ACRLargePhantomProtocol(Protocol):
         self.kwargs = kwargs
 
         required_acquisition_types = {s.acquisition_type for s in self.steps}
-        if len(dirs) != (
-            num_aq := len(required_acquisition_types)
-        ):
+        if len(dirs) != (num_aq := len(required_acquisition_types)):
             msg = f"Incorrect number of directories - should be {num_aq}"
             logger.exception("%s but got %i", msg, len(dirs))
             raise ValueError(msg)
