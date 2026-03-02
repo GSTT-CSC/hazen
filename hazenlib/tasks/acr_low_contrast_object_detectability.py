@@ -219,6 +219,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                         type="measured",
                         subtype=f"slice {slice_no} spoke {spoke_no}",
                         value=r,
+                        visibility="intermediate",
                     ),
                 )
             total_spokes += num_spokes

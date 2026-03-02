@@ -14,11 +14,11 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
 # Python imports
-from enum import Enum
 import functools
 import json
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
+from enum import Enum
 from typing import Any, ParamSpec, get_args
 
 # Module imports
@@ -26,10 +26,15 @@ import numpy as np
 import scipy as sp
 
 # Local imports
-from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
+from hazenlib.constants import (
+    MEASUREMENT_NAMES,
+    MEASUREMENT_TYPES,
+    MEASUREMENT_VISIBILITY,
+)
 from hazenlib.exceptions import (
     InvalidMeasurementNameError,
     InvalidMeasurementTypeError,
+    InvalidMeasurementVisibilityError,
 )
 from hazenlib.utils import get_pixel_size
 
@@ -135,6 +140,11 @@ class Measurement(JsonSerializableMixin):
     subtype: str = ""
     description: str = ""
     unit: str = ""
+    # For now we'll assume that we'll need to separate results
+    # by final or intermediate. However, we'll define a variable
+    # `visibility` as a string to leave the door open for future
+    # implementations that may need more fine grained control.
+    visibility: MEASUREMENT_VISIBILITY = "final"
 
     def __post_init__(self) -> None:
         """Validate the measurement inputs."""
@@ -143,6 +153,14 @@ class Measurement(JsonSerializableMixin):
 
         if self.type not in get_args(MEASUREMENT_TYPES):
             raise InvalidMeasurementTypeError(self.type)
+
+        if self.visibility not in get_args(MEASUREMENT_VISIBILITY):
+            raise InvalidMeasurementVisibilityError(self.visibility)
+
+    @property
+    def final(self) -> bool:
+        """Convenience accessor for filtering logic."""
+        return self.visibility == "final"
 
 
 @dataclass(slots=True)
@@ -220,6 +238,25 @@ class Result(JsonSerializableMixin):
                 and (unit is None or m.unit == unit)
             )
         ]
+
+    def filtered(self, level: str) -> Result:
+        """Filter the measurements based on the specified level."""
+        if level == "all":
+            return self
+
+        if level not in get_args(MEASUREMENT_VISIBILITY):
+            raise InvalidMeasurementVisibilityError(level)
+
+        new_result = Result(self.task, self.desc, self.files)
+
+        new_result.metadata = self.metadata
+        for img in self.report_images:
+            new_result.add_report_image(img)
+
+        for m in self.measurements:
+            if m.visibility == level:
+                new_result.add_measurement(m)
+        return new_result
 
     def to_dict(self) -> dict[str, Any]:
         """Return dict."""

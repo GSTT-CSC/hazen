@@ -4,7 +4,11 @@
 from collections.abc import Sequence
 
 # Local imports
-from hazenlib.constants import MEASUREMENT_NAMES, MEASUREMENT_TYPES
+from hazenlib.constants import (
+    MEASUREMENT_NAMES,
+    MEASUREMENT_TYPES,
+    MEASUREMENT_VISIBILITY,
+)
 
 
 class ShapeError(Exception):
@@ -68,6 +72,18 @@ class InvalidMeasurementTypeError(ValueError):
         msg = (
             f"Invalid measurement type: {measurement_type}."
             f" Must be one of {MEASUREMENT_TYPES}"
+        )
+        super().__init__(msg)
+
+
+class InvalidMeasurementVisibilityError(ValueError):
+    """Invalid Measurement Visibility Error."""
+
+    def __init__(self, measurement_visibility: str) -> None:
+        """Initialise the error."""
+        msg = (
+            f"Invalid measurement visibility: {measurement_visibility}."
+            f" Must be one of {MEASUREMENT_VISIBILITY}"
         )
         super().__init__(msg)
 

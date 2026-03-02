@@ -278,6 +278,12 @@ flags-result:
 flags-version:
 	$(VENV_CMD) hazen --version
 
+.PHONY: flags-level
+flags-level:
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=final
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=intermediate
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=all
+
 .PHONY: flags-combined
 flags-combined:
 	$(VENV_CMD) hazen acr_snr $(ACR_DATA) \
@@ -286,6 +292,7 @@ flags-combined:
 	--output .cache \
 	--verbose \
 	--format csv \
+	--level=final \
 	--log debug
 
 .PHONY: cli-flags	## Run the CI with

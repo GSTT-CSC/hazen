@@ -4,12 +4,24 @@
 
 from __future__ import annotations
 
+# Type Checking
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from hazelib.types import Result
+
 # Python imports
 import csv
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Literal, Mapping, TextIO, TypeAlias
+from typing import Any, Literal, TextIO, TypeAlias, get_args
+
+# Local imports
+from hazenlib.constants import MEASUREMENT_VISIBILITY
+from hazenlib.exceptions import InvalidMeasurementVisibilityError
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +36,12 @@ Format: TypeAlias = Literal["json", "csv", "tsv"]
 # ----------------------------------------------------------------------
 
 
-def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
+def write_result(
+    data: Result,
+    fmt: Format,
+    path: str | Path = "-",
+    level: str = "all",
+) -> None:
     r"""Serialise data to a format and write the output.
 
     Serialize *data* into the requested *fmt* and write it either to
@@ -42,6 +59,8 @@ def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
         write to ``sys.stdout``.  Any other value is interpreted as a
         filesystem path; the file is opened in text mode with
         ``newline=\"\"`` for CSV/TSV compatibility.
+    level:
+        Filter the measurements by a specific level.
 
     Raises
     ------
@@ -49,11 +68,21 @@ def write_result(data: dict, fmt: Format, path: str | Path = "-") -> None:
         If *fmt* is not one of the supported literals.
 
     """
+    try:
+        data = data.filtered(level)
+    except InvalidMeasurementVisibilityError:
+        logger.warning(
+            "Unknown measurement filter level %s :"
+            " allowed options are %s - defaulting to 'all'",
+            level,
+            [*get_args(MEASUREMENT_VISIBILITY), "all"],
+        )
+
     if path == "-":
         _format_results(data, fmt, sys.stdout)
         return
     with Path(path).open("a", newline="") as fp:
-        write_header = not Path(path).exists()
+        write_header = not Path(path).exists() or not Path(path).stat().st_size
         _format_results(data, fmt, fp, write_header=write_header)
 
 
@@ -84,9 +113,9 @@ def _format_results(
         case "json":
             print(data.to_json(), file=out_fh)
         case "csv":
-            _write_csv(data, out_fh, delimiter=",")
+            _write_csv(data, out_fh, delimiter=",", write_header=write_header)
         case "tsv":
-            _write_csv(data, out_fh, delimiter="\t")
+            _write_csv(data, out_fh, delimiter="\t", write_header=write_header)
         case _:
             msg = f"Unrecognised format {fmt!r}"
             logger.critical(msg)

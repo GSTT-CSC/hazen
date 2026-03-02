@@ -126,6 +126,7 @@ class ACRGeometricAccuracy(HazenTask):
                 subtype="distortion",
                 description="Mean relative error",
                 value=round(mean_err, 2),
+                visibility="intermediate",
             ),
         )
         results.add_measurement(
@@ -135,6 +136,7 @@ class ACRGeometricAccuracy(HazenTask):
                 subtype="distortion",
                 description="Max absolute error",
                 value=round(max_err, 2),
+                visibility="intermediate",
             ),
         )
         results.add_measurement(
@@ -145,6 +147,7 @@ class ACRGeometricAccuracy(HazenTask):
                 description="Coefficient of variation",
                 value=round(cov_l, 2),
                 unit="%",
+                visibility="intermediate",
             ),
         )
 
