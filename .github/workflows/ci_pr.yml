@@ -66,6 +66,7 @@ jobs:
       run: make ci-pr
 
     - name: Pytest coverage comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
       with:
