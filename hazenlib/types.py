@@ -194,10 +194,12 @@ class Metadata(JsonSerializableMixin):
         # a performance overhead then it's worth passing the DICOM objects
         # directly to results or metadata.
         try:
-            dcm_list = [pydicom.dcmread(f) for f in self.files]
+            dcm_list = [
+                pydicom.dcmread(f, stop_before_pixels=True) for f in self.files
+            ]
 
         except Exception as e:  # noqa: BLE001
-            logger.warning(f"Failed to read DICOM files: {e}")
+            logger.warning("Failed to read DICOM files: %s", e)
             return
 
         if not dcm_list:
