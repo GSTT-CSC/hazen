@@ -359,17 +359,11 @@ class Relaxometry(HazenTask):
 
             metadata = Metadata(
                 files=[im.filename for im in image_stack.images],
-                plate=plate_number,
-                relaxation_type=calc.upper(),
                 institution_name=index_im.InstitutionName,
                 manufacturer=index_im.Manufacturer,
                 model=index_im.ManufacturerModelName,
                 date=index_im.StudyDate,
-                manufacturers_times=relax_published.tolist(),
-                calc_times=image_stack.relax_times,
-                frac_time_difference=frac_time_diff.tolist(),
             )
-            # , output_graphics=output_files_path
             results.metadata = metadata
 
             for idx, (
