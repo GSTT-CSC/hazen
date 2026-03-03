@@ -8,9 +8,8 @@ from typing import TYPE_CHECKING
 from hazenlib.logger import logger
 
 if TYPE_CHECKING:
-    from typing import Iterator
+    from collections.abc import Iterator
 
-    import pydicom
     from numpy.typing import NDArray
 
 # Python imports
@@ -23,19 +22,16 @@ from typing import Any, ParamSpec, get_args
 
 # Module imports
 import numpy as np
+import pydicom
 import scipy as sp
 
 # Local imports
-from hazenlib.constants import (
-    MEASUREMENT_NAMES,
-    MEASUREMENT_TYPES,
-    MEASUREMENT_VISIBILITY,
-)
-from hazenlib.exceptions import (
-    InvalidMeasurementNameError,
-    InvalidMeasurementTypeError,
-    InvalidMeasurementVisibilityError,
-)
+from hazenlib import __version__
+from hazenlib.constants import (MEASUREMENT_NAMES, MEASUREMENT_TYPES,
+                                MEASUREMENT_VISIBILITY)
+from hazenlib.exceptions import (InvalidMeasurementNameError,
+                                 InvalidMeasurementTypeError,
+                                 InvalidMeasurementVisibilityError)
 from hazenlib.utils import get_pixel_size
 
 #########################################
@@ -172,7 +168,91 @@ class Metadata(JsonSerializableMixin):
     manufacturer: str | None = None
     model: str | None = None
     date: str | None = None
+    series_id: str | None = None
+    study_id: str | None = None
+    version: str = None
 
+    def __post_init__(self) -> None:
+        """Populate missing information if needed."""
+        if self.version is None:
+            self.version = __version__
+
+        # If no files are present then no other information
+        # can be gathered
+        if self.files is None:
+            return
+
+        # This does involve likely reading the files twice but the overhead
+        # of this is very minimal and results in minimum changes to existing
+        # codebase. If there is ever a significant refactor or this poses
+        # a performance overhead then it's worth passing the dicom objects
+        # directly to results or metadata.
+        needs_extraction = any([
+            self.institution is None,
+            self.manufacturer is None,
+            self.model is None,
+            self.date is None,
+            self.series_id is None,
+            self.study_id is None,
+        ])
+        if not needs_extraction:
+            return
+
+        try:
+            dcm_list = [pydicom.dcmread(f) for f in self.files]
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Failed to read DICOM files: {e}")
+            return
+
+        if not dcm_list:
+            return
+
+        # Helper to safely extract attributes
+        def get_unique_values(attr: str) -> set[str]:
+            values = set()
+            for dcm in dcm_list:
+                if hasattr(dcm, attr) and (val := getattr(dcm, attr)):
+                    values.add(str(val))
+
+            if len(values) > 1:
+                logger.warning(
+                    "Multiple values detected for %s detected: %s",
+                    attr,
+                    values,
+                )
+            return values
+
+        # Manufacturer
+        if self.manufacturer is None:
+            mfrs = get_unique_values("Manufacturer")
+            if mfrs:
+                self.manufacturer = next(iter(mfrs))
+
+        # Model referred to as ManufacturerModelName in DICOM
+        if self.model is None:
+            models = get_unique_values("ManufacturerModelName")
+            if models:
+                self.model = next(iter(models))
+
+        # Date referred to as StudyDate or SeriesDate
+        if self.date is None:
+            dates = (
+                get_unique_values("StudyDate") | get_unique_values("SeriesDate")
+            )
+            if dates:
+                self.date = next(iter(dates))
+
+        # Series ID
+        if self.series_id is None:
+            ids = get_unique_values("SeriesInstanceUID")
+            if ids:
+                self.series_id = next(iter(ids))
+
+        # Study ID
+        if self.study_id is None:
+            ids = get_unique_values("StudyInstanceUID")
+            if ids:
+                self.study_id = next(iter(ids))
 
 @dataclass
 class Result(JsonSerializableMixin):
@@ -186,7 +266,7 @@ class Result(JsonSerializableMixin):
         """Initialize the measurements, report_images and metadata."""
         self._measurements: list[Measurement] = []
         self._report_images: list[str] = []
-        self.metadata = Metadata()
+        self.metadata = Metadata(files=self.files)
 
     @property
     def measurements(self) -> tuple[Measurement, ...]:
