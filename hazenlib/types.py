@@ -5,12 +5,9 @@ from __future__ import annotations
 # Typing imports
 from typing import TYPE_CHECKING
 
-from hazenlib.logger import logger
-
 if TYPE_CHECKING:
-    from typing import Iterator
+    from collections.abc import Iterator
 
-    import pydicom
     from numpy.typing import NDArray
 
 # Python imports
@@ -20,12 +17,15 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, ParamSpec, get_args
+import logging
 
 # Module imports
 import numpy as np
+import pydicom
 import scipy as sp
 
 # Local imports
+from hazenlib._version import __version__
 from hazenlib.constants import (
     MEASUREMENT_NAMES,
     MEASUREMENT_TYPES,
@@ -37,6 +37,8 @@ from hazenlib.exceptions import (
     InvalidMeasurementVisibilityError,
 )
 from hazenlib.utils import get_pixel_size
+
+logger = logging.getLogger(__name__)
 
 #########################################
 # ParamSpec for public methods/function #
@@ -168,16 +170,73 @@ class Metadata(JsonSerializableMixin):
     """Canonical dictionary for result metadata."""
 
     files: Sequence[str] | None = None
-    slice_position: Sequence[float] | None = None
-    plate: int | None = None
-    relaxation_type: str | None = None
     institution_name: str | None = None
     manufacturer: str | None = None
     model: str | None = None
     date: str | None = None
-    manufacturers_times: Sequence[str] | None = None
-    calc_times: Sequence[str] | None = None
-    frac_time_difference: Sequence[str] | None = None
+    series_id: str | None = None
+    study_id: str | None = None
+    acquisition_number: int | str | None = None
+    version: str | None = None
+
+    def __post_init__(self) -> None:
+        """Populate missing information if needed."""
+        if self.version is None:
+            self.version = __version__
+
+        # If no files are present then no other information
+        # can be gathered
+        if self.files is None:
+            return
+
+        # This does involve likely reading the files twice but the overhead
+        # of this is very minimal and results in minimum changes to existing
+        # code base. If there is ever a significant refactor or this poses
+        # a performance overhead then it's worth passing the DICOM objects
+        # directly to results or metadata.
+        try:
+            dcm_list = [
+                pydicom.dcmread(f, stop_before_pixels=True) for f in self.files
+            ]
+
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Failed to read DICOM files: %s", e)
+            return
+
+        if not dcm_list:
+            return
+
+        _dicom_tags = {
+            "institution_name": "InstitutionName",
+            "manufacturer": "Manufacturer",
+            "model": "ManufacturerModelName",
+            "date": "StudyDate",
+            "series_id": "SeriesInstanceUID",
+            "study_id": "StudyInstanceUID",
+            "acquisition_number": "AcquisitionNumber",
+        }
+
+        for _field, tag in _dicom_tags.items():
+            # Skip if already provided
+            if getattr(self, _field) is not None:
+                continue
+
+            # Collect non-empty unique values
+            values = {
+                str(getattr(d, tag))
+                for d in dcm_list
+                if hasattr(d, tag) and getattr(d, tag)
+            }
+
+            if len(values) > 1:
+                logger.warning(
+                    "Multiple %s values detected: %s",
+                    _field,
+                    values,
+                )
+
+            if values:
+                setattr(self, _field, next(iter(values)))
 
 
 @dataclass
@@ -192,7 +251,7 @@ class Result(JsonSerializableMixin):
         """Initialize the measurements, report_images and metadata."""
         self._measurements: list[Measurement] = []
         self._report_images: list[str] = []
-        self.metadata = Metadata()
+        self.metadata = Metadata(files=self.files)
 
     @property
     def measurements(self) -> tuple[Measurement, ...]:

@@ -125,7 +125,8 @@ class TestCliParser(unittest.TestCase):
 
         self.assertEqual(vars(result).keys(), vars(dict1).keys())
         for k, v in vars(result).items():
-            if k != "measurement":
+            # Metadata is dynamically populated and is tested elsewhere.
+            if k != "measurement" and k != "metadata":
                 self.assertEqual(v, vars(dict1)[k])
 
         for m_d in dict1.measurements:
