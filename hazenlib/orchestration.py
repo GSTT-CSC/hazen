@@ -21,14 +21,14 @@ from enum import Enum
 from typing import TypeVar
 
 # Module imports
+from docx import Document
+from docx.shared import Inches
 from pydicom import dcmread
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (
-    UnknownAcquisitionTypeError,
-    UnknownTaskNameError,
-)
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
@@ -276,12 +276,81 @@ class Protocol:
 
     name: str
     steps: tuple[ProtocolStep, ...] = field(default_factory=tuple)
+    results: ProtocolResult | None = None
 
     @classmethod
     def from_config(cls, config_path: Path) -> Protocol:
         """Load protocol from configuration file."""
         msg = "The class method 'from_config' has not been implemented yet."
         raise NotImplementedError(msg)
+
+    def to_docx(
+        self,
+        template_path: Path | None = None,
+        level: str = "all",
+    ) -> Document:
+        """Generate Word document from aggregated results."""
+        if self.results is None:
+            msg = "Results cannot be empty"
+            logger.error(
+                "%s, please make sure the protocols run method"
+                " has been called.",
+                msg,
+            )
+            raise ValueError(msg)
+
+        if not isinstance(self.results, ProtocolResult):
+            msg = "Results must be of type 'ProtocolResult'"
+            logger.error("%s, but got %s", msg, type(self.results))
+            raise TypeError(msg)
+
+        if template_path:
+            doc = Document(template_path)
+        else:
+            doc = Document()
+
+            # Header with protocol info
+            doc.add_heading(f"QA Report: {self.name}", 0)
+
+        # Section per step
+        for _result in self.results.results:
+            # Skip the metadata result for the current protocol
+            if _result.task == self.name:
+                continue
+
+            # Filter out specific results ('all', 'final', 'intermediate', etc.)
+            result = _result.filtered(level)
+
+            doc.add_heading(result.task, level=1)
+
+            # internal Measurement property -> word heading
+            text_mapping = {
+                "name": "Name",
+                "type": "Type",
+                "subtype": "Subtype",
+                "description": "Description",
+                "value": "Value",
+                "unit": "Unit",
+            }
+
+            # Results table
+            table = doc.add_table(rows=1, cols=len(text_mapping))
+            table.style = "Light Grid Accent 1"
+            hdr_cells = table.rows[0].cells
+            for idx, text in enumerate(text_mapping.values()):
+                hdr_cells[idx].text = text
+
+            for m in result.measurements:
+                row_cells = table.add_row().cells
+                for idx, key in enumerate(text_mapping.keys()):
+                    value = str(getattr(m, key))
+                    row_cells[idx].text = value if value else "-"
+
+            # Embed report images if generated
+            for img_path in result.report_images:
+                doc.add_picture(img_path, width=Inches(5.0))
+
+        return doc
 
 
 class ProtocolResult(Result):
@@ -427,6 +496,8 @@ class ACRLargePhantomProtocol(Protocol):
         )
         for r in parallel_results:
             results.add_result(r)
+
+        self.results = results
         return results
 
 
