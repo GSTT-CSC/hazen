@@ -168,16 +168,10 @@ class Metadata(JsonSerializableMixin):
     """Canonical dictionary for result metadata."""
 
     files: Sequence[str] | None = None
-    slice_position: Sequence[float] | None = None
-    plate: int | None = None
-    relaxation_type: str | None = None
     institution_name: str | None = None
     manufacturer: str | None = None
     model: str | None = None
     date: str | None = None
-    manufacturers_times: Sequence[str] | None = None
-    calc_times: Sequence[str] | None = None
-    frac_time_difference: Sequence[str] | None = None
 
 
 @dataclass

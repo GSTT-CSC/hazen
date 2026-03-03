@@ -20,6 +20,8 @@ MEASUREMENT_NAMES = Literal[
     "ExecutionMetadata",
 ]
 
-MEASUREMENT_TYPES = Literal["measured", "normalised", "fitted", "raw"]
+MEASUREMENT_TYPES = Literal[
+    "measured", "normalised", "fitted", "raw", "theoretical",
+]
 
 MEASUREMENT_VISIBILITY = Literal["final", "intermediate"]

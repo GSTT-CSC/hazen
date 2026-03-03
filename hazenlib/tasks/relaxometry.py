@@ -372,6 +372,64 @@ class Relaxometry(HazenTask):
             # , output_graphics=output_files_path
             results.metadata = metadata
 
+            for idx, (
+                    measured_time,
+                    manufacturers_time,
+                    frac_time_difference,
+            ) in enumerate(
+                zip(
+                    relax_published.tolist(),
+                    image_stack.relax_times,
+                    frac_time_diff.tolist(),
+                    strict=True,
+                ),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=measured_time,
+                        type="measured",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Measured relaxation time.",
+                        unit="ms",
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=manufacturers_time,
+                        type="theoretical",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Manufacturer's relaxation time.",
+                        unit="ms",
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=frac_time_difference,
+                        type="measured",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Fractional Time Difference.",
+                        unit="",
+                        visibility="intermediate",
+                    ),
+                )
+
             detailed_output["measurement details"] = {
                 "Echo Time": [im.EchoTime for im in image_stack.images],
                 "Repetition Time": [
