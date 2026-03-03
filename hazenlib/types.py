@@ -176,6 +176,7 @@ class Metadata(JsonSerializableMixin):
     date: str | None = None
     series_id: str | None = None
     study_id: str | None = None
+    acquisition_number: int | str | None = None
     version: str | None = None
 
     def __post_init__(self) -> None:
@@ -212,6 +213,7 @@ class Metadata(JsonSerializableMixin):
             "date": "StudyDate",
             "series_id": "SeriesInstanceUID",
             "study_id": "StudyInstanceUID",
+            "acquisition_number": "AcquisitionNumber",
         }
 
         for _field, tag in _dicom_tags.items():
