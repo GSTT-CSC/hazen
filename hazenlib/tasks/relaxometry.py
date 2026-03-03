@@ -372,8 +372,8 @@ class Relaxometry(HazenTask):
                 frac_time_difference,
             ) in enumerate(
                 zip(
-                    relax_published.tolist(),
                     image_stack.relax_times,
+                    relax_published.tolist(),
                     frac_time_diff.tolist(),
                     strict=True,
                 ),
