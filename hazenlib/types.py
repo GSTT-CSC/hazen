@@ -170,7 +170,7 @@ class Metadata(JsonSerializableMixin):
     date: str | None = None
     series_id: str | None = None
     study_id: str | None = None
-    version: str = None
+    version: str | None = None
 
     def __post_init__(self) -> None:
         """Populate missing information if needed."""
@@ -184,20 +184,9 @@ class Metadata(JsonSerializableMixin):
 
         # This does involve likely reading the files twice but the overhead
         # of this is very minimal and results in minimum changes to existing
-        # codebase. If there is ever a significant refactor or this poses
-        # a performance overhead then it's worth passing the dicom objects
+        # code base. If there is ever a significant refactor or this poses
+        # a performance overhead then it's worth passing the DICOM objects
         # directly to results or metadata.
-        needs_extraction = any([
-            self.institution is None,
-            self.manufacturer is None,
-            self.model is None,
-            self.date is None,
-            self.series_id is None,
-            self.study_id is None,
-        ])
-        if not needs_extraction:
-            return
-
         try:
             dcm_list = [pydicom.dcmread(f) for f in self.files]
         except Exception as e:  # noqa: BLE001
@@ -207,52 +196,35 @@ class Metadata(JsonSerializableMixin):
         if not dcm_list:
             return
 
-        # Helper to safely extract attributes
-        def get_unique_values(attr: str) -> set[str]:
-            values = set()
-            for dcm in dcm_list:
-                if hasattr(dcm, attr) and (val := getattr(dcm, attr)):
-                    values.add(str(val))
+        _dicom_tags = {
+            "institution": "InstitutionName",
+            "manufacturer": "Manufacturer",
+            "model": "ManufacturerModelName",
+            "date": "StudyDate",
+            "series_id": "SeriesInstanceUID",
+            "study_id": "StudyInstanceUID",
+        }
+
+        for _field, tag in _dicom_tags.items():
+            # Skip if already provided
+            if getattr(self, field) is not None:
+                continue
+
+            # Collect non-empty unique values
+            values = {
+                str(getattr(d, tag))
+                for d in dcm_list
+                if hasattr(d, tag) and getattr(d, tag)
+            }
 
             if len(values) > 1:
                 logger.warning(
-                    "Multiple values detected for %s detected: %s",
-                    attr,
-                    values,
+                    "Multiple %s values detected: %s", _field, values,
                 )
-            return values
 
-        # Manufacturer
-        if self.manufacturer is None:
-            mfrs = get_unique_values("Manufacturer")
-            if mfrs:
-                self.manufacturer = next(iter(mfrs))
+            if values:
+                setattr(self, field, next(iter(values)))
 
-        # Model referred to as ManufacturerModelName in DICOM
-        if self.model is None:
-            models = get_unique_values("ManufacturerModelName")
-            if models:
-                self.model = next(iter(models))
-
-        # Date referred to as StudyDate or SeriesDate
-        if self.date is None:
-            dates = (
-                get_unique_values("StudyDate") | get_unique_values("SeriesDate")
-            )
-            if dates:
-                self.date = next(iter(dates))
-
-        # Series ID
-        if self.series_id is None:
-            ids = get_unique_values("SeriesInstanceUID")
-            if ids:
-                self.series_id = next(iter(ids))
-
-        # Study ID
-        if self.study_id is None:
-            ids = get_unique_values("StudyInstanceUID")
-            if ids:
-                self.study_id = next(iter(ids))
 
 @dataclass
 class Result(JsonSerializableMixin):
