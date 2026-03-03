@@ -212,7 +212,7 @@ class Metadata(JsonSerializableMixin):
 
         for _field, tag in _dicom_tags.items():
             # Skip if already provided
-            if getattr(self, field) is not None:
+            if getattr(self, _field) is not None:
                 continue
 
             # Collect non-empty unique values
@@ -230,7 +230,7 @@ class Metadata(JsonSerializableMixin):
                 )
 
             if values:
-                setattr(self, field, next(iter(values)))
+                setattr(self, _field, next(iter(values)))
 
 
 @dataclass
