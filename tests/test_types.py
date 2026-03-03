@@ -329,7 +329,9 @@ class TestMetadataDicomExtraction(unittest.TestCase):
         return mock
 
     @patch("hazenlib.types.pydicom.dcmread")
-    def test_extracts_ge_scanner_metadata(self, mock_dcmread: Callable) -> None:
+    def test_extracts_ge_scanner_metadata(
+        self, mock_dcmread: Callable
+    ) -> None:
         """Verify all metadata fields extracted from GE DICOM."""
         mock_dcmread.return_value = self._create_mock_dicom()
 
@@ -350,7 +352,8 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_skips_extraction_if_fields_populated(
-        self, mock_dcmread: Callable,
+        self,
+        mock_dcmread: Callable,
     ) -> None:
         """Verify existing values are preserved, not overwritten."""
         mock_dcmread.return_value = self._create_mock_dicom(
@@ -371,7 +374,8 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_handles_missing_optional_attributes(
-        self, mock_dcmread: Callable,
+        self,
+        mock_dcmread: Callable,
     ) -> None:
         """Verify extraction works when optional DICOM tags are missing."""
         # Create DICOM without InstitutionName (anonymized/removed)
@@ -388,7 +392,8 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_warns_on_multiple_different_values(
-        self, mock_dcmread: Callable,
+        self,
+        mock_dcmread: Callable,
     ) -> None:
         """Verify warning logged when files have different institutions."""
         mock_dcmread.side_effect = [
@@ -409,11 +414,14 @@ class TestMetadataDicomExtraction(unittest.TestCase):
         )
         # Should still pick one value (arbitrary from set)
         self.assertIn(
-            m.institution_name, ["Hospital A", "Hospital B", "Hospital C"],
+            m.institution_name,
+            ["Hospital A", "Hospital B", "Hospital C"],
         )
 
     @patch("hazenlib.types.pydicom.dcmread")
-    def test_graceful_on_dicom_read_error(self, mock_dcmread: Callable) -> None:
+    def test_graceful_on_dicom_read_error(
+        self, mock_dcmread: Callable
+    ) -> None:
         """Verify Metadata creation succeeds even if files can"t be read."""
         mock_dcmread.side_effect = Exception("Permission denied")
 
