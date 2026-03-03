@@ -316,6 +316,7 @@ class TestMetadataDicomExtraction(unittest.TestCase):
             "StudyInstanceUID": (
                 "1.2.840.113619.6.322.29258601288877239892320825850091988423"
             ),
+            "AcquisitionNumber": "1",
         }
 
     def _create_mock_dicom(self, **overrides: dict[str, Any]) -> None:
@@ -349,6 +350,7 @@ class TestMetadataDicomExtraction(unittest.TestCase):
             m.study_id,
             "1.2.840.113619.6.322.29258601288877239892320825850091988423",
         )
+        self.assertEqual(m.acquisition_number, "1")
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_skips_extraction_if_fields_populated(
