@@ -25,7 +25,7 @@ import pydicom
 import scipy as sp
 
 # Local imports
-from hazenlib import __version__
+from hazenlib._version import __version__
 from hazenlib.constants import (
     MEASUREMENT_NAMES,
     MEASUREMENT_TYPES,
