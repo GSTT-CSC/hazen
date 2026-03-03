@@ -230,7 +230,8 @@ def main() -> None:
         protocol = execution_wrapper(task.run)
         if args.report_docx or args.report_template:
             doc = protocol.to_docx(
-                template_path=args.report_template, level=level,
+                template_path=args.report_template,
+                level=level,
             )
             doc.save(args.report_docx)
 
