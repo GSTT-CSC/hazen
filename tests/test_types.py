@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 # Type Checking
 from typing import TYPE_CHECKING
 
@@ -20,9 +19,15 @@ from unittest.mock import MagicMock, patch
 
 # Module imports
 import numpy as np
+
 # Local imports
-from hazenlib.types import (Measurement, Metadata, ProtocolResult, Result,
-                            TaskMetadata)
+from hazenlib.types import (
+    Measurement,
+    Metadata,
+    ProtocolResult,
+    Result,
+    TaskMetadata,
+)
 
 
 class TestJsonSerializableMixin(unittest.TestCase):
