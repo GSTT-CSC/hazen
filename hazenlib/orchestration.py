@@ -345,7 +345,12 @@ class ProtocolResult(Result):
             )
             raise ValueError(msg)
 
-        if template_path and Path(template_path).exists():
+        if template_path is not None:
+            template_path = Path(template_path)
+            if not template_path.exists():
+                msg = f"Template file not found: {template_path}"
+                logger.error(msg)
+                raise FileNotFoundError(msg)
             doc = Document(template_path)
         else:
             doc = Document()
