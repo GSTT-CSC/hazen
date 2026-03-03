@@ -266,6 +266,11 @@ class TestMetadata(unittest.TestCase):
 
         self.assertIsNone(m.institution_name)
         self.assertIsNone(m.manufacturer)
+        self.assertIsNone(m.model)
+        self.assertIsNone(m.date)
+        self.assertIsNone(m.series_id)
+        self.assertIsNone(m.study_id)
+        self.assertIsNotNone(m.version)
 
     def test_metadata_with_values(self) -> None:
         """Verify Metadata accepts construction with values."""
