@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 # Type Checking
 from typing import TYPE_CHECKING
 
@@ -19,9 +20,9 @@ from unittest.mock import MagicMock, patch
 
 # Module imports
 import numpy as np
-
 # Local imports
-from hazenlib.types import Measurement, Metadata, Result, TaskMetadata
+from hazenlib.types import (Measurement, Metadata, ProtocolResult, Result,
+                            TaskMetadata)
 
 
 class TestJsonSerializableMixin(unittest.TestCase):
@@ -331,7 +332,8 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_extracts_ge_scanner_metadata(
-        self, mock_dcmread: Callable
+        self,
+        mock_dcmread: Callable,
     ) -> None:
         """Verify all metadata fields extracted from GE DICOM."""
         mock_dcmread.return_value = self._create_mock_dicom()
@@ -422,7 +424,8 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
     @patch("hazenlib.types.pydicom.dcmread")
     def test_graceful_on_dicom_read_error(
-        self, mock_dcmread: Callable
+        self,
+        mock_dcmread: Callable,
     ) -> None:
         """Verify Metadata creation succeeds even if files can"t be read."""
         mock_dcmread.side_effect = Exception("Permission denied")
@@ -442,7 +445,3 @@ class TestMetadataDicomExtraction(unittest.TestCase):
 
         mock_dcmread.assert_not_called()
         self.assertIsNone(m.institution_name)
-
-
-if __name__ == "__main__":
-    unittest.main()
