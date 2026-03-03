@@ -72,6 +72,12 @@ def get_parser() -> argparse.ArgumentParser:
         help="Path to save consolidated Word report (requires --report for images)",
     )
     parser.add_argument(
+        "--report-template",
+        type=str,
+        default=None,
+        help="Path to template to be used for --report-docx report.",
+    )
+    parser.add_argument(
         "--output",
         type=str,
         default=None,
@@ -222,8 +228,10 @@ def main() -> None:
             verbose=verbose,
         )
         protocol = execution_wrapper(task.run)
-        if args.report_docx:
-            doc = protocol.to_docx(level=level)
+        if args.report_docx or args.report_template:
+            doc = protocol.to_docx(
+                template_path=args.report_template, level=level,
+            )
             doc.save(args.report_docx)
 
         for result in protocol.results:

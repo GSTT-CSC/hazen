@@ -346,7 +346,7 @@ class ProtocolResult(Result):
             )
             raise ValueError(msg)
 
-        if template_path:
+        if template_path and Path(template_path).exists():
             doc = Document(template_path)
         else:
             doc = Document()
