@@ -24,7 +24,6 @@ import numpy as np
 from hazenlib.types import (
     Measurement,
     Metadata,
-    ProtocolResult,
     Result,
     TaskMetadata,
 )
