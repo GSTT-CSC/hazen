@@ -332,7 +332,7 @@ class ProtocolResult(Result):
 
     def to_docx(
         self,
-        template_path: Path | None = None,
+        template_path: Path | str | None = None,
         level: str = "all",
     ) -> Document:
         """Generate Word document from aggregated results."""

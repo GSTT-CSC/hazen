@@ -268,12 +268,16 @@ class TestProtocolResultToDocx(unittest.TestCase):
 
     @patch("hazenlib.orchestration.Document")
     @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
     def test_uses_template_when_provided(
         self,
+        mock_exists: Mock,
         mock_inches: Mock,
         mock_document_class: Mock,
     ) -> None:
         """Verify template document is loaded when path provided."""
+        mock_exists.return_value = True
+
         mock_doc = Mock()
         mock_document_class.return_value = mock_doc
         protocol_result = ProtocolResult(task="Protocol", desc="test")
@@ -431,12 +435,16 @@ class TestProtocolResultToDocx(unittest.TestCase):
 
     @patch("hazenlib.orchestration.Document")
     @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
     def test_adds_report_images_with_five_inch_width(
         self,
+        mock_exists: Mock,
         mock_inches: Mock,
         mock_document_class: Mock,
     ) -> None:
         """Verify report images embedded with 5.0 inch width."""
+        mock_exists.return_value = True
+
         mock_doc = Mock()
         mock_document_class.return_value = mock_doc
         mock_inches.return_value = "5_inches_width"
@@ -463,7 +471,7 @@ class TestProtocolResultToDocx(unittest.TestCase):
         mock_new_row.cells = [Mock() for _ in range(6)]
         mock_table.add_row.return_value = mock_new_row
 
-        protocol_result.to_docx()
+        protocol_result.to_docx(level="all")
 
         self.assertEqual(mock_doc.add_picture.call_count, 2)
         mock_doc.add_picture.assert_any_call(
