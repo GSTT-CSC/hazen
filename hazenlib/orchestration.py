@@ -278,7 +278,6 @@ class Protocol:
 
     name: str
     steps: tuple[ProtocolStep, ...] = field(default_factory=tuple)
-    results: ProtocolResult | None = None
 
     @classmethod
     def from_config(cls, config_path: Path) -> Protocol:
