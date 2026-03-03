@@ -162,7 +162,10 @@ acr-object-detectability:
 
 .PHONY: acr-large-phantom-all
 acr-large-phantom-all:
-	$(VENV_CMD) hazen --profile \
+	$(VENV_CMD) hazen \
+	--profile \
+	--report-docx=makefile_output_tmp.docx \
+	--level=final \
 	acr_all $(ACR_DATA_T1) $(ACR_DATA_T2) $(ACR_DATA_SL)
 
 .PHONY: cli-acr-all
@@ -363,6 +366,7 @@ clean: ## Clean build artifacts and caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov/
 	rm -rf build/ dist/ *.egg-info
 	rm -rf $(DOCS_DIR)/_build
+	rm -rf makefile_output_*
 	@echo "Clean complete"
 
 ###############

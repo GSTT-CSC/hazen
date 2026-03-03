@@ -1,11 +1,12 @@
 """Tests for the orchestration module."""
 
-# ruff: noqa: PT009 PT027
+# ruff: noqa: PT009 PT027 SLF001
 
 # Python imports
 import unittest
 from collections.abc import Callable
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import Mock, call, patch
 
 from hazenlib.exceptions import (
     UnknownAcquisitionTypeError,
@@ -219,6 +220,269 @@ class TestProtocolResult(unittest.TestCase):
         self.assertEqual(len(protocol_result.results), num_results + 1)
         for i, r in enumerate(protocol_result.results[1:]):
             self.assertEqual(r.task, f"Task{i}")
+
+
+class TestProtocolResultToDocx(unittest.TestCase):
+    """Unit tests for ProtocolResult.to_docx method."""
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_empty_results_raises_error(
+        self,
+        mock_inches: Mock,
+        mock_document: Mock,
+    ) -> None:
+        """Verify ValueError raised when results list is empty."""
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        # Access private attribute to simulate uninitialized state
+        protocol_result._results = []  # type: ignore[misc]
+
+        with patch.object(ProtocolResult, "results", None):
+            with self.assertRaises(ValueError) as context:
+                protocol_result.to_docx()
+            self.assertIn("Results cannot be empty", str(context.exception))
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_creates_document_without_template(
+        self,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify Document created and protocol header added when no template."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(
+            task="MyProtocol",
+            desc="test description",
+        )
+
+        result = protocol_result.to_docx()
+
+        self.assertEqual(result, mock_doc)
+        mock_document_class.assert_called_once_with()
+        mock_doc.add_heading.assert_called_once_with(
+            "QA Report: MyProtocol",
+            0,
+        )
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
+    def test_uses_template_when_provided(
+        self,
+        mock_exists: Mock,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify template document is loaded when path provided."""
+        mock_exists.return_value = True
+
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        template_path = Path("/path/to/template.docx")
+
+        result = protocol_result.to_docx(template_path=template_path)
+
+        self.assertEqual(result, mock_doc)
+        mock_document_class.assert_called_once_with(template_path)
+        # Should not add protocol header when using template
+        protocol_header_calls = [
+            c
+            for c in mock_doc.add_heading.call_args_list
+            if c == call("QA Report: Protocol", 0)
+        ]
+        self.assertEqual(len(protocol_header_calls), 0)
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_skips_protocol_metadata_result(
+        self,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify result matching protocol task name is skipped in output."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        # Result with same task name as protocol (should be skipped)
+        same_name_result = Mock(spec=Result)
+        same_name_result.task = "Protocol"
+
+        # Result with different task name (should be included)
+        subtask_result = Mock(spec=Result)
+        subtask_result.task = "SubTask"
+        subtask_result.filtered.return_value = subtask_result
+        subtask_result.measurements = []
+        subtask_result.report_images = []
+
+        protocol_result.add_result(same_name_result)
+        protocol_result.add_result(subtask_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx()
+
+        # Check headings: protocol header (0) + one task (1), but not metadata
+        heading_calls = mock_doc.add_heading.call_args_list
+        self.assertEqual(len(heading_calls), 2)
+        self.assertEqual(heading_calls[0], call("QA Report: Protocol", 0))
+        self.assertEqual(heading_calls[1], call("SubTask", level=1))
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_applies_level_filter_to_results(
+        self,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify level parameter passed to result"s filtered method."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = []
+        mock_result.report_images = []
+
+        protocol_result.add_result(mock_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx(level="final")
+
+        mock_result.filtered.assert_called_once_with("final")
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_creates_table_with_correct_structure(
+        self,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify measurements table has 6 columns and correct headers."""
+        mock_doc = Mock()
+        mock_table = Mock()
+        # Mock header cells (6 columns)
+        mock_hdr_cells = [Mock() for _ in range(6)]
+        mock_table.rows = [Mock(cells=mock_hdr_cells)]
+        # Mock row cells for measurement data
+        mock_row_cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = Mock(cells=mock_row_cells)
+        mock_doc.add_table.return_value = mock_table
+        mock_document_class.return_value = mock_doc
+
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        # Create mock measurement
+        mock_measurement = Mock()
+        mock_measurement.name = "snr"
+        mock_measurement.type = "measured"
+        mock_measurement.subtype = ""
+        mock_measurement.description = "Signal to noise"
+        mock_measurement.value = 42.5
+        mock_measurement.unit = "ratio"
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = [mock_measurement]
+        mock_result.report_images = []
+
+        protocol_result.add_result(mock_result)
+        protocol_result.to_docx()
+
+        # Verify table created with correct dimensions and style
+        mock_doc.add_table.assert_called_once_with(rows=1, cols=6)
+        self.assertEqual(mock_table.style, "Light Grid Accent 1")
+
+        # Verify headers populated
+        expected_headers = [
+            "Name",
+            "Type",
+            "Subtype",
+            "Description",
+            "Value",
+            "Unit",
+        ]
+        for i, header in enumerate(expected_headers):
+            self.assertEqual(mock_hdr_cells[i].text, header)
+
+        # Verify measurement data converted to strings
+        mock_table.add_row.assert_called_once()
+        self.assertEqual(mock_row_cells[0].text, "snr")
+        self.assertEqual(mock_row_cells[1].text, "measured")
+        self.assertEqual(mock_row_cells[4].text, "42.5")
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
+    def test_adds_report_images_with_five_inch_width(
+        self,
+        mock_exists: Mock,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify report images embedded with 5.0 inch width."""
+        mock_exists.return_value = True
+
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        mock_inches.return_value = "5_inches_width"
+
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = []
+        mock_result.report_images = [
+            "/path/to/image1.png",
+            "/path/to/image2.png",
+        ]
+
+        protocol_result.add_result(mock_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx(level="all")
+
+        self.assertEqual(mock_doc.add_picture.call_count, 2)
+        mock_doc.add_picture.assert_any_call(
+            "/path/to/image1.png",
+            width="5_inches_width",
+        )
+        mock_doc.add_picture.assert_any_call(
+            "/path/to/image2.png",
+            width="5_inches_width",
+        )
+        mock_inches.assert_called_with(5.0)
 
 
 class TestACRLargePhantomProtocol(unittest.TestCase):

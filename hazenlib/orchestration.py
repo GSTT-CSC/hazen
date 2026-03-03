@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # Python imports
     from collections.abc import Sequence
-    from pathlib import Path
 
     # Local imports
     from hazenlib.HazenTask import HazenTask
@@ -18,9 +17,12 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TypeVar
 
 # Module imports
+from docx import Document
+from docx.shared import Inches
 from pydicom import dcmread
 
 # Local imports
@@ -328,6 +330,76 @@ class ProtocolResult(Result):
         """Add a result to the list."""
         self._results.append(result)
 
+    def to_docx(
+        self,
+        template_path: Path | str | None = None,
+        level: str = "all",
+    ) -> Document:
+        """Generate Word document from aggregated results."""
+        if self.results is None:
+            msg = "Results cannot be empty"
+            logger.error(
+                "%s, please make sure the protocols run method"
+                " has been called.",
+                msg,
+            )
+            raise ValueError(msg)
+
+        if template_path is not None:
+            template_path = Path(template_path)
+            if not template_path.exists():
+                msg = f"Template file not found: {template_path}"
+                logger.error(msg)
+                raise FileNotFoundError(msg)
+            doc = Document(template_path)
+        else:
+            doc = Document()
+
+            # Header with protocol info
+            doc.add_heading(f"QA Report: {self.task}", 0)
+
+        # Section per step
+        for _result in self.results:
+            # Skip the metadata result for the current protocol
+            if _result.task == self.task:
+                continue
+
+            # Filter out specific results ('all', 'final', 'intermediate', etc.)
+            result = _result.filtered(level)
+
+            doc.add_heading(result.task, level=1)
+
+            # internal Measurement property -> word heading
+            text_mapping = {
+                "name": "Name",
+                "type": "Type",
+                "subtype": "Subtype",
+                "description": "Description",
+                "value": "Value",
+                "unit": "Unit",
+            }
+
+            # Results table
+            table = doc.add_table(rows=1, cols=len(text_mapping))
+            table.style = "Light Grid Accent 1"
+            hdr_cells = table.rows[0].cells
+            for idx, text in enumerate(text_mapping.values()):
+                hdr_cells[idx].text = text
+
+            for m in result.measurements:
+                row_cells = table.add_row().cells
+                for idx, key in enumerate(text_mapping.keys()):
+                    value = getattr(m, key)
+                    row_cells[idx].text = str(value) if value else "-"
+
+            # Embed report images if generated
+            if level != "final":  # Ignore for final reports.
+                for img_path in result.report_images:
+                    if Path(img_path).exists():
+                        doc.add_picture(img_path, width=Inches(5.0))
+
+        return doc
+
 
 T = TypeVar("T")
 
@@ -427,6 +499,7 @@ class ACRLargePhantomProtocol(Protocol):
         )
         for r in parallel_results:
             results.add_result(r)
+
         return results
 
 
