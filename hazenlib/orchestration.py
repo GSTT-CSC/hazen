@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # Python imports
     from collections.abc import Sequence
-    from pathlib import Path
 
     # Local imports
     from hazenlib.HazenTask import HazenTask
@@ -18,6 +17,7 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TypeVar
 
 # Module imports
