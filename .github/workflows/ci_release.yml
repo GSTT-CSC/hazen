@@ -70,6 +70,7 @@ jobs:
       run: make build
 
     - name: Pytest coverage comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
       with:
@@ -77,7 +78,7 @@ jobs:
         junitxml-path: ./pytest.xml
 
     - name: Update the coverage Badge
-      if: github.repository == 'GSTT-CSC/hazen'
+      if: github.event.pull_request.head.repo.full_name == github.repository
       uses: schneegans/dynamic-badges-action@v1.7.0
       with:
         auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
