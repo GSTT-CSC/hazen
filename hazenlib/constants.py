@@ -21,7 +21,11 @@ MEASUREMENT_NAMES = Literal[
 ]
 
 MEASUREMENT_TYPES = Literal[
-    "measured", "normalised", "fitted", "raw", "theoretical",
+    "measured",
+    "normalised",
+    "fitted",
+    "raw",
+    "theoretical",
 ]
 
 MEASUREMENT_VISIBILITY = Literal["final", "intermediate"]

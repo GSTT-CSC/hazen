@@ -373,9 +373,9 @@ class Relaxometry(HazenTask):
             results.metadata = metadata
 
             for idx, (
-                    measured_time,
-                    manufacturers_time,
-                    frac_time_difference,
+                measured_time,
+                manufacturers_time,
+                frac_time_difference,
             ) in enumerate(
                 zip(
                     relax_published.tolist(),

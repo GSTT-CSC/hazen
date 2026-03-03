@@ -27,11 +27,16 @@ import scipy as sp
 
 # Local imports
 from hazenlib import __version__
-from hazenlib.constants import (MEASUREMENT_NAMES, MEASUREMENT_TYPES,
-                                MEASUREMENT_VISIBILITY)
-from hazenlib.exceptions import (InvalidMeasurementNameError,
-                                 InvalidMeasurementTypeError,
-                                 InvalidMeasurementVisibilityError)
+from hazenlib.constants import (
+    MEASUREMENT_NAMES,
+    MEASUREMENT_TYPES,
+    MEASUREMENT_VISIBILITY,
+)
+from hazenlib.exceptions import (
+    InvalidMeasurementNameError,
+    InvalidMeasurementTypeError,
+    InvalidMeasurementVisibilityError,
+)
 from hazenlib.utils import get_pixel_size
 
 #########################################
@@ -219,7 +224,9 @@ class Metadata(JsonSerializableMixin):
 
             if len(values) > 1:
                 logger.warning(
-                    "Multiple %s values detected: %s", _field, values,
+                    "Multiple %s values detected: %s",
+                    _field,
+                    values,
                 )
 
             if values:
