@@ -385,8 +385,8 @@ class ProtocolResult(Result):
             for m in result.measurements:
                 row_cells = table.add_row().cells
                 for idx, key in enumerate(text_mapping.keys()):
-                    value = str(getattr(m, key))
-                    row_cells[idx].text = value if value else "-"
+                    value = getattr(m, key)
+                    row_cells[idx].text = str(value) if value else "-"
 
             # Embed report images if generated
             for img_path in result.report_images:
