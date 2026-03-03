@@ -5,8 +5,6 @@ from __future__ import annotations
 # Typing imports
 from typing import TYPE_CHECKING
 
-from hazenlib.logger import logger
-
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
@@ -19,6 +17,7 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, ParamSpec, get_args
+import logging
 
 # Module imports
 import numpy as np
@@ -38,6 +37,8 @@ from hazenlib.exceptions import (
     InvalidMeasurementVisibilityError,
 )
 from hazenlib.utils import get_pixel_size
+
+logger = logging.getLogger(__name__)
 
 #########################################
 # ParamSpec for public methods/function #
@@ -194,6 +195,7 @@ class Metadata(JsonSerializableMixin):
         # directly to results or metadata.
         try:
             dcm_list = [pydicom.dcmread(f) for f in self.files]
+
         except Exception as e:  # noqa: BLE001
             logger.warning(f"Failed to read DICOM files: {e}")
             return
@@ -202,7 +204,7 @@ class Metadata(JsonSerializableMixin):
             return
 
         _dicom_tags = {
-            "institution": "InstitutionName",
+            "institution_name": "InstitutionName",
             "manufacturer": "Manufacturer",
             "model": "ManufacturerModelName",
             "date": "StudyDate",
