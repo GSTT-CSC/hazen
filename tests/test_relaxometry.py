@@ -799,15 +799,15 @@ class TestRelaxometry(unittest.TestCase):
         """Extract calculated relaxation times from measurement results."""
         # Get measured Relaxometry entries (not theoretical or RMS error)
         measurements = results.get_measurement(
-            name="Relaxometry", 
-            measurement_type="measured"
+            name="Relaxometry", measurement_type="measured"
         )
 
         # Filter for actual time measurements (unit='ms', specific description)
         # and exclude the RMS aggregate measurement (subtype='rms_frac_time_difference')
         time_measurements = [
-            m for m in measurements
-            if m.unit == "ms" 
+            m
+            for m in measurements
+            if m.unit == "ms"
             and m.description == "Measured relaxation time."
             and m.subtype != "rms_frac_time_difference"
         ]
