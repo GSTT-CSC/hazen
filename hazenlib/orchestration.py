@@ -388,7 +388,7 @@ class ProtocolResult(Result):
                     row_cells[idx].text = str(value) if value else "-"
 
             # Embed report images if generated
-            if level != "final":        # Ignore for final reports.
+            if level != "final":  # Ignore for final reports.
                 for img_path in result.report_images:
                     if Path(img_path).exists():
                         doc.add_picture(img_path, width=Inches(5.0))
