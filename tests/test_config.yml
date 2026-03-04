@@ -2,6 +2,8 @@
 version: "1.0"
 hazen_version_constraint: ">=2.0.0a4"
 description: "Test Configuration File"
+output: "./test_output.json"
+levels: ["final", "all"]
 report_docx: "./test_report.docx"
 report_template: null
 
