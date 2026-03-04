@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 # Typing imports
 from typing import TYPE_CHECKING
 
@@ -13,11 +14,11 @@ if TYPE_CHECKING:
 # Python imports
 import functools
 import json
+import logging
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any, ParamSpec, get_args
-import logging
 
 # Module imports
 import numpy as np
@@ -26,16 +27,11 @@ import scipy as sp
 
 # Local imports
 from hazenlib._version import __version__
-from hazenlib.constants import (
-    MEASUREMENT_NAMES,
-    MEASUREMENT_TYPES,
-    MEASUREMENT_VISIBILITY,
-)
-from hazenlib.exceptions import (
-    InvalidMeasurementNameError,
-    InvalidMeasurementTypeError,
-    InvalidMeasurementVisibilityError,
-)
+from hazenlib.constants import (MEASUREMENT_NAMES, MEASUREMENT_TYPES,
+                                MEASUREMENT_VISIBILITY)
+from hazenlib.exceptions import (InvalidMeasurementNameError,
+                                 InvalidMeasurementTypeError,
+                                 InvalidMeasurementVisibilityError)
 from hazenlib.utils import get_pixel_size
 
 logger = logging.getLogger(__name__)
@@ -197,6 +193,7 @@ class Metadata(JsonSerializableMixin):
         try:
             dcm_list = [
                 pydicom.dcmread(f, stop_before_pixels=True) for f in self.files
+                if Path(f).suffix not in {".yml", ".yaml", ".toml", ".json"}
             ]
 
         except Exception as e:  # noqa: BLE001
