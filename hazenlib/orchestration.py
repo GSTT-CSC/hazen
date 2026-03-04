@@ -5,9 +5,6 @@ from __future__ import annotations
 # Type Checking
 from typing import TYPE_CHECKING
 
-from packaging import version as packaging_version
-from packaging.specifiers import InvalidSpecifer, SpecifierSet
-
 if TYPE_CHECKING:
     # Python imports
     from collections.abc import Sequence
@@ -24,12 +21,16 @@ from pathlib import Path
 from typing import TypeVar
 
 # Module imports
+import packaging.specifiers
 import yaml
 from docx import Document
 from docx.shared import Inches
 from pydicom import dcmread
+from packaging import version as packaging_version
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 # Local imports
+from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (UnknownAcquisitionTypeError,
                                  UnknownTaskNameError)
@@ -536,7 +537,7 @@ class JobTaskConfig:
     def __post_init__(self) -> None:
         if self.task not in TASK_REGISTRY:
             available = ", ".join(TASK_REGISTRY.keys())
-            msg = f"Unknown task "{task_name}". Available: {available}"
+            msg = f"Unknown task '{task_name}'. Available: {available}"
             raise UnknownTaskNameError(msg)
 
         for folder in self.folders:
@@ -573,7 +574,7 @@ class BatchConfig:
         results = ProtocolResult(
             task="Batch Configuration Job",
             desc=self.description,
-            files=self._file,
+            files=[self._file],
         )
         if dry_run:
             print(f"Configuration valid. Would execute {len(arg_list)} jobs:")
@@ -585,7 +586,7 @@ class BatchConfig:
                     f"\tParameters: {kwargs or '(none)'}"
                 )
             print(
-                "-" * 60 + "Dry run complete. No Measurements performed."
+                "-" * 60 + "\nDry run complete. No Measurements performed."
             )
             return results
 
@@ -638,7 +639,7 @@ class BatchConfig:
         return data
 
     @staticmethod
-    def _validate_hazen_version(cls, constraint_str: str) -> None:
+    def _validate_hazen_version(constraint_str: str) -> None:
         """Validate that current hazen version satisfies the constraint.
 
         Raises:
@@ -678,7 +679,7 @@ class BatchConfig:
             cls._validate_hazen_version(constraint_str)
 
         schema_version = data.get("version", "1.0")
-        data = cls._validate_schema_version(schema_version)
+        data = cls._validate_schema_version(schema_version, data)
 
         # Resolve paths relative to config file location
         config_dir = (
@@ -720,7 +721,7 @@ class BatchConfig:
             report_docx=report_docx,
             report_template=report_template,
             defaults=data.get("defaults", {}),
-            _file=config_path
+            _file=config_path,
         )
 
 
