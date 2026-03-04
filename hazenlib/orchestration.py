@@ -5,6 +5,9 @@ from __future__ import annotations
 # Type Checking
 from typing import TYPE_CHECKING
 
+from packaging import version as packaging_version
+from packaging.specifiers import InvalidSpecifer, SpecifierSet
+
 if TYPE_CHECKING:
     # Python imports
     from collections.abc import Sequence
@@ -21,16 +24,15 @@ from pathlib import Path
 from typing import TypeVar
 
 # Module imports
+import yaml
 from docx import Document
 from docx.shared import Inches
 from pydicom import dcmread
 
 # Local imports
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (
-    UnknownAcquisitionTypeError,
-    UnknownTaskNameError,
-)
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
@@ -502,7 +504,6 @@ class ACRLargePhantomProtocol(Protocol):
 
         return results
 
-
 def _execute_step(
     step: ProtocolStep,
     file_groups: dict,
@@ -512,6 +513,228 @@ def _execute_step(
     task = init_task(
         step.task_name,
         file_groups[step.acquisition_type],
+        **kwargs,
+    )
+    return task.run()
+
+
+@dataclass(frozen=True)
+class JobTaskConfig:
+    """Configuration for a specific task within a job.
+
+    Attributes:
+        task : Must match the TASK_REGISTRY or the PROTOCOL_REGISTRY key.
+        folders : Path to the folders containing the images.
+        overrides : Task specific overrides.
+
+    """
+
+    task: str
+    folders: list[Path]
+    overrides: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.task not in TASK_REGISTRY:
+            available = ", ".join(TASK_REGISTRY.keys())
+            msg = f"Unknown task "{task_name}". Available: {available}"
+            raise UnknownTaskNameError(msg)
+
+        for folder in self.folders:
+            if not Path(folder).exists():
+                msg = f"Folder not found: {folder}"
+                raise FileNotFoundError(msg)
+
+@dataclass
+class BatchConfig:
+    """Configuration for the batch configuration file."""
+
+    version: str
+    hazen_version_constraint: str | None
+    description: str
+    jobs: list[JobTaskConfig]
+    report_docx: Path | None = None
+    report_template: Path | None = None
+    defaults: dict[str, Any] | None = None
+
+    _file: str | Path = None
+
+    _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
+
+    def run(self, *, dry_run: bool = False, debug: bool = False) -> None:
+        """Run the batch config tasks."""
+        arg_list = []
+        for job in self.jobs:
+            kwargs = dict(self.defaults or {})
+            kwargs.update(job.overrides)
+
+            files = get_dicom_files(job.folders[0])
+            arg_list.append([job.task, files, kwargs])
+
+        results = ProtocolResult(
+            task="Batch Configuration Job",
+            desc=self.description,
+            files=self._file,
+        )
+        if dry_run:
+            print(f"Configuration valid. Would execute {len(arg_list)} jobs:")
+            for i, (task, files, kwargs) in enumerate(arg_list):
+                print(
+                    f"{i}. Task: {task}\n"
+                    f"\tFiles: {len(files)} DICOM(s)"
+                    f" from {Path(files[0]).parent}"
+                    f"\tParameters: {kwargs or '(none)'}"
+                )
+            print(
+                "-" * 60 + "Dry run complete. No Measurements performed."
+            )
+            return results
+
+        parallel_results = wait_on_parallel_results(
+            _execute_task,
+            arg_list,
+            debug=debug,
+        )
+        for r in parallel_results:
+            results.add_result(r)
+
+        return results
+
+    @classmethod
+    def _migrate_config(
+        cls, data: dict[str, Any], schema_version: str,
+    ) -> dict[str, Any]:
+        """Migrate the schema version."""
+        msg = "Configuration schema migration is not currently supported."
+        raise NotImplementedError(msg)
+
+
+    @classmethod
+    def _validate_schema_version(
+        cls, schema_version: str, data: dict[str, Any],
+    ) -> dict[str, Any]:
+        current_schema = cls._CURRENT_BATCHCONFIG_VERSION
+        if (
+            packaging_version.parse(schema_version)
+            > packaging_version.parse(current_schema)
+        ):
+            msg = (
+                f"Config file schema version {schema_version} is newer than "
+                f"supported version {current_schema}"
+            )
+            logger.error(
+                "%s. Please upgrade hazen to use this configuration file.", msg,
+            )
+            raise ValueError(msg)
+        elif schema_version != current_schema:
+            logger.warning(
+                "Config file uses scheme version %s"
+                ", current is %s."
+                " Attempting backward-compatible load."
+                " Consider updating your config file to the latest schema.",
+                schema_version,
+                current_schema,
+            )
+            data = cls._migrate_config(data, schema_version)
+        return data
+
+    @staticmethod
+    def _validate_hazen_version(cls, constraint_str: str) -> None:
+        """Validate that current hazen version satisfies the constraint.
+
+        Raises:
+            RuntimeError: If version constraint is not satisfied or invalid.
+        """
+        try:
+            specifier = SpecifierSet(constraint_str)
+        except InvalidSpecifier as e:
+            msg = (
+                f"Invalid hazen_version_constraint '{constraint_str}': {e}. "
+                f"Use standard semver specifiers like '>=1.2.0', '^1.2.0', etc."
+            )
+            raise ValueError(msg) from e
+
+        current_version = packaging_version.parse(__version__)
+
+        if current_version not in specifier:
+            msg = (
+                "Version constraint mismatch:"
+                f" Config requires hazen {constraint_str},"
+                f" but you are running {__version__}."
+                " Please install a compatible version:\n"
+                f"pip install 'hazen{constraint_str}'"
+                f" or\nuv tool install 'hazen{constraint_str}'"
+            )
+            raise RuntimeError(msg)
+
+    @classmethod
+    def from_config(cls, config_path: str | Path) -> BatchConfig:
+        """Read a configuration file into a BatchConfig object."""
+        config_path = Path(config_path)
+        with config_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        constraint_str = data.get("hazen_version_constraint")
+        if constraint_str:
+            cls._validate_hazen_version(constraint_str)
+
+        schema_version = data.get("version", "1.0")
+        data = cls._validate_schema_version(schema_version)
+
+        # Resolve paths relative to config file location
+        config_dir = (
+            config_path.parent if config_path.is_file() else config_path
+        )
+
+        # Parse jobs
+        jobs = []
+        for job_data in data.get("jobs", []):
+            # Resolve folder paths
+            folders = [
+                config_dir / f if not Path(f).is_absolute() else Path(f)
+                for f in job_data.get("folders", [])
+            ]
+
+            # Validate task name against registry
+            task_name = job_data["task"]
+
+            jobs.append(JobTaskConfig(
+                task=task_name,
+                folders=folders,
+                overrides=job_data.get("overrides", {})
+            ))
+
+        # Handle optional paths
+        report_docx = data.get("report_docx")
+        if report_docx and not Path(report_docx).is_absolute():
+            report_docx = config_dir / report_docx
+
+        report_template = data.get("report_template")
+        if report_template and not Path(report_template).is_absolute():
+            report_template = config_dir / report_template
+
+        return cls(
+            version=data.get("version", "1.0"),
+            hazen_version_constraint=data.get("hazen_version_constraint"),
+            description=data.get("description", ""),
+            jobs=jobs,
+            report_docx=report_docx,
+            report_template=report_template,
+            defaults=data.get("defaults", {}),
+            _file=config_path
+        )
+
+
+def _execute_task(
+    task: str,
+    files: list[str],
+    kwargs: dict[str, Any],
+) -> Result:
+    """Encapsulate the work for a single task."""
+    report = kwargs.get("report", False)
+    report_dir = kwargs.get("report_dir", None)
+    task = init_task(
+        task,
+        files,
         **kwargs,
     )
     return task.run()
