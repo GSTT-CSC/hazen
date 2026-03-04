@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 # Type Checking
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # Python imports
@@ -25,9 +25,9 @@ import packaging.specifiers
 import yaml
 from docx import Document
 from docx.shared import Inches
-from pydicom import dcmread
 from packaging import version as packaging_version
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
+from pydicom import dcmread
 
 # Local imports
 from hazenlib._version import __version__
@@ -537,7 +537,7 @@ class JobTaskConfig:
     def __post_init__(self) -> None:
         if self.task not in TASK_REGISTRY:
             available = ", ".join(TASK_REGISTRY.keys())
-            msg = f"Unknown task '{task_name}'. Available: {available}"
+            msg = f"Unknown task '{self.task}'. Available: {available}"
             raise UnknownTaskNameError(msg)
 
         for folder in self.folders:
@@ -553,16 +553,23 @@ class BatchConfig:
     hazen_version_constraint: str | None
     description: str
     jobs: list[JobTaskConfig]
+    output: Path
     report_docx: Path | None = None
     report_template: Path | None = None
     defaults: dict[str, Any] | None = None
+    levels: list[str] | tuple[str] = ("final", "all")
 
-    _file: str | Path = None
+    _file: str | Path | None = field(default_factory=None)
+    _dry_run: bool = False
 
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
 
-    def run(self, *, dry_run: bool = False, debug: bool = False) -> None:
+    def run(
+        self, *, dry_run: bool | None = None, debug: bool = False,
+    ) -> ProtocolResult:
         """Run the batch config tasks."""
+        dry_run = self._dry_run if dry_run is None else dry_run
+
         arg_list = []
         for job in self.jobs:
             kwargs = dict(self.defaults or {})
@@ -581,9 +588,9 @@ class BatchConfig:
             for i, (task, files, kwargs) in enumerate(arg_list):
                 print(
                     f"{i}. Task: {task}\n"
-                    f"\tFiles: {len(files)} DICOM(s)"
-                    f" from {Path(files[0]).parent}"
-                    f"\tParameters: {kwargs or '(none)'}"
+                    f"\tFiles:       {len(files)} DICOM(s)"
+                    f" from {Path(files[0]).parent}\n"
+                    f"\tParameters:  {kwargs or '(none)'}"
                 )
             print(
                 "-" * 60 + "\nDry run complete. No Measurements performed."
@@ -668,7 +675,9 @@ class BatchConfig:
             raise RuntimeError(msg)
 
     @classmethod
-    def from_config(cls, config_path: str | Path) -> BatchConfig:
+    def from_config(
+        cls, config_path: str | Path, *, dry_run: bool = False,
+    ) -> BatchConfig:
         """Read a configuration file into a BatchConfig object."""
         config_path = Path(config_path)
         with config_path.open("r") as f:
@@ -706,22 +715,31 @@ class BatchConfig:
 
         # Handle optional paths
         report_docx = data.get("report_docx")
-        if report_docx and not Path(report_docx).is_absolute():
-            report_docx = config_dir / report_docx
+        report_docx = (
+            config_dir / report_docx
+            if report_docx and not Path(report_docx).is_absolute()
+            else Path(report_docx) if report_docx else None
+        )
 
         report_template = data.get("report_template")
-        if report_template and not Path(report_template).is_absolute():
-            report_template = config_dir / report_template
+        report_template = (
+            config_dir / report_template
+            if report_template and not Path(report_template).is_absolute()
+            else Path(report_template) if report_template else None
+        )
 
         return cls(
             version=data.get("version", "1.0"),
             hazen_version_constraint=data.get("hazen_version_constraint"),
             description=data.get("description", ""),
+            output=Path(data.get("output")),
             jobs=jobs,
+            levels=data.get("levels"),
             report_docx=report_docx,
             report_template=report_template,
             defaults=data.get("defaults", {}),
             _file=config_path,
+            _dry_run=dry_run,
         )
 
 
