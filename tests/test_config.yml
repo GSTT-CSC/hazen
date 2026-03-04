@@ -1,0 +1,31 @@
+# Test Batch Configuration file.
+version: "1.0"
+hazen_version_constraint: ">=2.0.0a4"
+description: "Test Configuration File"
+report_docx: "./test_report.docx"
+report_template: null
+
+defaults: # Global parameters that affect all acquisitions
+    report: false
+    verbose: false
+
+jobs:
+  - task: acr_snr
+    folders:
+      - "./data/acr/Siemens"
+    overrides:
+      measured_slice_width: 5.0
+      subtract: "./data/acr/Siemens2"
+    
+  - task: acr_geometric_accuracy
+    folders:
+      - "./data/acr/GE"
+    overrides:
+      report: true  # Local parameter overrides
+      output: "./reports/geometric_accuracy/"
+    
+  - task: snr
+    folders:
+      - "./data/snr/GE"
+    overrides:
+      verbose: true
