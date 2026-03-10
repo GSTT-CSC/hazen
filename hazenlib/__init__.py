@@ -164,6 +164,7 @@ def get_parser() -> argparse.ArgumentParser:
     batch_parser = subparsers.add_parser(
         "batch",
         help="Execute task from config files.",
+        parents=[common_parser],
     )
     batch_parser.add_argument(
         "config",

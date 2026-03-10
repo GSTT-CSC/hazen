@@ -263,6 +263,10 @@ cli-batch-dry-run:
 cli-batch-wet-run:
 	$(VENV_CMD) hazen batch $(BATCH_CONF)
 
+.PHONY: cli-batch-flags
+cli-batch-flags:
+	$(VENV_CMD) hazen batch $(BATCH_CONF) --dry-run --log=DEBUG
+
 .PHONY: cli-batch
 cli-batch: cli-batch-dry-run cli-batch-wet-run
 
