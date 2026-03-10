@@ -12,21 +12,21 @@ defaults: # Global parameters that affect all acquisitions
     verbose: false
 
 jobs:
-  - task: acr_snr
+  - task: acr_all
     folders:
-      - "./data/acr/Siemens"
-    overrides:
-      measured_slice_width: 5.0
-      subtract: "./data/acr/Siemens2"
-    
-  - task: acr_geometric_accuracy
-    folders:
-      - "./data/acr/GE"
-    overrides:
-      report: true  # Local parameter overrides
-    
+      - "./data/acr/Siemens_Sola_1.5T_T1"
+      - "./data/acr/Siemens_Sola_1.5T_T2"
+      - "./data/acr/SiemensSolaFitLocalizer"
+
   - task: snr
     folders:
       - "./data/snr/GE"
     overrides:
       verbose: true
+
+  - task: relaxometry
+    folders:
+      - "./data/relaxometry/T1/site1_20200218/plate5"
+    overrides:
+      calc: T1
+      plate_number: 5

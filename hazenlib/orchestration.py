@@ -678,6 +678,10 @@ class BatchConfig:
             print("-" * 60 + "\nDry run complete. No Measurements performed.")
             return results
 
+        #######
+        # Run #
+        #######
+
         # Protocols
         for job, args in zip(protocol_jobs, protocol_arg_list, strict=True):
             protocol = PROTOCOL_REGISTRY[job.task](*args)
@@ -689,6 +693,7 @@ class BatchConfig:
             task_arg_list,
             debug=debug,
         )
+
         for r in parallel_results:
             results.add_result(r)
 
