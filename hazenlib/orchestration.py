@@ -42,6 +42,7 @@ from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
 
+
 def init_task(
     selected_task: str,
     files: list[str],
