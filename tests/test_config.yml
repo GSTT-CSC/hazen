@@ -24,7 +24,6 @@ jobs:
       - "./data/acr/GE"
     overrides:
       report: true  # Local parameter overrides
-      output: "./reports/geometric_accuracy/"
     
   - task: snr
     folders:
