@@ -159,8 +159,8 @@ TASK_REGISTRY = {
 def init_task(
     selected_task: str,
     files: list[str],
-    report: bool,
-    report_dir: str,
+    report: bool = False,
+    report_dir: str | None = None,
     **kwargs,
 ) -> HazenTask:
     """Initialise object of the correct HazenTask class.
@@ -581,7 +581,7 @@ class BatchConfig:
         results = ProtocolResult(
             task="Batch Configuration Job",
             desc=self.description,
-            files=[self._file],
+            files=[self._file.as_posix()],
         )
         if dry_run:
             print(f"Configuration valid. Would execute {len(arg_list)} jobs:")
