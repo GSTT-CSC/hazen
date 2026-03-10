@@ -29,8 +29,12 @@ from hazenlib.constants import MEASUREMENT_VISIBILITY
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
-from hazenlib.orchestration import (TASK_REGISTRY, ACRLargePhantomProtocol,
-                                    BatchConfig, init_task)
+from hazenlib.orchestration import (
+    TASK_REGISTRY,
+    ACRLargePhantomProtocol,
+    BatchConfig,
+    init_task,
+)
 from hazenlib.utils import get_dicom_files
 
 
@@ -262,7 +266,9 @@ def main() -> None:
 
     try:
         execution_wrapper = (
-            timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+            timed_execution
+            if args.profile
+            else (lambda f, *a, **k: f(*a, **k))
         )
     # Batch commands always run with timed execution.
     except AttributeError:

@@ -31,8 +31,10 @@ from pydicom import dcmread
 # Local imports
 from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (UnknownAcquisitionTypeError,
-                                 UnknownTaskNameError)
+from hazenlib.exceptions import (
+    UnknownAcquisitionTypeError,
+    UnknownTaskNameError,
+)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
@@ -505,6 +507,7 @@ class ACRLargePhantomProtocol(Protocol):
 
         return results
 
+
 def _execute_step(
     step: ProtocolStep,
     file_groups: dict,
@@ -545,6 +548,7 @@ class JobTaskConfig:
                 msg = f"Folder not found: {folder}"
                 raise FileNotFoundError(msg)
 
+
 @dataclass
 class BatchConfig:
     """Configuration for the batch configuration file."""
@@ -565,7 +569,10 @@ class BatchConfig:
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
 
     def run(
-        self, *, dry_run: bool | None = None, debug: bool = False,
+        self,
+        *,
+        dry_run: bool | None = None,
+        debug: bool = False,
     ) -> ProtocolResult:
         """Run the batch config tasks."""
         dry_run = self._dry_run if dry_run is None else dry_run
@@ -592,9 +599,7 @@ class BatchConfig:
                     f" from {Path(files[0]).parent}\n"
                     f"\tParameters:  {kwargs or '(none)'}"
                 )
-            print(
-                "-" * 60 + "\nDry run complete. No Measurements performed."
-            )
+            print("-" * 60 + "\nDry run complete. No Measurements performed.")
             return results
 
         parallel_results = wait_on_parallel_results(
@@ -609,28 +614,31 @@ class BatchConfig:
 
     @classmethod
     def _migrate_config(
-        cls, data: dict[str, Any], schema_version: str,
+        cls,
+        data: dict[str, Any],
+        schema_version: str,
     ) -> dict[str, Any]:
         """Migrate the schema version."""
         msg = "Configuration schema migration is not currently supported."
         raise NotImplementedError(msg)
 
-
     @classmethod
     def _validate_schema_version(
-        cls, schema_version: str, data: dict[str, Any],
+        cls,
+        schema_version: str,
+        data: dict[str, Any],
     ) -> dict[str, Any]:
         current_schema = cls._CURRENT_BATCHCONFIG_VERSION
-        if (
-            packaging_version.parse(schema_version)
-            > packaging_version.parse(current_schema)
+        if packaging_version.parse(schema_version) > packaging_version.parse(
+            current_schema
         ):
             msg = (
                 f"Config file schema version {schema_version} is newer than "
                 f"supported version {current_schema}"
             )
             logger.error(
-                "%s. Please upgrade hazen to use this configuration file.", msg,
+                "%s. Please upgrade hazen to use this configuration file.",
+                msg,
             )
             raise ValueError(msg)
         elif schema_version != current_schema:
@@ -676,7 +684,10 @@ class BatchConfig:
 
     @classmethod
     def from_config(
-        cls, config_path: str | Path, *, dry_run: bool = False,
+        cls,
+        config_path: str | Path,
+        *,
+        dry_run: bool = False,
     ) -> BatchConfig:
         """Read a configuration file into a BatchConfig object."""
         config_path = Path(config_path)
@@ -707,25 +718,31 @@ class BatchConfig:
             # Validate task name against registry
             task_name = job_data["task"]
 
-            jobs.append(JobTaskConfig(
-                task=task_name,
-                folders=folders,
-                overrides=job_data.get("overrides", {})
-            ))
+            jobs.append(
+                JobTaskConfig(
+                    task=task_name,
+                    folders=folders,
+                    overrides=job_data.get("overrides", {}),
+                )
+            )
 
         # Handle optional paths
         report_docx = data.get("report_docx")
         report_docx = (
             config_dir / report_docx
             if report_docx and not Path(report_docx).is_absolute()
-            else Path(report_docx) if report_docx else None
+            else Path(report_docx)
+            if report_docx
+            else None
         )
 
         report_template = data.get("report_template")
         report_template = (
             config_dir / report_template
             if report_template and not Path(report_template).is_absolute()
-            else Path(report_template) if report_template else None
+            else Path(report_template)
+            if report_template
+            else None
         )
 
         return cls(

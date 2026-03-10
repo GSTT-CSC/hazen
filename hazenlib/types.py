@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+
 # Typing imports
 from typing import TYPE_CHECKING
 
@@ -27,11 +28,16 @@ import scipy as sp
 
 # Local imports
 from hazenlib._version import __version__
-from hazenlib.constants import (MEASUREMENT_NAMES, MEASUREMENT_TYPES,
-                                MEASUREMENT_VISIBILITY)
-from hazenlib.exceptions import (InvalidMeasurementNameError,
-                                 InvalidMeasurementTypeError,
-                                 InvalidMeasurementVisibilityError)
+from hazenlib.constants import (
+    MEASUREMENT_NAMES,
+    MEASUREMENT_TYPES,
+    MEASUREMENT_VISIBILITY,
+)
+from hazenlib.exceptions import (
+    InvalidMeasurementNameError,
+    InvalidMeasurementTypeError,
+    InvalidMeasurementVisibilityError,
+)
 from hazenlib.utils import get_pixel_size
 
 logger = logging.getLogger(__name__)
@@ -192,7 +198,8 @@ class Metadata(JsonSerializableMixin):
         # directly to results or metadata.
         try:
             dcm_list = [
-                pydicom.dcmread(f, stop_before_pixels=True) for f in self.files
+                pydicom.dcmread(f, stop_before_pixels=True)
+                for f in self.files
                 if Path(f).suffix not in {".yml", ".yaml", ".toml", ".json"}
             ]
 
@@ -253,7 +260,6 @@ class Result(JsonSerializableMixin):
         if _load_metadata:
             self.metadata = Metadata(files=self.files)
 
-
     @property
     def measurements(self) -> tuple[Measurement, ...]:
         """Tuple of result measurements."""
@@ -271,7 +277,8 @@ class Result(JsonSerializableMixin):
     def add_report_image(self, image_path: str | Sequence[str]) -> None:
         """Add a report image location to the report_images."""
         if isinstance(image_path, Sequence) and not isinstance(
-            image_path, str,
+            image_path,
+            str,
         ):
             paths = image_path
         else:
