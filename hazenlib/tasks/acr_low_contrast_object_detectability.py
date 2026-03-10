@@ -41,7 +41,7 @@ Notes from the paper:
 - 40 Datasets analyzed (20 for each scanner).
 
 
-Implementation overview:
+Paper Implementation Overview:
 
 - Normalise image intensity for each slice (independently) to within [0, 1].
 - Background removal process performed using histogram thresholding.
@@ -57,6 +57,37 @@ Implementation overview:
         - Significance level for each slice is set to 0.0125.
 - Significance within each slice is adjusted using the Benjamini-Hochberg
     false discovery rate.
+
+Hazen Implementation Overview:
+
+- Normalise image intensity for each slice (independently) to within [0, 1].
+- Phantom background removal via binary thresholding and morphological erosion.
+- LCOD disc center detected using Hough Circle transform on cropped gradient images.
+        - Average center coordinates across slices 8-11 for sub-pixel stability.
+- Geometric template generated per slice with 9-degree rotational offsets between slices.
+        - 10 radial spokes with objects at 12.5, 25.0 and 38.0mm from center.
+        - Optional ensemble template matching testing +- 3 pixel spatial perturbations.
+- 128-sample radial intensity profiles extracted along each spoke trajectory.
+- 3rd order polynomial detrending using robust fitting truncated at 90% profile length.
+- Gaussian smoothing (sigma=5) applied to detrended profiles.
+- GLM fitted to each profile with object mask and constant regressors.
+        - Parameters estimated using statsmodels GLM.
+        - Ensemble selection based on minimum summed p-values with positive coefficients.
+- Benjamini-Hochberg FDR correction applied across all 30 tests per slice (10 spokes x 3 objects).
+- Detection requires FDR-corrected p-value < alpha (default 0.05) and positive GLM parameter.
+- Pass thresholds applied based on magnetic field strength.
+        - 1.5T: minimum 7 spokes detected across all slices.
+        - 3.0T: minimum 37 spokes detected across all slices.
+
+Key Differences from Paper:
+
+- Uses Hough Circle detection rather than histogram thresholding for disc identification.
+- Implements ensemble template optimization to handle sub-pixel registration errors.
+- Employs 3rd order polynomial detrending rather than 2nd order.
+- Uses standard Benjamini-Hochberg FDR rather than fixed alpha=0.0125 per slice.
+- Field-strength specific pass criteria (7 vs 37 spokes) based on ACR guidance.
+- Simplified background masking via morphological operations rather than complex histogram analysis.
+- Gaussian smoothing (sigma=5) applied pre-GLM fitting rather than raw profiles.
 
 Implemented for Hazen by Alex Drysdale: alexander.drysdale@wales.nhs.uk
 """

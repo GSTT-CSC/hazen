@@ -46,6 +46,7 @@ class ACRUniformity(HazenTask):
                 type(self).__name__,
             )
         super().__init__(**kwargs)
+
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
         # Required pixel radius to produce ~200cm2 ROI
