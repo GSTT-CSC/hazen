@@ -632,7 +632,8 @@ class BatchConfig:
         except InvalidSpecifier as e:
             msg = (
                 f"Invalid hazen_version_constraint '{constraint_str}': {e}. "
-                f"Use standard semver specifiers like '>=1.2.0', '^1.2.0', etc."
+                "Use standard semver specifiers like"
+                " '>=2.0.0', '~=2.0.0', '==2.0.*' etc."
             )
             raise ValueError(msg) from e
 
