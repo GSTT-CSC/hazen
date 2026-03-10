@@ -292,9 +292,9 @@ class Protocol:
 class ProtocolResult(Result):
     """Class for the protocol result."""
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _load_metadata: bool) -> None:
         """Initialise the results list."""
-        super().__post_init__()
+        super().__post_init__(_load_metadata)
 
         # Set initial result to contain
         # protocol information.

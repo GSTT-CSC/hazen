@@ -16,7 +16,7 @@ import functools
 import json
 import logging
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, InitVar
 from enum import Enum
 from typing import Any, ParamSpec, get_args
 
@@ -243,12 +243,15 @@ class Result(JsonSerializableMixin):
     task: str
     desc: str = ""
     files: str | Sequence[str] | Sequence[Sequence[str]] | None = None
+    _load_metadata: InitVar[bool] = True
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _load_metadata: bool) -> None:
         """Initialize the measurements, report_images and metadata."""
         self._measurements: list[Measurement] = []
         self._report_images: list[str] = []
-        self.metadata = Metadata(files=self.files)
+
+        if _load_metadata:
+            self.metadata = Metadata(files=self.files)
 
 
     @property
@@ -268,7 +271,7 @@ class Result(JsonSerializableMixin):
     def add_report_image(self, image_path: str | Sequence[str]) -> None:
         """Add a report image location to the report_images."""
         if isinstance(image_path, Sequence) and not isinstance(
-            image_path, str
+            image_path, str,
         ):
             paths = image_path
         else:
@@ -304,7 +307,12 @@ class Result(JsonSerializableMixin):
         if level not in get_args(MEASUREMENT_VISIBILITY):
             raise InvalidMeasurementVisibilityError(level)
 
-        new_result = Result(self.task, self.desc, self.files)
+        new_result = Result(
+            self.task,
+            self.desc,
+            self.files,
+            _load_metadata=False,
+        )
 
         new_result.metadata = self.metadata
         for img in self.report_images:
