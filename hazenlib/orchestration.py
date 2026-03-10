@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import datetime
-
+import hashlib
 # Type Checking
 from typing import TYPE_CHECKING, Any
 
@@ -35,10 +35,8 @@ from pydicom import dcmread
 # Local imports
 from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (
-    UnknownAcquisitionTypeError,
-    UnknownTaskNameError,
-)
+from hazenlib.exceptions import (UnknownAcquisitionTypeError,
+                                 UnknownTaskNameError)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
@@ -502,6 +500,13 @@ class BatchConfig:
 
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
 
+    def __post_init__(self) -> None:
+        """Log the batch config initial parameters."""
+        logger.debug(
+            "Performing batch config job: %s",
+            str(self),
+        )
+
     def run(
         self,
         *,
@@ -725,6 +730,12 @@ class BatchConfig:
         report_docx = resolve_path_as_str(data.get("report_docx"))
         report_template = resolve_path_as_str(data.get("report_template"))
         output = resolve_path_as_str(data.get("output"))
+
+        logger.info(
+            "Batch config job created from: %s (hash: %s)",
+            config_path,
+            hashlib.sha256(str(data).encode("utf-8")).hexdigest(),
+        )
 
         return cls(
             version=data.get("version", "1.0"),
