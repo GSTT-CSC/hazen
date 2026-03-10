@@ -161,9 +161,16 @@ from scipy.special import i0e, ive
 
 class Relaxometry(HazenTask):
     def __init__(self, **kwargs):
+        self.calc = kwargs.pop("calc", "T1")
+        self.plate_number = kwargs.pop("plate_number", None)
         super().__init__(**kwargs)
 
-    def run(self, calc: str = "T1", plate_number=None, verbose=False):
+    def run(
+        self,
+        calc: str | None = None,
+        plate_number: int | None = None,
+        verbose: bool = False,
+    ):
         """
         Calculate T1 or T2 values for relaxometry phantom.
 
@@ -206,6 +213,10 @@ class Relaxometry(HazenTask):
                     calculated relaxometry times and manufacturer provided data.
             }
         """
+        calc = self.calc if calc is None else calc
+        plate_number = (
+            self.plate_number if plate_number is None else plate_number
+        )
 
         # check plate number specified: should be either 4 or 5
         try:
