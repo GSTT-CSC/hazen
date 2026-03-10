@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import datetime
+
 # Type Checking
 from typing import TYPE_CHECKING, Any
 
@@ -34,8 +35,10 @@ from pydicom import dcmread
 # Local imports
 from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
-from hazenlib.exceptions import (UnknownAcquisitionTypeError,
-                                 UnknownTaskNameError)
+from hazenlib.exceptions import (
+    UnknownAcquisitionTypeError,
+    UnknownTaskNameError,
+)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
