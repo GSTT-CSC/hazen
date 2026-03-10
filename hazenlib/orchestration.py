@@ -239,7 +239,6 @@ class ProtocolResult(Result):
         )
         return doc
 
-
     def to_docx(
         self,
         template_path: Path | str | None = None,
