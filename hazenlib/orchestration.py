@@ -665,6 +665,10 @@ class BatchConfig:
         with config_path.open("r") as f:
             data = yaml.safe_load(f)
 
+        if not isinstance(data, dict):
+            msg = f"{config_path} is not a properly formatted yaml file"
+            raise TypeError(msg)
+
         constraint_str = data.get("hazen_version_constraint")
         if constraint_str:
             cls._validate_hazen_version(constraint_str)
