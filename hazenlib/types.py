@@ -250,6 +250,7 @@ class Result(JsonSerializableMixin):
         self._report_images: list[str] = []
         self.metadata = Metadata(files=self.files)
 
+
     @property
     def measurements(self) -> tuple[Measurement, ...]:
         """Tuple of result measurements."""
