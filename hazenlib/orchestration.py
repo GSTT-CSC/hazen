@@ -453,7 +453,9 @@ class JobTaskConfig:
                 f" Tasks: [{available_tasks}]"
                 f" Protocols: [{available_protocols}]"
             )
-            raise UnknownTaskNameError(msg)
+            raise UnknownTaskNameError(
+                msg, ",".join(available_protocols, available_tasks),
+            )
 
         for folder in self.folders:
             if not Path(folder).exists():
@@ -717,9 +719,9 @@ class BatchConfig:
             version=data.get("version", "1.0"),
             hazen_version_constraint=data.get("hazen_version_constraint"),
             description=data.get("description", ""),
-            output=Path(data.get("output")),
+            output=Path(data.get("output")).as_posix(),
             jobs=jobs,
-            levels=data.get("levels"),
+            levels=data.get("levels", "final"),
             report_docx=report_docx,
             report_template=report_template,
             defaults=data.get("defaults", {}),
