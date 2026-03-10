@@ -42,135 +42,9 @@ from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
 
-##############
-# Registries #
-##############
-
-PROTOCOL_REGISTRY: dict[str, type[Protocol]] = {
-    "acr_all": ACRLargePhantomProtocol,
-}
-
-# Note that if changing the TASK_REGISTRY keys you should
-# update Protocol to match up with the task registry.
-TASK_REGISTRY = {
-    # MagNET #
-    "snr": TaskMetadata(
-        module_name="snr",
-        class_name="SNR",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "ghosting": TaskMetadata(
-        module_name="ghosting",
-        class_name="Ghosting",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "uniformity": TaskMetadata(
-        module_name="uniformity",
-        class_name="Uniformity",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "spatial_resolution": TaskMetadata(
-        module_name="spatial_resolution",
-        class_name="SpatialResolution",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_width": TaskMetadata(
-        module_name="slice_width",
-        class_name="SliceWidth",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_position": TaskMetadata(
-        module_name="slice_position",
-        class_name="SlicePosition",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "snr_map": TaskMetadata(
-        module_name="snr_map",
-        class_name="SNRMap",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    # ACR #
-    "acr_geometric_accuracy": TaskMetadata(
-        module_name="acr_geometric_accuracy",
-        class_name="ACRGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_ghosting": TaskMetadata(
-        module_name="acr_ghosting",
-        class_name="ACRGhosting",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_low_contrast_object_detectability": TaskMetadata(
-        module_name="acr_low_contrast_object_detectability",
-        class_name="ACRLowContrastObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_object_detectability": TaskMetadata(
-        module_name="acr_object_detectability",
-        class_name="ACRObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_position": TaskMetadata(
-        module_name="acr_slice_position",
-        class_name="ACRSlicePosition",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_thickness": TaskMetadata(
-        module_name="acr_slice_thickness",
-        class_name="ACRSliceThickness",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_snr": TaskMetadata(
-        module_name="acr_snr",
-        class_name="ACRSNR",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_spatial_resolution": TaskMetadata(
-        module_name="acr_spatial_resolution",
-        class_name="ACRSpatialResolution",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_sagittal_geometric_accuracy": TaskMetadata(
-        module_name="acr_sagittal_geometric_accuracy",
-        class_name="ACRSagittalGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_uniformity": TaskMetadata(
-        module_name="acr_uniformity",
-        class_name="ACRUniformity",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    # Caliber
-    "relaxometry": TaskMetadata(
-        module_name="relaxometry",
-        class_name="Relaxometry",
-        single_image=False,
-        phantom=PhantomType.CALIBER,
-    ),
-}
-
-
 def init_task(
     selected_task: str,
     files: list[str],
-    *,
     report: bool = False,
     report_dir: str | None = None,
     **kwargs,
@@ -662,8 +536,7 @@ class BatchConfig:
             for i, (protocol, folders, kwargs) in enumerate(protocol_arg_list):
                 print(
                     f"{i}. Protocol: {protocol}\n"
-                    f"\tFolders:     {len(folders)} DICOM(s)"
-                    f" from {Path(files[0]).parent}\n"
+                    f"\tFolders:     {[f.as_posix() for f in folders]}\n"
                     f"\tParameters:  {kwargs or '(none)'}",
                 )
 
@@ -684,7 +557,8 @@ class BatchConfig:
 
         # Protocols
         for job, args in zip(protocol_jobs, protocol_arg_list, strict=True):
-            protocol = PROTOCOL_REGISTRY[job.task](*args)
+            _, dirs, kwargs = args
+            protocol = PROTOCOL_REGISTRY[job.task](dirs, **kwargs)
             results.add_result(protocol.run())
 
         # Tasks
@@ -854,8 +728,8 @@ def _execute_task(
     kwargs: dict[str, Any],
 ) -> Result:
     """Encapsulate the work for a single task."""
-    report = kwargs.get("report", False)
-    report_dir = kwargs.get("report_dir")
+    report = kwargs.pop("report", False)
+    report_dir = kwargs.pop("report_dir", None)
     task = init_task(
         task,
         files,
@@ -864,3 +738,128 @@ def _execute_task(
         **kwargs,
     )
     return task.run()
+
+
+##############
+# Registries #
+##############
+
+PROTOCOL_REGISTRY: dict[str, type[Protocol]] = {
+    "acr_all": ACRLargePhantomProtocol,
+}
+
+# Note that if changing the TASK_REGISTRY keys you should
+# update Protocol to match up with the task registry.
+TASK_REGISTRY = {
+    # MagNET #
+    "snr": TaskMetadata(
+        module_name="snr",
+        class_name="SNR",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "ghosting": TaskMetadata(
+        module_name="ghosting",
+        class_name="Ghosting",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "uniformity": TaskMetadata(
+        module_name="uniformity",
+        class_name="Uniformity",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "spatial_resolution": TaskMetadata(
+        module_name="spatial_resolution",
+        class_name="SpatialResolution",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_width": TaskMetadata(
+        module_name="slice_width",
+        class_name="SliceWidth",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_position": TaskMetadata(
+        module_name="slice_position",
+        class_name="SlicePosition",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "snr_map": TaskMetadata(
+        module_name="snr_map",
+        class_name="SNRMap",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    # ACR #
+    "acr_geometric_accuracy": TaskMetadata(
+        module_name="acr_geometric_accuracy",
+        class_name="ACRGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_ghosting": TaskMetadata(
+        module_name="acr_ghosting",
+        class_name="ACRGhosting",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_low_contrast_object_detectability": TaskMetadata(
+        module_name="acr_low_contrast_object_detectability",
+        class_name="ACRLowContrastObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_object_detectability": TaskMetadata(
+        module_name="acr_object_detectability",
+        class_name="ACRObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_position": TaskMetadata(
+        module_name="acr_slice_position",
+        class_name="ACRSlicePosition",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_thickness": TaskMetadata(
+        module_name="acr_slice_thickness",
+        class_name="ACRSliceThickness",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_snr": TaskMetadata(
+        module_name="acr_snr",
+        class_name="ACRSNR",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_spatial_resolution": TaskMetadata(
+        module_name="acr_spatial_resolution",
+        class_name="ACRSpatialResolution",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_sagittal_geometric_accuracy": TaskMetadata(
+        module_name="acr_sagittal_geometric_accuracy",
+        class_name="ACRSagittalGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_uniformity": TaskMetadata(
+        module_name="acr_uniformity",
+        class_name="ACRUniformity",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    # Caliber
+    "relaxometry": TaskMetadata(
+        module_name="relaxometry",
+        class_name="Relaxometry",
+        single_image=False,
+        phantom=PhantomType.CALIBER,
+    ),
+}
