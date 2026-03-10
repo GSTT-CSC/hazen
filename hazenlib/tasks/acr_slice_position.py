@@ -22,31 +22,49 @@ Created by Yassine Azma
 yassine.azma@rmh.nhs.uk
 
 28/12/2022
+
+Refactored by Luis M. Santos
+luis.santos2@nih.gov
+
+07/02/2025
 """
 
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import scipy
-import skimage.morphology
 import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRSlicePosition(HazenTask):
     """Slice position measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
+        self.Y_WEDGE_OFFSET = int(20 / self.ACR_obj.dx)
+        self.WEDGE_CENTER_Y = int(
+            45 / self.ACR_obj.dx
+        )  # Center region where it is safe to ray trace along x coordinate
+        self.X_WEDGE_OFFSET = int(3 / self.ACR_obj.dx)
+        self.GAUSSIAN_SIGMA = 2.5 / self.ACR_obj.dx
+        self.MINIMUM_Y_PEAK_THRESHOLD = int(20 / self.ACR_obj.dx)
+        self.INTERPOLATION_FACTOR = 0.2
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice position measurement
         using the first and last slices from the ACR phantom image set.
 
@@ -57,144 +75,194 @@ class ACRSlicePosition(HazenTask):
         dcms = [self.ACR_obj.slice_stack[0], self.ACR_obj.slice_stack[-1]]
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = [self.img_desc(dcm) for dcm in dcms]
-        results["measurement"] = {}
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = [self.img_desc(dcm) for dcm in dcms]
 
         for dcm in dcms:
             try:
                 result = self.get_slice_position(dcm)
-                results["measurement"][self.img_desc(dcm)] = {
-                    "length difference": round(result, 2)
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="SlicePosition",
+                        type="measured",
+                        subtype="length difference",
+                        description=self.img_desc(dcm),
+                        value=round(result, 2),
+                    ),
+                )
+
             except Exception as e:
                 logger.exception(
                     "Could not calculate the bar length difference for %s"
                     " because of : %s",
-                    self.img_desc(dcm), e,
+                    self.img_desc(dcm),
+                    e,
                 )
                 traceback.print_exc(file=sys.stdout)
                 continue
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
-    def find_wedges(self, img, mask):
+    def write_report(
+        self,
+        dcm,
+        img,
+        center,
+        x_pts,
+        y_pts,
+        interp_line_prof_L,
+        interp_line_prof_R,
+        interp_factor,
+        pos,
+        shift,
+    ):
+        import matplotlib.pyplot as plt
+
+        fig, axes = plt.subplots(3, 1)
+        fig.set_size_inches(8, 32)
+        fig.tight_layout(pad=4)
+
+        axes[0].imshow(img)
+        axes[0].scatter(center[0], center[1], c="red")
+        axes[0].plot([x_pts[0], x_pts[0]], [y_pts[0], y_pts[1]], "b")
+        axes[0].plot([x_pts[1], x_pts[1]], [y_pts[0], y_pts[1]], "r")
+        axes[0].axis("off")
+        axes[0].set_title("Line Profiles")
+
+        axes[1].grid()
+        axes[1].plot(
+            interp_factor
+            * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+            * self.ACR_obj.dy,
+            interp_line_prof_L,
+            "b",
+        )
+        axes[1].plot(
+            interp_factor
+            * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R))
+            * self.ACR_obj.dy,
+            interp_line_prof_R,
+            "r",
+        )
+        axes[1].set_title("Original Line Profiles")
+        axes[1].set_xlabel("Relative Pixel Position (mm)")
+
+        axes[2].plot(
+            interp_factor
+            * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+            * self.ACR_obj.dy,
+            interp_line_prof_L,
+            "b",
+        )
+
+        shift_line = np.roll(interp_line_prof_R, pos * shift)
+        if shift < 0 and pos == -1:
+            shift_line[0 : np.abs(shift)] = np.nan
+        elif shift < 0 and pos == 1:
+            shift_line[pos * shift :] = np.nan
+        elif shift > 0 and pos == -1:
+            shift_line[pos * shift :] = np.nan
+        else:
+            shift_line[0 : np.abs(pos) * shift] = np.nan
+
+        axes[2].grid()
+        axes[2].plot(
+            interp_factor
+            * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
+            * self.ACR_obj.dy,
+            shift_line,
+            "r",
+        )
+        axes[2].set_title("Shifted Line Profiles")
+        axes[2].set_xlabel("Relative Pixel Position (mm)")
+
+        img_path = os.path.realpath(
+            os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
+        )
+        fig.savefig(img_path)
+        self.report_files.append(img_path)
+
+        return img_path
+
+    def find_wedges(self, img, center):
         """Find wedges in the pixel array. \n
         Investigates the top half of the phantom to locate where the wedges
         pass through the slice, and calculates the co-ordinates of these locations.
 
         Args:
             img (np.ndarray): dcm.pixel_array
-            mask (np.ndarray): dcm.pixel_array of the image mask
+            center (tuple[int]): dcm.pixel_array of the image mask
 
         Returns:
             tuple of tuples: of x and y coordinates of wedges.
         """
-        # X COORDINATES
-        x_investigate_region = np.ceil(35 / self.ACR_obj.dx).astype(
-            int
-        )  # define width of region to test (comparable to wedges)
+        # Raytrace upward to find transition zone of wedge
+        yray = skimage.measure.profile_line(
+            img,
+            (0, center[0]),
+            (center[1], center[0]),
+            linewidth=int(1 / self.ACR_obj.dx),
+            mode="constant",
+            reduce_func=np.mean,
+        ).flatten()
+        abs_diff_y_profile = np.abs(np.diff(yray))
+        smoothed_y_profile = scipy.ndimage.gaussian_filter1d(
+            abs_diff_y_profile, self.GAUSSIAN_SIGMA
+        )
 
-        if np.mod(x_investigate_region, 2) == 0:
-            # we want an odd number to see -N to N points in the x direction
-            x_investigate_region = x_investigate_region + 1
+        ypeaks = self.ACR_obj.find_n_highest_peaks(smoothed_y_profile, 5)
+        # A properly centered phantom will not have any signal in upper region (0 < y <~20)
+        # Very small hack to filter out any "peak" signal in that region.
+        # This is to make sure that phantoms with a well demarcated upper edge of the wedge do not bias the line profile
+        # placement towards the upper portion of the wedge box.
+        ypeaks = [p for p in ypeaks[0] if p > self.MINIMUM_Y_PEAK_THRESHOLD]
+        # The line profile should yield a minimum of 4 peaks.
+        # The first peak denotes the start of the phantom.
+        # The second peak denotes the end of the wedge region.
+        # The third and fourth peaks are phantom specific since
+        # they imply the edges of elements around the center
+        y_center = ypeaks[1]
 
-        # westmost point of object
-        w_point = np.argwhere(np.sum(mask, 0) > 0)[0].item()
-        # eastmost point of object
-        e_point = np.argwhere(np.sum(mask, 0) > 0)[-1].item()
-        # northmost point of object
-        n_point = np.argwhere(np.sum(mask, 1) > 0)[0].item()
+        # Raytrace sideways assuming static general center of wedge to detect side transitions of the wedge box.
+        # The more miscentered the phantom, the more likely to get the wrong x coordinates of the wedges, but
+        # the static center was selected such that other relative phantom features do not interfere unless
+        # the phantom is in a really bad location.
+        # Small jitters should not have as much of an impact as relative computation of this center experienced.
+        # As an added benefit, we should still get a decently accurate result even if we capture the upper bound of
+        # the wedges with line profiles because the delta is based on the bottom differences.
+        xray = skimage.measure.profile_line(
+            img,
+            (self.WEDGE_CENTER_Y, 0),
+            (self.WEDGE_CENTER_Y, img.shape[0]),
+            linewidth=int(1 / self.ACR_obj.dx),
+            mode="constant",
+            reduce_func=np.mean,
+        ).flatten()
+        abs_diff_x_profile = np.abs(np.diff(xray))
+        smoothed_x_profile = scipy.ndimage.gaussian_filter1d(
+            abs_diff_x_profile, self.GAUSSIAN_SIGMA
+        )
 
-        invest_x = []
-        for k in range(x_investigate_region):
-            # add n_point to ensure in image's coordinate system
-            y_loc = n_point + k
-            # mask for resultant line profile
-            t = mask[y_loc, np.arange(w_point, e_point + 1, 1)]
-            # line profile at varying y positions from west to east
-            line_prof_x = skimage.measure.profile_line(
-                img, (y_loc, w_point), (y_loc, e_point), mode="constant"
-            ).flatten()
+        xpeaks = self.ACR_obj.find_n_highest_peaks(smoothed_x_profile, 4)
+        # The line profile should yield exactly 4 peaks unless we are off-centered.
+        # The middle two peaks correspond to the edges of the wedge region on the horizontal plane.
+        # The other two peaks denote the edges of the Phantom intersected on the horizontal plane.
+        # A simple average of the middle 2 peaks should give the exact x center coordinate of the wedge region.
+        x_center = int(np.sum(xpeaks[0][1:3]) // 2)
 
-            # mask unwanted values out and append
-            invest_x.append(t * line_prof_x)
+        logger.info("Wedge Bottom => {}, {}".format(x_center, y_center))
 
-        # transpose array
-        invest_x = np.array(invest_x).T
-        # mean of horizontal projections of phantom
-        mean_x_profile = np.mean(invest_x, 1)
-        # absolute first derivative of mean
-        abs_diff_x_profile = np.abs(np.diff(mean_x_profile))
-
-        # find two highest peaks
-        x_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_x_profile, 2)
-        # x coordinates of these peaks in image coordinate system(before diff operation)
-        x_locs = w_point + x_peaks
-
-        # width of wedges
-        width_pts = [x_locs[0], x_locs[1]]
-        # width
-        width = np.max(width_pts) - np.min(width_pts)
-
-        # rough midpoints of wedges
-        x_pts_left = round(np.min(width_pts) + 0.25 * width)
-        x_pts_right = round(np.max(width_pts) - 0.25 * width)
-
-        # Y COORDINATES
-        # define height of region to test (comparable to wedges)
-        y_investigate_region = int(np.ceil(20 / self.ACR_obj.dy).item())
-
-        # supposed distance from top of phantom to end of wedges
-        end_point = n_point + np.round(50 / self.ACR_obj.dy).astype(int)
-
-        if np.mod(y_investigate_region, 2) == 0:
-            # we want an odd number to see -N to N points in the y direction
-            y_investigate_region = y_investigate_region + 1
-
-        invest_y = []
-        for m in range(y_investigate_region):
-            x_loc = (
-                m
-                - np.floor(y_investigate_region / 2)
-                + np.floor(np.mean([x_pts_left, x_pts_right]))
-            ).astype(int)
-            # mask for resultant line profile
-            c = mask[np.arange(n_point, end_point + 1, 1), x_loc]
-            line_prof_y = skimage.measure.profile_line(
-                img, (n_point, x_loc), (end_point, x_loc), mode="constant"
-            ).flatten()
-            invest_y.append(c * line_prof_y)
-
-        # transpose array
-        invest_y = np.array(invest_y).T
-        # mean of vertical projections of phantom
-        mean_y_profile = np.mean(invest_y, 1)
-        # absolute first derivative of mean
-        abs_diff_y_profile = np.abs(np.diff(mean_y_profile))
-
-        # find two highest peaks
-        y_peaks, _ = self.ACR_obj.find_n_highest_peaks(abs_diff_y_profile, 2)
-        # y coordinates of these peaks in image coordinate system(before diff operation)
-        y_locs = w_point + y_peaks - 1
-
-        if y_locs[1] - y_locs[0] < 5 / self.ACR_obj.dy:
-            # if peaks too close together, use phantom geometry
-            y = [n_point + round(10 / self.ACR_obj.dy)]
-        else:
-            # define y coordinate
-            y = np.round(np.min(y_locs) + 0.25 * np.abs(np.diff(y_locs))).flatten()
-
-        # distance to y from top of phantom
-        dist_to_y = np.abs(n_point - y[0]) * self.ACR_obj.dy
-        # place 2nd y point 47mm from top of phantom
-        y_pt = round(y[0] + (47 - dist_to_y) / self.ACR_obj.dy)
-
-        return [x_pts_left, x_pts_right], [y[0], y_pt]
+        return [
+            int(x_center - self.X_WEDGE_OFFSET),
+            int(x_center + self.X_WEDGE_OFFSET),
+        ], [
+            int(y_center - self.Y_WEDGE_OFFSET),
+            int(y_center + self.Y_WEDGE_OFFSET),
+        ]
 
     def get_slice_position(self, dcm):
         """Measure slice position. \n
@@ -206,23 +274,42 @@ class ACRSlicePosition(HazenTask):
         Returns:
             float: bar length difference.
         """
-        img = dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(img)
-        x_pts, y_pts = self.find_wedges(img, mask)
+        logger.info(
+            f"Computing slice position for slice #{dcm.InstanceNumber}"
+        )
+        img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            rescaled, self.ACR_obj.dx, self.ACR_obj.dy
+        )
+        x_pts, y_pts = self.find_wedges(rescaled, cxy)
+        logger.info(
+            "Wedge Locations => \n{}\n{}".format(
+                (x_pts[0], y_pts[0]), (x_pts[1], y_pts[1])
+            )
+        )
 
         # line profile through left wedge
         line_prof_L = skimage.measure.profile_line(
-            img, (y_pts[0], x_pts[0]), (y_pts[1], x_pts[0]), mode="constant"
+            rescaled,
+            (y_pts[0], x_pts[0]),
+            (y_pts[1], x_pts[0]),
+            mode="constant",
         ).flatten()
         # line profile through right wedge
         line_prof_R = skimage.measure.profile_line(
-            img, (y_pts[0], x_pts[1]), (y_pts[1], x_pts[1]), mode="constant"
+            rescaled,
+            (y_pts[0], x_pts[1]),
+            (y_pts[1], x_pts[1]),
+            mode="constant",
         ).flatten()
 
         # interpolation
-        interp_factor = 1 / 5
         x = np.arange(1, len(line_prof_L) + 1)
-        new_x = np.arange(1, len(line_prof_L) + interp_factor, interp_factor)
+        new_x = np.arange(
+            1,
+            len(line_prof_L) + self.INTERPOLATION_FACTOR,
+            self.INTERPOLATION_FACTOR,
+        )
 
         # interpolate left line profile
         interp_line_prof_L = scipy.interpolate.interp1d(x, line_prof_L)(new_x)
@@ -236,6 +323,7 @@ class ACRSlicePosition(HazenTask):
         peaks, _ = ACRObject.find_n_highest_peaks(
             abs(delta), 2, 0.5 * np.max(abs(delta))
         )
+        logger.info(peaks)
 
         # if only one peak, set dummy range
         if len(peaks) == 1:
@@ -244,7 +332,8 @@ class ACRSlicePosition(HazenTask):
         # set multiplier for right or left shift based on sign of peak
         pos = (
             1
-            if np.max(-delta[peaks[0] : peaks[1]]) < np.max(delta[peaks[0] : peaks[1]])
+            if np.max(-delta[peaks[0] : peaks[1]])
+            < np.max(delta[peaks[0] : peaks[1]])
             else -1
         )
 
@@ -269,7 +358,9 @@ class ACRSlicePosition(HazenTask):
 
             # filler value to suppress warning when trying to calculate mean of array filled with NaN otherwise
             # calculate difference
-            err[k] = 1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            err[k] = (
+                1e10 if np.isnan(difference).all() else np.nanmean(difference)
+            )
 
         # find minimum non-zero error
         temp = np.argwhere(err == np.min(err[err > 0]))[0]
@@ -278,76 +369,20 @@ class ACRSlicePosition(HazenTask):
         shift = -lag[temp][0] if pos == 1 else lag[temp][0]
 
         # calculate bar length difference
-        dL = pos * np.abs(shift) * interp_factor * self.ACR_obj.dy
+        dL = pos * np.abs(shift) * self.INTERPOLATION_FACTOR * self.ACR_obj.dy
 
         if self.report:
-            import matplotlib.pyplot as plt
-
-            fig, axes = plt.subplots(4, 1)
-            fig.set_size_inches(8, 32)
-            fig.tight_layout(pad=4)
-
-            axes[0].imshow(mask)
-            axes[0].axis("off")
-            axes[0].set_title("Thresholding Result")
-
-            axes[1].imshow(img)
-            axes[1].plot([x_pts[0], x_pts[0]], [y_pts[0], y_pts[1]], "b")
-            axes[1].plot([x_pts[1], x_pts[1]], [y_pts[0], y_pts[1]], "r")
-            axes[1].axis("off")
-            axes[1].set_title("Line Profiles")
-
-            axes[2].grid()
-            axes[2].plot(
-                interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
-                * self.ACR_obj.dy,
+            self.write_report(
+                dcm,
+                rescaled,
+                cxy,
+                x_pts,
+                y_pts,
                 interp_line_prof_L,
-                "b",
-            )
-            axes[2].plot(
-                interp_factor
-                * np.linspace(1, len(interp_line_prof_R), len(interp_line_prof_R))
-                * self.ACR_obj.dy,
                 interp_line_prof_R,
-                "r",
+                self.INTERPOLATION_FACTOR,
+                pos,
+                shift,
             )
-            axes[2].set_title("Original Line Profiles")
-            axes[2].set_xlabel("Relative Pixel Position (mm)")
-
-            axes[3].plot(
-                interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
-                * self.ACR_obj.dy,
-                interp_line_prof_L,
-                "b",
-            )
-
-            shift_line = np.roll(interp_line_prof_R, pos * shift)
-            if shift < 0 and pos == -1:
-                shift_line[0 : np.abs(shift)] = np.nan
-            elif shift < 0 and pos == 1:
-                shift_line[pos * shift :] = np.nan
-            elif shift > 0 and pos == -1:
-                shift_line[pos * shift :] = np.nan
-            else:
-                shift_line[0 : np.abs(pos) * shift] = np.nan
-
-            axes[3].grid()
-            axes[3].plot(
-                interp_factor
-                * np.linspace(1, len(interp_line_prof_L), len(interp_line_prof_L))
-                * self.ACR_obj.dy,
-                shift_line,
-                "r",
-            )
-            axes[3].set_title("Shifted Line Profiles")
-            axes[3].set_xlabel("Relative Pixel Position (mm)")
-
-            img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
-            )
-            fig.savefig(img_path)
-            self.report_files.append(img_path)
 
         return dL

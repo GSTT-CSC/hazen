@@ -1,0 +1,90 @@
+# Release CI: Exhaustive verification before release
+# Duration target: < 30 minutes
+# Runs: full check suite, comprehensive tests, and build verification
+# Triggered: Push to main/release branches
+
+name: Release CI
+
+on:
+  push:
+    branches:
+      - 'main'
+      - 'release/*'
+
+jobs:
+  ci-release:
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.11'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.12'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.13'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.11'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.12'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.13'
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: choco install make
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
+    - name: Run release CI checks
+      run: make ci-release
+
+    - name: Verify package build
+      run: make build
+
+    - name: Pytest coverage comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      id: coverageComment
+      uses: MishaKav/pytest-coverage-comment@main
+      with:
+        pytest-coverage-path: ./pytest-coverage.txt
+        junitxml-path: ./pytest.xml
+
+    - name: Update the coverage Badge
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      uses: schneegans/dynamic-badges-action@v1.7.0
+      with:
+        auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
+        gistID: ba102d5f3e592fcd50451c2eff8a803d
+        filename: hazen_pytest-coverage-comment.json
+        label: Test coverage
+        message: ${{ steps.coverageComment.outputs.coverage }}
+        color: ${{ steps.coverageComment.outputs.color }}
+        namedLogo: python

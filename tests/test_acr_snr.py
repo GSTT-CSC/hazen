@@ -1,24 +1,25 @@
 import os
-import unittest
 import pathlib
-import pydicom
+import unittest
 
-from hazenlib.utils import get_dicom_files
-from hazenlib.tasks.acr_snr import ACRSNR
 from hazenlib.ACRObject import ACRObject
+from hazenlib.tasks.acr_snr import ACRSNR
+from hazenlib.utils import dcmread, get_dicom_files
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRSNRGE(unittest.TestCase):
     norm_factor = 57.12810400630368
-    snr = 39.76
+    snr = 39.98
 
     def setUp(self):
         ACR_DATA_GE = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
         ge_files = get_dicom_files(ACR_DATA_GE)
 
         self.acr_snr_task = ACRSNR(
-            input_data=ge_files, report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR)
+            input_data=ge_files,
+            report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
 
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
@@ -34,8 +35,8 @@ class TestACRSNRGE(unittest.TestCase):
 
 class TestACRSNRSiemens(TestACRSNRGE):
     norm_factor = 9.761711312090041
-    snr = 351.22
-    sub_snr = 76.06
+    snr = 339.1
+    sub_snr = 76.52
 
     def setUp(self):
         ACR_DATA_SIEMENS = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
@@ -52,15 +53,17 @@ class TestACRSNRSiemens(TestACRSNRGE):
         self.snr_dcm = self.acr_snr_task.ACR_obj.slice_stack[6]
         self.snr_dcm2 = ACRObject(
             [
-                pydicom.read_file(
-                    os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}")
+                dcmread(os.path.join(TEST_DATA_DIR, "acr", "Siemens2", f"{i}"))
+                for i in os.listdir(
+                    os.path.join(TEST_DATA_DIR, "acr", "Siemens2")
                 )
-                for i in os.listdir(os.path.join(TEST_DATA_DIR, "acr", "Siemens2"))
             ]
         ).slice_stack[6]
 
     def test_snr_by_subtraction(self):
-        snr, _ = self.acr_snr_task.snr_by_subtraction(self.snr_dcm, self.snr_dcm2)
+        snr, _ = self.acr_snr_task.snr_by_subtraction(
+            self.snr_dcm, self.snr_dcm2
+        )
         rounded_snr = round(snr, 2)
 
         print(

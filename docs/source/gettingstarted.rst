@@ -9,9 +9,9 @@ If, however, you are interested in using or contributing to the *hazen web app*,
 Prerequisites
 -------------
 
-* Python v3.9
+* Python v3.11-3.13
 * Git
-* Docker
+* Docker (optional)
 
 Install
 -------
@@ -50,9 +50,37 @@ In Terminal:
        'snr_subtraction_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 220.73,
        'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69}
 
-Linux & MacOS
-^^^^^^^^^^^^^
-For developers, hazen can be installed using ``pip``. We highly recommend using a virtual environment.
+Using uv (recommended)
+^^^^^^^^^^^^^^^^^^^^^^
+For developers, hazen can be installed using `uv <https://docs.astral.sh/uv/>`_. This is the recommended method as it provides faster dependency resolution and better reproducibility.
+
+.. code-block:: bash
+
+   # Install uv if you haven't already
+   # On macOS and Linux:
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # On Windows:
+   # powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+   # For M1 Apple Macs, you may need to install OpenBLAS and LAPACK
+   brew install openblas lapack
+   export LDFLAGS="-L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib"
+   export CPPFLAGS="-I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include"
+   export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig:/usr/local/opt/lapack/lib/pkgconfig"
+
+   # Go to local hazen repo directory
+   cd hazen
+
+   # Install hazen and its dependencies (including dev dependencies)
+   uv sync --group dev
+
+   # Run tests to ensure everything is working
+   uv run pytest tests/
+
+Linux & MacOS - Using pip (alternative)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Alternatively, hazen can be installed using ``pip`` in a virtual environment.
 
 .. code-block:: bash
 
@@ -80,12 +108,9 @@ For developers, hazen can be installed using ``pip``. We highly recommend using 
    python3 -m venv ./hazen-venv
    source hazen-venv/bin/activate
 
-   # Install requirements
+   # Install hazen in editable mode with dev dependencies
    pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-
-   # Install hazen
-   pip install .
+   pip install -e ".[dev]"
 
    # Run tests to ensure everything is working
    pytest tests/

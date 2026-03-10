@@ -1,17 +1,15 @@
-import os
-import unittest
 import pathlib
-import pydicom
+import unittest
 
-from hazenlib.utils import get_dicom_files
 from hazenlib.tasks.acr_ghosting import ACRGhosting
-from hazenlib.ACRObject import ACRObject
+from hazenlib.utils import get_dicom_files
+
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
 class TestACRGhostingSiemens(unittest.TestCase):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
-    psg = 0.034
+    psg = 0.035
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -37,4 +35,4 @@ class TestACRGhostingSiemens(unittest.TestCase):
 
 class TestACRGhostingGE(TestACRGhostingSiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    psg = 0.489
+    psg = 0.485

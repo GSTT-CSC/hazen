@@ -11,7 +11,12 @@ import copy
 
 class TestSlicePosition(unittest.TestCase):
     SLICE_POS = pathlib.Path(TEST_DATA_DIR / "slicepos")
-    ROD_COORDS = (122.22222222222223, 83.0, 132.88888888888889, 180.33333333333334)
+    ROD_COORDS = (
+        122.22222222222223,
+        83.0,
+        132.88888888888889,
+        180.33333333333334,
+    )
     # SLICE_POSITION_OUTPUT = ['0.151', '0.0964', '0.237', '0.101', '0.224', '0.103', '0.0873', '0.0386', '0.0458',
     #                          '0.0484', '0.110', '0.0951', '0.141', '0.00585', '0.164', '0.135', '0.0185', '0.0449',
     #                          '0', '0.0523', '0.0818', '0.165', '0.000858', '0.139', '0.00411', '0.247', '0.0931',
@@ -62,11 +67,15 @@ class TestSlicePosition(unittest.TestCase):
 
     def setUp(self):
         self.hazen_slice_position = SlicePosition(
-            input_data=get_dicom_files(os.path.join(self.SLICE_POS, "SLICEPOSITION")),
+            input_data=get_dicom_files(
+                os.path.join(self.SLICE_POS, "SLICEPOSITION")
+            ),
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
         self.sorted_slices = copy.deepcopy(self.hazen_slice_position.dcm_list)
-        self.sorted_slices.sort(key=lambda x: x.SliceLocation)  # sort by slice location
+        self.sorted_slices.sort(
+            key=lambda x: x.SliceLocation
+        )  # sort by slice location
 
     def test_get_rods_coords(self):
         # test just one file first, eventually test all 40 files
@@ -86,7 +95,9 @@ class TestSlicePosition(unittest.TestCase):
             self.sorted_slices[10:50]
         )
 
-        print("\ntest_slice_position.py::TestSlicePosition::test_slice_position")
+        print(
+            "\ntest_slice_position.py::TestSlicePosition::test_slice_position"
+        )
         print("new_release_value:", slice_positions)
         print("fixed_value", self.SLICE_POSITION_OUTPUT)
 
@@ -143,11 +154,13 @@ class CanonTestSlicePosition(TestSlicePosition):
     ]
 
     def setUp(self):
-        # self.test_files = [pydicom.read_file(str(i), force=True) for i in (self.SLICE_POS / 'canon').iterdir()]
+        # self.test_files = [dcmread(str(i), force=True) for i in (self.SLICE_POS / 'canon').iterdir()]
         # self.test_files.sort(key=lambda x: x.SliceLocation)
         self.hazen_slice_position = SlicePosition(
             input_data=get_dicom_files(os.path.join(self.SLICE_POS, "canon")),
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
         self.sorted_slices = copy.deepcopy(self.hazen_slice_position.dcm_list)
-        self.sorted_slices.sort(key=lambda x: x.SliceLocation)  # sort by slice location
+        self.sorted_slices.sort(
+            key=lambda x: x.SliceLocation
+        )  # sort by slice location

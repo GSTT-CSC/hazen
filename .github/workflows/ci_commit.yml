@@ -1,0 +1,45 @@
+# Per-commit CI: Fast feedback on every push to non-main branches
+# Duration target: < 1 minute
+# Runs: lint, format-check, and unit tests (excluding slow tests)
+
+name: Per-Commit CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+jobs:
+  ci-commit:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+          - os: windows-latest
+            shell: pwsh
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: choco install make
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
+    - name: Run per-commit CI checks
+      run: make ci-commit

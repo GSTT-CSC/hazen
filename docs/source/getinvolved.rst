@@ -52,15 +52,10 @@ Merging
 Releasing
 ---------
 
-* Produce requirements.txt by running:
-
-  .. code-block:: bash
-
-     __pipreqs --force --savepath ./requirements.txt --ignore bin,hazen-venv ./__
-
-* Check what requirements have been edited as pipreqs is not perfect e.g. scikit_image instead of skimage
+* Dependencies are managed using ``uv`` and specified in ``pyproject.toml``
+* The ``uv.lock`` file is automatically maintained by ``uv`` and should be committed to the repository
 * Make sure all tests are passing
-* Update version in ``hazenlib/\_\_init\_\_.py``, remove ``dev``.
+* Update version in ``hazenlib/__init__.py``, remove ``dev``.
 * Update docs (we use ``sphinx-apidoc`` for autodocumentation of modules)
 
 

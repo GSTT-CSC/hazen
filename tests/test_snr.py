@@ -1,7 +1,6 @@
 import unittest
 import pathlib
 
-import pydicom
 import os
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 from hazenlib.utils import get_dicom_files
@@ -16,7 +15,10 @@ class TestSnr(unittest.TestCase):
     SNR_DATA = pathlib.Path(TEST_DATA_DIR / "snr")
     ORIENTATION = "Transverse"
 
-    OBJECT_CENTRE = (131, 122)  # note these coordinates are (x, y) ie. (COLUMN, ROW)
+    OBJECT_CENTRE = (
+        131,
+        122,
+    )  # note these coordinates are (x, y) ie. (COLUMN, ROW)
     SNR_NORM_FACTOR = 9.761711312090041  # checked manually
     IMAGE_SMOOTHED_SNR = 1874.81  # this value from MATLAB for tra_250_2meas_1.IMA, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 2130.93  # this value from MATLAB for tra_250_2meas_1.IMA and tra_250_2meas_2.IMA, subtract method, normalised
@@ -43,13 +45,24 @@ class TestSnr(unittest.TestCase):
     def test_image_snr(self):
         val = self.snr.run()
         img_desc = self.snr.img_desc(self.snr.dcm_list[0])
-        smoothing_snr = val["measurement"]["snr by smoothing"][img_desc]["normalised"]
+        smoothing_snr = val.get_measurement(
+            name="SNR",
+            subtype="smoothing",
+            measurement_type="normalised",
+            description=img_desc,
+        )[0].value
         self.assertTrue(
-            self.LOWER_SMOOTHED_SNR <= smoothing_snr <= self.UPPER_SMOOTHED_SNR
+            self.LOWER_SMOOTHED_SNR
+            <= smoothing_snr
+            <= self.UPPER_SMOOTHED_SNR,
         )
-        subtract_snr = val["measurement"]["snr by subtraction"]["normalised"]
+        subtract_snr = val.get_measurement(
+            name="SNR",
+            subtype="subtraction",
+            measurement_type="normalised",
+        )[0].value
         self.assertTrue(
-            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR
+            self.LOWER_SUBTRACT_SNR <= subtract_snr <= self.UPPER_SUBTRACT_SNR,
         )
 
     def test_SNR_factor(self):
@@ -68,7 +81,9 @@ class TestSnrPhilips(TestSnr):
         127,
         129,
     )  # note these coordinates are (x, y) ie. (COLUMN, ROW) taken from Hazen, but checked in close proximity to Matlab
-    SNR_NORM_FACTOR = 14.35183536242098  # value taken from Hazen, but checked manually.
+    SNR_NORM_FACTOR = (
+        14.35183536242098  # value taken from Hazen, but checked manually.
+    )
     IMAGE_SMOOTHED_SNR = 5684.08  # this value from MATLAB for Philips_IM-0011-0005.dcm, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 5472.44  # this value from MATLAB for Philips_IM-0011-0005.dcm and Philips_IM-0011-0006.dcm, subtract method, normalised
 
@@ -80,8 +95,8 @@ class TestSnrPhilips(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
+        # self.test_file = dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0005.dcm'), force=True)
+        # self.test_file_2 = dcmread(str(self.SNR_DATA / 'Philips' / 'Philips_IM-0011-0006.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "Philips"), sort=True
@@ -101,7 +116,9 @@ class TestSnrGE(TestSnr):
         127,
         129,
     )  # note these coordinates are (x, y) ie. (COLUMN, ROW) taken from Hazen, but checked in close proximity to Matlab
-    SNR_NORM_FACTOR = 8.254476647778304  # value taken from Hazen, but checked manually
+    SNR_NORM_FACTOR = (
+        8.254476647778304  # value taken from Hazen, but checked manually
+    )
     IMAGE_SMOOTHED_SNR = 1551.19  # this value from MATLAB for GE_IM-0003-0001.dcm, single image smoothed, normalised
     IMAGE_SUBTRACT_SNR = 1517.88  # this value from MATLAB for GE_IM-0003-0001.dcm and Philips_IM-0004-0001.dcm, subtract method, normalised
 
@@ -113,8 +130,8 @@ class TestSnrGE(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
+        # self.test_file = dcmread(str(self.SNR_DATA / 'GE' / 'IM-0003-0001.dcm'), force=True)
+        # self.test_file_2 = dcmread(str(self.SNR_DATA / 'GE' / 'IM-0004-0001.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr", "GE"), sort=True
@@ -143,8 +160,8 @@ class TestSnrThreshold(TestSnr):
     LOWER_SUBTRACT_SNR = IMAGE_SUBTRACT_SNR * 0.98
 
     def setUp(self):
-        # self.test_file = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
-        # self.test_file_2 = pydicom.read_file(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
+        # self.test_file = dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_1.dcm'), force=True)
+        # self.test_file_2 = dcmread(str(self.SNR_DATA / 'VIDA' / 'HC_SNR_SAG_2.dcm'), force=True)
         self.snr = SNR(
             input_data=get_dicom_files(
                 os.path.join(TEST_DATA_DIR, "snr_threshold", "VIDA"), sort=True
