@@ -1,5 +1,7 @@
 """Orchestration Module for performing multiple tasks."""
 
+# ruff: noqa: T201
+
 from __future__ import annotations
 
 # Type Checking
@@ -37,7 +39,6 @@ from hazenlib.exceptions import (
 )
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
-
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,7 @@ TASK_REGISTRY = {
 def init_task(
     selected_task: str,
     files: list[str],
+    *,
     report: bool = False,
     report_dir: str | None = None,
     **kwargs,
@@ -368,42 +370,51 @@ class ProtocolResult(Result):
             # Skip the metadata result for the current protocol
             if _result.task == self.task:
                 continue
-
-            # Filter out specific results ('all', 'final', 'intermediate', etc.)
-            result = _result.filtered(level)
-
-            doc.add_heading(result.task, level=1)
-
-            # internal Measurement property -> word heading
-            text_mapping = {
-                "name": "Name",
-                "type": "Type",
-                "subtype": "Subtype",
-                "description": "Description",
-                "value": "Value",
-                "unit": "Unit",
-            }
-
-            # Results table
-            table = doc.add_table(rows=1, cols=len(text_mapping))
-            table.style = "Light Grid Accent 1"
-            hdr_cells = table.rows[0].cells
-            for idx, text in enumerate(text_mapping.values()):
-                hdr_cells[idx].text = text
-
-            for m in result.measurements:
-                row_cells = table.add_row().cells
-                for idx, key in enumerate(text_mapping.keys()):
-                    value = getattr(m, key)
-                    row_cells[idx].text = str(value) if value else "-"
-
-            # Embed report images if generated
-            if level != "final":  # Ignore for final reports.
-                for img_path in result.report_images:
-                    if Path(img_path).exists():
-                        doc.add_picture(img_path, width=Inches(5.0))
+            doc = add_report_table_to_doc(doc, _result, level)
 
         return doc
+
+
+def add_report_table_to_doc(
+    doc: Document,
+    _result: Result,
+    level: str,
+) -> Document:
+    """Add a report table to the word document."""
+    doc.add_heading(_result.task, level=1)
+
+    # Filter out specific results ('all', 'final', 'intermediate', etc.)
+    result = _result.filtered(level)
+
+    # internal Measurement property -> word heading
+    text_mapping = {
+        "name": "Name",
+        "type": "Type",
+        "subtype": "Subtype",
+        "description": "Description",
+        "value": "Value",
+        "unit": "Unit",
+    }
+
+    # Results table
+    table = doc.add_table(rows=1, cols=len(text_mapping))
+    table.style = "Light Grid Accent 1"
+    hdr_cells = table.rows[0].cells
+    for idx, text in enumerate(text_mapping.values()):
+        hdr_cells[idx].text = text
+
+    for m in result.measurements:
+        row_cells = table.add_row().cells
+        for idx, key in enumerate(text_mapping.keys()):
+            value = getattr(m, key)
+            row_cells[idx].text = str(value) if value else "-"
+
+    # Embed report images if generated
+    if level != "final":  # Ignore for final reports.
+        for img_path in result.report_images:
+            if Path(img_path).exists():
+                doc.add_picture(img_path, width=Inches(5.0))
+    return doc
 
 
 T = TypeVar("T")
@@ -538,6 +549,7 @@ class JobTaskConfig:
     overrides: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """Initialise the job task configuration."""
         if self.task not in TASK_REGISTRY:
             available = ", ".join(TASK_REGISTRY.keys())
             msg = f"Unknown task '{self.task}'. Available: {available}"
@@ -597,7 +609,7 @@ class BatchConfig:
                     f"{i}. Task: {task}\n"
                     f"\tFiles:       {len(files)} DICOM(s)"
                     f" from {Path(files[0]).parent}\n"
-                    f"\tParameters:  {kwargs or '(none)'}"
+                    f"\tParameters:  {kwargs or '(none)'}",
                 )
             print("-" * 60 + "\nDry run complete. No Measurements performed.")
             return results
@@ -630,7 +642,7 @@ class BatchConfig:
     ) -> dict[str, Any]:
         current_schema = cls._CURRENT_BATCHCONFIG_VERSION
         if packaging_version.parse(schema_version) > packaging_version.parse(
-            current_schema
+            current_schema,
         ):
             msg = (
                 f"Config file schema version {schema_version} is newer than "
@@ -641,7 +653,7 @@ class BatchConfig:
                 msg,
             )
             raise ValueError(msg)
-        elif schema_version != current_schema:
+        if schema_version != current_schema:
             logger.warning(
                 "Config file uses scheme version %s"
                 ", current is %s."
@@ -659,6 +671,7 @@ class BatchConfig:
 
         Raises:
             RuntimeError: If version constraint is not satisfied or invalid.
+
         """
         try:
             specifier = SpecifierSet(constraint_str)
@@ -723,7 +736,7 @@ class BatchConfig:
                     task=task_name,
                     folders=folders,
                     overrides=job_data.get("overrides", {}),
-                )
+                ),
             )
 
         # Handle optional paths
@@ -767,10 +780,12 @@ def _execute_task(
 ) -> Result:
     """Encapsulate the work for a single task."""
     report = kwargs.get("report", False)
-    report_dir = kwargs.get("report_dir", None)
+    report_dir = kwargs.get("report_dir")
     task = init_task(
         task,
         files,
+        report=report,
+        report_dir=report_dir,
         **kwargs,
     )
     return task.run()
