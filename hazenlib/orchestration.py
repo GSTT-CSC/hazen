@@ -237,6 +237,8 @@ class ProtocolResult(Result):
             f"Hazen version {self.metadata.version} "
             f" from the following files {files}"
         )
+        return doc
+
 
     def to_docx(
         self,
