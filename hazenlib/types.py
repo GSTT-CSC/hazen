@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 # Typing imports
 from typing import TYPE_CHECKING
 
@@ -13,11 +15,11 @@ if TYPE_CHECKING:
 # Python imports
 import functools
 import json
+import logging
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, InitVar
 from enum import Enum
 from typing import Any, ParamSpec, get_args
-import logging
 
 # Module imports
 import numpy as np
@@ -196,7 +198,9 @@ class Metadata(JsonSerializableMixin):
         # directly to results or metadata.
         try:
             dcm_list = [
-                pydicom.dcmread(f, stop_before_pixels=True) for f in self.files
+                pydicom.dcmread(f, stop_before_pixels=True)
+                for f in self.files
+                if Path(f).suffix not in {".yml", ".yaml", ".toml", ".json"}
             ]
 
         except Exception as e:  # noqa: BLE001
@@ -246,12 +250,15 @@ class Result(JsonSerializableMixin):
     task: str
     desc: str = ""
     files: str | Sequence[str] | Sequence[Sequence[str]] | None = None
+    _load_metadata: InitVar[bool] = True
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _load_metadata: bool) -> None:
         """Initialize the measurements, report_images and metadata."""
         self._measurements: list[Measurement] = []
         self._report_images: list[str] = []
-        self.metadata = Metadata(files=self.files)
+
+        if _load_metadata:
+            self.metadata = Metadata(files=self.files)
 
     @property
     def measurements(self) -> tuple[Measurement, ...]:
@@ -270,7 +277,8 @@ class Result(JsonSerializableMixin):
     def add_report_image(self, image_path: str | Sequence[str]) -> None:
         """Add a report image location to the report_images."""
         if isinstance(image_path, Sequence) and not isinstance(
-            image_path, str
+            image_path,
+            str,
         ):
             paths = image_path
         else:
@@ -306,7 +314,12 @@ class Result(JsonSerializableMixin):
         if level not in get_args(MEASUREMENT_VISIBILITY):
             raise InvalidMeasurementVisibilityError(level)
 
-        new_result = Result(self.task, self.desc, self.files)
+        new_result = Result(
+            self.task,
+            self.desc,
+            self.files,
+            _load_metadata=False,
+        )
 
         new_result.metadata = self.metadata
         for img in self.report_images:

@@ -1,0 +1,32 @@
+# Test Batch Configuration file.
+version: "1.0"
+hazen_version_constraint: ">=2.0.0a4"
+description: "Test Configuration File"
+output: "./test_output.json"
+levels: ["final", "all"]
+report_docx: "./test_report.docx"
+report_template: null
+
+defaults: # Global parameters that affect all acquisitions
+    report: false
+    verbose: false
+
+jobs:
+  - task: acr_all
+    folders:
+      - "./data/acr/Siemens_Sola_1.5T_T1"
+      - "./data/acr/Siemens_Sola_1.5T_T2"
+      - "./data/acr/SiemensSolaFitLocalizer"
+
+  - task: snr
+    folders:
+      - "./data/snr/GE"
+    overrides:
+      verbose: true
+
+  - task: relaxometry
+    folders:
+      - "./data/relaxometry/T1/site1_20200218/plate5"
+    overrides:
+      calc: T1
+      plate_number: 5
