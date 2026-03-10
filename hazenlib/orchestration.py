@@ -21,7 +21,6 @@ from pathlib import Path
 from typing import TypeVar
 
 # Module imports
-import packaging.specifiers
 import yaml
 from docx import Document
 from docx.shared import Inches
@@ -36,6 +35,7 @@ from hazenlib.exceptions import (UnknownAcquisitionTypeError,
                                  UnknownTaskNameError)
 from hazenlib.types import Measurement, PhantomType, Result, TaskMetadata
 from hazenlib.utils import get_dicom_files, wait_on_parallel_results
+
 
 logger = logging.getLogger(__name__)
 
