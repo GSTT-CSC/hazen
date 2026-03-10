@@ -20,6 +20,7 @@ hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 import argparse
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import get_args
 
@@ -316,6 +317,14 @@ def main() -> None:
                     ),
                     level=level,
                 )
+        if not args.dry_run:
+            conf_src = Path(args.config)
+            conf_bak = conf_src.with_suffix(conf_src.suffix + ".bak")
+            shutil.copy(conf_src, conf_bak)
+            print(  # noqa: T201
+                "Batch job successfully run!"
+                f" Current batch file copied to {conf_bak} as a backup.",
+            )
         return
 
     #############################
