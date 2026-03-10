@@ -560,7 +560,11 @@ class BatchConfig:
         for job, args in zip(protocol_jobs, protocol_arg_list, strict=True):
             _, dirs, kwargs = args
             protocol = PROTOCOL_REGISTRY[job.task](dirs, **kwargs)
-            results.add_result(protocol.run())
+            protocol_results = protocol.run()
+            for r in protocol_results.results:
+                if r.task == protocol_results.task:
+                    continue
+                results.add_result(r)
 
         # Tasks
         parallel_results = wait_on_parallel_results(
