@@ -454,7 +454,8 @@ class JobTaskConfig:
                 f" Protocols: [{available_protocols}]"
             )
             raise UnknownTaskNameError(
-                msg, ",".join(available_protocols, available_tasks),
+                msg,
+                ",".join([available_protocols, available_tasks]),
             )
 
         for folder in self.folders:
@@ -672,9 +673,7 @@ class BatchConfig:
         data = cls._validate_schema_version(schema_version, data)
 
         # Resolve paths relative to config file location
-        config_dir = (
-            config_path.parent if config_path.is_file() else config_path
-        )
+        config_dir = config_path.parent
 
         # Parse jobs
         jobs = []
@@ -697,29 +696,23 @@ class BatchConfig:
             )
 
         # Handle optional paths
-        report_docx = data.get("report_docx")
-        report_docx = (
-            config_dir / report_docx
-            if report_docx and not Path(report_docx).is_absolute()
-            else Path(report_docx)
-            if report_docx
-            else None
-        )
+        def resolve_path_as_str(path: Path | None) -> str | None:
+            default_path = Path(path).as_posix() if path else None
+            return (
+                (config_dir / path).as_posix()
+                if path and not Path(path).is_absolute()
+                else default_path
+            )
 
-        report_template = data.get("report_template")
-        report_template = (
-            config_dir / report_template
-            if report_template and not Path(report_template).is_absolute()
-            else Path(report_template)
-            if report_template
-            else None
-        )
+        report_docx = resolve_path_as_str(data.get("report_docx"))
+        report_template = resolve_path_as_str(data.get("report_template"))
+        output = resolve_path_as_str(data.get("output"))
 
         return cls(
             version=data.get("version", "1.0"),
             hazen_version_constraint=data.get("hazen_version_constraint"),
             description=data.get("description", ""),
-            output=Path(data.get("output")).as_posix(),
+            output=output,
             jobs=jobs,
             levels=data.get("levels", "final"),
             report_docx=report_docx,
