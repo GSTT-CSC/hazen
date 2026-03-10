@@ -42,6 +42,14 @@ from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
 
+##############
+# Registries #
+##############
+
+PROTOCOL_REGISTRY: dict[str, type[Protocol]] = {
+    "acr_all": ACRLargePhantomProtocol,
+}
+
 # Note that if changing the TASK_REGISTRY keys you should
 # update Protocol to match up with the task registry.
 TASK_REGISTRY = {
@@ -547,18 +555,40 @@ class JobTaskConfig:
     task: str
     folders: list[Path]
     overrides: dict[str, Any] = field(default_factory=dict)
+    _is_protocol: bool = field(init=False, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         """Initialise the job task configuration."""
-        if self.task not in TASK_REGISTRY:
-            available = ", ".join(TASK_REGISTRY.keys())
-            msg = f"Unknown task '{self.task}'. Available: {available}"
+        if self.task in TASK_REGISTRY:
+            object.__setattr__(self, "_is_protocol", False)
+        elif self.task in PROTOCOL_REGISTRY:
+            object.__setattr__(self, "_is_protocol", True)
+            # Protocol-specific validation
+            if self.task == "acr_all" and len(self.folders) != 3:
+                msg = (
+                    "acr_all expects 3 directories (T1, T2, Sagittal),"
+                    f" got {len(self.folders)}"
+                )
+                raise ValueError(msg)
+        else:
+            available_tasks = ", ".join(TASK_REGISTRY.keys())
+            available_protocols = ",".join(PROTOCOL_REGISTRY.keys())
+            msg = (
+                f"Unknown task '{self.task}'."
+                f" Tasks: [{available_tasks}]"
+                f" Protocols: [{available_protocols}]"
+            )
             raise UnknownTaskNameError(msg)
 
         for folder in self.folders:
             if not Path(folder).exists():
                 msg = f"Folder not found: {folder}"
                 raise FileNotFoundError(msg)
+
+    @property
+    def is_protocol(self) -> bool:
+        """Return True if this job references a protocol."""
+        return self._is_protocol
 
 
 @dataclass
@@ -589,24 +619,58 @@ class BatchConfig:
         """Run the batch config tasks."""
         dry_run = self._dry_run if dry_run is None else dry_run
 
-        arg_list = []
-        for job in self.jobs:
+        ############
+        # Protocol #
+        ############
+
+        protocol_jobs = [j for j in self.jobs if j.is_protocol]
+        protocol_arg_list = []
+        for job in protocol_jobs:
+            kwargs = dict(self.defaults or {})
+            kwargs.update(job.overrides)
+
+            folders = job.folders
+            protocol_arg_list.append([job.task, folders, kwargs])
+
+        #########
+        # Tasks #
+        #########
+
+        task_jobs = [j for j in self.jobs if not j.is_protocol]
+        task_arg_list = []
+        for job in task_jobs:
             kwargs = dict(self.defaults or {})
             kwargs.update(job.overrides)
 
             files = get_dicom_files(job.folders[0])
-            arg_list.append([job.task, files, kwargs])
+            task_arg_list.append([job.task, files, kwargs])
 
         results = ProtocolResult(
             task="Batch Configuration Job",
             desc=self.description,
             files=[self._file.as_posix()],
         )
+
+        ###########
+        # Dry run #
+        ###########
+
         if dry_run:
-            print(f"Configuration valid. Would execute {len(arg_list)} jobs:")
-            for i, (task, files, kwargs) in enumerate(arg_list):
+            print(f"Configuration valid. Would execute {len(self.jobs)} jobs:")
+
+            # Protocols
+            for i, (protocol, folders, kwargs) in enumerate(protocol_arg_list):
                 print(
-                    f"{i}. Task: {task}\n"
+                    f"{i}. Protocol: {protocol}\n"
+                    f"\tFolders:     {len(folders)} DICOM(s)"
+                    f" from {Path(files[0]).parent}\n"
+                    f"\tParameters:  {kwargs or '(none)'}",
+                )
+
+            # Tasks
+            for i, (task, files, kwargs) in enumerate(task_arg_list):
+                print(
+                    f"{i + len(protocol_arg_list)}. Task: {task}\n"
                     f"\tFiles:       {len(files)} DICOM(s)"
                     f" from {Path(files[0]).parent}\n"
                     f"\tParameters:  {kwargs or '(none)'}",
@@ -614,9 +678,15 @@ class BatchConfig:
             print("-" * 60 + "\nDry run complete. No Measurements performed.")
             return results
 
+        # Protocols
+        for job, args in zip(protocol_jobs, protocol_arg_list, strict=True):
+            protocol = PROTOCOL_REGISTRY[job.task](*args)
+            results.add_result(protocol.run())
+
+        # Tasks
         parallel_results = wait_on_parallel_results(
             _execute_task,
-            arg_list,
+            task_arg_list,
             debug=debug,
         )
         for r in parallel_results:
