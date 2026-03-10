@@ -609,7 +609,7 @@ class BatchConfig:
             raise ValueError(msg)
         if schema_version != current_schema:
             logger.warning(
-                "Config file uses scheme version %s"
+                "Config file uses schema version %s"
                 ", current is %s."
                 " Attempting backward-compatible load."
                 " Consider updating your config file to the latest schema.",
