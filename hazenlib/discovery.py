@@ -27,6 +27,7 @@ class Orientation(Enum):
     COR = "Coronal"
     AX = "Axial"
 
+
 @dataclass
 class AcquisitionMetadata:
     """Acquisition metadata."""
@@ -130,9 +131,11 @@ class AcquisitionCollector:
 
         return [job for acq_set in acq_sets.values() for job in acq_set.jobs]
 
+
 ##################
 # Task Type Sets #
 ##################
+
 
 class Ingestible(ABC):
     """Base class for task type sets."""
@@ -147,6 +150,7 @@ class Ingestible(ABC):
     def ingest(self, acq: DiscoveredAcquisition) -> None:
         """Ingest an acquisition into the jobs list."""
         ...
+
 
 @dataclass
 class ACRSet(Ingestible):
@@ -167,9 +171,9 @@ class ACRSet(Ingestible):
                 [
                     seq
                     for seq, p in zip(
-                            ("T1", "T2", "Sagittal Localizer"),
-                            (self.t1, self.t2, self.sl),
-                            strict=True,
+                        ("T1", "T2", "Sagittal Localizer"),
+                        (self.t1, self.t2, self.sl),
+                        strict=True,
                     )
                     if p is None
                 ],
@@ -197,13 +201,14 @@ class ACRSet(Ingestible):
 
     @staticmethod
     def get_latest_acquisition(
-            acq1: DiscoveredAcquisition | None,
-            acq2: DiscoveredAcquisition,
+        acq1: DiscoveredAcquisition | None,
+        acq2: DiscoveredAcquisition,
     ) -> DiscoveredAcquisition:
         """Get the latest acquisition."""
         if acq1 is None or acq2 > acq1:
             return acq2
         return acq1
+
 
 @dataclass
 class SNRSet(Ingestible):
