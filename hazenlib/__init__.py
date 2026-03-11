@@ -299,7 +299,8 @@ def main() -> None:
         if not Path(args.config).exists():
             parser.error(f"Config file not found: {args.config}")
         batch = BatchConfig.from_config(args.config, dry_run=args.dry_run)
-        batch.output.parent.mkdir(parents=True, exist_ok=True)
+        output = Path(batch.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
         results = execution_wrapper(batch.run)
 
         if args.dry_run:
@@ -318,9 +319,9 @@ def main() -> None:
             for result in results.results:
                 write_result(
                     result,
-                    fmt=batch.output.suffix.split(".")[-1],
-                    path=batch.output.with_stem(
-                        batch.output.stem + f"_{level}",
+                    fmt=output.suffix.split(".")[-1],
+                    path=output.with_stem(
+                        output.stem + f"_{level}",
                     ),
                     level=level,
                 )
