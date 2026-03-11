@@ -954,7 +954,7 @@ class TestBatchConfig(unittest.TestCase):
 
         self.assertEqual(config.version, "1.0")  # default
         self.assertEqual(config.description, "")  # default
-        self.assertEqual(config.levels, "final")  # default
+        self.assertEqual(config.levels, ["final"])  # default
         self.assertIsNone(config.report_docx)  # default
         self.assertEqual(config.defaults, {})  # default
 
