@@ -747,7 +747,7 @@ class BatchConfig:
             description=data.get("description", ""),
             output=output,
             jobs=jobs,
-            levels=data.get("levels", "final"),
+            levels=data.get("levels", ["final"]),
             report_docx=report_docx,
             report_template=report_template,
             defaults=data.get("defaults", {}),
