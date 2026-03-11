@@ -444,5 +444,6 @@ class TestSplitDicom(unittest.TestCase):
             # Each should be 2D (original is 3D)
             self.assertEqual(len(frame_dcm.pixel_array.shape), 2)
 
+
 if __name__ == "__main__":
     unittest.main()
