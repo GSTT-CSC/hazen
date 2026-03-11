@@ -741,13 +741,16 @@ class BatchConfig:
             hashlib.sha256(str(data).encode("utf-8")).hexdigest(),
         )
 
+        levels = data.get("levels", ["final"])
+        if isinstance(levels, str):
+            levels = [levels]
         return cls(
             version=data.get("version", "1.0"),
             hazen_version_constraint=data.get("hazen_version_constraint"),
             description=data.get("description", ""),
             output=output,
             jobs=jobs,
-            levels=data.get("levels", ["final"]),
+            levels=levels,
             report_docx=report_docx,
             report_template=report_template,
             defaults=data.get("defaults", {}),
