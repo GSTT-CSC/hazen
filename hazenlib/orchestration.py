@@ -499,7 +499,7 @@ class BatchConfig:
     defaults: dict[str, Any] | None = None
     levels: list[str] | tuple[str] = ("final", "all")
 
-    _file: str | Path | None = field(default_factory=None)
+    _file: str | Path | None = field(default=None)
     _dry_run: bool = False
 
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
