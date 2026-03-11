@@ -306,7 +306,7 @@ def add_report_table_to_doc(
         row_cells = table.add_row().cells
         for idx, key in enumerate(text_mapping.keys()):
             value = getattr(m, key)
-            row_cells[idx].text = str(value) if value else "-"
+            row_cells[idx].text = str(value) if value is not None else "-"
 
     # Embed report images if generated
     if level != "final":  # Ignore for final reports.
