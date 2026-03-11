@@ -545,10 +545,11 @@ class BatchConfig:
             files = get_dicom_files(job.folders[0])
             task_arg_list.append([job.task, files, kwargs])
 
+        result_files = [] if self._file is None else [self._file.as_posix()]
         results = ProtocolResult(
             task="Batch Configuration Job",
             desc=self.description,
-            files=[self._file.as_posix()],
+            files=result_files,
         )
 
         ###########
