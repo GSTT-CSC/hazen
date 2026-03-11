@@ -13,6 +13,8 @@ ACR_DATA_T1 = tests/data/acr/GE_Artist_1.5T_T1
 ACR_DATA_T2 = tests/data/acr/GE_Artist_1.5T_T2
 ACR_DATA_SL = tests/data/acr/GE_Signa_1.5T_Sagittal_Localizer
 
+BATCH_CONF = tests/test_config.yml
+
 ##################
 # Default Target #
 ##################
@@ -162,8 +164,11 @@ acr-object-detectability:
 
 .PHONY: acr-large-phantom-all
 acr-large-phantom-all:
-	$(VENV_CMD) hazen --profile \
-	acr_all $(ACR_DATA_T1) $(ACR_DATA_T2) $(ACR_DATA_SL)
+	$(VENV_CMD) hazen \
+	acr_all $(ACR_DATA_T1) $(ACR_DATA_T2) $(ACR_DATA_SL) \
+	--profile \
+	--report-docx=makefile_output_tmp.docx \
+	--level=final
 
 .PHONY: cli-acr-all
 cli-acr-all: acr-large-phantom-all \
@@ -249,6 +254,22 @@ caliber-relaxometry: relaxometry-T1 relaxometry-T2
 .PHONY: cli-caliber
 cli-caliber: caliber-relaxometry	## Run the Caliber CLI tests
 
+# Batch command #
+.PHONY: cli-batch-dry-run
+cli-batch-dry-run:
+	$(VENV_CMD) hazen batch $(BATCH_CONF) --dry-run
+
+.PHONY: cli-batch-wet-run
+cli-batch-wet-run:
+	$(VENV_CMD) hazen batch $(BATCH_CONF)
+
+.PHONY: cli-batch-flags
+cli-batch-flags:
+	$(VENV_CMD) hazen batch $(BATCH_CONF) --dry-run --log=DEBUG
+
+.PHONY: cli-batch
+cli-batch: cli-batch-dry-run cli-batch-wet-run
+
 # CLI Flags #
 .PHONY: flags-profile
 flags-profile:
@@ -300,7 +321,7 @@ cli-flags: flags-profile flags-report flags-output flags-verbose \
 	flags-format flags-result flags-version flags-combined
 
 .PHONY: cli
-cli: cli-acr cli-magnet cli-caliber cli-flags	## Run all CLI tests
+cli: cli-acr cli-magnet cli-caliber cli-flags cli-batch	## Run all CLI tests
 
 .PHONY: test-cli-smoke
 test-cli-smoke: acr-large-phantom-all	## Run CLI smoke tests (ACR only)
@@ -363,6 +384,7 @@ clean: ## Clean build artifacts and caches
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov/
 	rm -rf build/ dist/ *.egg-info
 	rm -rf $(DOCS_DIR)/_build
+	rm -rf makefile_output_*
 	@echo "Clean complete"
 
 ###############

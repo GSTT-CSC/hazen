@@ -31,9 +31,11 @@ from pathlib import Path
 from typing import Any
 
 # Module imports
-import hazenlib.utils
 import numpy as np
-import pydicom
+from scipy import ndimage
+
+# Local imports
+import hazenlib.utils
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
@@ -41,7 +43,6 @@ from hazenlib.types import Measurement, Result
 
 # Local imports
 from hazenlib.utils import dcmread
-from scipy import ndimage
 
 
 class ACRSNR(HazenTask):

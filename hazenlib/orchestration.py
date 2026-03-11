@@ -1,14 +1,18 @@
 """Orchestration Module for performing multiple tasks."""
 
+# ruff: noqa: T201
+
 from __future__ import annotations
 
+import datetime
+import hashlib
+
 # Type Checking
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     # Python imports
     from collections.abc import Sequence
-    from pathlib import Path
 
     # Local imports
     from hazenlib.HazenTask import HazenTask
@@ -18,12 +22,19 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import TypeVar
 
 # Module imports
+import yaml
+from docx import Document
+from docx.shared import Inches
+from packaging import version as packaging_version
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from pydicom import dcmread
 
 # Local imports
+from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (
     UnknownAcquisitionTypeError,
@@ -34,128 +45,12 @@ from hazenlib.utils import get_dicom_files, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
 
-# Note that if changing the TASK_REGISTRY keys you should
-# update Protocol to match up with the task registry.
-TASK_REGISTRY = {
-    # MagNET #
-    "snr": TaskMetadata(
-        module_name="snr",
-        class_name="SNR",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "ghosting": TaskMetadata(
-        module_name="ghosting",
-        class_name="Ghosting",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "uniformity": TaskMetadata(
-        module_name="uniformity",
-        class_name="Uniformity",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "spatial_resolution": TaskMetadata(
-        module_name="spatial_resolution",
-        class_name="SpatialResolution",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_width": TaskMetadata(
-        module_name="slice_width",
-        class_name="SliceWidth",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "slice_position": TaskMetadata(
-        module_name="slice_position",
-        class_name="SlicePosition",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    "snr_map": TaskMetadata(
-        module_name="snr_map",
-        class_name="SNRMap",
-        single_image=True,
-        phantom=PhantomType.MAGNET,
-    ),
-    # ACR #
-    "acr_geometric_accuracy": TaskMetadata(
-        module_name="acr_geometric_accuracy",
-        class_name="ACRGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_ghosting": TaskMetadata(
-        module_name="acr_ghosting",
-        class_name="ACRGhosting",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_low_contrast_object_detectability": TaskMetadata(
-        module_name="acr_low_contrast_object_detectability",
-        class_name="ACRLowContrastObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_object_detectability": TaskMetadata(
-        module_name="acr_object_detectability",
-        class_name="ACRObjectDetectability",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_position": TaskMetadata(
-        module_name="acr_slice_position",
-        class_name="ACRSlicePosition",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_slice_thickness": TaskMetadata(
-        module_name="acr_slice_thickness",
-        class_name="ACRSliceThickness",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_snr": TaskMetadata(
-        module_name="acr_snr",
-        class_name="ACRSNR",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_spatial_resolution": TaskMetadata(
-        module_name="acr_spatial_resolution",
-        class_name="ACRSpatialResolution",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_sagittal_geometric_accuracy": TaskMetadata(
-        module_name="acr_sagittal_geometric_accuracy",
-        class_name="ACRSagittalGeometricAccuracy",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    "acr_uniformity": TaskMetadata(
-        module_name="acr_uniformity",
-        class_name="ACRUniformity",
-        single_image=False,
-        phantom=PhantomType.ACR,
-    ),
-    # Caliber
-    "relaxometry": TaskMetadata(
-        module_name="relaxometry",
-        class_name="Relaxometry",
-        single_image=False,
-        phantom=PhantomType.CALIBER,
-    ),
-}
-
 
 def init_task(
     selected_task: str,
     files: list[str],
-    report: bool,
-    report_dir: str,
+    report: bool = False,
+    report_dir: str | None = None,
     **kwargs,
 ) -> HazenTask:
     """Initialise object of the correct HazenTask class.
@@ -287,9 +182,9 @@ class Protocol:
 class ProtocolResult(Result):
     """Class for the protocol result."""
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _load_metadata: bool) -> None:
         """Initialise the results list."""
-        super().__post_init__()
+        super().__post_init__(_load_metadata)
 
         # Set initial result to contain
         # protocol information.
@@ -327,6 +222,97 @@ class ProtocolResult(Result):
     def add_result(self, result: Result) -> None:
         """Add a result to the list."""
         self._results.append(result)
+
+    def add_metadata_to_doc(self, doc: Document) -> Document:
+        """Add metadata properties to a document."""
+        doc.core_properties.author = "Hazen"
+        doc.core_properties.created = datetime.datetime.now(tz=datetime.UTC)
+        doc.core_properties.comments = (
+            "Initial draft of the document automatically generated by"
+            f" Hazen (version {self.metadata.version})"
+        )
+        return doc
+
+    def to_docx(
+        self,
+        template_path: Path | str | None = None,
+        level: str = "all",
+    ) -> Document:
+        """Generate Word document from aggregated results."""
+        if self.results is None:
+            msg = "Results cannot be empty"
+            logger.error(
+                "%s, please make sure the protocols run method"
+                " has been called.",
+                msg,
+            )
+            raise ValueError(msg)
+
+        if template_path is not None:
+            template_path = Path(template_path)
+            if not template_path.exists():
+                msg = f"Template file not found: {template_path}"
+                logger.error(msg)
+                raise FileNotFoundError(msg)
+            doc = Document(template_path)
+        else:
+            doc = Document()
+
+            # Header with protocol info
+            doc.add_heading(f"QA Report: {self.task}", 0)
+
+        # Metadata
+        doc = self.add_metadata_to_doc(doc)
+        # Section per step
+        for _result in self.results:
+            # Skip the metadata result for the current protocol
+            if _result.task == self.task:
+                continue
+            doc = add_report_table_to_doc(doc, _result, level)
+
+        return doc
+
+
+def add_report_table_to_doc(
+    doc: Document,
+    _result: Result,
+    level: str,
+) -> Document:
+    """Add a report table to the word document."""
+    doc.add_heading(_result.task, level=1)
+
+    # Filter out specific results ('all', 'final', 'intermediate', etc.)
+    result = _result.filtered(level)
+
+    # internal Measurement property -> word heading
+    text_mapping = {
+        "name": "Name",
+        "type": "Type",
+        "subtype": "Subtype",
+        "description": "Description",
+        "value": "Value",
+        "unit": "Unit",
+    }
+
+    # Results table
+    table = doc.add_table(rows=1, cols=len(text_mapping))
+    table.style = "Light Grid Accent 1"
+    hdr_cells = table.rows[0].cells
+    for idx, text in enumerate(text_mapping.values()):
+        hdr_cells[idx].text = text
+
+    for m in result.measurements:
+        row_cells = table.add_row().cells
+        for idx, key in enumerate(text_mapping.keys()):
+            value = getattr(m, key)
+            row_cells[idx].text = str(value) if value is not None else "-"
+
+    # Embed report images if generated
+    if level != "final":  # Ignore for final reports.
+        for img_path in result.report_images:
+            if Path(img_path).exists():
+                doc.add_picture(img_path, width=Inches(5.0))
+    return doc
 
 
 T = TypeVar("T")
@@ -427,6 +413,7 @@ class ACRLargePhantomProtocol(Protocol):
         )
         for r in parallel_results:
             results.add_result(r)
+
         return results
 
 
@@ -442,3 +429,474 @@ def _execute_step(
         **kwargs,
     )
     return task.run()
+
+
+@dataclass(frozen=True)
+class JobTaskConfig:
+    """Configuration for a specific task within a job.
+
+    Attributes:
+        task : Must match the TASK_REGISTRY or the PROTOCOL_REGISTRY key.
+        folders : Path to the folders containing the images.
+        overrides : Task specific overrides.
+
+    """
+
+    task: str
+    folders: list[Path]
+    overrides: dict[str, Any] = field(default_factory=dict)
+    _is_protocol: bool = field(init=False, compare=False, repr=False)
+
+    def __post_init__(self) -> None:
+        """Initialise the job task configuration."""
+        if self.task in TASK_REGISTRY:
+            object.__setattr__(self, "_is_protocol", False)
+        elif self.task in PROTOCOL_REGISTRY:
+            object.__setattr__(self, "_is_protocol", True)
+            # Protocol-specific validation
+            if self.task == "acr_all" and len(self.folders) != 3:
+                msg = (
+                    "acr_all expects 3 directories (T1, T2, Sagittal),"
+                    f" got {len(self.folders)}"
+                )
+                raise ValueError(msg)
+        else:
+            available_tasks = ", ".join(TASK_REGISTRY.keys())
+            available_protocols = ",".join(PROTOCOL_REGISTRY.keys())
+            msg = (
+                f"Unknown task '{self.task}'."
+                f" Tasks: [{available_tasks}]"
+                f" Protocols: [{available_protocols}]"
+            )
+            raise UnknownTaskNameError(
+                msg,
+                ",".join([available_protocols, available_tasks]),
+            )
+
+        for folder in self.folders:
+            if not Path(folder).exists():
+                msg = f"Folder not found: {folder}"
+                raise FileNotFoundError(msg)
+
+    @property
+    def is_protocol(self) -> bool:
+        """Return True if this job references a protocol."""
+        return self._is_protocol
+
+
+@dataclass
+class BatchConfig:
+    """Configuration for the batch configuration file."""
+
+    version: str
+    hazen_version_constraint: str | None
+    description: str
+    jobs: list[JobTaskConfig]
+    output: str
+    report_docx: str | None = None
+    report_template: str | None = None
+    defaults: dict[str, Any] | None = None
+    levels: list[str] | tuple[str] = ("final", "all")
+
+    _file: str | Path | None = field(default=None)
+    _dry_run: bool = False
+
+    _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
+
+    def __post_init__(self) -> None:
+        """Log the batch config initial parameters."""
+        logger.debug(
+            "Performing batch config job: %s",
+            str(self),
+        )
+
+    def run(
+        self,
+        *,
+        dry_run: bool | None = None,
+        debug: bool = False,
+    ) -> ProtocolResult:
+        """Run the batch config tasks."""
+        dry_run = self._dry_run if dry_run is None else dry_run
+
+        ############
+        # Protocol #
+        ############
+
+        protocol_jobs = [j for j in self.jobs if j.is_protocol]
+        protocol_arg_list = []
+        for job in protocol_jobs:
+            kwargs = dict(self.defaults or {})
+            kwargs.update(job.overrides)
+
+            folders = job.folders
+            protocol_arg_list.append([job.task, folders, kwargs])
+
+        #########
+        # Tasks #
+        #########
+
+        task_jobs = [j for j in self.jobs if not j.is_protocol]
+        task_arg_list = []
+        for job in task_jobs:
+            kwargs = dict(self.defaults or {})
+            kwargs.update(job.overrides)
+
+            files = get_dicom_files(job.folders[0])
+            task_arg_list.append([job.task, files, kwargs])
+
+        result_files = [] if self._file is None else [self._file.as_posix()]
+        results = ProtocolResult(
+            task="Batch Configuration Job",
+            desc=self.description,
+            files=result_files,
+        )
+
+        ###########
+        # Dry run #
+        ###########
+
+        if dry_run:
+            print(f"Configuration valid. Would execute {len(self.jobs)} jobs:")
+
+            # Protocols
+            for i, (protocol, folders, kwargs) in enumerate(protocol_arg_list):
+                print(
+                    f"{i}. Protocol: {protocol}\n"
+                    f"\tFolders:     {[f.as_posix() for f in folders]}\n"
+                    f"\tParameters:  {kwargs or '(none)'}",
+                )
+
+            # Tasks
+            for i, (task, files, kwargs) in enumerate(task_arg_list):
+                print(
+                    f"{i + len(protocol_arg_list)}. Task: {task}\n"
+                    f"\tFiles:       {len(files)} DICOM(s)"
+                    f" from {Path(files[0]).parent}\n"
+                    f"\tParameters:  {kwargs or '(none)'}",
+                )
+            print("-" * 60 + "\nDry run complete. No Measurements performed.")
+            return results
+
+        #######
+        # Run #
+        #######
+
+        # Protocols
+        for job, args in zip(protocol_jobs, protocol_arg_list, strict=True):
+            _, dirs, kwargs = args
+            protocol = PROTOCOL_REGISTRY[job.task](dirs, **kwargs)
+            protocol_results = protocol.run()
+            for r in protocol_results.results:
+                if r.task == protocol_results.task:
+                    continue
+                results.add_result(r)
+
+        # Tasks
+        parallel_results = wait_on_parallel_results(
+            _execute_task,
+            task_arg_list,
+            debug=debug,
+        )
+
+        for r in parallel_results:
+            results.add_result(r)
+
+        return results
+
+    @classmethod
+    def _migrate_config(
+        cls,
+        data: dict[str, Any],
+        schema_version: str,
+    ) -> dict[str, Any]:
+        """Migrate the schema version."""
+        msg = "Configuration schema migration is not currently supported."
+        raise NotImplementedError(msg)
+
+    @classmethod
+    def _validate_schema_version(
+        cls,
+        schema_version: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        current_schema = cls._CURRENT_BATCHCONFIG_VERSION
+        if packaging_version.parse(schema_version) > packaging_version.parse(
+            current_schema,
+        ):
+            msg = (
+                f"Config file schema version {schema_version} is newer than "
+                f"supported version {current_schema}"
+            )
+            logger.error(
+                "%s. Please upgrade hazen to use this configuration file.",
+                msg,
+            )
+            raise ValueError(msg)
+        if schema_version != current_schema:
+            logger.warning(
+                "Config file uses schema version %s"
+                ", current is %s."
+                " Attempting backward-compatible load."
+                " Consider updating your config file to the latest schema.",
+                schema_version,
+                current_schema,
+            )
+            data = cls._migrate_config(data, schema_version)
+        return data
+
+    @staticmethod
+    def _validate_hazen_version(constraint_str: str) -> None:
+        """Validate that current hazen version satisfies the constraint.
+
+        Raises:
+            RuntimeError: If version constraint is not satisfied or invalid.
+
+        """
+        try:
+            specifier = SpecifierSet(constraint_str)
+        except InvalidSpecifier as e:
+            msg = (
+                f"Invalid hazen_version_constraint '{constraint_str}': {e}. "
+                "Use standard semver specifiers like"
+                " '>=2.0.0', '~=2.0.0', '==2.0.*' etc."
+            )
+            raise ValueError(msg) from e
+
+        current_version = packaging_version.parse(__version__)
+
+        if current_version not in specifier:
+            msg = (
+                "Version constraint mismatch:"
+                f" Config requires hazen {constraint_str},"
+                f" but you are running {__version__}."
+                " Please install a compatible version:\n"
+                f"pip install 'hazen{constraint_str}'"
+                f" or\nuv tool install 'hazen{constraint_str}'"
+            )
+            raise RuntimeError(msg)
+
+    @classmethod
+    def from_config(
+        cls,
+        config_path: str | Path,
+        *,
+        dry_run: bool = False,
+    ) -> BatchConfig:
+        """Read a configuration file into a BatchConfig object."""
+        config_path = Path(config_path)
+        with config_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        if not isinstance(data, dict):
+            msg = f"{config_path} is not a properly formatted yaml file"
+            raise TypeError(msg)
+
+        constraint_str = data.get("hazen_version_constraint")
+        if constraint_str:
+            cls._validate_hazen_version(constraint_str)
+
+        schema_version = data.get("version", "1.0")
+        data = cls._validate_schema_version(schema_version, data)
+
+        # Resolve paths relative to config file location
+        config_dir = config_path.parent
+
+        # Parse jobs
+        jobs = []
+        for job_data in data.get("jobs", []):
+            # Resolve folder paths
+            folders = [
+                config_dir / f if not Path(f).is_absolute() else Path(f)
+                for f in job_data.get("folders", [])
+            ]
+
+            # Validate task name against registry
+            task_name = job_data["task"]
+
+            jobs.append(
+                JobTaskConfig(
+                    task=task_name,
+                    folders=folders,
+                    overrides=job_data.get("overrides", {}),
+                ),
+            )
+
+        # Handle optional paths
+        def resolve_path_as_str(path: Path | None) -> str | None:
+            default_path = Path(path).as_posix() if path else None
+            return (
+                (config_dir / path).as_posix()
+                if path and not Path(path).is_absolute()
+                else default_path
+            )
+
+        report_docx = resolve_path_as_str(data.get("report_docx"))
+        report_template = resolve_path_as_str(data.get("report_template"))
+        output = resolve_path_as_str(data.get("output"))
+
+        logger.info(
+            "Batch config job created from: %s (hash: %s)",
+            config_path,
+            hashlib.sha256(str(data).encode("utf-8")).hexdigest(),
+        )
+
+        levels = data.get("levels", ["final"])
+        if isinstance(levels, str):
+            levels = [levels]
+        return cls(
+            version=data.get("version", "1.0"),
+            hazen_version_constraint=data.get("hazen_version_constraint"),
+            description=data.get("description", ""),
+            output=output,
+            jobs=jobs,
+            levels=levels,
+            report_docx=report_docx,
+            report_template=report_template,
+            defaults=data.get("defaults", {}),
+            _file=config_path,
+            _dry_run=dry_run,
+        )
+
+
+def _execute_task(
+    task: str,
+    files: list[str],
+    kwargs: dict[str, Any],
+) -> Result:
+    """Encapsulate the work for a single task."""
+    report = kwargs.pop("report", False)
+    report_dir = kwargs.pop("report_dir", None)
+    task = init_task(
+        task,
+        files,
+        report=report,
+        report_dir=report_dir,
+        **kwargs,
+    )
+    return task.run()
+
+
+##############
+# Registries #
+##############
+
+PROTOCOL_REGISTRY: dict[str, type[Protocol]] = {
+    "acr_all": ACRLargePhantomProtocol,
+}
+
+# Note that if changing the TASK_REGISTRY keys you should
+# update Protocol to match up with the task registry.
+TASK_REGISTRY = {
+    # MagNET #
+    "snr": TaskMetadata(
+        module_name="snr",
+        class_name="SNR",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "ghosting": TaskMetadata(
+        module_name="ghosting",
+        class_name="Ghosting",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "uniformity": TaskMetadata(
+        module_name="uniformity",
+        class_name="Uniformity",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "spatial_resolution": TaskMetadata(
+        module_name="spatial_resolution",
+        class_name="SpatialResolution",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_width": TaskMetadata(
+        module_name="slice_width",
+        class_name="SliceWidth",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "slice_position": TaskMetadata(
+        module_name="slice_position",
+        class_name="SlicePosition",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    "snr_map": TaskMetadata(
+        module_name="snr_map",
+        class_name="SNRMap",
+        single_image=True,
+        phantom=PhantomType.MAGNET,
+    ),
+    # ACR #
+    "acr_geometric_accuracy": TaskMetadata(
+        module_name="acr_geometric_accuracy",
+        class_name="ACRGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_ghosting": TaskMetadata(
+        module_name="acr_ghosting",
+        class_name="ACRGhosting",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_low_contrast_object_detectability": TaskMetadata(
+        module_name="acr_low_contrast_object_detectability",
+        class_name="ACRLowContrastObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_object_detectability": TaskMetadata(
+        module_name="acr_object_detectability",
+        class_name="ACRObjectDetectability",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_position": TaskMetadata(
+        module_name="acr_slice_position",
+        class_name="ACRSlicePosition",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_slice_thickness": TaskMetadata(
+        module_name="acr_slice_thickness",
+        class_name="ACRSliceThickness",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_snr": TaskMetadata(
+        module_name="acr_snr",
+        class_name="ACRSNR",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_spatial_resolution": TaskMetadata(
+        module_name="acr_spatial_resolution",
+        class_name="ACRSpatialResolution",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_sagittal_geometric_accuracy": TaskMetadata(
+        module_name="acr_sagittal_geometric_accuracy",
+        class_name="ACRSagittalGeometricAccuracy",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    "acr_uniformity": TaskMetadata(
+        module_name="acr_uniformity",
+        class_name="ACRUniformity",
+        single_image=False,
+        phantom=PhantomType.ACR,
+    ),
+    # Caliber
+    "relaxometry": TaskMetadata(
+        module_name="relaxometry",
+        class_name="Relaxometry",
+        single_image=False,
+        phantom=PhantomType.CALIBER,
+    ),
+}

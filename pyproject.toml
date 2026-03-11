@@ -1,6 +1,6 @@
 [project]
 name = "hazen"
-version = "2.0.0a3"
+version = "2.0.0a4"
 description = "An automatic MRI QA tool"
 authors = [
         {name = "Alex Drysdale", email = "alexander.drysdale@wales.nhs.uk"},
@@ -16,7 +16,10 @@ dependencies = [
     "numpy>=2.0.2,<2.4.0",
     "opencv-python>=4.11.0.86",
     "opencv-python-headless>=4.11.0.86",
+    "packaging>=25.0",
     "pydicom>=2.4.4",
+    "python-docx>=1.2.0",
+    "pyyaml>=6.0.3",
     "scikit-image>=0.24.0",
     "scipy>=1.13.1",
     "statsmodels>=0.14.5",

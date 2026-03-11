@@ -33,6 +33,7 @@ jobs:
             python-version: '3.13'
     runs-on: ${{ matrix.os }}
     permissions:
+      contents: read
       pull-requests: write
     defaults:
       run:
@@ -65,6 +66,7 @@ jobs:
       run: make ci-pr
 
     - name: Pytest coverage comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
       id: coverageComment
       uses: MishaKav/pytest-coverage-comment@main
       with:

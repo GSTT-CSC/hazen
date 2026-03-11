@@ -78,7 +78,7 @@ class ACRSlicePosition(HazenTask):
         results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
         results.files = [self.img_desc(dcm) for dcm in dcms]
 
-        for dcm in dcms:
+        for slice_num, dcm in zip((1, 11), dcms, strict=True):
             try:
                 result = self.get_slice_position(dcm)
                 results.add_measurement(
@@ -86,7 +86,7 @@ class ACRSlicePosition(HazenTask):
                         name="SlicePosition",
                         type="measured",
                         subtype="length difference",
-                        description=self.img_desc(dcm),
+                        description=f"Slice {slice_num} {self.img_desc(dcm)}",
                         value=round(result, 2),
                     ),
                 )

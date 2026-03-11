@@ -20,6 +20,8 @@ hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 import argparse
 import logging
 import os
+import shutil
+from pathlib import Path
 from typing import get_args
 
 from hazenlib._version import __version__
@@ -28,50 +30,23 @@ from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
 from hazenlib.orchestration import (
-    ACRLargePhantomProtocol,
     TASK_REGISTRY,
+    ACRLargePhantomProtocol,
+    BatchConfig,
     init_task,
 )
 from hazenlib.utils import get_dicom_files
 
 
 def get_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    """Return the argument parser."""
+    ####################
+    # Common arguments #
+    ####################
 
-    parser.add_argument(
-        "task",
-        # TODO(@abdrysdale): Add a list of protocols in registry.
-        choices=list(TASK_REGISTRY.keys()) + ["acr_all"],
-        help="The task to run",
-    )
-    parser.add_argument(
-        "folder",
-        help="Path to folder containing DICOM files",
-        nargs="+",
-    )
+    common_parser = argparse.ArgumentParser(add_help=False)
 
-    # General options available for all tasks
-    parser.add_argument(
-        "--profile",
-        action="store_true",
-        help="Include execution time metadata in results",
-    )
-
-    parser.add_argument(
-        "--report",
-        action="store_true",
-        help="Whether to generate visualisation of the measurement steps",
-    )
-    parser.add_argument(
-        "--output",
-        type=str,
-        default=None,
-        help="Provide a folder where report images are to be saved",
-    )
-    parser.add_argument(
+    common_parser.add_argument(
         "--verbose",
         action="store_true",
         help=(
@@ -79,7 +54,7 @@ def get_parser() -> argparse.ArgumentParser:
             "in the result (slice position and relaxometry tasks)"
         ),
     )
-    parser.add_argument(
+    common_parser.add_argument(
         "--log",
         type=str,
         default="info",
@@ -90,25 +65,76 @@ def get_parser() -> argparse.ArgumentParser:
             'with "info" as default'
         ),
     )
-    parser.add_argument(
+
+    common_parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+    )
+
+    ###############
+    # Main parser #
+    ###############
+
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        parents=[common_parser],
+    )
+
+    ###########################################
+    # General options available for all tasks #
+    ###########################################
+
+    task_options_parser = argparse.ArgumentParser(
+        add_help=False,
+        parents=[common_parser],
+    )
+
+    task_options_parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Include execution time metadata in results",
+    )
+
+    task_options_parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Whether to generate visualisation of the measurement steps",
+    )
+    task_options_parser.add_argument(
+        "--report-docx",
+        type=str,
+        default=None,
+        help="Path to save Word report (requires --report for images)",
+    )
+    task_options_parser.add_argument(
+        "--report-template",
+        type=str,
+        default=None,
+        help="Path to template to be used for --report-docx report.",
+    )
+    task_options_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Provide a folder where report images are to be saved",
+    )
+
+    task_options_parser.add_argument(
         "--format",
         type=str,
         default="json",
         choices=["json", "csv", "tsv"],
         help="Output format for test results. Choices: json (default), csv or tsv",
     )
-    parser.add_argument(
+    task_options_parser.add_argument(
         "--result",
         type=str,
         default="-",
         help='Path to the results path. If "-", default, will write to stdout',
     )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=__version__,
-    )
-    parser.add_argument(
+    task_options_parser.add_argument(
         "--level",
         type=str,
         default="all",
@@ -121,50 +147,116 @@ def get_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    # Task-specific options
-    parser.add_argument(
-        "--measured_slice_width",
-        type=float,
-        default=None,
-        help=(
-            "Provide a slice width to be used for SNR measurement, "
-            "by default it is parsed from the DICOM "
-            "(optional for acr_snr and snr)"
-        ),
+    ######################
+    # Set up sub parsers #
+    ######################
+
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=True,
+        help="Available commands",
     )
-    parser.add_argument(
-        "--subtract",
+
+    ####################
+    # Batch sub parser #
+    ####################
+
+    batch_parser = subparsers.add_parser(
+        "batch",
+        help="Execute task from config files.",
+        parents=[common_parser],
+    )
+    batch_parser.add_argument(
+        "config",
         type=str,
-        default=None,
-        help=(
-            "Provide a second folder path to calculate SNR by subtraction "
-            "for the ACR phantom (optional for acr_snr)"
-        ),
+        help="Path to YAML configuration file",
     )
-    parser.add_argument(
-        "--coil",
-        type=str,
-        default=None,
-        choices=["head", "body"],
-        help="Coil type for SNR measurement (optional for snr)",
+    batch_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate config and list jobs without executing",
     )
-    parser.add_argument(
-        "--calc",
-        type=str,
-        default=None,
-        choices=["T1", "T2"],
-        help=(
-            "Choose 'T1' or 'T2' for relaxometry measurement "
-            "(required for relaxometry)"
-        ),
-    )
-    parser.add_argument(
-        "--plate_number",
-        type=int,
-        default=None,
-        choices=[4, 5],
-        help="Which plate to use for measurement: 4 or 5 (required for relaxometry)",
-    )
+
+    ###################
+    # Task sub parser #
+    ###################
+    for task_name in TASK_REGISTRY:
+        task_parser = subparsers.add_parser(
+            task_name,
+            parents=[task_options_parser],
+        )
+        task_parser.add_argument(
+            "folder",
+            help="Path to folder containing DICOM files",
+            nargs=1,
+        )
+
+        ########################
+        # SNR Specific Options #
+        ########################
+        if task_name in ["snr", "acr_snr"]:
+            task_parser.add_argument(
+                "--measured_slice_width",
+                type=float,
+                default=None,
+                help=(
+                    "Provide a slice width to be used for SNR measurement, "
+                    "by default it is parsed from the DICOM "
+                    "(optional for acr_snr and snr)"
+                ),
+            )
+            task_parser.add_argument(
+                "--subtract",
+                type=str,
+                default=None,
+                help=(
+                    "Provide a second folder to calculate SNR by subtraction "
+                    "for the ACR phantom (optional for acr_snr)"
+                ),
+            )
+            task_parser.add_argument(
+                "--coil",
+                type=str,
+                default=None,
+                choices=["head", "body"],
+                help="Coil type for SNR measurement (optional for snr)",
+            )
+
+        ################################
+        # Relaxometry specific options #
+        ################################
+
+        if task_name == "relaxometry":
+            task_parser.add_argument(
+                "--calc",
+                type=str,
+                default=None,
+                choices=["T1", "T2"],
+                help=(
+                    "Choose 'T1' or 'T2' for relaxometry measurement "
+                    "(required for relaxometry)"
+                ),
+            )
+            task_parser.add_argument(
+                "--plate_number",
+                type=int,
+                default=None,
+                choices=[4, 5],
+                help="Which plate to use for measurement: 4 or 5",
+            )
+
+    # Replace this with a PROTOCOL_REGISTRY similar to task registry
+    for protocol_name in ["acr_all"]:
+        protocol_parser = subparsers.add_parser(
+            protocol_name,
+            parents=[task_options_parser],
+        )
+        protocol_parser.add_argument(
+            "folder",
+            help="Path to folder(s) containing DICOM files",
+            nargs="+",
+        )
+
     return parser
 
 
@@ -173,9 +265,15 @@ def main() -> None:
     parser = get_parser()
     args = parser.parse_args()
 
-    execution_wrapper = (
-        timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
-    )
+    try:
+        execution_wrapper = (
+            timed_execution
+            if args.profile
+            else (lambda f, *a, **k: f(*a, **k))
+        )
+    # Batch commands always run with timed execution.
+    except AttributeError:
+        execution_wrapper = timed_execution
 
     single_image_tasks = [
         task for task in TASK_REGISTRY.values() if task.single_image
@@ -192,6 +290,55 @@ def main() -> None:
     level = log_levels.get(args.log, logging.INFO)
     logging.getLogger().setLevel(level)
 
+    logger.info(f"Hazen version: {__version__}")
+
+    ###################################
+    # Special Case for batch commands #
+    ###################################
+    if args.command == "batch":
+        if not Path(args.config).exists():
+            parser.error(f"Config file not found: {args.config}")
+        batch = BatchConfig.from_config(args.config, dry_run=args.dry_run)
+        output = Path(batch.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        results = execution_wrapper(batch.run)
+
+        if args.dry_run:
+            return
+
+        if batch.report_docx:
+            for level in batch.levels:
+                doc = results.to_docx(
+                    template_path=batch.report_template,
+                    level=level,
+                )
+                out = Path(batch.report_docx)
+                doc.save(out.with_stem(out.stem + f"_{level}"))
+
+        for level in batch.levels:
+            for result in results.results:
+                write_result(
+                    result,
+                    fmt=output.suffix.split(".")[-1],
+                    path=output.with_stem(
+                        output.stem + f"_{level}",
+                    ),
+                    level=level,
+                )
+
+        conf_src = Path(args.config)
+        conf_bak = conf_src.with_suffix(conf_src.suffix + ".bak")
+        shutil.copy(conf_src, conf_bak)
+        print(  # noqa: T201
+            "Batch job successfully run!"
+            f" Current batch file copied to {conf_bak} as a backup.",
+        )
+        return
+
+    #############################
+    # Gathers non-batch options #
+    #############################
+
     report = args.report
     report_dir = args.output
     verbose = args.verbose
@@ -200,9 +347,7 @@ def main() -> None:
     result_file = args.result
 
     # Parse the task and optional arguments:
-    selected_task = args.task.lower()
-
-    logger.info(f"Hazen version: {__version__}")
+    selected_task = args.command.lower()
 
     #################################
     # Special Case the ACR ALL Task #
@@ -216,6 +361,13 @@ def main() -> None:
             verbose=verbose,
         )
         protocol = execution_wrapper(task.run)
+        if args.report_docx or args.report_template:
+            doc = protocol.to_docx(
+                template_path=args.report_template,
+                level=level,
+            )
+            doc.save(args.report_docx)
+
         for result in protocol.results:
             write_result(result, fmt=fmt, path=result_file, level=level)
         return
@@ -234,7 +386,7 @@ def main() -> None:
     files = get_dicom_files(args.folder[0])
     logger.debug(
         "%s task will be set off on %s images",
-        args.task,
+        args.command,
         len(files),
     )
 

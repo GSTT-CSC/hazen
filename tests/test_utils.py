@@ -308,5 +308,142 @@ class TestUtils(unittest.TestCase):
         self.assertListEqual(test_array, TEST_OUT)
 
 
+class TestNewDicom(unittest.TestCase):
+    """Tests for new_dicom function that creates DICOM copies with updated pixel data."""
+
+    def setUp(self):
+        self.test_file = str(
+            TEST_DATA_DIR / "toshiba" / "TOSHIBA_TM_MR_DCM_V3_0.dcm"
+        )
+        self.original_dcm = dcmread(self.test_file)
+        self.original_pixels = self.original_dcm.pixel_array.copy()
+
+    def test_creates_deep_copy(self):
+        """Test that new_dicom creates an independent copy, not a reference."""
+        modified_pixels = self.original_pixels // 2
+
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, modified_pixels, instance_number=1
+        )
+
+        # Original should be unchanged
+        np.testing.assert_array_equal(
+            self.original_dcm.pixel_array, self.original_pixels
+        )
+        # New DICOM should have modified data
+        np.testing.assert_array_equal(new_dcm.pixel_array, modified_pixels)
+        # Should be different objects
+        self.assertIsNot(new_dcm, self.original_dcm)
+
+    def test_sets_instance_number(self):
+        """Test that instance_number is correctly set in the new DICOM."""
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, self.original_pixels, instance_number=42
+        )
+
+        self.assertEqual(new_dcm.InstanceNumber, 42)
+
+    def test_none_instance_number(self):
+        """Test handling of None instance_number."""
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, self.original_pixels, instance_number=None
+        )
+
+        self.assertIsNone(new_dcm.InstanceNumber)
+
+    def test_preserves_critical_metadata(self):
+        """Test that PatientName, Study IDs and other metadata are preserved."""
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, self.original_pixels, instance_number=1
+        )
+
+        self.assertEqual(new_dcm.PatientName, self.original_dcm.PatientName)
+        self.assertEqual(
+            new_dcm.StudyInstanceUID, self.original_dcm.StudyInstanceUID
+        )
+        self.assertEqual(
+            new_dcm.SeriesInstanceUID, self.original_dcm.SeriesInstanceUID
+        )
+        self.assertEqual(new_dcm.SOPClassUID, self.original_dcm.SOPClassUID)
+        self.assertEqual(new_dcm.Rows, self.original_dcm.Rows)
+        self.assertEqual(new_dcm.Columns, self.original_dcm.Columns)
+
+    def test_photometric_interpretation_preserved(self):
+        """Test that PhotometricInterpretation tag is preserved."""
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, self.original_pixels, instance_number=1
+        )
+
+        self.assertEqual(
+            new_dcm.PhotometricInterpretation,
+            self.original_dcm.PhotometricInterpretation,
+        )
+
+    def test_bits_stored_preserved(self):
+        """Test that BitsStored tag is preserved."""
+        new_dcm = hazen_tools.new_dicom(
+            self.original_dcm, self.original_pixels, instance_number=1
+        )
+
+        self.assertEqual(new_dcm.BitsStored, self.original_dcm.BitsStored)
+
+
+class TestSplitDicom(unittest.TestCase):
+    """Tests for split_dicom function that handles multiframe DICOMs."""
+
+    def setUp(self):
+        # Use non-enhanced DICOM for base tests
+        self.non_enhanced_file = str(
+            TEST_DATA_DIR / "toshiba" / "TOSHIBA_TM_MR_DCM_V3_0.dcm"
+        )
+        self.non_enhanced_dcm = dcmread(self.non_enhanced_file)
+
+    def test_non_enhanced_returns_single_element_list(self):
+        """Test that non-enhanced DICOM returns list with single original element."""
+        result = hazen_tools.split_dicom(self.non_enhanced_dcm)
+
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 1)
+        # Should be the same object (not a copy) for efficiency
+        self.assertIs(result[0], self.non_enhanced_dcm)
+
+    def test_non_enhanced_preserves_pixel_array(self):
+        """Test that pixel array is unchanged for non-enhanced split."""
+        result = hazen_tools.split_dicom(self.non_enhanced_dcm)
+
+        np.testing.assert_array_equal(
+            result[0].pixel_array, self.non_enhanced_dcm.pixel_array
+        )
+
+    def test_non_enhanced_preserves_instance_number(self):
+        """Test that original InstanceNumber is preserved for non-enhanced."""
+        original_instance_num = self.non_enhanced_dcm.InstanceNumber
+        result = hazen_tools.split_dicom(self.non_enhanced_dcm)
+
+        self.assertEqual(result[0].InstanceNumber, original_instance_num)
+
+    def test_enhanced_splitting(self):
+        # Requires enhanced multiframe test data
+        enhanced_file = str(
+            TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1/" / "1.dcm",
+        )
+        enhanced_dcm = dcmread(enhanced_file)
+
+        # Skip if not actually enhanced
+        if not hazen_tools.is_enhanced_dicom(enhanced_dcm):
+            self.skipTest("Test requires enhanced multiframe DICOM")
+
+        result = hazen_tools.split_dicom(enhanced_dcm)
+
+        # Should split into NumberOfFrames elements
+        self.assertEqual(len(result), enhanced_dcm.NumberOfFrames)
+
+        # Each should have InstanceNumber set to frame index (1-based)
+        for i, frame_dcm in enumerate(result, 1):
+            self.assertEqual(frame_dcm.InstanceNumber, i)
+            # Each should be 2D (original is 3D)
+            self.assertEqual(len(frame_dcm.pixel_array.shape), 2)
+
+
 if __name__ == "__main__":
     unittest.main()
