@@ -324,7 +324,7 @@ class TestMetadataDicomExtraction(unittest.TestCase):
             "AcquisitionNumber": "1",
         }
 
-    def _create_mock_dicom(self, **overrides: dict[str, Any]) -> None:
+    def _create_mock_dicom(self, **overrides: dict[str, Any]) -> MagicMock:
         """Create a mock pydicom Dataset with GE-like attributes."""
         mock = MagicMock()
         attrs = {**self.ge_dicom_attrs, **overrides}
