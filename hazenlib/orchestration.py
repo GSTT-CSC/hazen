@@ -493,9 +493,9 @@ class BatchConfig:
     hazen_version_constraint: str | None
     description: str
     jobs: list[JobTaskConfig]
-    output: Path
-    report_docx: Path | None = None
-    report_template: Path | None = None
+    output: str
+    report_docx: str | None = None
+    report_template: str | None = None
     defaults: dict[str, Any] | None = None
     levels: list[str] | tuple[str] = ("final", "all")
 
