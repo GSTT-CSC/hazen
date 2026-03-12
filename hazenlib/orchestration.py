@@ -504,16 +504,65 @@ class BatchConfig:
 
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
 
-    def save(self, output: Path | str) -> None:
-        """Save the batch configuration object to a yaml file."""
-        # TODO(@abdrysdale): Implement this function.
-        # https://github.com/sbu-physics-mri/hazen-wales/issues/112
+    def to_yaml(self, output: Path | str) -> None:
+        """Save the batch configuration object to a yaml file.
+
+        Args:
+            output: Path to write the YAML configuration file.
+
+        """
+        output = Path(output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+
+        # Build the data dictionary in the expected order
+        data: dict[str, Any] = {
+            "version": self.version,
+        }
+
+        if self.hazen_version_constraint is not None:
+            data["hazen_version_constraint"] = self.hazen_version_constraint
+
+        data["description"] = self.description
+
+        if self.output is not None:
+            data["output"] = Path(self.output).as_posix()
+
+        if self.levels:
+            data["levels"] = list(self.levels)
+
+        if self.report_docx is not None:
+            data["report_docx"] = Path(self.report_docx).as_posix()
+
+        if self.report_template is not None:
+            data["report_template"] = Path(self.report_template).as_posix()
+
+        if self.defaults:
+            data["defaults"] = self.defaults
+
+        # Build jobs list
+        jobs_data: list[dict[str, Any]] = []
+        for job in self.jobs:
+            job_dict: dict[str, Any] = {
+                "task": job.task,
+                "folders": [Path(f).as_posix() for f in job.folders],
+            }
+            if job.overrides:
+                job_dict["overrides"] = {}
+                for k, v in job.overrides.items():
+                    _v = v.as_posix() if isinstance(v, Path) else str(v)
+                    job_dict["overrides"][k] = _v
+            jobs_data.append(job_dict)
+
+        data["jobs"] = jobs_data
+
+        with output.open("w") as f:
+            yaml.dump(data, f, default_flow_style=False, sort_keys=False)
 
     def __post_init__(self) -> None:
         """Log the batch config initial parameters."""
         logger.debug(
-            "Performing batch config job: %s",
-            str(self),
+            "Performing batch config job from file: %s",
+            self._file,
         )
 
     def run(
