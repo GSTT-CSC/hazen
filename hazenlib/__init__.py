@@ -368,14 +368,14 @@ def main() -> None:
                     ),
                     level=level,
                 )
-        if not args.dry_run:
-            conf_src = Path(args.config)
-            conf_bak = conf_src.with_suffix(conf_src.suffix + ".bak")
-            shutil.copy(conf_src, conf_bak)
-            print(  # noqa: T201
-                "Batch job successfully run!"
-                f" Current batch file copied to {conf_bak} as a backup.",
-            )
+
+        conf_src = Path(args.config)
+        conf_bak = conf_src.with_suffix(conf_src.suffix + ".bak")
+        shutil.copy(conf_src, conf_bak)
+        print(  # noqa: T201
+            "Batch job successfully run!"
+            f" Current batch file copied to {conf_bak} as a backup.",
+        )
         return
 
     #############################
