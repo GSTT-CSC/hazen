@@ -23,7 +23,7 @@ class TestGenerateBatchConfig(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up the class."""
         if not cls.PATH.exists():
-            msg = f"Required path does not exist: {self.PATH}"
+            msg = f"Required path does not exist: {cls.PATH}"
             raise FileNotFoundError(msg)
 
         ########
