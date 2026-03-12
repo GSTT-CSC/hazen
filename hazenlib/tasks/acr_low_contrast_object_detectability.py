@@ -376,7 +376,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self,
         sp: StatsParameters,
         alpha: float,
-    ) -> tuple[np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         rejected, p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
             sp.p_vals_all,
             alpha=alpha,
