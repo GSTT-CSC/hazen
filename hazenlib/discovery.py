@@ -321,7 +321,7 @@ class SNRSet(Ingestible):
         matched_acqs_idxs = set()
         for i, acq in enumerate(acqs):
             for j, possible_pair in enumerate(acqs):
-                if i == j or j in matched_acqs_idxs:
+                if i == j or i in matched_acqs_idxs or j in matched_acqs_idxs:
                     continue
                 if acq.is_likely_the_same_as(possible_pair):
                     _jobs.append(
