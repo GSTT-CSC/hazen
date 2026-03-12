@@ -26,6 +26,7 @@ from typing import get_args
 
 from hazenlib._version import __version__
 from hazenlib.constants import MEASUREMENT_VISIBILITY
+from hazenlib.discovery import generate_batch_config
 from hazenlib.execution import timed_execution
 from hazenlib.formatters import write_result
 from hazenlib.logger import logger
@@ -169,7 +170,25 @@ def get_parser() -> argparse.ArgumentParser:
     batch_parser.add_argument(
         "config",
         type=str,
-        help="Path to YAML configuration file",
+        nargs="?",
+        default=None,
+        help="Path to YAML configuration file (required unless --init is used)",
+    )
+    batch_parser.add_argument(
+        "--init",
+        type=str,
+        default=None,
+        metavar="DIR",
+        help=(
+            "Generate a batch config file"
+            " from a directory of DICOM acquisitions"
+        ),
+    )
+    batch_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Output path for generated config file (used with --init)",
     )
     batch_parser.add_argument(
         "--dry-run",
@@ -296,9 +315,32 @@ def main() -> None:
     # Special Case for batch commands #
     ###################################
     if args.command == "batch":
+        # Init (discovery) command
+        if args.init:
+            init_path = Path(args.init)
+            if not init_path.is_dir():
+                parser.error(f"Directory not found: {init_path}")
+
+            batch_config = generate_batch_config(init_path)
+
+            # Override output file if specified
+            if args.output:
+                batch_config._file = Path(args.output)  # noqa: SLF001
+
+            # Write the config file
+            output_path = Path(batch_config._file)  # noqa: SLF001
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            batch_config.to_yaml(output_path)
+            print(f"Batch config written to: {output_path}")  # noqa: T201
+            return
+
+        if not args.config:
+            parser.error("config is required when not using --init")
+
         if not Path(args.config).exists():
             parser.error(f"Config file not found: {args.config}")
         batch = BatchConfig.from_config(args.config, dry_run=args.dry_run)
+
         output = Path(batch.output)
         output.parent.mkdir(parents=True, exist_ok=True)
         results = execution_wrapper(batch.run)
