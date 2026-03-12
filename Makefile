@@ -14,6 +14,7 @@ ACR_DATA_T2 = tests/data/acr/GE_Artist_1.5T_T2
 ACR_DATA_SL = tests/data/acr/GE_Signa_1.5T_Sagittal_Localizer
 
 BATCH_CONF = tests/test_config.yml
+BATCH_DATA = tests/data/batch_guess
 
 ##################
 # Default Target #
@@ -267,8 +268,12 @@ cli-batch-wet-run:
 cli-batch-flags:
 	$(VENV_CMD) hazen batch $(BATCH_CONF) --dry-run --log=DEBUG
 
+.PHONY: cli-batch-init
+cli-batch-init:
+	$(VENV_CMD) hazen batch --init $(BATCH_DATA)
+
 .PHONY: cli-batch
-cli-batch: cli-batch-dry-run cli-batch-wet-run
+cli-batch: cli-batch-dry-run cli-batch-wet-run cli-batch-init
 
 # CLI Flags #
 .PHONY: flags-profile
