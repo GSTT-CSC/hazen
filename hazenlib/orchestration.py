@@ -438,7 +438,7 @@ class JobTaskConfig:
 
     Attributes:
         task : Must match the TASK_REGISTRY or the PROTOCOL_REGISTRY key.
-        folders : Path to the folders containing the images.
+        folders : Path to the folders containing the DICOMs.
         overrides : Task specific overrides.
 
     """
@@ -503,6 +503,11 @@ class BatchConfig:
     _dry_run: bool = False
 
     _CURRENT_BATCHCONFIG_VERSION: str = "1.0"
+
+    def save(self, output: Path | str) -> None:
+        """Save the batch configuration object to a yaml file."""
+        # TODO(@abdrysdale): Implement this function.
+        # https://github.com/sbu-physics-mri/hazen-wales/issues/112
 
     def __post_init__(self) -> None:
         """Log the batch config initial parameters."""
