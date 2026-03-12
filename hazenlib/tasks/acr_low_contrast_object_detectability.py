@@ -305,8 +305,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             ),
         )
 
-        if 0 not in increments:
-            increments.append(0)
+        if not np.any(np.isclose(increments, 0.0)):
+            increments.append(0.0)
 
         return sorted(
             [
