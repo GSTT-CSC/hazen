@@ -61,7 +61,7 @@ class SNR(HazenTask):
                     dicom_files[0],
                 )
 
-            if len(dicom_files) != 1:
+            if len(dicom_files) < 1:
                 logger.warning(
                     "No DICOM files found in: %s - ignore subtraction.",
                     subtract,
