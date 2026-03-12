@@ -14,20 +14,25 @@ Created by Neil Heraghty
 
 from __future__ import annotations
 
+# Python imports
 import contextlib
 import os
 from typing import Any
 
+# Module imports
 import cv2 as cv
-import hazenlib.exceptions as exc
-import hazenlib.utils
 import numpy as np
 import pydicom
 import skimage.filters
+from scipy import ndimage
+
+# Local imports
+import hazenlib.exceptions as exc
+import hazenlib.utils
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
-from scipy import ndimage
+from hazenlib.utils import dcmread
 
 
 class SNR(HazenTask):
@@ -40,10 +45,28 @@ class SNR(HazenTask):
         self,
         measured_slice_width: float | None = None,
         coil: str | None = None,
+        subtract: str | Path | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialise the Hazen ACR SNR Object."""
         super().__init__(**kwargs)
+
+        # Pulls out the subtract path (for compatability with acr_snr)
+        if subtract is not None:
+            dicom_files = list(Path(subtract).glob("*.dcm"))
+            if len(dicom_files) > 1:
+                logger.warning(
+                    "Multiple DICOM files found taking the first: %s",
+                    dicom_files[0],
+                )
+
+            if len(dicom_files) != 1:
+                logger.warning(
+                    "No DICOM files found in: %s - ignore subtraction.",
+                    subtract,
+                )
+            else:
+                self.dcm_list.append(dcmread(dicom_files[0]))
 
         # measured slice width is expected to be a floating point number
         self.measured_slice_width = measured_slice_width
