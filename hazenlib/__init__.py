@@ -329,7 +329,7 @@ def main() -> None:
                 batch_config._file = Path(args.output)  # noqa: SLF001
 
             # Write the config file
-            output_path = batch_config._file  # noqa: SLF001
+            output_path = Path(batch_config._file)  # noqa: SLF001
             output_path.parent.mkdir(parents=True, exist_ok=True)
             batch_config.to_yaml(output_path)
             print(f"Batch config written to: {output_path}")    # noqa: T201
@@ -341,7 +341,9 @@ def main() -> None:
         if not Path(args.config).exists():
             parser.error(f"Config file not found: {args.config}")
         batch = BatchConfig.from_config(args.config, dry_run=args.dry_run)
-        batch.output.parent.mkdir(parents=True, exist_ok=True)
+
+        output = Path(batch.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
         results = execution_wrapper(batch.run)
 
         if args.dry_run:
@@ -360,9 +362,9 @@ def main() -> None:
             for result in results.results:
                 write_result(
                     result,
-                    fmt=batch.output.suffix.split(".")[-1],
-                    path=batch.output.with_stem(
-                        batch.output.stem + f"_{level}",
+                    fmt=output.suffix.split(".")[-1],
+                    path=output.with_stem(
+                        output.stem + f"_{level}",
                     ),
                     level=level,
                 )
