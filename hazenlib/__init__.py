@@ -315,7 +315,6 @@ def main() -> None:
     # Special Case for batch commands #
     ###################################
     if args.command == "batch":
-
         # Init (discovery) command
         if args.init:
             init_path = Path(args.init)
@@ -332,7 +331,7 @@ def main() -> None:
             output_path = Path(batch_config._file)  # noqa: SLF001
             output_path.parent.mkdir(parents=True, exist_ok=True)
             batch_config.to_yaml(output_path)
-            print(f"Batch config written to: {output_path}")    # noqa: T201
+            print(f"Batch config written to: {output_path}")  # noqa: T201
             return
 
         if not args.config:

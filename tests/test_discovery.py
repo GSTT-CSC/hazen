@@ -94,7 +94,7 @@ class TestGenerateBatchConfig(unittest.TestCase):
         ###################################
 
         cls.batch_config = BatchConfig(
-            version=BatchConfig._CURRENT_BATCHCONFIG_VERSION,   # noqa: SLF001
+            version=BatchConfig._CURRENT_BATCHCONFIG_VERSION,  # noqa: SLF001
             hazen_version_constraint=f">={__version__}",
             description=(
                 "Batch configuration file automatically generated"
@@ -142,6 +142,7 @@ class TestGenerateBatchConfig(unittest.TestCase):
 
     def test_jobs(self) -> None:
         """Test Batch Config jobs."""
+
         def normalise_job(job: JobTaskConfig) -> tuple[tuple]:
             """Convert job into a hashable tuple."""
             return (
@@ -162,7 +163,9 @@ class TestGenerateBatchConfig(unittest.TestCase):
                 if j.task == task
             ]
             self.assertCountEqual(
-                expected, actual, f"Jobs not equal for task: {task}",
+                expected,
+                actual,
+                f"Jobs not equal for task: {task}",
             )
 
     def test_output(self) -> None:

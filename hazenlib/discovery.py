@@ -66,7 +66,6 @@ class DiscoveredAcquisition:
             return "snr"
         return "Unknown"
 
-
     @classmethod
     def from_path(cls, path: str | Path) -> DiscoveredAcquisition:
         """Return a DiscoveredAcquisition from a path."""
@@ -97,11 +96,7 @@ class DiscoveredAcquisition:
         That is, it is the same for both enhanced and standard DICOMS.
         """
         if is_enhanced_dicom(dcm):
-            return dcm[
-                (0x5200, 0x9229)
-            ][0][
-                (0x0018, 0x9042)
-            ][0][
+            return dcm[(0x5200, 0x9229)][0][(0x0018, 0x9042)][0][
                 (0x0018, 0x1250)
             ].value
         return dcm[(0x0018, 0x1250)].value
@@ -110,23 +105,23 @@ class DiscoveredAcquisition:
     def _get_te(dcm: pydicom.Dataset) -> int | float:
         if is_enhanced_dicom(dcm):
             return dcm[
-                (0x5200, 0x9230)        # Per-Frame Functional Groups Sequence
+                (0x5200, 0x9230)  # Per-Frame Functional Groups Sequence
             ][0][
-                (0x0018, 0x9114)        # MR Echo Sequence
+                (0x0018, 0x9114)  # MR Echo Sequence
             ][0][
-                (0x0018, 0x9082)        # Effective Echo Time
+                (0x0018, 0x9082)  # Effective Echo Time
             ].value
         return dcm[(0x0018, 0x0081)].value
 
     @staticmethod
     def _get_tr(dcm: pydicom.Dataset) -> int | float:
         if is_enhanced_dicom(dcm):
-            return dcm[             # Shared Functional Groups Sequence
+            return dcm[  # Shared Functional Groups Sequence
                 (0x5200, 0x9229)
             ][0][
-                (0x0018, 0x9112)    # MR Timing and Related Parameters Sequence
+                (0x0018, 0x9112)  # MR Timing and Related Parameters Sequence
             ][0][
-                (0x0018, 0x0080)    # Repetition Time
+                (0x0018, 0x0080)  # Repetition Time
             ].value
         return dcm[(0x0018, 0x0080)].value
 
@@ -139,20 +134,16 @@ class DiscoveredAcquisition:
     @staticmethod
     def _get_acquisition_matrix(dcm: pydicom.Dataset) -> tuple[int, ...]:
         return (
-            dcm[(0x0028, 0x0010)].value,        # Rows
-            dcm[(0x0028, 0x0011)].value,        # Cols
+            dcm[(0x0028, 0x0010)].value,  # Rows
+            dcm[(0x0028, 0x0011)].value,  # Cols
         )
 
     @staticmethod
     def _get_orientation(dcm: pydicom.Dataset) -> Orientation:
         if is_enhanced_dicom(dcm):
-            orientation_patient = dcm[
-                (0x5200, 0x9230)
-            ][0][
-                (0x0020, 0x9116)
-            ][0][
-                (0x0020, 0x0037)
-            ].value
+            orientation_patient = dcm[(0x5200, 0x9230)][0][(0x0020, 0x9116)][
+                0
+            ][(0x0020, 0x0037)].value
         else:
             orientation_patient = dcm[(0x0020, 0x0037)].value
         row_vec = orientation_patient[:3]
@@ -193,7 +184,7 @@ class DiscoveredAcquisition:
             except ValueError:
                 return datetime.datetime.strptime(
                     dcm[(0x0008, 0x002A)].value,
-                    tzstring+"%z",
+                    tzstring + "%z",
                 )
         return datetime.datetime.strptime(
             f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
@@ -370,7 +361,7 @@ def generate_batch_config(path: str | Path) -> BatchConfig:
     jobs = AcquisitionCollector(acqs).jobs
 
     return BatchConfig(
-        version=BatchConfig._CURRENT_BATCHCONFIG_VERSION,       # noqa: SLF001
+        version=BatchConfig._CURRENT_BATCHCONFIG_VERSION,  # noqa: SLF001
         hazen_version_constraint=f">={__version__}",
         description=(
             "Batch configuration file automatically generated"
