@@ -222,7 +222,7 @@ class AcquisitionCollector:
             else:
                 logger.warning(
                     "Acquisition %s could not be recognised as: %s",
-                    str(acq),
+                    str(acq.path),
                     " or ".join(acq_sets),
                 )
 
