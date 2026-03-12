@@ -106,7 +106,7 @@ class TestGenerateBatchConfig(unittest.TestCase):
             report_template=None,
             levels=("final", "all"),
             defaults={},
-            _file=cls.PATH.parent / "hazen_batch_config.yml"
+            _file=cls.PATH.parent / "hazen_batch_config.yml",
         )
 
         #####################################
@@ -114,6 +114,10 @@ class TestGenerateBatchConfig(unittest.TestCase):
         #####################################
 
         cls.generated_batch_config = generate_batch_config(cls.PATH)
+
+    def test_generate_batch_config(self) -> None:
+        """Test the generate batch config."""
+        self.assertTrue(generate_batch_config(self.PATH))
 
     def test_version(self) -> None:
         """Test Batch Config version."""
@@ -138,8 +142,28 @@ class TestGenerateBatchConfig(unittest.TestCase):
 
     def test_jobs(self) -> None:
         """Test Batch Config jobs."""
-        msg = "Implement job test that isn't dependent on order."
-        raise NotImplementedError(msg)
+        def normalise_job(job: JobTaskConfig) -> tuple[tuple]:
+            """Convert job into a hashable tuple."""
+            return (
+                job.task,
+                sorted(job.folders),
+                tuple(sorted(job.overrides.items())) if job.overrides else (),
+            )
+
+        for task in {j.task for j in self.batch_config.jobs}:
+            expected = [
+                normalise_job(j)
+                for j in self.batch_config.jobs
+                if j.task == task
+            ]
+            actual = [
+                normalise_job(j)
+                for j in self.generated_batch_config.jobs
+                if j.task == task
+            ]
+            self.assertCountEqual(
+                expected, actual, f"Jobs not equal for task: {task}",
+            )
 
     def test_output(self) -> None:
         """Test Batch Config output."""

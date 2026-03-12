@@ -302,8 +302,14 @@ class ACRSet(Ingestible):
         acq2: DiscoveredAcquisition,
     ) -> DiscoveredAcquisition:
         """Get the latest acquisition."""
+        # Try sorting by acquisition time first.
         if acq1 is None or acq2.acquisition_time > acq1.acquisition_time:
             return acq2
+
+        # Sort by name (descending) if acquisition time has failed
+        # usually the case for anon data.
+        if acq2.acquisition_time == acq1.acquisition_time:
+            return sorted([acq1, acq2], key=lambda acq: acq.path)[-1]
         return acq1
 
 
@@ -318,10 +324,12 @@ class SNRSet(Ingestible):
         """List of current jobs."""
         _jobs = []
 
+        acqs = sorted(self._acqs, key=lambda acq: acq.path)
+
         # Tries to gather SNR pairs
         matched_acqs_idxs = set()
-        for i, acq in enumerate(self._acqs):
-            for j, possible_pair in enumerate(self._acqs):
+        for i, acq in enumerate(acqs):
+            for j, possible_pair in enumerate(acqs):
                 if i == j or j in matched_acqs_idxs:
                     continue
                 if acq.is_likely_the_same_as(possible_pair):
@@ -334,11 +342,11 @@ class SNRSet(Ingestible):
                             },
                         ),
                     )
+                    matched_acqs_idxs |= {i, j}
                     break
-                matched_acqs_idxs &= {i, j}
 
         # The remaining SNR tasks will be treated as smoothing
-        for i, acq in enumerate(self._acqs):
+        for i, acq in enumerate(acqs):
             if i not in matched_acqs_idxs:
                 _jobs.append(
                     JobTaskConfig(
