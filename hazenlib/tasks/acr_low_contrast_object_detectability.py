@@ -365,7 +365,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 # This avoids excessive searching of templates once the
                 # it has already been determined that the spoke has passed
                 # but without performing fdr correction on every template.
-                if all(p < self._ALPHA / 10 for p in min_pvals):
+                if all(p < self.alpha / 10 for p in min_pvals):
                     break
             sp.p_vals.append(min_pvals)
             sp.params.append(min_params)
