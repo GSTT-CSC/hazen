@@ -1,119 +1,185 @@
-"""
-Welcome to the hazen Command Line Interface
+"""Welcome to the hazen Command Line Interface.
 
 The following Tasks are available:
 - ACR phantom:
-acr_snr | acr_slice_position | acr_slice_thickness | acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy
+acr_all | acr_snr | acr_slice_position | acr_slice_thickness |
+acr_spatial_resolution | acr_uniformity | acr_ghosting | acr_geometric_accuracy |
+acr_low_contrast_object_detectability
 - MagNET Test Objects:
 snr | snr_map | slice_position | slice_width | spatial_resolution | uniformity | ghosting
 - Caliber phantom:
 relaxometry
 
-All tasks can be run by executing 'hazen <task> <folder>'. Optional flags are available for the Tasks; see the General
-Options section below. The 'acr_snr' and 'snr' Tasks have additional optional flags, also detailed below.
+Note that the acr_all task requires 3 directories as arguments
+(T1, T2 and Sagittal Localiser) whilst all other commands require
+a single positional directory argument. That is:
 
-Usage:
-    hazen <task> <folder> [options]
-    hazen snr <folder> [--measured_slice_width=<mm>] [--coil=<head or body>] [options]
-    hazen acr_snr <folder> [--measured_slice_width=<mm>] [--subtract=<folder2>] [options]
-    hazen relaxometry <folder> --calc=<T1> --plate_number=<4> [options]
-
-    hazen -h | --help
-    hazen --version
-
-General Options: available for all Tasks
-    --report                     Whether to generate visualisation of the measurement steps.
-    --output=<path>              Provide a folder where report images are to be saved.
-    --verbose                    Whether to provide additional metadata about the calculation in the result (slice position and relaxometry tasks)
-    --log=<level>                Set the level of logging based on severity. Available levels are "debug", "warning", "error", "critical", with "info" as default.
-
-acr_snr & snr Task options:
-    --measured_slice_width=<mm>  Provide a slice width to be used for SNR measurement, by default it is parsed from the DICOM (optional for acr_snr and snr)
-    --subtract=<folder2>         Provide a second folder path to calculate SNR by subtraction for the ACR phantom (optional for acr_snr)
-
-relaxometry Task options:
-    --calc=<n>                   Choose 'T1' or 'T2' for relaxometry measurement (required)
-    --plate_number=<n>           Which plate to use for measurement: 4 or 5 (required)
+hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
 """
 
-import os
-import sys
-import json
-import inspect
+import argparse
 import logging
-import importlib
+import os
+from typing import get_args
 
-from docopt import docopt
-from pydicom import dcmread
-from hazenlib.logger import logger
-from hazenlib.utils import get_dicom_files, is_enhanced_dicom
 from hazenlib._version import __version__
-
-"""Hazen is designed to measure the same parameters from multiple images.
-    While some tasks require a set of multiple images (within the same folder),
-    such as slice position, SNR and all ACR tasks,
-    the majority of the calculations are performed on a single image at a time,
-    and bulk processing all images in the input folder with the same task.
-
-    In Sep 2023 a design decision was made to pass the minimum number of files
-    to the task.run() functions.
-    Below is a list of the single image tasks where the task.run() will be called
-    on each image in the folder, while other tasks are being passed ALL image files.
-"""
-single_image_tasks = [
-    "ghosting",
-    "uniformity",
-    "spatial_resolution",
-    "slice_width",
-    "snr_map",
-]
+from hazenlib.constants import MEASUREMENT_VISIBILITY
+from hazenlib.execution import timed_execution
+from hazenlib.formatters import write_result
+from hazenlib.logger import logger
+from hazenlib.orchestration import (
+    ACRLargePhantomProtocol,
+    TASK_REGISTRY,
+    init_task,
+)
+from hazenlib.utils import get_dicom_files
 
 
-def init_task(selected_task, files, report, report_dir, **kwargs):
-    """Initialise object of the correct HazenTask class
+def get_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
-    Args:
-        selected_task (string): name of task script/module to load
-        files (list): list of filepaths to DICOM images
-        report (bool): whether to generate report images
-        report_dir (string): path to folder to save report images to
-        kwargs: any other key word arguments
+    parser.add_argument(
+        "task",
+        # TODO(@abdrysdale): Add a list of protocols in registry.
+        choices=list(TASK_REGISTRY.keys()) + ["acr_all"],
+        help="The task to run",
+    )
+    parser.add_argument(
+        "folder",
+        help="Path to folder containing DICOM files",
+        nargs="+",
+    )
 
-    Returns:
-        an object of the specified HazenTask class
-    """
-    task_module = importlib.import_module(f"hazenlib.tasks.{selected_task}")
+    # General options available for all tasks
+    parser.add_argument(
+        "--profile",
+        action="store_true",
+        help="Include execution time metadata in results",
+    )
 
-    try:
-        task = getattr(task_module, selected_task.capitalize())(
-            input_data=files, report=report, report_dir=report_dir, **kwargs
-        )
-    except:
-        class_list = [
-            cls.__name__
-            for _, cls in inspect.getmembers(
-                sys.modules[task_module.__name__],
-                lambda x: inspect.isclass(x) and (x.__module__ == task_module.__name__),
-            )
-        ]
-        if len(class_list) == 1:
-            task = getattr(task_module, class_list[0])(
-                input_data=files, report=report, report_dir=report_dir, **kwargs
-            )
-        else:
-            msg = (
-                f"Task {task_module} has multiple class definitions:"
-                " {class_list}"
-            )
-            logger.error(msg)
-            raise Exception(msg)
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Whether to generate visualisation of the measurement steps",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Provide a folder where report images are to be saved",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help=(
+            "Whether to provide additional metadata about the calculation "
+            "in the result (slice position and relaxometry tasks)"
+        ),
+    )
+    parser.add_argument(
+        "--log",
+        type=str,
+        default="info",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help=(
+            "Set the level of logging based on severity. "
+            'Available levels are "debug", "warning", "error", "critical", '
+            'with "info" as default'
+        ),
+    )
+    parser.add_argument(
+        "--format",
+        type=str,
+        default="json",
+        choices=["json", "csv", "tsv"],
+        help="Output format for test results. Choices: json (default), csv or tsv",
+    )
+    parser.add_argument(
+        "--result",
+        type=str,
+        default="-",
+        help='Path to the results path. If "-", default, will write to stdout',
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=__version__,
+    )
+    parser.add_argument(
+        "--level",
+        type=str,
+        default="all",
+        choices=[*get_args(MEASUREMENT_VISIBILITY), "all"],
+        help=(
+            "Filter results by visibility:"
+            " 'final' (report-ready metrics),"
+            " 'intermediate' (scientist verification),"
+            " or 'all'."
+        ),
+    )
 
-    return task
+    # Task-specific options
+    parser.add_argument(
+        "--measured_slice_width",
+        type=float,
+        default=None,
+        help=(
+            "Provide a slice width to be used for SNR measurement, "
+            "by default it is parsed from the DICOM "
+            "(optional for acr_snr and snr)"
+        ),
+    )
+    parser.add_argument(
+        "--subtract",
+        type=str,
+        default=None,
+        help=(
+            "Provide a second folder path to calculate SNR by subtraction "
+            "for the ACR phantom (optional for acr_snr)"
+        ),
+    )
+    parser.add_argument(
+        "--coil",
+        type=str,
+        default=None,
+        choices=["head", "body"],
+        help="Coil type for SNR measurement (optional for snr)",
+    )
+    parser.add_argument(
+        "--calc",
+        type=str,
+        default=None,
+        choices=["T1", "T2"],
+        help=(
+            "Choose 'T1' or 'T2' for relaxometry measurement "
+            "(required for relaxometry)"
+        ),
+    )
+    parser.add_argument(
+        "--plate_number",
+        type=int,
+        default=None,
+        choices=[4, 5],
+        help="Which plate to use for measurement: 4 or 5 (required for relaxometry)",
+    )
+    return parser
 
 
-def main():
-    """Main entrypoint to hazen"""
-    arguments = docopt(__doc__, version=__version__)
+def main() -> None:
+    """Primary entrypoint to hazen."""
+    parser = get_parser()
+    args = parser.parse_args()
+
+    execution_wrapper = (
+        timed_execution if args.profile else (lambda f, *a, **k: f(*a, **k))
+    )
+
+    single_image_tasks = [
+        task for task in TASK_REGISTRY.values() if task.single_image
+    ]
 
     # Set common options
     log_levels = {
@@ -123,75 +189,119 @@ def main():
         "warning": logging.WARNING,
         "error": logging.ERROR,
     }
-    if arguments["--log"] in log_levels.keys():
-        level = log_levels[arguments["--log"]]
-        logging.getLogger().setLevel(level)
-    else:
-        # logging.basicConfig()
-        logging.getLogger().setLevel(logging.INFO)
+    level = log_levels.get(args.log, logging.INFO)
+    logging.getLogger().setLevel(level)
 
-    report = arguments["--report"]
-    report_dir = arguments["--output"] if arguments["--output"] else None
-    verbose = arguments["--verbose"]
-
-    logger.debug("The following files were identified as valid DICOMs:")
-    files = get_dicom_files(arguments["<folder>"])
-    logger.debug(
-        "%s task will be set off on %s images", arguments["<task>"], len(files)
-    )
+    report = args.report
+    report_dir = args.output
+    verbose = args.verbose
+    fmt = args.format
+    level = args.level
+    result_file = args.result
 
     # Parse the task and optional arguments:
-    if arguments["snr"] or arguments["<task>"] == "snr":
-        selected_task = "snr"
+    selected_task = args.task.lower()
+
+    logger.info(f"Hazen version: {__version__}")
+
+    #################################
+    # Special Case the ACR ALL Task #
+    #################################
+
+    if selected_task == "acr_all":
+        task = ACRLargePhantomProtocol(
+            args.folder,
+            report=report,
+            report_dir=report_dir,
+            verbose=verbose,
+        )
+        protocol = execution_wrapper(task.run)
+        for result in protocol.results:
+            write_result(result, fmt=fmt, path=result_file, level=level)
+        return
+    if len(args.folder) != 1:
+        parser.error(
+            f"Task '{selected_task}' expects exactly one folder"
+            f" as a positional argument, but {len(args.folder)}"
+            " were provided",
+        )
+
+    #####################
+    # Single task usage #
+    #####################
+
+    logger.debug("The following files were identified as valid DICOMs:")
+    files = get_dicom_files(args.folder[0])
+    logger.debug(
+        "%s task will be set off on %s images",
+        args.task,
+        len(files),
+    )
+
+    if selected_task == "snr":
         task = init_task(
             selected_task,
             files,
             report,
             report_dir,
-            measured_slice_width=arguments["--measured_slice_width"],
-            coil=arguments["--coil"],
+            measured_slice_width=args.measured_slice_width,
+            coil=args.coil,
         )
-        result = task.run()
-    elif arguments["acr_snr"] or arguments["<task>"] == "acr_snr":
-        selected_task = "acr_snr"
+        result = execution_wrapper(task.run)
+    elif selected_task == "acr_snr":
         task = init_task(
             selected_task,
             files,
             report,
             report_dir,
-            subtract=arguments["--subtract"],
-            measured_slice_width=arguments["--measured_slice_width"],
+            subtract=args.subtract,
+            measured_slice_width=args.measured_slice_width,
         )
-        result = task.run()
-    elif arguments["relaxometry"] or arguments["<task>"] == "relaxometry":
-        selected_task = "relaxometry"
+        result = execution_wrapper(task.run)
+    elif selected_task == "relaxometry":
+        missing_args = []
+        if args.calc is None:
+            missing_args.append("--calc")
+        if args.plate_number is None:
+            missing_args.append("--plate_number")
+        if missing_args:
+            parser.error(
+                f"relaxometry task requires the following arguments: "
+                f"{', '.join(missing_args)}",
+            )
         task = init_task(selected_task, files, report, report_dir)
-        result = task.run(
-            calc=arguments["--calc"],
-            plate_number=arguments["--plate_number"],
-            verbose=arguments["--verbose"],
+        result = execution_wrapper(
+            task.run,
+            calc=args.calc,
+            plate_number=args.plate_number,
+            verbose=verbose,
         )
     else:
-        selected_task = arguments["<task>"]
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             # for now these are most likely not enhanced, single-frame
-            for file in files:
-                task = init_task(selected_task, [file], report, report_dir)
-                result = task.run()
-                result_string = json.dumps(result, indent=2)
-                print(result_string)
+            for f in files:
+                task = init_task(selected_task, [f], report, report_dir)
+                result = execution_wrapper(task.run)
+                write_result(result, fmt=fmt, path=result_file, level=level)
             return
-        else:
-            # Slice Position task, all ACR tasks except SNR
-            # may be enhanced, may be multi-frame
-            fns = [os.path.basename(fn) for fn in files]
-            print("Processing", fns)
-            task = init_task(selected_task, files, report, report_dir, verbose=verbose)
-            result = task.run()
+        # Slice Position task, all ACR tasks except SNR
+        # may be enhanced, may be multi-frame
+        fns = [os.path.basename(fn) for fn in files]
+        logger.info("Processing: %s", fns)
+        task = init_task(
+            selected_task,
+            files,
+            report,
+            report_dir,
+            verbose=verbose,
+        )
+        result = execution_wrapper(task.run)
 
-    result_string = json.dumps(result, indent=2)
-    print(result_string)
+        write_result(result, fmt=fmt, path=result_file, level=level)
+        return
+
+    write_result(result, fmt=fmt, path=result_file, level=level)
 
 
 if __name__ == "__main__":

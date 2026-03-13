@@ -4,12 +4,11 @@ Created on Tue Aug 11 10:52:40 2020
 
 @author: Paul Wilson
 """
+
 import unittest
-import pydicom
 import numpy as np
 import os
 import os.path
-from pydicom.errors import InvalidDicomError
 
 from hazenlib.tasks.relaxometry import (
     transform_coords,
@@ -17,9 +16,8 @@ from hazenlib.tasks.relaxometry import (
     T2ImageStack,
     Relaxometry,
 )
-from hazenlib.utils import get_dicom_files
-from hazenlib.exceptions import ArgumentCombinationError
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from hazenlib.utils import dcmread, get_dicom_files
+from tests import TEST_DATA_DIR
 from hazenlib.data.relaxometry_params import TEMPLATE_VALUES
 
 
@@ -42,7 +40,14 @@ class TestRelaxometry(unittest.TestCase):
     T1_DIR = os.path.join(
         TEST_DATA_DIR, "relaxometry", "T1", "site1_20200218", "plate5"
     )
-    T1_FILES = ["20530320", "20530224", "20530416", "20530272", "20530464", "20530368"]
+    T1_FILES = [
+        "20530320",
+        "20530224",
+        "20530416",
+        "20530272",
+        "20530464",
+        "20530368",
+    ]
     T1_TI_SORTED = [50.0, 100.0, 200.0, 400.0, 600.0, 800.0]
 
     # T2_FILES are in random order to test sorting
@@ -123,7 +128,12 @@ class TestRelaxometry(unittest.TestCase):
         TEST_DATA_DIR, "relaxometry", "T1", "Template_plate5_T1_signed"
     )
     TEMPLATE_TARGET_PATH_T1_P5 = os.path.join(
-        TEST_DATA_DIR, "relaxometry", "T1", "site1_20200218", "plate5", "20530224"
+        TEST_DATA_DIR,
+        "relaxometry",
+        "T1",
+        "site1_20200218",
+        "plate5",
+        "20530224",
     )
     TEMPLATE_TEST_COORDS_ROW_COL = [
         [56, 95],
@@ -165,7 +175,9 @@ class TestRelaxometry(unittest.TestCase):
 
     for i in range(14):
         MASK_POI_TEMPLATE[
-            i, TEMPLATE_TEST_COORDS_ROW_COL[i][0], TEMPLATE_TEST_COORDS_ROW_COL[i][1]
+            i,
+            TEMPLATE_TEST_COORDS_ROW_COL[i][0],
+            TEMPLATE_TEST_COORDS_ROW_COL[i][1],
         ] = 1
     MASK_POI_TARGET = np.zeros((14, 192, 192))
     for i in range(14):
@@ -564,7 +576,16 @@ class TestRelaxometry(unittest.TestCase):
     SITE3_T2_P4_DIR = os.path.join(
         TEST_DATA_DIR, "relaxometry", "T2", "site3_ge", "plate4"
     )
-    SITE3_T2_P4_FILES = ["Z815", "Z816", "Z820", "Z822", "Z826", "Z827", "Z831", "Z832"]
+    SITE3_T2_P4_FILES = [
+        "Z815",
+        "Z816",
+        "Z820",
+        "Z822",
+        "Z826",
+        "Z827",
+        "Z831",
+        "Z832",
+    ]
 
     SITE3_T2_P5_VALS = [
         1878.80,
@@ -586,7 +607,16 @@ class TestRelaxometry(unittest.TestCase):
     SITE3_T2_P5_DIR = os.path.join(
         TEST_DATA_DIR, "relaxometry", "T2", "site3_ge", "plate5"
     )
-    SITE3_T2_P5_FILES = ["Z812", "Z813", "Z814", "Z819", "Z823", "Z825", "Z830", "Z834"]
+    SITE3_T2_P5_FILES = [
+        "Z812",
+        "Z813",
+        "Z814",
+        "Z819",
+        "Z823",
+        "Z825",
+        "Z830",
+        "Z834",
+    ]
 
     # Site 5 tests - Philips 3T
     SITE5_T1_P4_DIR = os.path.join(
@@ -769,7 +799,10 @@ class TestRelaxometry(unittest.TestCase):
         # no translation, no rotation, input = yx, output = yx
         warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=True, output_row_col=True
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=True,
+            output_row_col=True,
         )
         np.testing.assert_allclose(op, self.TEST_COORDS)
         # 'Identity coordinate transformation row_col (yx) -> row_col (yx)'
@@ -778,7 +811,10 @@ class TestRelaxometry(unittest.TestCase):
         # no translation, no rotation, flip
         # input = col_row (xy), output = row_col (yx)
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=False, output_row_col=True
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=False,
+            output_row_col=True,
         )
 
         np.testing.assert_allclose(op, self.COORDS_FLIP)
@@ -786,7 +822,10 @@ class TestRelaxometry(unittest.TestCase):
         # no translation, no rotation, input = col_row (xy),
         # output = col_row (xy)
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=False, output_row_col=False
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=False,
+            output_row_col=False,
         )
         np.testing.assert_allclose(op, self.TEST_COORDS)
         # 'Identity coordinate transformation XY -> XY failed'
@@ -795,7 +834,10 @@ class TestRelaxometry(unittest.TestCase):
         # output = row_col (yx)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=True, output_row_col=True
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=True,
+            output_row_col=True,
         )
         np.testing.assert_allclose(op, self.COORDS_TRANS)
         # 'Translation coordinate transformation YX -> YX failed'
@@ -804,7 +846,10 @@ class TestRelaxometry(unittest.TestCase):
         # output = row_col (yx)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=False, output_row_col=True
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=False,
+            output_row_col=True,
         )
         np.testing.assert_allclose(op, self.COORDS_TRANS_FLIP)
         # 'Translation coordinate transformation XY -> YX failed'
@@ -813,14 +858,19 @@ class TestRelaxometry(unittest.TestCase):
         # output = col_row (xy)
         warp_matrix = np.array([[1, 0, 1], [0, 1, 3]])
         op = transform_coords(
-            self.TEST_COORDS, warp_matrix, input_row_col=False, output_row_col=False
+            self.TEST_COORDS,
+            warp_matrix,
+            input_row_col=False,
+            output_row_col=False,
         )
         np.testing.assert_allclose(op, self.COORDS_TRANS_COL_ROW)
         # 'Translation coordinate transformation XY -> XY failed'
 
         # rotation (-30) degrees, translation col=10, row=20,
         # input = col_row (xy), output = col_row (xy)
-        warp_matrix = np.array([[np.sqrt(3) / 2, 0.5, 10], [-0.5, np.sqrt(3) / 2, 20]])
+        warp_matrix = np.array(
+            [[np.sqrt(3) / 2, 0.5, 10], [-0.5, np.sqrt(3) / 2, 20]]
+        )
         # use float64 rather than int32 for coordinates to better test rotation
         op = transform_coords(
             np.array(self.TEST_COORDS, dtype=np.float64),
@@ -831,9 +881,9 @@ class TestRelaxometry(unittest.TestCase):
         np.testing.assert_allclose(op, self.COORDS_TRANS_ROTATE)
 
     def test_template_fit(self):
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
 
-        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
+        target_dcm = dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         t1_image_stack = T1ImageStack([target_dcm])
         warp_matrix = t1_image_stack.template_fit(template_dcm)
 
@@ -846,37 +896,47 @@ class TestRelaxometry(unittest.TestCase):
 
         # test to within +/- 1 pixel (also checks YX-XY change)
         np.testing.assert_allclose(
-            transformed_coordinates_xy, self.TEMPLATE_TARGET_COORDS_COL_ROW, atol=1
+            transformed_coordinates_xy,
+            self.TEMPLATE_TARGET_COORDS_COL_ROW,
+            atol=1,
         )
 
     def test_image_stack_T1_sort(self):
         # read list of un-ordered T1 files, sort by TI, test sorted
         t1_dcms = [
-            pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in self.T1_FILES
+            dcmread(os.path.join(self.T1_DIR, fname))
+            for fname in self.T1_FILES
         ]
         t1_image_stack = T1ImageStack(t1_dcms)
-        sorted_output = [image.InversionTime.real for image in t1_image_stack.images]
+        sorted_output = [
+            image.InversionTime.real for image in t1_image_stack.images
+        ]
         assert sorted_output == self.T1_TI_SORTED
 
     def test_image_stack_T2_sort(self):
         # read list of un-ordered T2 files, sort by TE, test sorted
         t2_dcms = [
-            pydicom.dcmread(os.path.join(self.T2_DIR, fname)) for fname in self.T2_FILES
+            dcmread(os.path.join(self.T2_DIR, fname))
+            for fname in self.T2_FILES
         ]
         t2_image_stack = T2ImageStack(t2_dcms)
 
-        sorted_output = [image.EchoTime.real for image in t2_image_stack.images]
+        sorted_output = [
+            image.EchoTime.real for image in t2_image_stack.images
+        ]
 
         assert sorted_output == self.T2_TE_SORTED
 
     def test_generate_time_series_template_POIs(self):
         # Test on template first, no image fitting needed
         # Need image to get correct size
-        template_dcm = pydicom.dcmread(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
         template_image_stack = T1ImageStack([template_dcm])
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, warp_matrix=warp_matrix, fit_coords=False
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
+            warp_matrix=warp_matrix,
+            fit_coords=False,
         )
 
         for i in range(np.size(self.MASK_POI_TEMPLATE, 0)):
@@ -887,9 +947,9 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_generate_time_series_target_POIs(self):
         # Test on target and check image fitting too.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
 
-        target_dcm = pydicom.dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
+        target_dcm = dcmread(self.TEMPLATE_TARGET_PATH_T1_P5)
         target_image_stack = T1ImageStack([target_dcm])
         warp_matrix = target_image_stack.template_fit(template_dcm)
         # transformed_coordinates_yx = transform_coords(
@@ -900,21 +960,24 @@ class TestRelaxometry(unittest.TestCase):
         )
         for i in range(np.size(self.MASK_POI_TARGET, 0)):
             np.testing.assert_equal(
-                target_image_stack.ROI_time_series[i].POI_mask, self.MASK_POI_TARGET[i]
+                target_image_stack.ROI_time_series[i].POI_mask,
+                self.MASK_POI_TARGET[i],
             )
 
     def test_extract_single_roi(self):
         # Test that ROI pixel value extraction works. Use template DICOM for
         # both template and image to avoid errors due to slight variation in
         # fitting.
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = T1ImageStack([template_dcm])
         # set warp_matrix to identity matrix
         # template_image_stack.warp_matrix = np.eye(2, 3, dtype=np.float32)
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, warp_matrix=warp_matrix, fit_coords=False
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
+            warp_matrix=warp_matrix,
+            fit_coords=False,
         )
 
         np.testing.assert_equal(
@@ -924,13 +987,15 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_template_roi_means(self):
         # Check mean of first 3 ROIs in template match with ImageJ calculations
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
 
         template_image_stack = T1ImageStack([template_dcm])
 
         warp_matrix = template_image_stack.template_fit(template_dcm)
         template_image_stack.generate_time_series(
-            self.TEMPLATE_TEST_COORDS_ROW_COL, warp_matrix=warp_matrix, fit_coords=False
+            self.TEMPLATE_TEST_COORDS_ROW_COL,
+            warp_matrix=warp_matrix,
+            fit_coords=False,
         )
 
         # Check all pixels in ROI[0] match
@@ -948,9 +1013,10 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t1_calc_magnitude_image(self):
         """Test T1 value for plate 5 spheres."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [
-            pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in self.T1_FILES
+            dcmread(os.path.join(self.T1_DIR, fname))
+            for fname in self.T1_FILES
         ]
         t1_image_stack = T1ImageStack(t1_dcms)
         warp_matrix = t1_image_stack.template_fit(template_dcm)
@@ -959,9 +1025,13 @@ class TestRelaxometry(unittest.TestCase):
         )
         t1_image_stack.generate_fit_function()
         t1_published = TEMPLATE_VALUES["plate5"]["t1"]["relax_times"]["1.5T"]
-        s0_est = t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
+        s0_est = t1_image_stack.initialise_fit_parameters(
+            t1_estimates=t1_published
+        )
 
-        t1_image_stack.find_relax_times(t1_estimates=t1_published, s0_est=s0_est)
+        t1_image_stack.find_relax_times(
+            t1_estimates=t1_published, s0_est=s0_est
+        )
 
         np.testing.assert_allclose(
             t1_image_stack.relax_times, self.PLATE5_T1, rtol=0.02, atol=1
@@ -969,9 +1039,10 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t2_calc_magnitude_image(self):
         """Test T2 value for plate 4 spheres."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T2)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T2)
         t2_dcms = [
-            pydicom.dcmread(os.path.join(self.T2_DIR, fname)) for fname in self.T2_FILES
+            dcmread(os.path.join(self.T2_DIR, fname))
+            for fname in self.T2_FILES
         ]
         t2_image_stack = T2ImageStack(t2_dcms)
         warp_matrix = t2_image_stack.template_fit(template_dcm)
@@ -979,8 +1050,12 @@ class TestRelaxometry(unittest.TestCase):
             self.TEMPLATE_P4_TEST_COORDS_ROW_COL, warp_matrix=warp_matrix
         )
         t2_published = TEMPLATE_VALUES["plate4"]["t2"]["relax_times"]["1.5T"]
-        s0_est = t2_image_stack.initialise_fit_parameters(t2_estimates=t2_published)
-        t2_image_stack.find_relax_times(t2_estimates=t2_published, s0_est=s0_est)
+        s0_est = t2_image_stack.initialise_fit_parameters(
+            t2_estimates=t2_published
+        )
+        t2_image_stack.find_relax_times(
+            t2_estimates=t2_published, s0_est=s0_est
+        )
 
         np.testing.assert_allclose(
             t2_image_stack.relax_times, self.PLATE4_T2, rtol=0.01, atol=1
@@ -988,9 +1063,9 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_t1_calc_signed_image(self):
         """Test T1 value for signed plate 5 spheres (site 2)."""
-        template_dcm = pydicom.read_file(self.TEMPLATE_PATH_T1_P5)
+        template_dcm = dcmread(self.TEMPLATE_PATH_T1_P5)
         t1_dcms = [
-            pydicom.dcmread(os.path.join(self.SITE2_T1_DIR, fname))
+            dcmread(os.path.join(self.SITE2_T1_DIR, fname))
             for fname in self.SITE2_T1_FILES
         ]
         t1_image_stack = T1ImageStack(t1_dcms)
@@ -1000,8 +1075,12 @@ class TestRelaxometry(unittest.TestCase):
         )
         t1_image_stack.generate_fit_function()
         t1_published = TEMPLATE_VALUES["plate5"]["t1"]["relax_times"]["1.5T"]
-        s0_est = t1_image_stack.initialise_fit_parameters(t1_estimates=t1_published)
-        t1_image_stack.find_relax_times(t1_estimates=t1_published, s0_est=s0_est)
+        s0_est = t1_image_stack.initialise_fit_parameters(
+            t1_estimates=t1_published
+        )
+        t1_image_stack.find_relax_times(
+            t1_estimates=t1_published, s0_est=s0_est
+        )
 
         np.testing.assert_allclose(
             t1_image_stack.relax_times, self.SITE2_PLATE5_T1, rtol=0.02, atol=1
@@ -1010,23 +1089,23 @@ class TestRelaxometry(unittest.TestCase):
     def test_t1_siemens(self):
         """Test T1 values on Siemens images."""
         dcms = get_dicom_files(self.T1_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.T1_DIR, fname)) for fname in
+        # dcms = [dcmread(os.path.join(self.T1_DIR, fname)) for fname in
         #         self.T1_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"], self.PLATE5_T1, rtol=0.02, atol=1
+            results.metadata.calc_times, self.PLATE5_T1, rtol=0.02, atol=1
         )
 
     def test_t1_p4_philips(self):
         """Test T1 values on plate 4 on Philips."""
         dcms = get_dicom_files(self.SITE4_T1_P4_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE4_T1_P4_DIR, fname))
         #         for fname in self.SITE4_T1_P4_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE4_T1_P4,
             rtol=0.02,
             atol=1,
@@ -1035,12 +1114,12 @@ class TestRelaxometry(unittest.TestCase):
     def test_t1_p5_philips(self):
         """Test T1 values on plate 5 on Philips."""
         dcms = get_dicom_files(self.SITE4_T1_P5_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE4_T1_P5_DIR, fname))
         #         for fname in self.SITE4_T1_P5_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE4_T1_P5,
             rtol=0.02,
             atol=1,
@@ -1049,12 +1128,12 @@ class TestRelaxometry(unittest.TestCase):
     def test_t2_p4_philips(self):
         """Test T2 values on plate 4 on Philips."""
         dcms = get_dicom_files(self.SITE4_T2_P4_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE4_T2_P4_DIR, fname))
         #         for fname in self.SITE4_T2_P4_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE4_T2_P4,
             rtol=0.02,
             atol=1,
@@ -1063,12 +1142,12 @@ class TestRelaxometry(unittest.TestCase):
     def test_t2_p5_philips(self):
         """Test T2 values on plate 4 on Philips."""
         dcms = get_dicom_files(self.SITE4_T2_P5_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE4_T2_P5_DIR, fname))
         #         for fname in self.SITE4_T2_P5_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE4_T2_P5,
             rtol=0.02,
             atol=1,
@@ -1076,9 +1155,9 @@ class TestRelaxometry(unittest.TestCase):
 
     def test_scale_up_template(self):
         """Test fit for 256x256 GE image with 192x192 template"""
-        template_dcm = pydicom.read_file(TEMPLATE_VALUES["plate4"]["t1"]["filename"])
+        template_dcm = dcmread(TEMPLATE_VALUES["plate4"]["t1"]["filename"])
 
-        target_dcm = pydicom.dcmread(self.PATH_256_MATRIX)
+        target_dcm = dcmread(self.PATH_256_MATRIX)
         t1_image_stack = T1ImageStack([target_dcm])
         warp_matrix = t1_image_stack.template_fit(template_dcm)
 
@@ -1098,14 +1177,18 @@ class TestRelaxometry(unittest.TestCase):
         """Test relaxometry.py values on GE."""
         for plate in (4, 5):
             for tparam in ["T1", "T2"]:
-                dcms = get_dicom_files(getattr(self, f"SITE3_{tparam}_P{plate}_DIR"))
-                # dcms = [pydicom.dcmread(os.path.join(
+                dcms = get_dicom_files(
+                    getattr(self, f"SITE3_{tparam}_P{plate}_DIR")
+                )
+                # dcms = [dcmread(os.path.join(
                 #     getattr(self, f'SITE3_{tparam}_P{plate}_DIR'), fname))
                 #     for fname in getattr(self, f'SITE3_{tparam}_P{plate}_FILES')]
                 task = Relaxometry(input_data=dcms)
-                results = task.run(plate_number=plate, calc=tparam, verbose=True)
+                results = task.run(
+                    plate_number=plate, calc=tparam, verbose=True
+                )
                 np.testing.assert_allclose(
-                    results["additional data"]["calc_times"],
+                    results.metadata.calc_times,
                     getattr(self, f"SITE3_{tparam}_P{plate}_VALS"),
                     rtol=0.02,
                     atol=1,
@@ -1122,12 +1205,12 @@ class TestRelaxometry(unittest.TestCase):
 
         # T1 plate 4
         dcms = get_dicom_files(self.SITE5_T1_P4_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P4_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE5_T1_P4_DIR, fname))
         #         for fname in self.SITE5_T1_P4_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE5_T1_P4,
             rtol=0.02,
             atol=1,
@@ -1135,12 +1218,12 @@ class TestRelaxometry(unittest.TestCase):
 
         # T1 plate 5
         dcms = get_dicom_files(self.SITE5_T1_P5_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T1_P5_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE5_T1_P5_DIR, fname))
         #         for fname in self.SITE5_T1_P5_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE5_T1_P5,
             rtol=0.02,
             atol=1,
@@ -1148,12 +1231,12 @@ class TestRelaxometry(unittest.TestCase):
 
         # T2 plate 4
         dcms = get_dicom_files(self.SITE5_T2_P4_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P4_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE5_T2_P4_DIR, fname))
         #         for fname in self.SITE5_T2_P4_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE5_T2_P4,
             rtol=0.02,
             atol=1,
@@ -1161,12 +1244,12 @@ class TestRelaxometry(unittest.TestCase):
 
         # T2 plate 5
         dcms = get_dicom_files(self.SITE5_T2_P5_DIR)
-        # dcms = [pydicom.dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
+        # dcms = [dcmread(os.path.join(self.SITE5_T2_P5_DIR, fname))
         #         for fname in self.SITE5_T2_P5_FILES]
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results["additional data"]["calc_times"],
+            results.metadata.calc_times,
             self.SITE5_T2_P5,
             rtol=0.02,
             atol=1,

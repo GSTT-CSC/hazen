@@ -1,0 +1,74 @@
+# Pre-merge CI: Comprehensive validation on pull requests
+# Duration target: < 15 minutes
+# Runs: lint, format-check, type-check, tests with coverage, and CLI smoke tests
+
+name: Pre-Merge CI
+
+on:
+  pull_request:
+
+jobs:
+  ci-pr:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.11'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.12'
+          - os: ubuntu-latest
+            shell: bash
+            python-version: '3.13'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.11'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.12'
+          - os: windows-latest
+            shell: pwsh
+            python-version: '3.13'
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      pull-requests: write
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+      with:
+        version: "latest"
+
+    - name: Install Make (Windows)
+      if: runner.os == 'Windows'
+      run: choco install make
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: uv sync --group dev
+
+    - name: Display installed packages
+      run: uv tree
+
+    - name: Run pre-merge CI checks
+      run: make ci-pr
+
+    - name: Pytest coverage comment
+      if: github.event.pull_request.head.repo.full_name == github.repository
+      id: coverageComment
+      uses: MishaKav/pytest-coverage-comment@main
+      with:
+        pytest-coverage-path: ./pytest-coverage.txt
+        junitxml-path: ./pytest.xml

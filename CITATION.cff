@@ -2,6 +2,9 @@
 ---
 authors:
   -
+    family-names: Drysdale
+    given-names: Alex
+  -
     family-names: Jackson
     given-names: Laurence
     orcid: "https://orcid.org/0000-0002-5904-8012"
@@ -61,5 +64,5 @@ date-released: 2025-01-14
 message: "If you use hazen in your work, please cite it using these metadata."
 repository-code: "https://github.com/GSTT-CSC/hazen"
 title: hazen
-version: "1.3.4"
+version: "2.0.0"
 ...
