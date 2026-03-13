@@ -3,11 +3,17 @@
 # ruff: noqa: PT009 PT027 SLF001 S108
 
 # Python imports
+import shutil
+import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import Mock, call, mock_open, patch
 
+# Module imports
+import yaml
+
+# Local imports
 from hazenlib.exceptions import (
     UnknownAcquisitionTypeError,
     UnknownTaskNameError,
@@ -26,7 +32,6 @@ from hazenlib.orchestration import (
     init_task,
 )
 from hazenlib.types import Result
-
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -818,9 +823,10 @@ class TestBatchConfig(unittest.TestCase):
             config = BatchConfig.from_config("/home/user/config.yaml")
 
         # Check that relative paths were resolved
-        self.assertTrue(str(config.output).startswith("/home/user"))
+        start_str = Path("/home/user").absolute().as_posix()
+        self.assertTrue(str(config.output).startswith(start_str))
         job_folders = config.jobs[0].folders
-        self.assertTrue(job_folders[0].as_posix().startswith("/home/user"))
+        self.assertTrue(job_folders[0].as_posix().startswith(start_str))
 
     @patch("pathlib.Path.open", mock_open(read_data="{}"))
     @patch("yaml.safe_load")
@@ -841,7 +847,10 @@ class TestBatchConfig(unittest.TestCase):
             mock_exists.return_value = True
             config = BatchConfig.from_config("config.yaml")
 
-        self.assertEqual(str(config.output), "/absolute/output/path")
+        self.assertEqual(
+            str(config.output),
+            Path("/absolute/output/path").absolute().as_posix(),
+        )
 
     def test_validate_hazen_version_valid_constraint(self) -> None:
         """Verify no error when version constraint satisfied."""
@@ -933,10 +942,13 @@ class TestBatchConfig(unittest.TestCase):
             mock_exists.return_value = True
             config = BatchConfig.from_config("/tmp/config.yaml")
 
-        self.assertEqual(config.report_docx, "/tmp/report.docx")
+        self.assertEqual(
+            config.report_docx,
+            Path("/tmp/report.docx").absolute().as_posix(),
+        )
         self.assertEqual(
             config.report_template,
-            "/tmp/template.docx",
+            Path("/tmp/template.docx").absolute().as_posix(),
         )
 
     @patch("pathlib.Path.open", mock_open(read_data="{}"))
@@ -1043,6 +1055,204 @@ class TestBatchConfig(unittest.TestCase):
             mock_wait.assert_called_once()
             call_args = mock_wait.call_args
             self.assertEqual(call_args[1]["debug"], False)
+
+
+class TestBatchConfigToYaml(unittest.TestCase):
+    """Unit tests for BatchConfig.to_yaml method."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        self.temp_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        """Clean up temp directory."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_writes_basic_config(self, mock_exists: Mock) -> None:
+        """Verify basic YAML file is written correctly."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=2.0.0",
+            description="Test description",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        self.assertTrue(output_path.exists())
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        self.assertEqual(data["version"], "1.0")
+        self.assertEqual(data["hazen_version_constraint"], ">=2.0.0")
+        self.assertEqual(data["description"], "Test description")
+        self.assertEqual(
+            data["output"],
+            Path("/tmp/output").absolute().as_posix(),
+        )
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_handles_none_values(self, mock_exists: Mock) -> None:
+        """Verify None values are written to output."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=None,
+            description="Test",
+            output="/tmp/output",
+            jobs=[],
+            report_docx=None,
+            report_template=None,
+            defaults=None,
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # None values should be present in output
+        self.assertIsNone(data["hazen_version_constraint"])
+        self.assertIsNone(data["report_docx"])
+        self.assertIsNone(data["report_template"])
+        self.assertIsNone(data["defaults"])
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_resolves_paths_to_absolute_posix(
+        self,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify paths are converted to absolute POSIX format."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint="1.0.0",
+            description="Test",
+            output=Path("relative/output"),
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/absolute/path"), Path("relative/folder")],
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # All paths should be absolute POSIX format
+        self.assertTrue(Path(data["output"]).is_absolute())
+        for folder in data["jobs"][0]["folders"]:
+            self.assertTrue(Path(folder).is_absolute())
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_includes_job_overrides(self, mock_exists: Mock) -> None:
+        """Verify job overrides are included in output."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                    overrides={"param": "value", "count": 42},
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        self.assertEqual(data["jobs"][0]["overrides"]["param"], "value")
+        self.assertEqual(data["jobs"][0]["overrides"]["count"], 42)
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_creates_parent_directories(
+        self,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify parent directories are created for output path."""
+        mock_exists.return_value = True
+        nested_path = self.temp_dir / "nested" / "dir" / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[],
+        )
+
+        config.to_yaml(nested_path)
+
+        self.assertTrue(nested_path.parent.exists())
+        self.assertTrue(nested_path.exists())
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_resolves_path_overrides(self, mock_exists: Mock) -> None:
+        """Verify Path values in overrides are resolved to POSIX strings."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint="1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                    overrides={
+                        "output_path": Path("/custom/output"),
+                        "template": Path("relative/template.docx"),
+                        "count": 42,
+                    },
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # Path overrides should be converted to absolute POSIX strings
+        overrides = data["jobs"][0]["overrides"]
+        self.assertTrue(Path(overrides["output_path"]).is_absolute())
+        self.assertTrue(Path(overrides["template"]).is_absolute())
+        # Non-path values should remain unchanged
+        self.assertEqual(overrides["count"], 42)
 
 
 if __name__ == "__main__":

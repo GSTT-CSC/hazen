@@ -463,14 +463,9 @@ class JobTaskConfig:
         else:
             available_tasks = ", ".join(TASK_REGISTRY.keys())
             available_protocols = ",".join(PROTOCOL_REGISTRY.keys())
-            msg = (
-                f"Unknown task '{self.task}'."
-                f" Tasks: [{available_tasks}]"
-                f" Protocols: [{available_protocols}]"
-            )
             raise UnknownTaskNameError(
-                msg,
-                ",".join([available_protocols, available_tasks]),
+                self.task,
+                f"{available_protocols}, {available_tasks}",
             )
 
         for folder in self.folders:
@@ -510,6 +505,12 @@ class BatchConfig:
             output: Path to write the YAML configuration file.
 
         """
+
+        def resolve_path_as_posix(path: str | Path | None) -> str | None:
+            if path is None:
+                return None
+            return Path(path).absolute().as_posix()
+
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -518,38 +519,34 @@ class BatchConfig:
             "version": self.version,
         }
 
-        if self.hazen_version_constraint is not None:
-            data["hazen_version_constraint"] = self.hazen_version_constraint
+        data["hazen_version_constraint"] = self.hazen_version_constraint
 
         data["description"] = self.description
 
-        if self.output is not None:
-            data["output"] = Path(self.output).as_posix()
+        data["output"] = resolve_path_as_posix(self.output)
 
-        if self.levels:
-            data["levels"] = list(self.levels)
+        data["levels"] = list(self.levels)
 
-        if self.report_docx is not None:
-            data["report_docx"] = Path(self.report_docx).as_posix()
+        data["report_docx"] = resolve_path_as_posix(self.report_docx)
 
-        if self.report_template is not None:
-            data["report_template"] = Path(self.report_template).as_posix()
+        data["report_template"] = resolve_path_as_posix(self.report_template)
 
-        if self.defaults:
-            data["defaults"] = self.defaults
+        data["defaults"] = self.defaults
 
         # Build jobs list
         jobs_data: list[dict[str, Any]] = []
         for job in self.jobs:
             job_dict: dict[str, Any] = {
                 "task": job.task,
-                "folders": [Path(f).as_posix() for f in job.folders],
+                "folders": [resolve_path_as_posix(f) for f in job.folders],
             }
             if job.overrides:
                 job_dict["overrides"] = {}
                 for k, v in job.overrides.items():
-                    _v = v.as_posix() if isinstance(v, Path) else str(v)
-                    job_dict["overrides"][k] = _v
+                    if isinstance(v, Path):
+                        job_dict["overrides"][k] = resolve_path_as_posix(v)
+                    else:
+                        job_dict["overrides"][k] = v
             jobs_data.append(job_dict)
 
         data["jobs"] = jobs_data
@@ -756,14 +753,18 @@ class BatchConfig:
         # Resolve paths relative to config file location
         config_dir = config_path.parent
 
+        def resolve_path(path: str | Path) -> Path:
+            p = Path(path)
+            if p.is_absolute():
+                return p
+            # Always resolve relative paths with respect to the config file directory
+            return (config_dir / p).absolute()
+
         # Parse jobs
         jobs = []
         for job_data in data.get("jobs", []):
             # Resolve folder paths
-            folders = [
-                config_dir / f if not Path(f).is_absolute() else Path(f)
-                for f in job_data.get("folders", [])
-            ]
+            folders = [resolve_path(f) for f in job_data.get("folders", [])]
 
             # Validate task name against registry
             task_name = job_data["task"]
@@ -778,12 +779,7 @@ class BatchConfig:
 
         # Handle optional paths
         def resolve_path_as_str(path: Path | None) -> str | None:
-            default_path = Path(path).as_posix() if path else None
-            return (
-                (config_dir / path).as_posix()
-                if path and not Path(path).is_absolute()
-                else default_path
-            )
+            return resolve_path(path).as_posix() if path is not None else None
 
         report_docx = resolve_path_as_str(data.get("report_docx"))
         report_template = resolve_path_as_str(data.get("report_template"))
