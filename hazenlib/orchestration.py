@@ -510,6 +510,7 @@ class BatchConfig:
             output: Path to write the YAML configuration file.
 
         """
+
         def resolve_path_as_posix(path: str | Path | None) -> str:
             if path is None:
                 return None
@@ -547,7 +548,10 @@ class BatchConfig:
             if job.overrides:
                 job_dict["overrides"] = {}
                 for k, v in job.overrides.items():
-                    job_dict["overrides"][k] = resolve_path_as_posix(v)
+                    if isinstance(v, Path):
+                        job_dict["overrides"][k] = resolve_path_as_posix(v)
+                    else:
+                        job_dict["overrides"][k] = v
             jobs_data.append(job_dict)
 
         data["jobs"] = jobs_data
@@ -753,6 +757,7 @@ class BatchConfig:
 
         # Resolve paths relative to config file location
         config_dir = config_path.parent
+
         def resolve_path(path: str | Path) -> Path:
             p = Path(path)
             if p.is_absolute():
