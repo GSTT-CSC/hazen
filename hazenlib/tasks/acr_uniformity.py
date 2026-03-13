@@ -27,9 +27,7 @@ from hazenlib.logger import logger
 from hazenlib.types import Measurement, Result
 from hazenlib.utils import (
     compute_radius_from_area,
-    create_circular_mask,
     create_circular_mean_kernel,
-    create_circular_roi_at,
     detect_roi_center,
 )
 from matplotlib.pyplot import subplots as plt_subplots
