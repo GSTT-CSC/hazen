@@ -506,7 +506,7 @@ class BatchConfig:
 
         """
 
-        def resolve_path_as_posix(path: str | Path | None) -> str:
+        def resolve_path_as_posix(path: str | Path | None) -> str | None:
             if path is None:
                 return None
             return Path(path).absolute().as_posix()
