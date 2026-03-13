@@ -510,6 +510,9 @@ class BatchConfig:
             output: Path to write the YAML configuration file.
 
         """
+        def resolve_path_as_posix(path: str | Path) -> str:
+            return Path(path).absolute().as_posix()
+
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -524,16 +527,16 @@ class BatchConfig:
         data["description"] = self.description
 
         if self.output is not None:
-            data["output"] = Path(self.output).as_posix()
+            data["output"] = resolve_path_as_posix(self.output)
 
         if self.levels:
             data["levels"] = list(self.levels)
 
         if self.report_docx is not None:
-            data["report_docx"] = Path(self.report_docx).as_posix()
+            data["report_docx"] = resolve_path_as_posix(self.report_docx)
 
         if self.report_template is not None:
-            data["report_template"] = Path(self.report_template).as_posix()
+            data["report_template"] = resolve_path_as_posix(self.report_template)
 
         if self.defaults:
             data["defaults"] = self.defaults
@@ -543,13 +546,12 @@ class BatchConfig:
         for job in self.jobs:
             job_dict: dict[str, Any] = {
                 "task": job.task,
-                "folders": [Path(f).as_posix() for f in job.folders],
+                "folders": [resolve_path_as_posix(f) for f in job.folders],
             }
             if job.overrides:
                 job_dict["overrides"] = {}
                 for k, v in job.overrides.items():
-                    _v = v.as_posix() if isinstance(v, Path) else str(v)
-                    job_dict["overrides"][k] = _v
+                    job_dict["overrides"][k] = resolve_path_as_posix(v)
             jobs_data.append(job_dict)
 
         data["jobs"] = jobs_data
