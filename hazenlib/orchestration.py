@@ -757,9 +757,8 @@ class BatchConfig:
             p = Path(path)
             if p.is_absolute():
                 return p
-            if (config_dir / p).exists():
-                return (config_dir / p).absolute()
-            return p.absolute()
+            # Always resolve relative paths with respect to the config file directory
+            return (config_dir / p).absolute()
 
         # Parse jobs
         jobs = []
