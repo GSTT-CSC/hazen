@@ -3,6 +3,8 @@
 # ruff: noqa: PT009 PT027 SLF001 S108
 
 # Python imports
+import shutil
+import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
@@ -30,7 +32,6 @@ from hazenlib.orchestration import (
     init_task,
 )
 from hazenlib.types import Result
-
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -1061,15 +1062,10 @@ class TestBatchConfigToYaml(unittest.TestCase):
 
     def setUp(self) -> None:
         """Set up test fixtures."""
-        import tempfile
-        import shutil
-
         self.temp_dir = Path(tempfile.mkdtemp())
 
     def tearDown(self) -> None:
         """Clean up temp directory."""
-        import shutil
-
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
@@ -1139,7 +1135,7 @@ class TestBatchConfigToYaml(unittest.TestCase):
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
     @patch("pathlib.Path.exists")
     def test_to_yaml_resolves_paths_to_absolute_posix(
-        self, mock_exists: Mock
+        self, mock_exists: Mock,
     ) -> None:
         """Verify paths are converted to absolute POSIX format."""
         mock_exists.return_value = True
@@ -1200,7 +1196,7 @@ class TestBatchConfigToYaml(unittest.TestCase):
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
     @patch("pathlib.Path.exists")
     def test_to_yaml_creates_parent_directories(
-        self, mock_exists: Mock
+        self, mock_exists: Mock,
     ) -> None:
         """Verify parent directories are created for output path."""
         mock_exists.return_value = True
