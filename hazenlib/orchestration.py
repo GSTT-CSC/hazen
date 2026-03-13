@@ -753,15 +753,19 @@ class BatchConfig:
 
         # Resolve paths relative to config file location
         config_dir = config_path.parent
+        def resolve_path(path: str | Path) -> Path:
+            p = Path(path)
+            if p.is_absolute():
+                return p
+            if (config_dir / p).exists():
+                return (config_dir / p).absolute()
+            return p.absolute()
 
         # Parse jobs
         jobs = []
         for job_data in data.get("jobs", []):
             # Resolve folder paths
-            folders = [
-                config_dir / f if not Path(f).is_absolute() else Path(f)
-                for f in job_data.get("folders", [])
-            ]
+            folders = [resolve_path(f) for f in job_data.get("folders", [])]
 
             # Validate task name against registry
             task_name = job_data["task"]
@@ -776,12 +780,7 @@ class BatchConfig:
 
         # Handle optional paths
         def resolve_path_as_str(path: Path | None) -> str | None:
-            default_path = Path(path).as_posix() if path else None
-            return (
-                (config_dir / path).as_posix()
-                if path and not Path(path).is_absolute()
-                else default_path
-            )
+            return resolve_path(path).as_posix() if path is not None else None
 
         report_docx = resolve_path_as_str(data.get("report_docx"))
         report_template = resolve_path_as_str(data.get("report_template"))
