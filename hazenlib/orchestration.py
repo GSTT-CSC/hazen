@@ -470,7 +470,7 @@ class JobTaskConfig:
             )
             raise UnknownTaskNameError(
                 msg,
-                ",".join([available_protocols, available_tasks]),
+                f"{available_protocols}, {available_tasks}",
             )
 
         for folder in self.folders:
@@ -510,7 +510,9 @@ class BatchConfig:
             output: Path to write the YAML configuration file.
 
         """
-        def resolve_path_as_posix(path: str | Path) -> str:
+        def resolve_path_as_posix(path: str | Path | None) -> str:
+            if path is None:
+                return None
             return Path(path).absolute().as_posix()
 
         output = Path(output)
@@ -521,25 +523,19 @@ class BatchConfig:
             "version": self.version,
         }
 
-        if self.hazen_version_constraint is not None:
-            data["hazen_version_constraint"] = self.hazen_version_constraint
+        data["hazen_version_constraint"] = self.hazen_version_constraint
 
         data["description"] = self.description
 
-        if self.output is not None:
-            data["output"] = resolve_path_as_posix(self.output)
+        data["output"] = resolve_path_as_posix(self.output)
 
-        if self.levels:
-            data["levels"] = list(self.levels)
+        data["levels"] = list(self.levels)
 
-        if self.report_docx is not None:
-            data["report_docx"] = resolve_path_as_posix(self.report_docx)
+        data["report_docx"] = resolve_path_as_posix(self.report_docx)
 
-        if self.report_template is not None:
-            data["report_template"] = resolve_path_as_posix(self.report_template)
+        data["report_template"] = resolve_path_as_posix(self.report_template)
 
-        if self.defaults:
-            data["defaults"] = self.defaults
+        data["defaults"] = self.defaults
 
         # Build jobs list
         jobs_data: list[dict[str, Any]] = []
