@@ -1135,7 +1135,8 @@ class TestBatchConfigToYaml(unittest.TestCase):
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
     @patch("pathlib.Path.exists")
     def test_to_yaml_resolves_paths_to_absolute_posix(
-        self, mock_exists: Mock,
+        self,
+        mock_exists: Mock,
     ) -> None:
         """Verify paths are converted to absolute POSIX format."""
         mock_exists.return_value = True
@@ -1196,7 +1197,8 @@ class TestBatchConfigToYaml(unittest.TestCase):
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
     @patch("pathlib.Path.exists")
     def test_to_yaml_creates_parent_directories(
-        self, mock_exists: Mock,
+        self,
+        mock_exists: Mock,
     ) -> None:
         """Verify parent directories are created for output path."""
         mock_exists.return_value = True
