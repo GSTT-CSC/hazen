@@ -463,13 +463,8 @@ class JobTaskConfig:
         else:
             available_tasks = ", ".join(TASK_REGISTRY.keys())
             available_protocols = ",".join(PROTOCOL_REGISTRY.keys())
-            msg = (
-                f"Unknown task '{self.task}'."
-                f" Tasks: [{available_tasks}]"
-                f" Protocols: [{available_protocols}]"
-            )
             raise UnknownTaskNameError(
-                msg,
+                self.task,
                 f"{available_protocols}, {available_tasks}",
             )
 
