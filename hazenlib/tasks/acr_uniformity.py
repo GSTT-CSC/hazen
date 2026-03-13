@@ -281,12 +281,14 @@ class ACRUniformity(HazenTask):
         d_void = np.ceil(5 / self.ACR_obj.dy).astype(int)
         dims = img.shape  # Dimensions of image
 
-        mask=self.ACR_obj.get_mask_image(img)
+        mask = self.ACR_obj.get_mask_image(img)
         cx, cy = mask.shape[1] // 2, mask.shape[0] // 2
-        (centre_x, centre_y) = (cx,cy)
+        (centre_x, centre_y) = (cx, cy)
 
         # Dummy circular mask at centroid
-        base_mask = ACRObject.circular_mask((centre_x, centre_y + d_void), r_small, dims)
+        base_mask = ACRObject.circular_mask(
+            (centre_x, centre_y + d_void), r_small, dims
+        )
         coords = np.nonzero(base_mask)  # Coordinates of mask
 
         # TODO: ensure that shifting the sampling circle centre
@@ -294,27 +296,26 @@ class ACRUniformity(HazenTask):
 
         # List to store the results from each small ROI
         results = []
-        height,width = img.shape
+        height, width = img.shape
 
         # Iterating through the large ROI with the small ROI and storing the results
         for x in range(r_small, width - r_small):
-            for y in range (r_small, height - r_small):
+            for y in range(r_small, height - r_small):
                 y_grid, x_grid = np.ogrid[:height, :width]
-                mask = (x_grid - x)**2 +(y_grid - y)**2 <= r_small**2
+                mask = (x_grid - x) ** 2 + (y_grid - y) ** 2 <= r_small**2
                 roi_values = img[mask]
                 mean_val = np.mean(roi_values)
                 results.append((x, y, mean_val))
 
-
         filtered_results = []
         for x, y, mean_val in results:
             # Distance from centre of small ROI to centre of large ROI
-            distance_to_centre = np.sqrt((x - cx)**2 + (y - cy)**2)
+            distance_to_centre = np.sqrt((x - cx) ** 2 + (y - cy) ** 2)
             if distance_to_centre + r_small <= r_large:
                 # Filtering small ROIs to only include those that fall completely within the larger ROI
                 filtered_results.append((x, y, mean_val))
         # Get the small ROIs containing the maximum mean and minimum mean values
-        max_mean_tuple = max(filtered_results, key = lambda item: item[2])
+        max_mean_tuple = max(filtered_results, key=lambda item: item[2])
         min_mean_tuple = min(filtered_results, key=lambda item: item[2])
         max_value = max_mean_tuple[2]
         min_value = min_mean_tuple[2]
