@@ -18,42 +18,61 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
-import numpy as np
 
-from hazenlib.HazenTask import HazenTask
+import numpy as np
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRGhosting(HazenTask):
     """Ghosting measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing ghosting measurement using slice 7 from the ACR phantom image set.
 
         Returns:
             dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
         """
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(self.ACR_obj.slice_stack[6])
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(self.ACR_obj.slice_stack[6])
 
         try:
             result = self.get_signal_ghosting(self.ACR_obj.slice_stack[6])
-            results["measurement"] = {"signal ghosting %": round(result, 3)}
+            results.add_measurement(
+                Measurement(
+                    name="Ghosting",
+                    type="measured",
+                    subtype="signal ghosting",
+                    value=round(result, 3),
+                    unit="%",
+                ),
+            )
+
         except Exception as e:
-            print(
-                f"Could not calculate the percent-signal ghosting for {self.img_desc(self.ACR_obj.slice_stack[6])} because of : {e}"
+            logger.exception(
+                "Could not calculate the percent-signal ghosting for %s"
+                "because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[6]),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -75,10 +94,10 @@ class ACRGhosting(HazenTask):
         r_large = np.ceil(80 / self.ACR_obj.dx).astype(int)
         dims = img.shape
 
-        mask = self.ACR_obj.get_mask_image(img)
         (centre_x, centre_y), _ = self.ACR_obj.find_phantom_center(
             img, self.ACR_obj.dx, self.ACR_obj.dy
         )
+        mask = self.ACR_obj.get_mask_image(img, (centre_x, centre_y))
 
         nx = np.linspace(1, dims[0], dims[0])
         ny = np.linspace(1, dims[1], dims[1])
@@ -125,7 +144,10 @@ class ACRGhosting(HazenTask):
         right_fov_to_centre = e_centre[1] + sad / 2 + 5
         # edge of ellipse towards right side of phantom (+ tolerance)
         centre_to_right_phantom = e_centre[1] - sad / 2 - 5
-        if right_fov_to_centre > dims[1] - 1 or centre_to_right_phantom < e_point:
+        if (
+            right_fov_to_centre > dims[1] - 1
+            or centre_to_right_phantom < e_point
+        ):
             diffs = [
                 dims[1] - 1 - right_fov_to_centre,
                 centre_to_right_phantom - e_point,
@@ -171,7 +193,10 @@ class ACRGhosting(HazenTask):
         bottom_fov_to_centre = s_centre[0] + sad / 2 + 5
         # edge of ellipse towards
         centre_to_bottom_phantom = s_centre[0] - sad / 2 - 5
-        if bottom_fov_to_centre > dims[0] - 1 or centre_to_bottom_phantom < s_point:
+        if (
+            bottom_fov_to_centre > dims[0] - 1
+            or centre_to_bottom_phantom < s_point
+        ):
             diffs = [
                 dims[0] - 1 - bottom_fov_to_centre,
                 centre_to_bottom_phantom - s_point,
@@ -225,8 +250,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) / w_factor + w_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * w_factor + w_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / w_factor
+                + w_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * w_factor
+                + w_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -237,8 +264,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) / e_factor + e_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * e_factor + e_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) / e_factor
+                + e_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) * 4 * e_factor
+                + e_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -249,8 +278,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * n_factor + n_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) / n_factor + n_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * n_factor
+                + n_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / n_factor
+                + n_centre[0],
                 c="red",
             )
             axes[1].text(
@@ -261,8 +292,10 @@ class ACRGhosting(HazenTask):
             )
 
             axes[1].plot(
-                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * s_factor + s_centre[1],
-                10.0 / self.ACR_obj.dx * np.sin(theta) / s_factor + s_centre[0],
+                10.0 / self.ACR_obj.dx * np.cos(theta) * 4 * s_factor
+                + s_centre[1],
+                10.0 / self.ACR_obj.dx * np.sin(theta) / s_factor
+                + s_centre[0],
                 c="red",
             )
             axes[1].text(

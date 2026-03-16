@@ -25,24 +25,30 @@ yassine.azma@rmh.nhs.uk
 import os
 import sys
 import traceback
+
 import numpy as np
-
 import skimage.measure
-import skimage.transform
 import skimage.morphology
-
-from hazenlib.HazenTask import HazenTask
+import skimage.transform
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 
 
 class ACRGeometricAccuracy(HazenTask):
     """Geometric accuracy measurement class for DICOM images of the ACR phantom."""
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
 
         Returns:
@@ -50,52 +56,104 @@ class ACRGeometricAccuracy(HazenTask):
         """
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = [
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = [
             self.img_desc(self.ACR_obj.slice_stack[0]),
             self.img_desc(self.ACR_obj.slice_stack[4]),
         ]
 
         try:
             lengths_1 = self.get_geometric_accuracy(0)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[0])] = {
-                "Horizontal distance": round(lengths_1[0], 2),
-                "Vertical distance": round(lengths_1[1], 2),
-            }
+            for len_1, t in zip(lengths_1, ("Horizontal", "Vertical")):
+                results.add_measurement(
+                    Measurement(
+                        name="GeometricAccuracy",
+                        type="measured",
+                        subtype=f"Slice 1 {t} distance",
+                        description=self.img_desc(self.ACR_obj.slice_stack[0]),
+                        value=round(len_1, 2),
+                        unit="mm",
+                    ),
+                )
+
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[0])} because of : {e}"
+            logger.exception(
+                "Could not calculate the geometric accuracy for"
+                " %s because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[0]),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
         try:
             lengths_5 = self.get_geometric_accuracy(4)
-            results["measurement"][self.img_desc(self.ACR_obj.slice_stack[4])] = {
-                "Horizontal distance": round(lengths_5[0], 2),
-                "Vertical distance": round(lengths_5[1], 2),
-                "Diagonal distance SW": round(lengths_5[2], 2),
-                "Diagonal distance SE": round(lengths_5[3], 2),
-            }
+            for len_5, t in zip(
+                lengths_5,
+                (
+                    "Horizontal",
+                    "Vertical",
+                    "Diagonal SW",
+                    "Diagonal SE",
+                ),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="GeometricAccuracy",
+                        type="measured",
+                        subtype=f"Slice 5 {t} distance",
+                        description=self.img_desc(self.ACR_obj.slice_stack[4]),
+                        value=round(len_5, 2),
+                        unit="mm",
+                    ),
+                )
         except Exception as e:
-            print(
-                f"Could not calculate the geometric accuracy for {self.img_desc(self.ACR_obj.slice_stack[4])} because of : {e}"
+            logger.exception(
+                "Could not calculate the geometric accuracy for"
+                " %s because of : %s",
+                self.img_desc(self.ACR_obj.slice_stack[4]),
+                e,
             )
-
             traceback.print_exc(file=sys.stdout)
 
         L = lengths_1 + lengths_5
 
         mean_err, max_err, cov_l = self.get_distortion_metrics(L)
 
-        results["measurement"]["distortion"] = {
-            "Mean relative measurement error": round(mean_err, 2),
-            "Max absolute measurement error": round(max_err, 2),
-            "Coefficient of variation %": round(cov_l, 2),
-        }
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="measured",
+                subtype="distortion",
+                description="Mean relative error",
+                value=round(mean_err, 2),
+                visibility="intermediate",
+            ),
+        )
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="measured",
+                subtype="distortion",
+                description="Max absolute error",
+                value=round(max_err, 2),
+                visibility="intermediate",
+            ),
+        )
+        results.add_measurement(
+            Measurement(
+                name="GeometricAccuracy",
+                type="fitted",
+                subtype="distortion",
+                description="Coefficient of variation",
+                value=round(cov_l, 2),
+                unit="%",
+                visibility="intermediate",
+            ),
+        )
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -113,10 +171,12 @@ class ACRGeometricAccuracy(HazenTask):
         """
         img_dcm = self.ACR_obj.slice_stack[slice_index]
         img = img_dcm.pixel_array
-        mask = self.ACR_obj.get_mask_image(img)
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(
+            img, self.ACR_obj.dx, self.ACR_obj.dy
+        )
+        mask = self.ACR_obj.get_mask_image(img, cxy)
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(mask, cxy)
         if slice_index == 4:
             sw_dict, se_dict = self.diagonal_lengths(mask, cxy, 4)
 
@@ -158,15 +218,19 @@ class ACRGeometricAccuracy(HazenTask):
                 )
                 axes[2].legend(
                     [
-                        str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                        str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
+                        str(np.round(length_dict["Horizontal Distance"], 2))
+                        + "mm",
+                        str(np.round(length_dict["Vertical Distance"], 2))
+                        + "mm",
                     ]
                 )
                 axes[2].axis("off")
                 axes[2].set_title("Geometric Accuracy for Slice 1")
 
                 img_path = os.path.realpath(
-                    os.path.join(self.report_path, f"{self.img_desc(img_dcm)}.png")
+                    os.path.join(
+                        self.report_path, f"{self.img_desc(img_dcm)}.png"
+                    )
                 )
                 fig.savefig(img_path)
                 self.report_files.append(img_path)
@@ -223,8 +287,10 @@ class ACRGeometricAccuracy(HazenTask):
 
                 axes[2].legend(
                     [
-                        str(np.round(length_dict["Horizontal Distance"], 2)) + "mm",
-                        str(np.round(length_dict["Vertical Distance"], 2)) + "mm",
+                        str(np.round(length_dict["Horizontal Distance"], 2))
+                        + "mm",
+                        str(np.round(length_dict["Vertical Distance"], 2))
+                        + "mm",
                         str(np.round(sw_dict["Distance"], 2)) + "mm",
                         str(np.round(se_dict["Distance"], 2)) + "mm",
                     ]
@@ -233,7 +299,9 @@ class ACRGeometricAccuracy(HazenTask):
                 axes[2].set_title("Geometric Accuracy for Slice 5")
 
                 img_path = os.path.realpath(
-                    os.path.join(self.report_path, f"{self.img_desc(img_dcm)}.png")
+                    os.path.join(
+                        self.report_path, f"{self.img_desc(img_dcm)}.png"
+                    )
                 )
                 fig.savefig(img_path)
                 self.report_files.append(img_path)
@@ -246,7 +314,9 @@ class ACRGeometricAccuracy(HazenTask):
                 se_dict["Distance"],
             )
         else:
-            return length_dict["Horizontal Distance"], length_dict["Vertical Distance"]
+            return length_dict["Horizontal Distance"], length_dict[
+                "Vertical Distance"
+            ]
 
     def diagonal_lengths(self, img, cxy, slice_index):
         """Measure diagonal lengths. \n
@@ -265,10 +335,12 @@ class ACRGeometricAccuracy(HazenTask):
         # Calculate geometric mean of the x and y pixel spacing components,
         # due to the possibility of pixels being rectangular,
         # ie. the length and width of pixels can differ.
-        eff_res = np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
+        eff_res = np.sqrt(
+            np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy)))
+        )
         img_rotate = skimage.transform.rotate(img, 45, center=(cxy[0], cxy[1]))
 
-        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, slice_index)
+        length_dict = self.ACR_obj.measure_orthogonal_lengths(img_rotate, cxy)
         extent_h = length_dict["Horizontal Extent"]
 
         origin = (cxy[0], cxy[1])
@@ -278,7 +350,11 @@ class ACRGeometricAccuracy(HazenTask):
         se_x_end, se_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_se = (
-            np.sqrt(np.sum(np.square([se_x_end - se_x_start, se_y_end - se_y_start])))
+            np.sqrt(
+                np.sum(
+                    np.square([se_x_end - se_x_start, se_y_end - se_y_start])
+                )
+            )
             * eff_res
         )
         se_dict = {
@@ -296,7 +372,11 @@ class ACRGeometricAccuracy(HazenTask):
         sw_x_end, sw_y_end = ACRObject.rotate_point(origin, end, 45)
 
         dist_sw = (
-            np.sqrt(np.sum(np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start])))
+            np.sqrt(
+                np.sum(
+                    np.square([sw_x_end - sw_x_start, sw_y_end - sw_y_start])
+                )
+            )
             * eff_res
         )
         sw_dict = {

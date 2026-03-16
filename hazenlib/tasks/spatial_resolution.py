@@ -7,20 +7,21 @@ Neil Heraghty, neil.heraghty@nhs.net, 16/05/2018
 
 .. todo::
     Replace shape finding functions with hazenlib.utils equivalents
-    
+
 """
+
+import copy
 import os
 import sys
-import copy
 import traceback
 
 import cv2 as cv
 import numpy as np
-from numpy.fft import fftfreq
-
-from hazenlib.utils import rescale_to_byte, get_pixel_size, get_pe_direction
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import get_pe_direction, get_pixel_size, rescale_to_byte
+from numpy.fft import fftfreq
 
 
 class SpatialResolution(HazenTask):
@@ -33,29 +34,45 @@ class SpatialResolution(HazenTask):
         super().__init__(**kwargs)
         self.single_dcm = self.dcm_list[0]
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing spatial resolution measurement
 
         Returns:
             dict: results are returned in a standardised dictionary structurespecifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
         """
         results = self.init_result_dict()
-        results["file"] = self.img_desc(self.single_dcm)
+        results.files = self.img_desc(self.single_dcm)
         try:
             pe_result, fe_result = self.calculate_mtf(self.single_dcm)
-            results["measurement"] = {
-                "phase encoding direction mm": round(pe_result, 2),
-                "frequency encoding direction mm": round(fe_result, 2),
-            }
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="phase encoding direction",
+                    unit="mm",
+                    value=round(pe_result, 2),
+                ),
+            )
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    subtype="frequency encoding direction",
+                    unit="mm",
+                    value=round(fe_result, 2),
+                ),
+            )
         except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(self.single_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the spatial resolution for %s"
+                " because of : %s",
+                self.img_desc(self.single_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -113,7 +130,9 @@ class SpatialResolution(HazenTask):
 
     def find_square(self, img):
         # TODO: use shape functions from utils
-        cnts = cv.findContours(img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)[0]
+        cnts = cv.findContours(
+            img.copy(), cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE
+        )[0]
 
         for c in cnts:
             perimeter = cv.arcLength(c, True)
@@ -126,14 +145,14 @@ class SpatialResolution(HazenTask):
                 # OpenCV 4.5 adjustment
                 # - cv.minAreaRect() output tuple order changed since v3.4
                 # - swap rect[1] order & rotate rect[2] by -90
-                # – convert tuple>list>tuple to do this
+                #   convert tuple>list>tuple to do this
                 rectAsList = list(rect)
                 rectAsList[1] = (rectAsList[1][1], rectAsList[1][0])
                 rectAsList[2] = rectAsList[2] - 90
                 rect = tuple(rectAsList)
 
                 box = cv.boxPoints(rect)
-                box = np.int0(box)
+                box = np.intp(box)
                 w, h = rect[1]
                 ar = w / float(h)
 
@@ -166,7 +185,9 @@ class SpatialResolution(HazenTask):
             np.array: subset of the pixel array
         """
         y, x = centre
-        arr = pixels[x - size // 2 : x + size // 2, y - size // 2 : y + size // 2]
+        arr = pixels[
+            x - size // 2 : x + size // 2, y - size // 2 : y + size // 2
+        ]
         return arr
 
     def get_void_roi(self, pixels, circle, size=20):
@@ -182,7 +203,9 @@ class SpatialResolution(HazenTask):
         """
         centre_x = circle[0][0][0]
         centre_y = circle[0][0][1]
-        return self.get_roi(pixels=pixels, centre=(centre_x, centre_y), size=size)
+        return self.get_roi(
+            pixels=pixels, centre=(centre_x, centre_y), size=size
+        )
 
     def get_edge_roi(self, pixels, edge_centre, size=20):
         return self.get_roi(
@@ -401,11 +424,17 @@ class SpatialResolution(HazenTask):
 
         for element in range(1, len(sorted_edge_distance)):
             if not (sorted_edge_distance[element] - temp_array01[-1]).all():
-                temp_array02[-1] = (temp_array02[-1] + sorted_esf_data[element]) / 2
+                temp_array02[-1] = (
+                    temp_array02[-1] + sorted_esf_data[element]
+                ) / 2
 
             else:
-                temp_array01 = np.append(temp_array01, sorted_edge_distance[element])
-                temp_array02 = np.append(temp_array02, sorted_esf_data[element])
+                temp_array01 = np.append(
+                    temp_array01, sorted_edge_distance[element]
+                )
+                temp_array02 = np.append(
+                    temp_array02, sorted_esf_data[element]
+                )
 
         # ;interpolate the edge response function (ESF) so that it only has 128 elements
         u = np.linspace(temp_array01[0], temp_array01[-1], 128)
@@ -470,7 +499,10 @@ class SpatialResolution(HazenTask):
             axes[2].imshow(thresh, cmap="gray")
             axes[3].set_title("finding circle")
             c = cv.circle(
-                img, (circle[0][0][0], circle[0][0][1]), circle[0][0][2], (255, 0, 0)
+                img,
+                (circle[0][0][0], circle[0][0][1]),
+                circle[0][0][2],
+                (255, 0, 0),
             )
             axes[3].imshow(c)
             box = cv.drawContours(img, [box], 0, (255, 0, 0), 1)
@@ -493,9 +525,13 @@ class SpatialResolution(HazenTask):
             axes[10].set_title("normalised MTF")
             axes[10].plot(freqs[mask], norm_mtf[mask])
             axes[10].set_xlabel("lp/mm")
-            logger.debug(f"Writing report image: {self.report_path}_{pe}_{edge}.png")
+            logger.debug(
+                f"Writing report image: {self.report_path}_{pe}_{edge}.png"
+            )
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png")
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_{pe}_{edge}.png"
+                )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)

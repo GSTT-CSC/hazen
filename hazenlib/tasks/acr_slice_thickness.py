@@ -1,18 +1,106 @@
 """
 ACR Slice Thickness
+___________________
 
-Calculates the slice thickness for slice 1 of the ACR phantom.
+Reference
+_________
 
-The ramps located in the middle of the phantom are located and line profiles are drawn through them. The full-width
-half-maximum (FWHM) of each ramp is determined to be their length. Using the formula described in the ACR guidance, the
-slice thickness is then calculated.
+`ACR Large Phantom Guidance PDF <https://accreditationsupport.acr.org/helpdesk/attachments/11093487417>`_
 
-Created by Yassine Azma
-yassine.azma@rmh.nhs.uk
+Intro
+_____
 
-31/01/2022
+The slice thickness accuracy test assesses the accuracy with which a slice of specified thickness is achieved.
+The prescribed slice thickness is compared with the measured slice thickness.
+
+The ramps appear in a structure called the slice thickness insert. Figure 10 shows an image of slice 1 with
+the slice thickness insert and signal ramps identified. The two ramps are crossed: one has a negative slope
+and the other a positive slope with respect to the plane of slice 1. They are produced by cutting 1 mm wide
+slots in a block of plastic. The slots are open to the interior of the phantom and are filled with the same
+solution that fills the bulk of the phantom.
+
+The signal ramps have a slope of 10 to 1 with respect to the plane of slice 1, which is an angle of about 5.71°.
+Therefore, the signal ramps will appear in the image of slice 1 with a length that is 10 times the thickness of
+the slice. If the phantom is misaligned from right-left, one ramp will appear longer than the other. The
+crossed ramps allow for correction of the error introduced by right-left misalignment, and the slice thickness
+formula takes that into account.
+
+ACR Guidelines
+______________
+
+ACR Algorithm
++++++++++++++
+
+    #. Display slice 1, and magnify the image by a factor of 2 to 4, keeping the slice thickness insert fully
+        visible on the screen.
+    #. Adjust the display level so that the signal ramps are well visualized.
+        *. The ramp signal is much lower than that of surrounding water, so usually it will be necessary
+            to lower the display level substantially and narrow the window.
+    #. Place a rectangular ROI at the middle of each ramp as shown below in Figure 11.
+        *. Note the mean signal values for each of these two ROIs and then average those values.
+        *. The result is a number approximating the mean signal in the middle of the ramps.
+        *. An elliptical ROI may be used if a rectangular one is unavailable.
+    #. Lower the display level to half of the average ramp signal calculated in step 3.
+        *. Leave the display window set to its minimum.
+    #. Use the on-screen distance measurement tool to measure the lengths of the top and bottom ramps.
+        This is illustrated below in Figure 12. Record these lengths and compare to the action limits.
+
+Our Approximation
++++++++++++++++++
+
+    #. Find the phantom center.
+    #. Zoom input x4.
+    #. Crop insert around initial center.
+    #. Apply Window Width and Window Level based on cropped region.
+    #. Identify the Y coordinates by sampling a line profile at the sample crop center and finding highest 2 peaks.
+    #. Identify the X coordinates by sampling line profiles in the horizontal direction going through the Y points.
+    #. Place rectangular ROIs at those centers with a fixed width.
+    #. Apply WL based on ROI averages.
+    #. Identify widths.
+    #. Use ACR formula for results.
+
+ACR Scoring Rubric
+++++++++++++++++++
+
+The slice thickness is calculated using the following formula:
+
+    Slice thickness = 0.2 x (top x bottom)/(top + bottom)
+
+In the formula above, the `top` and `bottom` are the measured lengths of the top and bottom signal ramps.
+
+**Note:** 0.2 is a unitless factor that corrects for rotation of the phantom about the vertical (y) axis.
+
+For example, if the top signal ramp were 59.5mm long and the bottom ramp were 47.2mm long, then the
+calculated slice thickness would be:
+
+    Slice thickness = 0.2 x (59.5mm x 47.2mm)/(59.5mm + 47.2mm) = 5.26 mm.
+
+
+Notes
+_____
+
+..note::
+
+    A failure of this test means that the scanner is producing slices of substantially different thickness from the
+    prescribed thickness. This problem will generally not occur in isolation since the scanner deficiencies that
+    can cause it may also cause other image problems. Therefore, the implications of a failure are not just that
+    the slices are too thick or thin, but can also result in poor image contrast and low SNR.
+
+..warning::
+
+    When making these measurements, **be careful to fully cover the widths of the ramp with the
+    ROIs** in the top-bottom direction, but not to allow the ROIs to stray outside the ramps into adjacent
+    high- or low-signal regions. If there is a large difference,(that is, more than 20%), between the signal
+    values obtained for the ROIs, it is often due to one or both of the ROIs including regions outside the
+    ramps.
+
+Documented by Luis M. Santos, M.D.
+luis.santos2@nih.gov
+
+
 """
 
+# Python Imports
 import os
 import sys
 
@@ -26,10 +114,18 @@ from scipy.ndimage import gaussian_filter1d
 
 
 from hazenlib.HazenTask import HazenTask
+
+# Module Imports
+import numpy as np
+import scipy
+import skimage.measure
+import skimage.morphology
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
 from hazenlib.utils import get_image_orientation
 from hazenlib.utils import Point, Line, XY
-
 
 class ACRSliceThickness(HazenTask):
     """Slice width measurement class for DICOM images of the ACR phantom."""
@@ -126,11 +222,49 @@ class ACRSliceThickness(HazenTask):
             return fitted
 
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
+        self.SAMPLING_LINE_WIDTH = (
+            4 / self.ACR_obj.dx
+        )  # How many pixel lines to use in the sampling during ramp line profiling.
+        self.RAMP_HEIGHT = (
+            4.5 / self.ACR_obj.dx
+        )  # I measured the ramp height to be about 5mm on PACS, but testing shows it might be slightly less??
+        self.RAMP_Y_OFFSET = (
+            1 / self.ACR_obj.dx
+        )  # 1mm adjustment off center to grab the bottom ramp. There's technically a 2mm gap between slots.
+        self.RAMP_X_OFFSET = (
+            10 / self.ACR_obj.dx
+        )  # This is extra padding added to the resolved width of ramp to allow the FWHM have more samples than necessary in the event we underestimated the true length of the ramp.
+        self.INSERT_ROI_HEIGHT = (
+            10 / self.ACR_obj.dx
+        )  # Allow just enough space for slots but exclude insert boundaries
+        self.INSERT_ROI_WIDTH = (
+            150 / self.ACR_obj.dx
+        )  # Allow enough space to capture the slots which might be R-L offsetted.
+        self.CROPPED_ROI_WIDTH = (
+            150 / self.ACR_obj.dx
+        )  # Allow enough space to capture the slots which might be R-L offsetted.
+        self.CROPPED_ROI_HEIGHT = (
+            20 / self.ACR_obj.dx
+        )  # Capture slots plus some surrounding areas to help visualization in report.
+        self.WINDOW_ROI_WIDTH = (
+            10 / self.ACR_obj.dx
+        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
+        self.WINDOW_ROI_HEIGHT = (
+            5 / self.ACR_obj.dx
+        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
+        self.RAMP_PROFILE_SMOOTHING = (
+            5 / self.ACR_obj.dx
+        )  # Smoothing to apply on sampled line profile to remove local minimas within the slot.
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing slice width measurement
         using slice 1 from the ACR phantom image set.
 
@@ -154,21 +288,46 @@ class ACRSliceThickness(HazenTask):
             slice_thickness_dcm.PixelData = rotated_img.tobytes()
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(slice_thickness_dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(slice_thickness_dcm)
 
         try:
-            result = self.get_slice_thickness(slice_thickness_dcm)
-            results["measurement"] = {"slice width mm": round(result, 2)}
+            thickness_results = self.get_slice_thickness(slice_thickness_dcm)
+
+            results.add_measurement(
+                Measurement(
+                    name="SliceWidth",
+                    type="measured",
+                    subtype="slice width",
+                    unit="mm",
+                    value=round(thickness_results["thickness"], 2),
+                ),
+            )
+
+            for ramp in thickness_results["ramps"]:
+                results.add_measurement(
+                    Measurement(
+                        name="SliceWidth",
+                        type="measured",
+                        subtype="Ramps",
+                        unit="mm",
+                        value=thickness_results["ramps"][ramp]["width"],
+                        visibility="intermediate",
+                    ),
+                )
+
         except Exception as e:
-            print(
-                f"Could not calculate the slice thickness for {self.img_desc(slice_thickness_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the slice thickness for %s"
+                " because of : %s",
+                self.img_desc(slice_thickness_dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
@@ -177,10 +336,11 @@ class ACRSliceThickness(HazenTask):
         Identify the ramps, measure the line profile, measure the FWHM, and use this to calculate the slice thickness.
 
         Args:
-            dcm (pydicom.Dataset): DICOM image object.
+            top_width (float): Top ramp's calculated width.
+            bottom_width (float): Bottom ramp's calculated width.
 
         Returns:
-            float: measured slice thickness.
+            float: slice thickness in mm.
         """
         img = dcm.pixel_array
         lines = self.place_lines(img)

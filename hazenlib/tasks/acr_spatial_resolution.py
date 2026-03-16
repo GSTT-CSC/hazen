@@ -1,52 +1,78 @@
 """
-ACR Spatial Resolution (MTF)
+ACR Spatial Resolution (ACR)
+____________________________
 
-https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf
+Reference Materials
++++++++++++++++++++
 
-Calculates the effective resolution (MTF50) for slice 1 for the ACR phantom. This is done in accordance with the
-methodology described in Section 3 of the following paper:
+    *. `Large Phantom Instructions <https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largephantomguidance.pdf>`_
 
-https://opg.optica.org/oe/fulltext.cfm?uri=oe-22-5-6040&id=281325
+Intro
++++++
 
-WARNING: The phantom must be slanted for valid results to be produced. This test is not within the scope of ACR
-guidance.
+For this test, resolution in slice 1 of each of the 2 ACR axial series is evaluated. The following procedure is
+repeated for each of those series:
 
-This script first identifies the rotation angle of the ACR phantom using slice 1. It provides a warning if the
-slanted angle is less than 3 degrees.
+    #. Display the slice 1 image.
+    #. Magnify the image by a factor of between 2 and 4, keeping the resolution insert visible in the display.
+        This is illustrated in Figure 8.
+    #. Begin with the leftmost pair of hole arrays, which is the pair with the largest hole size, 1.1 mm.
+    #. Look at the rows of holes in the UL array, and adjust the display window and level to best show the holes as
+        distinct from one another.
+    #. If all 4 holes in any single row are distinguishable from one another, score the image as resolved right-to-left
+        at this particular hole size.
 
-The location of the ramps within the slice thickness are identified and a square ROI is selected around the anterior
-edge of the slice thickness insert.
+To be  distinguishable  or resolved, it is not necessary that image intensity drop to zero between the holes.
+To be distinguishable a single window and level setting can be found such that **all 4 holes in at least one row**
+are recognizable as points of brighter signal intensity than the spaces between them. Figure 9a shows the typical
+appearance of well-resolved holes.
 
-A rudimentary edge response function is generated based on the edge within the ROI to provide initialisation values for
-the 2D normal cumulative distribution fit of the ROI.
+..warning::
 
-The edge is then super-sampled in the direction of the bright-dark transition of the edge and binned at right angles
-based on the edge slope determined from the 2D Normal CDF fit of the ROI to obtain the edge response function.
+        2.5 Causes of Failure and Corrective Actions
 
-This super-sampled ERF is then fitted using a weighted sigmoid function. The raw data and this fit are then used to
-determine the LSF and the subsequent MTF. The MTF50 for both raw and fitted data are reported.
+        Excessive image filtering can cause failure. Many types of filtering that are used to make the images appear less
+        noisy also smooth the image, which blurs small structures. A site that has failed the high-contrast resolution test
+        should check that any user selectable image filtering is either turned off, or at least set to the low end of the
+        available filter settings.
 
-The results are also visualised.
+        Poor eddy current compensation can cause failure. The scanner s service engineer should check and adjust the eddy
+        current compensation if this problem is suspected
 
-Created by Yassine Azma
-yassine.azma@rmh.nhs.uk
+Based on the above excerpt from the ACR Guidance Manual, we just need to find one row in which all 4 dots are high
+intensity.
 
-22/02/2023
+Steps
++++++
+
+    #. Create rectangular ROI.
+    #. Window Level (which I implemented for the ACR Low Contrast Object Detectability Task).
+    #. Threshold.
+    #. Identify center to corner pixel.
+    #. Build line profile in this row or column.
+    #. Find 4 peaks.
+    #. Confirm peaks are spaced out.
+    #. Confirm that line is valid.
+    #. Stop.
+    #. Repeat steps for lower box.
+
+
+Created by Luis M. Santos, M.D.
+luis.santos2@nih.gov
+
+02/06/2025
 """
 
 import os
 import sys
 import traceback
+
 import numpy as np
-
-import cv2
-import scipy
-import skimage.morphology
-import skimage.measure
-
-from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+from hazenlib.utils import wait_on_parallel_results
 
 
 class ACRSpatialResolution(HazenTask):
@@ -55,487 +81,355 @@ class ACRSpatialResolution(HazenTask):
     Inherits from HazenTask class
     """
 
+    ROI_OFFSET = 23  #: 23mm separation between ROIs
+    BASE_X_OFFSET = -14  #: -14mm from centroid for 1.1mm resolution array
+    BASE_Y_OFFSET = 40  #: 40mm from centroid for 1.1mm resolution array
+    DEFAULT_GROUP_SIZE = 2  #: If a dataset is a 1mm resolution, the crop roi is sized such that we can check a row's
+    #: value by looking at pairs of rows in data
+
     def __init__(self, **kwargs):
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing spatial resolution measurement
         using slice 1 from the ACR phantom image set
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation
+            dict: results are returned in a standardised dictionary structure specifying the task name,
+            input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs,
+            optionally path to the generated images for visualisation
         """
         # Identify relevant slices
-        mtf_dcm = self.ACR_obj.slice_stack[0]
-
-        rot_ang = self.ACR_obj.determine_rotation(mtf_dcm.pixel_array)
-        if np.abs(rot_ang) < 3:
-            logger.warning(
-                f"The estimated rotation angle of the ACR phantom is {np.round(rot_ang, 3)} degrees, which "
-                f"is less than the recommended 3 degrees. Results will be unreliable!"
-            )
+        dcm = self.ACR_obj.slice_stack[0]
 
         # Initialise results dictionary
-        results = self.init_result_dict()
-        results["file"] = self.img_desc(mtf_dcm)
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
+        results.files = self.img_desc(dcm)
 
         try:
-            raw_res, fitted_res = self.get_mtf50(mtf_dcm)
-            results["measurement"] = {
-                "estimated rotation angle": round(rot_ang, 2),
-                "raw mtf50": round(raw_res, 2),
-                "fitted mtf50": round(fitted_res, 2),
-            }
+            detected_rows = self.get_spatially_resolved_rows(dcm)
+            hole_arrays = self.get_resolved_arrays(detected_rows)
+
+            results.add_measurement(
+                Measurement(
+                    name="SpatialResolution",
+                    type="measured",
+                    subtype="Hole Arrays",
+                    unit="mm",
+                    value=hole_arrays,
+                    visibility="intermediate",
+                ),
+            )
+
+            for res, desc, visibility in zip(
+                self.get_best_resolution(hole_arrays),
+                ("Upper Left", "Lower Right", "Best"),
+                ("intermediate", "intermediate", "final"),
+                strict=True,
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="SpatialResolution",
+                        type="measured",
+                        subtype=desc,
+                        unit="mm",
+                        value=res,
+                        visibility=visibility,
+                    ),
+                )
+
         except Exception as e:
-            print(
-                f"Could not calculate the spatial resolution for {self.img_desc(mtf_dcm)} because of : {e}"
+            logger.exception(
+                "Could not calculate the spatial resolution for %s"
+                " because of : %s",
+                self.img_desc(dcm),
+                e,
             )
             traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
-    def y_position_for_ramp(self, img, cxy):
-        """Identify the y coordinate of the ramp
+    def write_report(
+        self, dcm, img, center, roi_coords, processed_rois, width
+    ):
+        import matplotlib.patches as patches
+        import matplotlib.pyplot as plt
 
-        Args:
-            img (np.ndarray): dcm.pixelarray
-            cxy (tuple): x,y coordinates of the object centre
-
-        Returns:
-            float: y coordinate of the ramp min
-        """
-        investigate_region = int(np.ceil(5.5 / self.ACR_obj.dy).item())
-
-        if np.mod(investigate_region, 2) == 0:
-            investigate_region = investigate_region + 1
-
-        line_profile_y = skimage.measure.profile_line(
-            img,
-            (cxy[1] - 2 * investigate_region, cxy[0]),
-            (cxy[1] + 2 * investigate_region, cxy[1]),
-            mode="constant",
-        ).flatten()
-
-        abs_diff_y_profile = np.absolute(np.diff(line_profile_y))
-        y_peaks = scipy.signal.find_peaks(abs_diff_y_profile, height=1)
-        pk_heights = y_peaks[1]["peak_heights"]
-        pk_ind = y_peaks[0]
-        highest_y_peaks = pk_ind[(-pk_heights).argsort()[:2]]
-        y_locs = highest_y_peaks - 1
-
-        height_pts = cxy[1] - 2 * investigate_region - 1 + y_locs
-
-        y = np.min(height_pts) + 2
-
-        return y
-
-    def crop_image(self, img, x, y, width):
-        """Return a rectangular subset of a pixel array
-
-        Args:
-            img (np.ndarray): dcm.pixelarray
-            x (int): x coordinate of centre
-            y (int): y coordinate of centre
-            width (int): size of the array top subset
-
-        Returns:
-            np.ndarray: subset of a pixel array with given width
-        """
-        crop_x, crop_y = (x - width // 2, x + width // 2), (
-            y - width // 2,
-            y + width // 2,
+        fig, axes = plt.subplot_mosaic(
+            [
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                ["main", "main", "main", "main", "main"],
+                [".", ".", ".", ".", "."],
+                [".", "ul1", "ul2", "ul3", "."],
+                [".", ".", ".", ".", "."],
+                [".", ".", ".", ".", "."],
+            ],
+            layout="constrained",
+            per_subplot_kw={"main": {"xbound": (0, 750), "ybound": (0, 500)}},
         )
-        crop_img = img[crop_y[0] : crop_y[1], crop_x[0] : crop_x[1]]
-
-        return crop_img
-
-    def get_edge_type(self, crop_img):
-        """Determine direction of ramp edge
-
-        Args:
-            crop_img (np.ndarray): cropped pixel array ~ subset of the image
-
-        Returns:
-            tuple of string: vertical/horizontal and up/down or left/rigtward
-        """
-        edge_sum_rows = np.sum(crop_img, axis=1).astype(np.int_)
-        edge_sum_cols = np.sum(crop_img, axis=0).astype(np.int_)
-
-        _, pk_rows_height = self.ACR_obj.find_n_highest_peaks(
-            np.abs(np.diff(edge_sum_rows)), 1
-        )
-        _, pk_cols_height = self.ACR_obj.find_n_highest_peaks(
-            np.abs(np.diff(edge_sum_cols)), 1
-        )
-
-        edge_type = "vertical" if pk_rows_height > pk_cols_height else "horizontal"
-
-        thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
-        edge_dir = (
-            np.sum(thresh_roi_crop, axis=0)
-            if edge_type == "vertical"
-            else np.sum(thresh_roi_crop, axis=1)
-        )
-        if edge_type == "vertical":
-            direction = "downward" if edge_dir[-1] > edge_dir[0] else "upward"
-        else:
-            direction = "leftward" if edge_dir[-1] > edge_dir[0] else "rightward"
-
-        return edge_type, direction
-
-    def edge_location_for_plot(self, crop_img, edge_type):
-        """Determine the location of the edge so it can be visualised
-
-        Args:
-            crop_img (np.array): cropped pixel array ~ subset of the image
-            edge_type (tuple): vertical/horizontal and up/down or left/rigtward
-
-        Returns:
-            np.array: mask array for edge location
-        """
-        thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
-
-        naive_lsf = (
-            np.abs(np.diff(np.sum(thresh_roi_crop, 1))) > 1
-            if edge_type == "vertical"
-            else np.abs(np.diff(np.sum(thresh_roi_crop, 0)))
-        )
-        edge_test = np.diff(np.where(naive_lsf == 0))[0]
-        edge_begin = np.where(edge_test > 1)
-        edge_loc = np.array(
-            [edge_begin, edge_begin + edge_test[edge_begin] - 1]
-        ).flatten()
-
-        return edge_loc
-
-    def fit_normcdf_surface(self, crop_img, edge_type, direction):
-        """Fit normalised CDF? to surface
-
-        Args:
-            crop_img (np.array): cropped pixel array ~ subset of the image
-            edge_type (string): vertical/horizontal
-            direction (string): up/down or left/rigtward
-
-        Returns:
-            tuple of floats: slope, surface
-        """
-        thresh_roi_crop = crop_img > 0.6 * np.max(crop_img)
-        temp_x = np.linspace(1, thresh_roi_crop.shape[1], thresh_roi_crop.shape[1])
-        temp_y = np.linspace(1, thresh_roi_crop.shape[0], thresh_roi_crop.shape[0])
-        x, y = np.meshgrid(temp_x, temp_y)
-
-        bright = max(crop_img[thresh_roi_crop])
-        dark = 20 + np.min(crop_img[~thresh_roi_crop])
-
-        def func(x, slope, mu, bright, dark):
-            """Maths function
-
-            Args:
-                x (_type_): _description_
-                slope (_type_): _description_
-                mu (_type_): _description_
-                bright (_type_): _description_
-                dark (_type_): _description_
-
-            Returns:
-                _type_: _description_
-            """
-            norm_cdf = (bright - dark) * scipy.stats.norm.cdf(
-                x[0], mu + slope * x[1], 0.5
-            ) + dark
-
-            return norm_cdf
-
-        sign = 1 if direction in ("downward", "leftward") else -1
-        x_data = (
-            np.vstack((sign * x.ravel(), y.ravel()))
-            if edge_type == "vertical"
-            else np.vstack((sign * y.ravel(), x.ravel()))
-        )
-
-        popt, pcov = scipy.optimize.curve_fit(
-            func, x_data, crop_img.ravel(), p0=[0, 0, bright, dark], maxfev=1000
-        )
-        surface = func(x_data, popt[0], popt[1], popt[2], popt[3]).reshape(
-            crop_img.shape
-        )
-
-        slope = 1 / popt[0] if direction in ("leftward", "upward") else -1 / popt[0]
-
-        return slope, surface
-
-    def sample_erf(self, crop_img, slope, edge_type):
-        """_summary_
-
-        Args:
-            crop_img (np.array): cropped pixel array ~ subset of the image
-            slope (float): value of slope of edge
-            edge_type (string): vertical/horizontal
-
-        Returns:
-            np.array: _description_
-        """
-        resamp_factor = 8
-        if edge_type == "horizontal":
-            resample_crop_img = cv2.resize(
-                crop_img, (crop_img.shape[0] * resamp_factor, crop_img.shape[1])
-            )
-        else:
-            resample_crop_img = cv2.resize(
-                crop_img, (crop_img.shape[0], crop_img.shape[1] * resamp_factor)
-            )
-
-        mid_loc = [i / 2 for i in resample_crop_img.shape]
-
-        temp_x = np.linspace(1, resample_crop_img.shape[1], resample_crop_img.shape[1])
-        temp_y = np.linspace(1, resample_crop_img.shape[0], resample_crop_img.shape[0])
-        x_resample, y_resample = np.meshgrid(temp_x, temp_y)
-
-        erf = []
-        n_inside_roi = []
-        if edge_type == "horizontal":
-            diffY = (y_resample - 1) - mid_loc[0]
-            x_prime = x_resample + resamp_factor * diffY * slope
-
-            x_min, x_max = np.min(x_prime).astype(int), np.max(x_prime).astype(int)
-
-            for k in range(x_min, x_max):
-                erf_val = np.mean(resample_crop_img[(x_prime >= k) & (x_prime < k + 1)])
-                erf.append(erf_val)
-                number_nonzero = np.count_nonzero(
-                    resample_crop_img[(x_prime >= k) & (x_prime < k + 1)]
-                )
-                n_inside_roi.append(number_nonzero)
-        else:
-            diffX = (x_resample.shape[0] - 1) - x_resample - mid_loc[1]
-            y_prime = np.flipud(y_resample) + resamp_factor * diffX * slope
-
-            y_min, y_max = np.min(y_prime).astype(int), np.max(y_prime).astype(int)
-
-            for k in range(y_min, y_max):
-                erf_val = np.mean(resample_crop_img[(y_prime >= k) & (y_prime < k + 1)])
-                erf.append(erf_val)
-                number_nonzero = np.count_nonzero(
-                    resample_crop_img[(y_prime >= k) & (y_prime < k + 1)]
-                )
-                n_inside_roi.append(number_nonzero)
-
-        erf = np.array(erf)
-        n_inside_roi = np.array(n_inside_roi)
-
-        erf = erf[n_inside_roi == np.max(n_inside_roi)]
-
-        return erf
-
-    def fit_erf(self, erf):
-        """Fit ERF
-
-        Args:
-            erf (np.array): _description_
-
-        Returns:
-            _type_: _description_
-        """
-        true_erf = np.diff(erf) > 0.2 * np.max(np.diff(erf))
-        turning_points = np.where(true_erf)[0][0], np.where(true_erf)[0][-1]
-        weights = 0.5 * np.ones((len(true_erf) + 1))
-        weights[turning_points[0] : turning_points[1]] = 1
-
-        def func(x, a, b, c, d, e):
-            """Maths function for sigmoid curve equation
-
-            Args:
-                x (_type_): _description_
-                a (_type_): _description_
-                b (_type_): _description_
-                c (_type_): _description_
-                d (_type_): _description_
-                e (_type_): _description_
-
-            Returns:
-                _type_: _description_
-            """
-            sigmoid = a + b / (1 + np.exp(c * (x - d))) ** e
-
-            return sigmoid
-
-        popt, pcov = scipy.optimize.curve_fit(
-            func,
-            np.arange(1, len(erf) + 1),
-            erf,
-            sigma=(1 / weights),
-            p0=[np.min(erf), np.max(erf), 0, sum(turning_points) / 2, 1],
-            maxfev=5000,
-        )
-        erf_fit = func(
-            np.arange(1, len(erf) + 1), popt[0], popt[1], popt[2], popt[3], popt[4]
-        )
-
-        return erf_fit
-
-    def calculate_MTF(self, erf):
-        """Calculate MTF
-
-        Args:
-            erf (np.array): array of ?
-
-        Returns:
-            tuple: freq, lsf, MTF
-        """
-        lsf = np.diff(erf)
-        N = len(lsf)
-        n = (
-            np.arange(-N / 2, N / 2)
-            if N % 2 == 0
-            else np.arange(-(N - 1) / 2, (N + 1) / 2)
-        )
-
-        resamp_factor = 8
-        Fs = 1 / (
-            np.sqrt(np.mean(np.square((self.ACR_obj.dx, self.ACR_obj.dy))))
-            * (1 / resamp_factor)
-        )
-        freq = n * Fs / N
-        MTF = np.abs(np.fft.fftshift(np.fft.fft(lsf)))
-        MTF = MTF / np.max(MTF)
-
-        zero_freq = np.where(freq == 0)[0][0]
-        freq = freq[zero_freq:]
-        MTF = MTF[zero_freq:]
-
-        return freq, lsf, MTF
-
-    def identify_MTF50(self, freq, MTF):
-        """Calculate effective resolution
-
-        Args:
-            freq (float or int): _description_
-            MTF (float or int): _description_
-
-        Returns:
-            float: _description_
-        """
-        freq_interp = np.arange(0, 1.005, 0.005)
-        MTF_interp = np.interp(
-            freq_interp, freq, MTF, left=None, right=None, period=None
-        )
-        equivalent_linepairs = freq_interp[np.argmin(np.abs(MTF_interp - 0.5))]
-        eff_res = 1 / (equivalent_linepairs * 2)
-
-        return eff_res
-
-    def get_mtf50(self, dcm):
-        """_summary_
-
-        Args:
-            dcm (pydicom.Dataset): DICOM image object
-
-        Returns:
-            tuple: _description_
-        """
-        img = dcm.pixel_array
-        cxy, _ = self.ACR_obj.find_phantom_center(img, self.ACR_obj.dx, self.ACR_obj.dy)
-
-        ramp_x = int(cxy[0])
-        ramp_y = self.y_position_for_ramp(img, cxy)
-        width = int(13 * img.shape[0] / 256)
-        crop_img = self.crop_image(img, ramp_x, ramp_y, width)
-        edge_type, direction = self.get_edge_type(crop_img)
-        slope, surface = self.fit_normcdf_surface(crop_img, edge_type, direction)
-        erf = self.sample_erf(crop_img, slope, edge_type)
-        erf_fit = self.fit_erf(erf)
-
-        freq, lsf_raw, MTF_raw = self.calculate_MTF(erf)
-        _, lsf_fit, MTF_fit = self.calculate_MTF(erf_fit)
-
-        eff_raw_res = self.identify_MTF50(freq, MTF_raw)
-        eff_fit_res = self.identify_MTF50(freq, MTF_fit)
-
-        if self.report:
-            edge_loc = self.edge_location_for_plot(crop_img, edge_type)
-            import matplotlib.pyplot as plt
-            import matplotlib.patches as patches
-
-            fig, axes = plt.subplots(5, 1)
-            fig.set_size_inches(8, 40)
-            fig.tight_layout(pad=4)
-
-            axes[0].imshow(img, interpolation="none")
+        fig.set_size_inches(8, 10)
+        # fig.tight_layout(pad=1)
+
+        axes["main"].imshow(img, interpolation="none")
+        for i in range(len(roi_coords)):
+            roi_center = roi_coords[i]
             rect = patches.Rectangle(
-                (ramp_x - width // 2 - 1, ramp_y - width // 2 - 1),
+                (roi_center[0] - width / 2, roi_center[1] - width / 2),
                 width,
                 width,
                 linewidth=1,
                 edgecolor="w",
                 facecolor="none",
             )
-            axes[0].add_patch(rect)
-            axes[0].axis("off")
-            axes[0].set_title("Segmented Edge")
+            axes["main"].add_patch(rect)
+        axes["main"].scatter(center[0], center[1], c="red", s=1)
+        axes["main"].axis("off")
+        axes["main"].set_title("Centroid + ROI Placement")
 
-            axes[1].imshow(crop_img)
-            if edge_type == "vertical":
-                axes[1].plot(
-                    np.arange(0, width - 1),
-                    np.mean(edge_loc) - slope * np.arange(0, width - 1),
-                    color="r",
-                )
-            else:
-                axes[1].plot(
-                    np.mean(edge_loc) + slope * np.arange(0, width - 1),
-                    np.arange(0, width - 1),
-                    color="r",
-                )
-            axes[1].axis("off")
-            axes[1].set_title("Cropped Edge", fontsize=14)
+        roi_center = roi_coords[0]
+        axes["ul1"].annotate(
+            "UL",
+            (-30, roi_center[1] / 2.5),
+            xycoords="axes pixels",
+            fontsize="large",
+        )
+        axes["ul1"].annotate(
+            "LR",
+            (-30, roi_center[1] / 5),
+            xycoords="axes pixels",
+            fontsize="large",
+        )
 
-            axes[2].plot(erf, "rx", ms=5, label="Raw Data")
-            axes[2].plot(erf_fit, "k", lw=3, label="Fitted Data")
-            axes[2].set_ylabel("Signal Intensity")
-            axes[2].set_xlabel("Pixel")
-            axes[2].grid()
-            axes[2].legend(fancybox="true")
-            axes[2].set_title("ERF", fontsize=14)
+        axes["ul1"].set_title("1.1mm")
+        axes["ul2"].set_title("1.0mm")
+        axes["ul3"].set_title("0.9mm")
 
-            axes[3].plot(lsf_raw, "rx", ms=5, label="Raw Data")
-            axes[3].plot(lsf_fit, "k", lw=3, label="Fitted Data")
-            axes[3].set_ylabel(r"$\Delta$" + " Signal Intensity")
-            axes[3].set_xlabel("Pixel")
-            axes[3].grid()
-            axes[3].legend(fancybox="true")
-            axes[3].set_title("LSF", fontsize=14)
+        for i in range(len(processed_rois)):
+            ul = processed_rois[i][1]
+            indx = i + 1
+            ul_name = f"ul{indx}"
+            axes[ul_name].imshow(ul, interpolation="none")
+            axes[ul_name].axis("off")
+            axes[ul_name].set_xlabel(ul_name.upper())
 
-            axes[4].plot(
-                freq,
-                MTF_raw,
-                "rx",
-                ms=8,
-                label=f"Raw Data - {round(eff_raw_res, 2)}mm @ 50%",
+        img_path = os.path.realpath(
+            os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
+        )
+        fig.savefig(img_path)
+        self.report_files.append(img_path)
+
+    def get_resolved_arrays(self, detected_rows):
+        """Iterates through the detected roi scores. Since these come in UL/LR pairs, the presence of -1 in any of the
+        paired items disqualifies the hole array from being a resolved image. Go from 1.1 to 0.9 array and record
+        which arrays were resolved. Return this struct.
+
+        Args:
+            detected_rows (list of int): CList of ints describing each roi's resolved row.
+
+        Returns:
+            dict: Hole array results.
+        """
+        resolved_arrays = {}
+        for i in range(0, len(detected_rows), self.DEFAULT_GROUP_SIZE):
+            ul = detected_rows[i]
+            lr = detected_rows[i + 1]
+            resolved = min(ul, lr) != -1
+            resolution = np.round(
+                1.1 - 0.1 * int(i / self.DEFAULT_GROUP_SIZE), 1
             )
-            axes[4].plot(
-                freq,
-                MTF_fit,
-                "k",
-                lw=3,
-                label=f"Weighted Sigmoid Fit of ERF - {round(eff_fit_res, 2)}mm @ 50%",
+            resolved_arrays.update(
+                {resolution: {"UL": ul, "LR": lr, "resolved": resolved}}
             )
-            axes[4].set_xlabel("Spatial Frequency (lp/mm)")
-            axes[4].set_ylabel("Modulation Transfer Ratio")
-            axes[4].set_xlim([-0.05, 1])
-            axes[4].set_ylim([0, 1.05])
-            axes[4].grid()
-            axes[4].legend(fancybox="true")
-            axes[4].set_title("MTF", fontsize=14)
+        return resolved_arrays
 
-            img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
+    def get_best_resolution(self, hole_arrays):
+        """Iterates through the hole arrays and extract which of the resolved resolutions is best.
+
+        Args:
+            hole_arrays (dict): Array resolution struct results.
+
+        Returns:
+            tuple of floats:
+
+                #. Highest resolution among Upper Left ROIs.
+                #. Highest resolution among Lower Right ROIs.
+                #. Highest resolution from a set of 1.1, 1.0, and 0.9.
+        """
+        ul_resolution = 99
+        lr_resolution = 99
+        best_resolution = 99
+        for k, v in hole_arrays.items():
+            ul = v["UL"]
+            lr = v["LR"]
+            if ul > -1 and k < ul_resolution:
+                ul_resolution = k
+            if lr > -1 and k < lr_resolution:
+                lr_resolution = k
+            if v["resolved"]:
+                best_resolution = k
+        return ul_resolution, lr_resolution, best_resolution
+
+    def get_processed_roi(self, img, width, height, loc):
+        """Takes an input image and applies a series of preprocessing steps meant to optimize the output for robust
+        detection of signal peaks.
+
+        Preprocessing Steps
+        ___________________
+
+            #. Place small ROI using offset from center.
+            #. Crop image at ROI.
+            #. Apply linear windowing method using ROI pixel population.
+            #. Normalize the image to 1 (makes each pixel Boolean compatible).
+
+        Args:
+            img (np.ndarray|np.ma.MaskedArray): Cropped image data
+            width (int): Width of rectangular ROI.
+            height (int): Height of rectangular ROI.
+            loc (tuple of int): Center of where the ROI is expected to be placed.
+
+        Returns:
+            tuple of np.ndarray: Denoised windowed output and normalized output.
+        """
+        roi_x, roi_y = loc
+
+        roi = self.ACR_obj.crop_image(img, roi_x, roi_y, width, height)
+
+        # Windowing step
+        center, window_width = self.ACR_obj.compute_center_and_width(roi)
+        logger.info(f"Applying center {center} and width 0!")
+        leveled = self.ACR_obj.apply_window_center_width(roi, center, 0)
+
+        # Return denoised and normalized (0 to 1) results.
+        return leveled, self.ACR_obj.normalize(leveled, 1)
+
+    def find_resolved_row(self, roi, grouping_size=2, ul=True):
+        """Goes row by row and detects the number of intensity peaks present.
+        To make accuracy robust to signal that bleeds into an otherwise empty row, I check for the max count in pairs of
+        rows starting with the first row that contains any signal.
+
+        Detection Steps
+        _______________
+
+            #. Rotate ROI 90deg if LR, otherwise use ROI as is.
+            #. Iterate row by row and collect the count of signal peaks present.
+            #. Trim leading zeros.
+            #. From top of signal, iterate pair by pair of rows.
+            #. Select the max count of peaks at each row pair.
+            #. Trim trailing zeros.
+            #. Iterate through each count and stop at the first place with a count of 4.
+            #. Report this index location as index + 1. That is the human expected row where the input was deemed resolved.
+            #. Otherwise, report -1 to indicate we did not find any resolved rows!
+
+
+        Args:
+            roi (np.ndarray|np.ma.MaskedArray): Cropped image data
+            grouping_size (int): How many data rows represent a single "true" result row. Defaults to 2 for a 1mm.
+            ul (bool): Whether the input is the UL or LR ROI. We want to rotate the LR input such that we can apply the
+                        same row traversal
+
+        Returns:
+            int: Row number expressing which row was detected as containing 4 peaks. For UL, this number reflect the
+                row number starting at the top. For LR, this number reflects the column number starting at the right
+                most column and moving to the left (in). Defaults to -1 to demarcate that no rows met the detection
+                criteria.
+        """
+        roi = roi if ul else np.rot90(roi)
+        row_length = roi.shape[1]
+        vals = np.zeros((roi.shape[0], 1))
+        for i in range(len(vals)):
+            peaks, intensities = self.ACR_obj.find_n_highest_peaks(
+                roi[i], row_length
             )
-            fig.savefig(img_path)
-            self.report_files.append(img_path)
+            vals[i] = len(peaks)
+        vals = np.trim_zeros(vals, "f")
+        vals = [
+            np.max(vals[i : i + grouping_size]).astype(np.int_)
+            for i in range(0, len(vals), grouping_size)
+        ]
+        vals = np.trim_zeros(vals, "b")
+        vals = vals[
+            0:3
+        ]  # We should only have 4 rows; anything else is an artefact and cannot be relied on as true.
+        # If we have not resolved any rows within the first 4, this array is probably unresolvable.
+        # Ignore the 4th row because we now keep the full array (ul + lr components) to avoid
+        # interpolation artefacts. As a result, the 4th row contains spots for both the ul and lr
+        # components which can make an array pass inadvertently. ALso, has the added benefit of
+        # enforcing strictness here which can only be a good thing in terms of exceeding quality
+        # controls prescribed by the ACR.
+        logger.info(f"Row spots detected {vals}")
+        for i in range(len(vals)):
+            if vals[i] == 4:
+                return i + 1
+        return -1
 
-        return eff_raw_res, eff_fit_res
+    def get_spatially_resolved_rows(self, dcm):
+        """Generates a series of ROIs centered around the hole arrays present in the ACR phantom.
+        Preprocesses these rois and then attempts to detect hole array.
+        These steps are parallelized for maximum processing efficiency.
+        Afterward, write a report if requested. The report has the big picture view on the roi placements and includes
+        the preprocessing outputs.
+
+        Args:
+            dcm (pydicom.Dataset): DICOM image object
+
+        Returns:
+            list of int: Array containing 6 values. One value for each ROI. The format is [ul, lr, ul, lr, ul, lr].
+                        Each pair of rois denotes one of three resolution arrays ([1.1, 1.0, 0.9]). Each value
+                        represents the row or column in which we detected 4 distinguishable holes.
+        """
+        img, rescaled, presentation = self.ACR_obj.get_presentation_pixels(dcm)
+
+        # Detect Phantom center.
+        dx, dy = float(self.ACR_obj.dx), float(self.ACR_obj.dy)
+        cxy, _ = self.ACR_obj.find_phantom_center(img, dx, dy)
+        width = int(np.round(25 / dx))
+
+        logger.info(f"Center           => {cxy}")
+        logger.info(f"Pixel Resolution => {dx, dy}")
+        logger.info(f"ROI width        => {width}")
+
+        # Generate preprocessed ROIs
+        task_args = []
+        roi_coords = []
+        for i in range(3):
+            # Request UL ROI
+            x_off = (self.BASE_X_OFFSET / dx) + i * self.ROI_OFFSET / dx
+            x, y = (int(cxy[0] + x_off), int(cxy[1] + self.BASE_Y_OFFSET / dy))
+            logger.info(f"ROI Center for Array {i} => {x, y}")
+            task_args.append((rescaled, width, width, (x, y)))
+            roi_coords.append((x, y))
+
+        processed_rois = wait_on_parallel_results(
+            self.get_processed_roi, task_args
+        )
+
+        # Detect resolved row/column in each ROI.
+        group_size = int(np.round(self.DEFAULT_GROUP_SIZE / dx))
+        task_args.clear()
+        for i in range(len(processed_rois)):
+            roi = processed_rois[i][1]
+            task_args.append((roi, group_size, True))
+            task_args.append((roi, group_size, False))
+        detected_rows = wait_on_parallel_results(
+            self.find_resolved_row, task_args
+        )
+
+        logger.info(f"Detected rows => {detected_rows}")
+
+        if self.report:
+            self.write_report(dcm, img, cxy, roi_coords, processed_rois, width)
+
+        return detected_rows

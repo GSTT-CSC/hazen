@@ -84,9 +84,9 @@ Algorithm overview
 3. A ROI is generated for each target sphere using stored coordinates, the RT
     transformation above, and a structuring element (default is a 5x5 boxcar).
 4. Store pixel data for each ROI at various times, in an ``ROITimeSeries``
-    object. A list of these objects is stored in 
+    object. A list of these objects is stored in
     ``ImageStack.ROI_time_series``.
-5. Generate the fit function. For T1 this looks up TR for the given TI 
+5. Generate the fit function. For T1 this looks up TR for the given TI
     (using piecewise linear interpolation if required) and determines if a
     magnitude or signed image is used. No customisation is required for T2
     measurements.
@@ -121,30 +121,33 @@ calculation of mean if elements are not 0 or 1.
 Get r-squared measure of fit.
 
 """
+
 import json
 import os.path
 import pathlib
 
 import cv2 as cv
-import numpy as np
+import hazenlib.exceptions
 import matplotlib.pyplot as plt
+import numpy as np
 import pydicom
-import skimage.morphology
 import scipy.ndimage
 import scipy.optimize
-from scipy.interpolate import UnivariateSpline
-from scipy.special import i0e, ive
-
-import hazenlib.exceptions
-from hazenlib.HazenTask import HazenTask
+import skimage.morphology
 from hazenlib.data.relaxometry_params import (
     MAX_RICIAN_NOISE,
     SEED_RICIAN_NOISE,
-    TEMPLATE_VALUES,
     SMOOTH_TIMES,
     TEMPLATE_FIT_ITERS,
+    TEMPLATE_VALUES,
     TERMINATION_EPS,
 )
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Metadata
+from hazenlib.utils import dcmread
+from scipy.interpolate import UnivariateSpline
+from scipy.special import i0e, ive
 
 # Use dict to store template and reference information
 # Coordinates are in array format (row,col), rather than plt.patches
@@ -220,29 +223,37 @@ class Relaxometry(HazenTask):
         if calc in ["T1", "t1"]:
             image_stack = T1ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.read_file(
-                    TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
+                template_dcm = dcmread(
+                    TEMPLATE_VALUES[f"plate{plate_number}"][relax_str][
+                        "filename"
+                    ]
                 )
             except KeyError:
-                print(
-                    f"Could not find template with plate number: {plate_number}."
-                    f" Please pass plate number as arg."
+                logger.exception(
+                    "Could not find template with plate number: %s."
+                    " Please pass plate number as arg.",
+                    plate_number,
                 )
                 exit()
         elif calc in ["T2", "t2"]:
             image_stack = T2ImageStack(self.dcm_list)
             try:
-                template_dcm = pydicom.read_file(
-                    TEMPLATE_VALUES[f"plate{plate_number}"][relax_str]["filename"]
+                template_dcm = dcmread(
+                    TEMPLATE_VALUES[f"plate{plate_number}"][relax_str][
+                        "filename"
+                    ]
                 )
             except KeyError:
-                print(
-                    f"Could not find template with plate number: {plate_number}."
-                    f" Please pass plate number as arg."
+                logger.exception(
+                    "Could not find template with plate number: %s."
+                    " Please pass plate number as arg.",
+                    plate_number,
                 )
                 exit()
         else:
-            print("Please provide 'T1' or 'T2' for the --calc argument.")
+            logger.critical(
+                "Please provide 'T1' or 'T2' for the --calc argument.",
+            )
             exit()
 
         warp_matrix = image_stack.template_fit(template_dcm)
@@ -260,7 +271,9 @@ class Relaxometry(HazenTask):
         s0_est = image_stack.initialise_fit_parameters(relax_published)
 
         image_stack.find_relax_times(relax_published, s0_est)
-        frac_time_diff = (image_stack.relax_times - relax_published) / relax_published
+        frac_time_diff = (
+            image_stack.relax_times - relax_published
+        ) / relax_published
         # last value is for background water. Strip before calculating RMS frac error
         frac_time = frac_time_diff[:-1]
         RMS_frac_error = np.sqrt(np.mean(np.square(frac_time)))
@@ -268,10 +281,19 @@ class Relaxometry(HazenTask):
         # Generate results dict
         index_im = self.dcm_list[0]
         results = self.init_result_dict()
-        output_key = "_".join([self.img_desc(index_im), str(plate_number), relax_str])
-        results["file"] = output_key
+        output_key = "_".join(
+            [self.img_desc(index_im), str(plate_number), relax_str]
+        )
+        results.files = output_key
 
-        results["measurement"] = {"rms_frac_time_difference": round(RMS_frac_error, 3)}
+        results.add_measurement(
+            Measurement(
+                name="Relaxometry",
+                type="measured",
+                subtype="rms_frac_time_difference",
+                value=round(RMS_frac_error, 3),
+            ),
+        )
 
         if self.report:
             img_path = os.path.join(self.report_path, output_key)
@@ -302,14 +324,16 @@ class Relaxometry(HazenTask):
                 plt.plot(
                     smooth_times,
                     image_stack.fit_function(
-                        np.array(smooth_times), *np.array(image_stack.relax_fit[i][0])
+                        np.array(smooth_times),
+                        *np.array(image_stack.relax_fit[i][0]),
                     ),
                     "b-",
                 )
                 plt.plot(rois[i].times, rois[i].means, "rx")
                 if i == 14:
                     plt.title(
-                        f"[Free water] fit={image_stack.relax_times[i]:.4g}", fontsize=8
+                        f"[Free water] fit={image_stack.relax_times[i]:.4g}",
+                        fontsize=8,
                     )
                 else:
                     plt.title(
@@ -333,7 +357,7 @@ class Relaxometry(HazenTask):
                 self.report_path, f"{output_key}_details.json"
             )
 
-            metadata = dict(
+            metadata = Metadata(
                 files=[im.filename for im in image_stack.images],
                 plate=plate_number,
                 relaxation_type=calc.upper(),
@@ -346,11 +370,13 @@ class Relaxometry(HazenTask):
                 frac_time_difference=frac_time_diff.tolist(),
             )
             # , output_graphics=output_files_path
-            results["additional data"] = metadata
+            results.metadata = metadata
 
             detailed_output["measurement details"] = {
                 "Echo Time": [im.EchoTime for im in image_stack.images],
-                "Repetition Time": [im.RepetitionTime for im in image_stack.images],
+                "Repetition Time": [
+                    im.RepetitionTime for im in image_stack.images
+                ],
                 "Inversion Time": [
                     im.InversionTime if hasattr(im, "InversionTime") else None
                     for im in image_stack.images
@@ -358,21 +384,22 @@ class Relaxometry(HazenTask):
                 # fit_paramters (T1) = [[T1, s0, A1] for each ROI]
                 # fit_parameters (T2) = [[T2, s0, C] for each ROI]
                 "ROI_means": {
-                    i: im.means for i, im in enumerate(image_stack.ROI_time_series)
+                    i: im.means
+                    for i, im in enumerate(image_stack.ROI_time_series)
                 },
                 "fit_parameters": [
                     tuple(param[0].tolist()) for param in image_stack.relax_fit
                 ],
                 "fit_equation": image_stack.fit_eqn_str,
             }
-            detailed_output["metadata"] = metadata
+            detailed_output["metadata"] = metadata.to_dict()
             json_object = json.dumps(detailed_output, indent=4)
             with open(detailed_outpath, "w") as f:
                 f.write(json_object)
             self.report_files.append(("further_details", detailed_outpath))
 
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         # plt.show()
         return results
@@ -431,7 +458,9 @@ def outline_mask(im):
     return lines
 
 
-def transform_coords(coords, rt_matrix, input_row_col=True, output_row_col=True):
+def transform_coords(
+    coords, rt_matrix, input_row_col=True, output_row_col=True
+):
     """
     Convert coordinates using RT transformation matrix.
 
@@ -524,7 +553,7 @@ def pixel_rescale(dcm):
 
         return (dcm.pixel_array - si) / ss
     else:
-        return pydicom.pixel_data_handlers.util.apply_modality_lut(dcm.pixel_array, dcm)
+        return pydicom.pixels.apply_modality_lut(dcm.pixel_array, dcm)
 
 
 class ROITimeSeries:
@@ -581,7 +610,10 @@ class ROITimeSeries:
         """
 
         self.POI_mask = np.zeros(
-            (dcm_images[0].pixel_array.shape[0], dcm_images[0].pixel_array.shape[1]),
+            (
+                dcm_images[0].pixel_array.shape[0],
+                dcm_images[0].pixel_array.shape[1],
+            ),
             dtype=np.int8,
         )
         self.POI_mask[poi_coords_row_col[0], poi_coords_row_col[1]] = 1
@@ -652,9 +684,9 @@ class ImageStack:
         b0_val = self.images[0]["MagneticFieldStrength"].value
         if b0_val not in [1.5, 3.0]:
             # TODO incorporate warning through e.g. logging module
-            print(
-                "Unable to match B0 to default values. Using 1.5T.\n"
-                f" {self.images[0]['MagneticFieldStrength']}"
+            logger.warning(
+                "Unable to match B0 to default values. Using 1.5T.\n%s",
+                self.images[0]["MagneticFieldStrength"],
             )
             self.b0_str = "1.5T"
         else:
@@ -730,11 +762,21 @@ class ImageStack:
 
         # Always fit on magnitude images for simplicity. May be suboptimal
         self.template8bit = cv.normalize(
-            abs(template_px), None, 0, 255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U
+            abs(template_px),
+            None,
+            0,
+            255,
+            norm_type=cv.NORM_MINMAX,
+            dtype=cv.CV_8U,
         )
 
         self.target8bit = cv.normalize(
-            abs(target_px), None, 0, 255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U
+            abs(target_px),
+            None,
+            0,
+            255,
+            norm_type=cv.NORM_MINMAX,
+            dtype=cv.CV_8U,
         )
 
         # initialise transformation fitting parameters.
@@ -766,7 +808,9 @@ class ImageStack:
 
         return warp_matrix
 
-    def generate_time_series(self, coords_row_col, warp_matrix, fit_coords=True):
+    def generate_time_series(
+        self, coords_row_col, warp_matrix, fit_coords=True
+    ):
         """
         Create list of ROITimeSeries objects.
 
@@ -787,7 +831,10 @@ class ImageStack:
         # adjustment may not be required for the template DICOM
         if fit_coords:
             adjusted_coords_row_col = transform_coords(
-                coords_row_col, warp_matrix, input_row_col=True, output_row_col=True
+                coords_row_col,
+                warp_matrix,
+                input_row_col=True,
+                output_row_col=True,
             )
         else:  # used in testing
             adjusted_coords_row_col = coords_row_col
@@ -795,7 +842,9 @@ class ImageStack:
         self.ROI_time_series = []
         for i in range(num_coords):
             self.ROI_time_series.append(
-                ROITimeSeries(self.images, adjusted_coords_row_col[i], self.time_attr)
+                ROITimeSeries(
+                    self.images, adjusted_coords_row_col[i], self.time_attr
+                )
             )
 
     def plot_fit(self):
@@ -814,17 +863,21 @@ class ImageStack:
         plt.title("Template")
         plt.axis("off")
 
-        ax = plt.subplot(2, 2, 2)
+        plt.subplot(2, 2, 2)
         self.plot_rois(new_fig=False)
         plt.title("Image")
 
         plt.subplot(2, 2, 3)
-        plt.imshow(self.scaled_template8bit / 2 + self.target8bit / 2, cmap="gray")
+        plt.imshow(
+            self.scaled_template8bit / 2 + self.target8bit / 2, cmap="gray"
+        )
         plt.title("Image / template overlay")
         plt.axis("off")
 
         plt.subplot(2, 2, 4)
-        plt.imshow(self.warped_template8bit / 2 + self.target8bit / 2, cmap="gray")
+        plt.imshow(
+            self.warped_template8bit / 2 + self.target8bit / 2, cmap="gray"
+        )
         plt.title("Image / fitted template overlay")
         plt.axis("off")
 
@@ -880,7 +933,9 @@ class T1ImageStack(ImageStack):
         time_attribute = "InversionTime"
         super().__init__(image_slices, time_attribute)
 
-    def generate_t1_function(self, ti_interp_vals, tr_interp_vals, mag_image=False):
+    def generate_t1_function(
+        self, ti_interp_vals, tr_interp_vals, mag_image=False
+    ):
         """
         Generate T1 signal function and jacobian with interpolated TRs.
 
@@ -1039,7 +1094,9 @@ class T1ImageStack(ImageStack):
                 rois[0].times[0], rois[0].trs[0], self.t1_est, rois_first_mean
             )
         )
-        s0_est = np.where(rois_first_mean > rois_last_mean, s0_est_first, s0_est_last)
+        s0_est = np.where(
+            rois_first_mean > rois_last_mean, s0_est_first, s0_est_last
+        )
         self.a1_est = np.full_like(s0_est, 2.0)
 
         return s0_est

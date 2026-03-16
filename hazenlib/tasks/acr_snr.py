@@ -14,39 +14,70 @@ method for measurement of signal-to-noise ratio in MRI. Physics in Medicine
 & Biology, 58(11), 3775.
 """
 
+# Typing imports
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
+
+# Python imports
+import contextlib
 import os
 import sys
 import traceback
-import pydicom
+from pathlib import Path
+from typing import Any
 
+# Module imports
 import numpy as np
 from scipy import ndimage
 
+# Local imports
 import hazenlib.utils
-from hazenlib.HazenTask import HazenTask
 from hazenlib.ACRObject import ACRObject
+from hazenlib.HazenTask import HazenTask
+from hazenlib.logger import logger
+from hazenlib.types import Measurement, Result
+
+# Local imports
+from hazenlib.utils import dcmread
 
 
 class ACRSNR(HazenTask):
     """Signal-to-noise ratio measurement class for DICOM images of the ACR phantom."""
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self,
+        subtract: Path | str | None = None,
+        measured_slice_width: float | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialise the Hazen ACR SNR Object."""
+        if kwargs.pop("verbose", None) is not None:
+            logger.warning(
+                "verbose is not a supported argument for %s",
+                type(self).__name__,
+            )
         super().__init__(**kwargs)
         self.ACR_obj = ACRObject(self.dcm_list)
+
         # measured slice width is expected to be a floating point number
-        try:
-            self.measured_slice_width = float(kwargs["measured_slice_width"])
-        except:
-            self.measured_slice_width = None
+        self.measured_slice_width = measured_slice_width
+        with contextlib.suppress(TypeError):
+            self.measured_slice_width = float(measured_slice_width)
 
         # subtract is expected to be a path to a folder
         try:
-            if os.path.isdir(kwargs["subtract"]):
-                self.subtract = kwargs["subtract"]
-        except:
+            self.subtract = Path(subtract)
+        except TypeError:
             self.subtract = None
+        else:
+            if not self.subtract.is_dir():
+                self.subtract = None
 
-    def run(self) -> dict:
+    def run(self) -> Result:
         """Main function for performing SNR measurement using slice 7 from the ACR phantom image set. Performs either
         smoothing or subtraction method depending on user-provided input.
 
@@ -59,22 +90,42 @@ class ACRSNR(HazenTask):
         # Identify relevant slice
         snr_dcm = self.ACR_obj.slice_stack[6]
         # Initialise results dictionary
-        results = self.init_result_dict()
+        results = self.init_result_dict(desc=self.ACR_obj.acquisition_type())
 
         # SINGLE METHOD (SMOOTHING)
         if self.subtract is None:
+            logger.debug(
+                "Calculating SNR on %s with the single (smoothing) method",
+                self.img_desc(snr_dcm),
+            )
             try:
-                results["file"] = self.img_desc(snr_dcm)
+                results.files = self.img_desc(snr_dcm)
                 snr, normalised_snr = self.snr_by_smoothing(
                     snr_dcm, self.measured_slice_width
                 )
-                results["measurement"]["snr by smoothing"] = {
-                    "measured": round(snr, 2),
-                    "normalised": round(normalised_snr, 2),
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="SNR",
+                        type="measured",
+                        subtype="smoothing",
+                        value=round(snr, 2),
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="SNR",
+                        type="normalised",
+                        subtype="smoothing",
+                        value=round(normalised_snr, 2),
+                    ),
+                )
+
             except Exception as e:
-                print(
-                    f"Could not calculate the SNR for {self.img_desc(snr_dcm)} because of : {e}"
+                logger.exception(
+                    "Could not calculate the SNR for %s because of : %s",
+                    self.img_desc(snr_dcm),
+                    e,
                 )
                 traceback.print_exc(file=sys.stdout)
         # SUBTRACTION METHOD
@@ -85,32 +136,58 @@ class ACRSNR(HazenTask):
                 for f in os.listdir(self.subtract)
                 if os.path.isfile(os.path.join(self.subtract, f))
             ]
-            data2 = [pydicom.dcmread(dicom) for dicom in filepaths]
+            data2 = [dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
-            results["file"] = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
+
+            logger.debug(
+                "Calculating SNR on %s and %s with the subtraction method",
+                self.img_desc(snr_dcm),
+                self.img_desc(snr_dcm2),
+            )
+
+            results.files = [self.img_desc(snr_dcm), self.img_desc(snr_dcm2)]
             try:
                 snr, normalised_snr = self.snr_by_subtraction(
                     snr_dcm, snr_dcm2, self.measured_slice_width
                 )
 
-                results["measurement"]["snr by subtraction"] = {
-                    "measured": round(snr, 2),
-                    "normalised": round(normalised_snr, 2),
-                }
+                results.add_measurement(
+                    Measurement(
+                        name="SNR",
+                        type="measured",
+                        subtype="subtraction",
+                        value=round(snr, 2),
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="SNR",
+                        type="normalised",
+                        subtype="subtraction",
+                        value=round(normalised_snr, 2),
+                    ),
+                )
+
             except Exception as e:
-                print(
-                    f"Could not calculate the SNR for {self.img_desc(snr_dcm)} and "
-                    f"{self.img_desc(snr_dcm2)} because of : {e}"
+                logger.exception(
+                    "Could not calculate the SNR for %s and %s"
+                    " because of : %s",
+                    self.img_desc(snr_dcm),
+                    self.img_desc(snr_dcm2),
+                    e,
                 )
                 traceback.print_exc(file=sys.stdout)
 
         # only return reports if requested
         if self.report:
-            results["report_image"] = self.report_files
+            results.add_report_image(self.report_files)
 
         return results
 
-    def get_normalised_snr_factor(self, dcm, measured_slice_width=None) -> float:
+    def get_normalised_snr_factor(
+        self, dcm, measured_slice_width=None
+    ) -> float:
         """Calculates the normalisation factor to be applied to the SNR in order to obtain the absolute SNR (ASNR). The
         normalisation factor depends on voxel size, bandwidth, number of averages and number of phase encoding steps.
 
@@ -133,7 +210,9 @@ class ACRSNR(HazenTask):
             slice_thickness = hazenlib.utils.get_slice_thickness(dcm)
 
         averages = hazenlib.utils.get_average(dcm)
-        bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(30)
+        bandwidth_factor = np.sqrt((bandwidth * columns / 2) / 1000) / np.sqrt(
+            30
+        )
         voxel_factor = 1 / (0.001 * dx * dy * slice_thickness)
 
         normalised_snr_factor = (
@@ -187,7 +266,11 @@ class ACRSNR(HazenTask):
         return imnoise
 
     def get_roi_samples(
-        self, ax, dcm: pydicom.Dataset or np.ndarray, centre_col: int, centre_row: int
+        self,
+        ax,
+        dcm: pydicom.Dataset or np.ndarray,
+        centre_col: int,
+        centre_row: int,
     ) -> list:
         """Takes the pixel array and divides it into several rectangular regions of interest (ROIs). If 'ax' is provided, then a plot of the ROIs is generated.
 
@@ -200,32 +283,34 @@ class ACRSNR(HazenTask):
         Returns:
             list of np.array: subsets of the original pixel array.
         """
-        if type(dcm) == np.ndarray:
-            data = dcm
-        else:
-            data = dcm.pixel_array
+        data = dcm if isinstance(dcm, np.ndarray) else dcm.pixel_array
 
         sample = [None] * 5
         # for array indexing: [row, column] format
         sample[0] = data[
-            (centre_row - 10) : (centre_row + 10), (centre_col - 10) : (centre_col + 10)
+            (centre_row - 10) : (centre_row + 10),
+            (centre_col - 10) : (centre_col + 10),
         ]
         sample[1] = data[
-            (centre_row - 50) : (centre_row - 30), (centre_col - 50) : (centre_col - 30)
+            (centre_row - 50) : (centre_row - 30),
+            (centre_col - 50) : (centre_col - 30),
         ]
         sample[2] = data[
-            (centre_row + 30) : (centre_row + 50), (centre_col - 50) : (centre_col - 30)
+            (centre_row + 30) : (centre_row + 50),
+            (centre_col - 50) : (centre_col - 30),
         ]
         sample[3] = data[
-            (centre_row - 50) : (centre_row - 30), (centre_col + 30) : (centre_col + 50)
+            (centre_row - 50) : (centre_row - 30),
+            (centre_col + 30) : (centre_col + 50),
         ]
         sample[4] = data[
-            (centre_row + 30) : (centre_row + 50), (centre_col + 30) : (centre_col + 50)
+            (centre_row + 30) : (centre_row + 50),
+            (centre_col + 30) : (centre_col + 50),
         ]
 
         if ax:
-            from matplotlib.patches import Rectangle
             from matplotlib.collections import PatchCollection
+            from matplotlib.patches import Rectangle
 
             # for patches: [column/x, row/y] format
 
@@ -273,7 +358,10 @@ class ACRSNR(HazenTask):
         noise = [
             np.std(roi, ddof=1)
             for roi in self.get_roi_samples(
-                ax=None, dcm=noise_img, centre_col=centre_x, centre_row=centre_y
+                ax=None,
+                dcm=noise_img,
+                centre_col=centre_x,
+                centre_row=centre_y,
             )
         ]
         # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and
@@ -281,7 +369,9 @@ class ACRSNR(HazenTask):
 
         snr = np.mean(np.divide(signal, noise))
 
-        normalised_snr = snr * self.get_normalised_snr_factor(dcm, measured_slice_width)
+        normalised_snr = snr * self.get_normalised_snr_factor(
+            dcm, measured_slice_width
+        )
 
         if self.report:
             import matplotlib.pyplot as plt
@@ -299,7 +389,9 @@ class ACRSNR(HazenTask):
             self.get_roi_samples(axes[1], dcm, centre_x, centre_y)
 
             img_path = os.path.realpath(
-                os.path.join(self.report_path, f"{self.img_desc(dcm)}_smoothing.png")
+                os.path.join(
+                    self.report_path, f"{self.img_desc(dcm)}_smoothing.png"
+                )
             )
             fig.savefig(img_path)
             self.report_files.append(img_path)
@@ -307,7 +399,10 @@ class ACRSNR(HazenTask):
         return snr, normalised_snr
 
     def snr_by_subtraction(
-        self, dcm1: pydicom.Dataset, dcm2: pydicom.Dataset, measured_slice_width=None
+        self,
+        dcm1: pydicom.Dataset,
+        dcm2: pydicom.Dataset,
+        measured_slice_width=None,
     ) -> float:
         """Calculates signal to noise ratio using the two image subtraction method. Obtains a noise image by subtracting
         the two pixel arrays. Obtains ROIs within the phantom region of the pixel arrays. Calculates the mean within
@@ -340,7 +435,10 @@ class ACRSNR(HazenTask):
             [
                 np.std(roi, ddof=1)
                 for roi in self.get_roi_samples(
-                    ax=None, dcm=difference, centre_col=centre_x, centre_row=centre_y
+                    ax=None,
+                    dcm=difference,
+                    centre_col=centre_x,
+                    centre_row=centre_y,
                 )
             ],
             np.sqrt(2),
@@ -373,7 +471,8 @@ class ACRSNR(HazenTask):
 
             img_path = os.path.realpath(
                 os.path.join(
-                    self.report_path, f"{self.img_desc(dcm1)}_snr_subtraction.png"
+                    self.report_path,
+                    f"{self.img_desc(dcm1)}_snr_subtraction.png",
                 )
             )
             fig.savefig(img_path)

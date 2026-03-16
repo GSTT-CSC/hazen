@@ -1,3 +1,56 @@
-[build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+[project]
+name = "hazen"
+version = "2.0.0a4"
+description = "An automatic MRI QA tool"
+authors = [
+        {name = "Alex Drysdale", email = "alexander.drysdale@wales.nhs.uk"},
+        {name = "Shuaib, Haris", email = "mohammad_haris.shuaib@kcl.ac.uk"},
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "colorlog>=6.9.0",
+    "imutils>=0.5.4",
+    "matplotlib>=3.9.4",
+    "nevergrad>=1.0.12",
+    "numpy>=2.0.2,<2.4.0",
+    "opencv-python>=4.11.0.86",
+    "opencv-python-headless>=4.11.0.86",
+    "pydicom>=2.4.4",
+    "scikit-image>=0.24.0",
+    "scipy>=1.13.1",
+    "statsmodels>=0.14.5",
+]
+
+[project.scripts]
+hazen = "hazenlib:main"
+
+[tool.uv]
+package = true
+
+[tool.ruff]
+line-length = 79
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "mypy>=1.19.1",
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "ruff>=0.14.6",
+    "scipy-stubs>=1.16.3.3",
+    "sphinx>=7.4.7",
+    "sphinx-rtd-theme>=3.0.2",
+    "sphinxcontrib-bibtex>=2.6.5",
+    "ty>=0.0.8",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hazenlib", "tests"]
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (excluded from test-fast)",
+    "smoke: marks tests as smoke tests (essential functionality)",
+]
