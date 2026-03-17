@@ -29,6 +29,7 @@ An implementation by the authors can be found on GitHub:
 
 With the original paper:
     https://doi.org/10.1002/acm2.70173
+    https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
 
 ACR Low Contrast Object Detectability:
     https://mriquestions.com/uploads/3/4/5/7/34572113/largephantomguidance.pdf
@@ -105,7 +106,6 @@ import contextlib
 import copy
 import logging
 from pathlib import Path
-from types import MappingProxyType
 
 # Module imports
 import cv2
@@ -117,6 +117,9 @@ import scipy as sp
 import skimage.transform
 import statsmodels
 import statsmodels.api as sm
+from matplotlib.gridspec import GridSpec
+from matplotlib.patches import Circle
+
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.types import (
@@ -128,8 +131,6 @@ from hazenlib.types import (
     SpokeReportData,
     StatsParameters,
 )
-from matplotlib.gridspec import GridSpec
-from matplotlib.patches import Circle
 
 logger = logging.getLogger(__name__)
 
@@ -139,9 +140,10 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
     Attributes:
         SLICE_ANGLE_OFFSET : Angular offset between each subsequent slice
-                in radians (9 degrees converted to radians).
-        START_ANGLE : Starting angle for slice 0 in radians
-                (90 degrees converted to radians).
+                in degrees. Defaults to 9.
+        START_ANGLE : Starting angle for slice 0 in degrees.
+                Defaults to 0.
+        LCOD_DISC_SIZE : LCOD disc radius in mm.
 
     """
 
@@ -149,22 +151,24 @@ class ACRLowContrastObjectDetectability(HazenTask):
     START_ANGLE: float = 0
     LCOD_DISC_SIZE: float = 43  # mm
 
-    BINARIZATION_THRESHOLD: MappingProxyType = MappingProxyType(
-        {
-            1.5: 97.8,
-            3.0: 97.5,
-        },
-    )
-
     _DETREND_POLYNOMIAL_ORDER: int = 3
     _STD_TOL: float = 0.01
 
-    _RADIAL_PROFILE_LENGTH: int = 128
-    _ALPHA: float = 0.05
-    _OPTIMIZER: str = "TBPSA"
-    _BUDGET: int = 100
+    _SMOOTH_SIGMA: float = 3
 
-    NLOPT_METHOD: str = "Nelder-Mead"
+    _RADIAL_PROFILE_LENGTH: int = 128
+    # Paper states a value of 0.0125
+    # https://aapm.onlinelibrary.wiley.com/doi/pdfdirect/10.1002/acm2.70173
+    # However this is too high since the this implementation includes
+    # a much more robust center finding and template matching strategy.
+    _ALPHA: float = 1e-6
+
+    # Control how templates are sample from around the center.
+    # Note that 0 (i.e. the center) is always sampled.
+    _ENSEMBLE_MAX_INC: float = (
+        2  # Max increment from the center in units of dx
+    )
+    _ENSEMBLE_STEP: float = 0.1  # Steps between increments in units of dx.
 
     OBJECT_RIBBON_COLORS = ("#1E88E5", "#FFC107", "#004D40")
 
@@ -291,18 +295,18 @@ class ACRLowContrastObjectDetectability(HazenTask):
         template: LCODTemplate,
     ) -> list[LCODTemplate]:
         cx, cy, theta = template.cx, template.cy, template.theta
-        max_inc = 3
-        step = 2
-        increments = [
-            self.ACR_obj.dx * i
-            for i in range(
-                -max_inc,
-                max_inc + 1,
-                step,
-            )
-        ]
-        if 0 not in increments:
-            increments.append(0)
+        max_inc = self._ENSEMBLE_MAX_INC
+        num = np.ceil((max_inc * 2) / self._ENSEMBLE_STEP).astype(int) + 1
+        increments = list(
+            np.linspace(
+                -max_inc * self.ACR_obj.dx,
+                +max_inc * self.ACR_obj.dx,
+                num,
+            ),
+        )
+
+        if not np.any(np.isclose(increments, 0.0)):
+            increments.append(0.0)
 
         return sorted(
             [
@@ -332,7 +336,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
             templates = [template]
 
         for idx, _ in enumerate(template.spokes):
-            for t_idx, _template in enumerate(templates):
+            min_pvals = [1, 1, 1]  # Initial p values
+            for _template in templates:
                 spoke = _template.spokes[idx]
                 profile, object_mask = spoke.profile(
                     dcm,
@@ -345,12 +350,23 @@ class ACRLowContrastObjectDetectability(HazenTask):
                     object_mask,
                 )
 
-                if t_idx == 0 or (
+                if (
                     np.sum(p_vals) < np.sum(min_pvals)  # noqa: F821
                     and all(params > 0)
                 ):
                     min_pvals = p_vals
                     min_params = params
+
+                # As a rule of thumb, if all of the p-values
+                # are a factor of 10 less than the alpha value
+                # then the spoke has passed even with FDR correction
+                # this may need to be changed to a higher factor
+                # such as 100 if evidence is provided on the contrary.
+                # This avoids excessive searching of templates once the
+                # it has already been determined that the spoke has passed
+                # but without performing fdr correction on every template.
+                if all(p < self.alpha / 10 for p in min_pvals):
+                    break
             sp.p_vals.append(min_pvals)
             sp.params.append(min_params)
 
@@ -360,16 +376,18 @@ class ACRLowContrastObjectDetectability(HazenTask):
         self,
         sp: StatsParameters,
         alpha: float,
-    ) -> tuple[np.ndarray]:
-        p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        rejected, p_vals_fdr = statsmodels.stats.multitest.fdrcorrection(
             sp.p_vals_all,
             alpha=alpha,
             method="indep",
             is_sorted=False,
-        )[0].reshape(-1, len(sp.p_vals[-1]))
+        )
+        rejected = rejected.reshape(-1, len(sp.p_vals[-1]))
         params_fdr = np.array(sp.params_all).reshape(-1, len(sp.params[-1]))
+        p_vals_fdr = p_vals_fdr.reshape(-1, len(sp.p_vals[-1]))
 
-        return (p_vals_fdr, params_fdr)
+        return (rejected, params_fdr, p_vals_fdr)
 
     def count_spokes(
         self,
@@ -424,13 +442,13 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
 
         # FDR correction
-        p_vals_fdr, params_fdr = self._fdrcorrection(sp, alpha=alpha)
+        rejected, params_fdr, p_vals_fdr = self._fdrcorrection(sp, alpha=alpha)
 
         # Update detection status
         for spoke_number, spoke in enumerate(spokes):
             for i, obj in enumerate(spoke):
                 obj.detected = (
-                    p_vals_fdr[spoke_number, i]
+                    rejected[spoke_number, i]
                     and params_fdr[spoke_number, i] > 0
                 )
             spoke.passed = all(obj.detected for obj in spoke)
@@ -440,8 +458,8 @@ class ACRLowContrastObjectDetectability(HazenTask):
                 report_data[spoke_number].detected = [
                     obj.detected for obj in spoke
                 ]
-                report_data[spoke_number].p_vals = sp.p_vals[spoke_number]
-                report_data[spoke_number].params = sp.params[spoke_number]
+                report_data[spoke_number].p_vals = p_vals_fdr[spoke_number, :]
+                report_data[spoke_number].params = params_fdr[spoke_number, :]
 
         # Store report data if reporting enabled
         if self.report:
@@ -677,7 +695,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
 
         # De-trend with robust polynomial fitting
         detrended, trend = self._detrend_profile(profile, return_trend=True)
-        smoothed = self._smooth_profile(detrended)
+        smoothed = self._smooth_profile(detrended, sigma=self._SMOOTH_SIGMA)
 
         # Prepare GLM
         data = np.column_stack((object_mask, np.ones_like(profile)))
@@ -690,7 +708,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
             model = FailedStatsModel()
 
         if return_intermediate:
-            return model.pvalues[:3], model.params[:3], detrended, trend
+            return model.pvalues[:3], model.params[:3], smoothed, trend
         return model.pvalues[:3], model.params[:3]
 
     # Add the report generation method
@@ -1011,7 +1029,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         # Labels
         ax_bottom.set_xlabel("Profile Position", fontsize=7)
         ax_top.set_ylabel("Original", fontsize=7)
-        ax_bottom.set_ylabel("Detrended", fontsize=7)
+        ax_bottom.set_ylabel("Detrended & Smoothed", fontsize=7)
 
         # Title
         status = "PASS" if all(spoke_data.detected) else "FAIL"
@@ -1259,7 +1277,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         with contextlib.suppress(TypeError):
             for xi, yi in intersection_points:
                 distances = np.sqrt(
-                    (x_coords - xi) ** 2 + (y_coords - yi) ** 2
+                    (x_coords - xi) ** 2 + (y_coords - yi) ** 2,
                 )
                 closest_idx = np.argmin(distances)
                 intersection_indices.append(closest_idx)
@@ -1368,7 +1386,7 @@ class ACRLowContrastObjectDetectability(HazenTask):
         )
         ax.legend(fontsize=7, loc="best")
         ax.tick_params(labelsize=7)
-        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+        ax.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)  # noqa: FBT003
 
         plt.tight_layout()
 
