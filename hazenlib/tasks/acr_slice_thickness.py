@@ -333,12 +333,10 @@ class ACRSliceThickness(HazenTask):
         """Measure slice thickness. \n
         Identify the ramps, measure the line profile, measure the FWHM, and use this to calculate the slice thickness.
 
-        Args:
-            top_width (float): Top ramp's calculated width.
-            bottom_width (float): Bottom ramp's calculated width.
-
         Returns:
-            float: slice thickness in mm.
+            dict: Dictionary containing:
+                - ``"thickness"`` (float): Calculated slice thickness in mm.
+                - ``"ramps"`` (list[float]): FWHM values (in pixels) for each ramp line used in the calculation.
         """
         img = dcm.pixel_array
         lines = self.place_lines(img)
@@ -396,7 +394,10 @@ class ACRSliceThickness(HazenTask):
             fig.savefig(img_path, dpi=600)
             self.report_files.append(img_path)
 
-        return slice_thickness
+        return {
+            "thickness": slice_thickness,
+            "ramps": [line.FWHM for line in lines],
+        }
 
     def place_lines(self, img: np.ndarray) -> list["Line"]:
         """Places line on image within ramps insert.
