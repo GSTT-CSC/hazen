@@ -225,10 +225,14 @@ class ACRObject:
 
         test_angles = np.linspace(-np.pi / 2, np.pi / 2, 1801, endpoint=False)
         hough_space, theta, rho = skimage.transform.hough_line(
-            canny_edge, test_angles,
+            canny_edge,
+            test_angles,
         )
         _, best_theta, _ = skimage.transform.hough_line_peaks(
-            hough_space, theta, rho, min_angle=10,
+            hough_space,
+            theta,
+            rho,
+            min_angle=10,
         )
         rotation = np.mean(best_theta[:2]) * 180 / np.pi
 
@@ -239,7 +243,7 @@ class ACRObject:
         while rotation < 0:
             rotation += 180
 
-        if rotation > 360:      # noqa: PLR2004
+        if rotation > 360:  # noqa: PLR2004
             rotation -= 360
 
         # Angle in degrees from positive x-axis.
