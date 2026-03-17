@@ -1435,7 +1435,7 @@ class XY(np.ndarray):
 
     @property
     def y(self) -> xy:
-        """Property for x array of plotting series"""
+        """Property for y array of plotting series"""
         return self[1]
 
     @y.setter
