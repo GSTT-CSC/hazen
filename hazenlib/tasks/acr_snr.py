@@ -134,7 +134,10 @@ class ACRSNR(HazenTask):
             filepaths = [
                 os.path.join(self.subtract, f)
                 for f in os.listdir(self.subtract)
-                if os.path.isfile(os.path.join(self.subtract, f))
+                if (
+                    os.path.isfile(os.path.join(self.subtract, f))
+                    and ".DS_Store" not in f
+                )
             ]
             data2 = [dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
