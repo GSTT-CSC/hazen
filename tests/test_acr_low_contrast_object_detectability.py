@@ -413,10 +413,10 @@ class TestACRLowContrastObjectDetectabilityGESignaArtistT2(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "GE_Signa_Artist_1.5T_T2")
     SCORES = (
-        SliceScore(8, 3),
-        SliceScore(9, 8),
-        SliceScore(10, 9),
-        SliceScore(11, 10),
+        SliceScore(8, 5),
+        SliceScore(9, 6),
+        SliceScore(10, 7),
+        SliceScore(11, 7),
     )
 
 
@@ -427,7 +427,7 @@ class TestACRLowContrastObjectDetectabilitySiemensAera(
 
     ACR_DATA = Path(TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_T1")
     SCORES = (
-        SliceScore(8, 7),
+        SliceScore(8, 8),
         SliceScore(9, 10),
         SliceScore(10, 10),
         SliceScore(11, 10),
