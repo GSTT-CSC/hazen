@@ -424,13 +424,14 @@ class ACRSliceThickness(HazenTask):
         )
 
         if self.report:
-            import matplotlib.pyplot as plt     # noqa: PLC0415 I001
+            import matplotlib.pyplot as plt  # noqa: PLC0415 I001
 
             fig, axes = plt.subplots(1, 3, figsize=(16, 8))
             axes[0].imshow(img)
             for i, line in enumerate(lines):
                 axes[0].plot(
-                    [line.start.x, line.end.x], [line.start.y, line.end.y],
+                    [line.start.x, line.end.x],
+                    [line.start.y, line.end.y],
                 )
                 axes[i + 1].plot(
                     line.signal.x,
@@ -460,8 +461,8 @@ class ACRSliceThickness(HazenTask):
             plt.tight_layout()
 
             img_path = os.path.realpath(
-                Path(self.report_path) /
-                f"{self.img_desc(dcm)}_slice_thickness.png",
+                Path(self.report_path)
+                / f"{self.img_desc(dcm)}_slice_thickness.png",
             )
 
             fig.savefig(img_path, dpi=600)
@@ -490,10 +491,14 @@ class ACRSliceThickness(HazenTask):
             np.uint8,
         )
         contrast_enhanced = cv2.createCLAHE(
-            clipLimit=2.0, tileGridSize=(3, 3),
+            clipLimit=2.0,
+            tileGridSize=(3, 3),
         ).apply(img_uint8)
         _, img_binary = cv2.threshold(
-            contrast_enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
+            contrast_enhanced,
+            0,
+            255,
+            cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
         # Find contour by x-span sort
@@ -525,7 +530,8 @@ class ACRSliceThickness(HazenTask):
 
         # Define short sides of contours by list of line objects
         corners = sorted(
-            corners, key=lambda point: corners[0].get_distance_to(point),
+            corners,
+            key=lambda point: corners[0].get_distance_to(point),
         )
         short_sides = [Line(*corners[:2]), Line(*corners[2:])]
 
