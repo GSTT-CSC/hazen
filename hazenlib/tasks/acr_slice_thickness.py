@@ -465,7 +465,10 @@ class ACRSliceThickness(HazenTask):
 
         return {
             "thickness": slice_thickness,
-            "ramps": [line.fwhm for line in lines],
+            "ramps": {
+                pos: {"width": line.fwhm}
+                for pos, line in zip(("top", "bottom"), lines, strict=True)
+            },
         }
 
     def place_lines(self, img: np.ndarray) -> list["Line"]:
