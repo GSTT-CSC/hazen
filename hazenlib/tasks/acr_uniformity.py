@@ -50,8 +50,9 @@ class ACRUniformity(HazenTask):
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
         # Required pixel radius to produce ~200cm2 ROI
+        # (this produces 25000 mm2??)
         self.r_large = compute_radius_from_area(200, self.ACR_obj.dx)
-        # Required pixel radius to produce ~1cm2 ROI
+        # Required pixel radius to produce ~1cm2 ROI (produces 150mm2)
         self.r_small = compute_radius_from_area(1, self.ACR_obj.dx)
         # Kernel we can use to convolve on input array to obtain an ROI mean
         self.r_small_kernel = create_circular_mean_kernel(self.r_small)

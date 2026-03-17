@@ -32,6 +32,7 @@ from typing import Any
 
 # Module imports
 import numpy as np
+from hazenlib.utils import get_dicom_files
 from scipy import ndimage
 
 # Local imports
@@ -130,12 +131,8 @@ class ACRSNR(HazenTask):
                 traceback.print_exc(file=sys.stdout)
         # SUBTRACTION METHOD
         else:
-            # Get the absolute path to all FILES found in the directory provided
-            filepaths = [
-                os.path.join(self.subtract, f)
-                for f in os.listdir(self.subtract)
-                if os.path.isfile(os.path.join(self.subtract, f))
-            ]
+            # Use the shared helper to get all DICOM files from the directory provided
+            filepaths = get_dicom_files(Path(self.subtract))
             data2 = [dcmread(dicom) for dicom in filepaths]
             snr_dcm2 = ACRObject(data2).slice_stack[6]
 
