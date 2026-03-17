@@ -31,7 +31,6 @@ from typing import Union, TypeVar
 import cv2 as cv
 import imutils
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pydicom
 from skimage import filters, measure
