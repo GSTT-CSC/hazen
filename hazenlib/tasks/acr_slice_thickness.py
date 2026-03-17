@@ -158,7 +158,6 @@ class ACRSliceThickness(HazenTask):
             self.fitted = fitted
 
         def _fit_piecewise_sigmoid(self) -> XY:
-
             smoothed = self.signal.copy()
             k = round(len(smoothed.y) / 20)
             if k % 2 == 0:
@@ -172,7 +171,9 @@ class ACRSliceThickness(HazenTask):
             heights = props["peak_heights"]
             peak = peaks[np.argmax(heights)]
 
-            def get_specific_sigmoid(wholeData: XY, fitStart: int, fitEnd: int) -> XY:
+            def get_specific_sigmoid(
+                wholeData: XY, fitStart: int, fitEnd: int
+            ) -> XY:
                 fitData = wholeData[:, fitStart:fitEnd]
                 A = np.max(fitData.y) - np.min(fitData.y)
                 b = np.min(fitData.y)
@@ -199,7 +200,9 @@ class ACRSliceThickness(HazenTask):
                 return specific_sigmoid
 
             sigmoidL_func = get_specific_sigmoid(smoothed, 0, peak)
-            sigmoidR_func = get_specific_sigmoid(smoothed, peak, len(smoothed.x))
+            sigmoidR_func = get_specific_sigmoid(
+                smoothed, peak, len(smoothed.x)
+            )
 
             sigmoidL = XY(smoothed.x, sigmoidL_func(smoothed.x))
             sigmoidR = XY(smoothed.x, sigmoidR_func(smoothed.x))
@@ -208,7 +211,9 @@ class ACRSliceThickness(HazenTask):
                 return 1 / (1 + np.exp(-(x - transition_x) / transition_width))
 
             W = blending_weight(
-                smoothed.x, peak, 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak)
+                smoothed.x,
+                peak,
+                1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak),
             )
             fitted = XY(smoothed.x, (1 - W) * sigmoidL.y + W * sigmoidR.y)
 
@@ -340,7 +345,9 @@ class ACRSliceThickness(HazenTask):
         for line in lines:
             line.get_FWHM()
         slice_thickness = (
-            0.2 * (lines[0].FWHM * lines[1].FWHM) / (lines[0].FWHM + lines[1].FWHM)
+            0.2
+            * (lines[0].FWHM * lines[1].FWHM)
+            / (lines[0].FWHM + lines[1].FWHM)
         )
 
         if self.report:
@@ -349,7 +356,9 @@ class ACRSliceThickness(HazenTask):
             fig, axes = plt.subplots(1, 3, figsize=(16, 8))
             axes[0].imshow(img)
             for i, line in enumerate(lines):
-                axes[0].plot([line.start.x, line.end.x], [line.start.y, line.end.y])
+                axes[0].plot(
+                    [line.start.x, line.end.x], [line.start.y, line.end.y]
+                )
                 axes[i + 1].plot(
                     line.signal.x,
                     line.signal.y,
@@ -379,7 +388,8 @@ class ACRSliceThickness(HazenTask):
 
             img_path = os.path.realpath(
                 os.path.join(
-                    self.report_path, f"{self.img_desc(dcm)}_slice_thickness.png"
+                    self.report_path,
+                    f"{self.img_desc(dcm)}_slice_thickness.png",
                 )
             )
 
@@ -400,10 +410,12 @@ class ACRSliceThickness(HazenTask):
         """
         # Normalize to uint8, enhance contast and binarize using otsu thresh
 
-        img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        contrastEnhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(3, 3)).apply(
-            img_uint8
+        img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(
+            np.uint8
         )
+        contrastEnhanced = cv2.createCLAHE(
+            clipLimit=2.0, tileGridSize=(3, 3)
+        ).apply(img_uint8)
         _, img_binary = cv2.threshold(
             contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
         )
@@ -421,7 +433,9 @@ class ACRSliceThickness(HazenTask):
 
         # filter out tiny contours from noise
         threshArea = 15 * 15
-        contours = [cont for cont in contours if cv2.contourArea(cont) >= threshArea]
+        contours = [
+            cont for cont in contours if cv2.contourArea(cont) >= threshArea
+        ]
         # select central insert
         contours_sorted = sorted(
             contours,
@@ -434,7 +448,9 @@ class ACRSliceThickness(HazenTask):
         corners = [Point(*p) for p in insertCorners]
 
         # Define short sides of contours by list of line objects
-        corners = sorted(corners, key=lambda point: corners[0].get_distance_to(point))
+        corners = sorted(
+            corners, key=lambda point: corners[0].get_distance_to(point)
+        )
         shortSides = [Line(*corners[:2]), Line(*corners[2:])]
 
         # Get sublines of short sides and force start point to be higher in y

@@ -213,16 +213,20 @@ class ACRObject:
             float: The rotation angle of the phantom wrt the positive x-axis in degrees.
         """
 
-        img = (np.maximum(img,0) / img.max()) * 255
+        img = (np.maximum(img, 0) / img.max()) * 255
         img = np.uint8(img)
 
-        imgBlur = cv2.GaussianBlur(img, (13,13), 0)
+        imgBlur = cv2.GaussianBlur(img, (13, 13), 0)
         canny_edge = cv2.Canny(imgBlur, 5, 40)
 
-        test_angles = np.linspace(-np.pi/2, np.pi/2, 1801, endpoint = False)
-        hough_space, theta, rho = skimage.transform.hough_line(canny_edge, test_angles)
-        _ , bestTheta, _ = skimage.transform.hough_line_peaks(hough_space, theta, rho, min_angle = 10)
-        rotation = np.mean(bestTheta[:2]) * 180/np.pi
+        test_angles = np.linspace(-np.pi / 2, np.pi / 2, 1801, endpoint=False)
+        hough_space, theta, rho = skimage.transform.hough_line(
+            canny_edge, test_angles
+        )
+        _, bestTheta, _ = skimage.transform.hough_line_peaks(
+            hough_space, theta, rho, min_angle=10
+        )
+        rotation = np.mean(bestTheta[:2]) * 180 / np.pi
 
         # Transform to be angle wrt positive x axis.
         rotation = 90 - (rotation + 180)

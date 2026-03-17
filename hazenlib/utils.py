@@ -1410,9 +1410,11 @@ class ShapeDetector:
             # so the corrections are no longer needed.
             return (x, y), size, angle
 
+
 P = TypeVar("P", bound="Point")
 L = TypeVar("L", bound="Line")
 xy = TypeVar("xy", bound="XY")
+
 
 class XY(np.ndarray):
     """Class for 2D numpy array for plotting"""
@@ -1443,7 +1445,9 @@ class XY(np.ndarray):
             if len(val) != len(self.y):
                 raise ValueError("Cannot modify shape of XY.y")
         else:
-            raise TypeError("Expected input to be either a list or numpy.ndarray")
+            raise TypeError(
+                "Expected input to be either a list or numpy.ndarray"
+            )
         self[1] = val
 
 
@@ -1486,7 +1490,7 @@ class Point(np.ndarray):
         if not isinstance(other, Point):
             err = f"other should be Point and not {type(other)}"
             raise TypeError(err)
-        return np.sqrt(np.sum((self - other)**2)).item()
+        return np.sqrt(np.sum((self - other) ** 2)).item()
 
     def __iter__(self):
         """Get iterable for plotting"""
@@ -1564,7 +1568,6 @@ class Line:
         self.start, self.end = self.end, self.start
         if hasattr(self, "signal"):
             self.signal = self.signal[::-1]
-
 
     def __iter__(self) -> iter:
         """Get iterable for plotting"""
