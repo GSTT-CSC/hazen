@@ -141,12 +141,6 @@ alexander.drysdale@wales.nhs.uk
 
 """
 
-# Type Checking
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import pydicom
-
 # Python Imports
 import os
 import sys
@@ -156,6 +150,7 @@ from pathlib import Path
 # Module Imports
 import cv2
 import numpy as np
+import pydicom
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import curve_fit
 from scipy.signal import find_peaks, medfilt
