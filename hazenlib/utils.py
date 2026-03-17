@@ -1543,7 +1543,7 @@ class Line:
 
         """
         if not isinstance(perc, (int, float)):
-            err = f"perc should be int of float, not {type(perc)}."
+            err = f"perc should be int or float, not {type(perc)}."
             raise TypeError(err)
 
         if not 0 < perc <= 100:
