@@ -437,7 +437,7 @@ class ACRSliceThickness(HazenTask):
         contours = [
             cont for cont in contours if cv2.contourArea(cont) >= threshArea
         ]
-        # select central insert
+        # select most elongated insert contour (heuristic for central insert)
         contours_sorted = sorted(
             contours,
             key=lambda c: get_aspect_ratio(c),
