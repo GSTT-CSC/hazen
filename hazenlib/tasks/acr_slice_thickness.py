@@ -1,5 +1,5 @@
-"""
-ACR Slice Thickness
+"""ACR Slice Thickness.
+
 ___________________
 
 Reference
@@ -10,20 +10,26 @@ _________
 Intro
 _____
 
-The slice thickness accuracy test assesses the accuracy with which a slice of specified thickness is achieved.
-The prescribed slice thickness is compared with the measured slice thickness.
+The slice thickness accuracy test assesses the accuracy with which a
+ slice of specified thickness is achieved.  The prescribed slice
+ thickness is compared with the measured slice thickness.
 
-The ramps appear in a structure called the slice thickness insert. Figure 10 shows an image of slice 1 with
-the slice thickness insert and signal ramps identified. The two ramps are crossed: one has a negative slope
-and the other a positive slope with respect to the plane of slice 1. They are produced by cutting 1 mm wide
-slots in a block of plastic. The slots are open to the interior of the phantom and are filled with the same
-solution that fills the bulk of the phantom.
+The ramps appear in a structure called the slice thickness
+insert. Figure 10 shows an image of slice 1 with the slice thickness
+insert and signal ramps identified. The two ramps are crossed: one has
+a negative slope and the other a positive slope with respect to the
+plane of slice 1. They are produced by cutting 1 mm wide slots in a
+block of plastic. The slots are open to the interior of the phantom
+and are filled with the same solution that fills the bulk of the
+phantom.
 
-The signal ramps have a slope of 10 to 1 with respect to the plane of slice 1, which is an angle of about 5.71°.
-Therefore, the signal ramps will appear in the image of slice 1 with a length that is 10 times the thickness of
-the slice. If the phantom is misaligned from right-left, one ramp will appear longer than the other. The
-crossed ramps allow for correction of the error introduced by right-left misalignment, and the slice thickness
-formula takes that into account.
+The signal ramps have a slope of 10 to 1 with respect to the plane of
+slice 1, which is an angle of about 5.71 deg.  Therefore, the signal
+ramps will appear in the image of slice 1 with a length that is 10
+times the thickness of the slice. If the phantom is misaligned from
+right-left, one ramp will appear longer than the other. The crossed
+ramps allow for correction of the error introduced by right-left
+misalignment, and the slice thickness formula takes that into account.
 
 ACR Guidelines
 ______________
@@ -31,33 +37,60 @@ ______________
 ACR Algorithm
 +++++++++++++
 
-    #. Display slice 1, and magnify the image by a factor of 2 to 4, keeping the slice thickness insert fully
-        visible on the screen.
-    #. Adjust the display level so that the signal ramps are well visualized.
-        *. The ramp signal is much lower than that of surrounding water, so usually it will be necessary
-            to lower the display level substantially and narrow the window.
-    #. Place a rectangular ROI at the middle of each ramp as shown below in Figure 11.
-        *. Note the mean signal values for each of these two ROIs and then average those values.
-        *. The result is a number approximating the mean signal in the middle of the ramps.
-        *. An elliptical ROI may be used if a rectangular one is unavailable.
-    #. Lower the display level to half of the average ramp signal calculated in step 3.
+    #. Display slice 1, and magnify the image by a factor of 2 to 4,
+        keeping the slice thickness insert fully visible on the
+        screen.
+    #. Adjust the display level so that the signal ramps are well
+        visualized.
+        *. The ramp signal is much lower than that of surrounding
+            water, so usually it will be necessary to lower the
+            display level substantially and narrow the window.
+    #. Place a rectangular ROI at the middle of each ramp as shown
+        below in Figure 11.
+        *. Note the mean signal values for each of these two ROIs and
+         then average those values.
+        *. The result is a number approximating the mean signal in the
+         middle of the ramps.
+        *. An elliptical ROI may be used if a rectangular one is
+         unavailable.
+    #. Lower the display level to half of the average ramp signal
+        calculated in step 3.
         *. Leave the display window set to its minimum.
-    #. Use the on-screen distance measurement tool to measure the lengths of the top and bottom ramps.
-        This is illustrated below in Figure 12. Record these lengths and compare to the action limits.
+    #. Use the on-screen distance measurement tool to measure the
+        lengths of the top and bottom ramps.  This is illustrated
+        below in Figure 12. Record these lengths and compare to the
+        action limits.
 
-Our Approximation
-+++++++++++++++++
+Computer Vision Methodology
++++++++++++++++++++++++++++
 
-    #. Find the phantom center.
-    #. Zoom input x4.
-    #. Crop insert around initial center.
-    #. Apply Window Width and Window Level based on cropped region.
-    #. Identify the Y coordinates by sampling a line profile at the sample crop center and finding highest 2 peaks.
-    #. Identify the X coordinates by sampling line profiles in the horizontal direction going through the Y points.
-    #. Place rectangular ROIs at those centers with a fixed width.
-    #. Apply WL based on ROI averages.
-    #. Identify widths.
-    #. Use ACR formula for results.
+This automated implementation locates the slice thickness insert using
+computer vision and calculates ramp widths via curve fitting:
+
+    #. Pre-process image with CLAHE contrast enhancement and Otsu
+        binarization to isolate the insert.
+    #. Detect contours and identify the slice thickness insert using
+       aspect ratio heuristics (the insert is the most elongated
+       rectangular structure).
+    #. Calculate the oriented bounding box corners of the insert to
+        determine ramp geometry.
+    #. Construct profile lines across the ramps using geometric
+        sublines (spanning 95% of ramp length).
+    #. Extract pixel intensity profiles along each line (averaging
+        over 4-pixel width).
+    #. Smooth profiles with median/Gaussian filters and fit piecewise
+        sigmoid functions:
+       - Detect the signal peak to separate left and right segments
+       - Fit separate sigmoids to each segment using least-squares optimization
+       - Blend the sigmoids with a smooth transition weighting
+         function at the peak
+    #. Calculate FWHM from fitted curves using linear interpolation at
+        half-maximum points.
+    #. Apply ACR formula: thickness = 0.2 * (L1 * L2) / (L1 + L2),
+        accounting for phantom rotation.
+
+Sagittal images are automatically detected and rotated 90 degrees
+clockwise prior to analysis.
 
 ACR Scoring Rubric
 ++++++++++++++++++
@@ -66,44 +99,59 @@ The slice thickness is calculated using the following formula:
 
     Slice thickness = 0.2 x (top x bottom)/(top + bottom)
 
-In the formula above, the `top` and `bottom` are the measured lengths of the top and bottom signal ramps.
+In the formula above, the `top` and `bottom` are the measured lengths
+of the top and bottom signal ramps.
 
-**Note:** 0.2 is a unitless factor that corrects for rotation of the phantom about the vertical (y) axis.
+**Note:** 0.2 is a unitless factor that corrects for rotation of the
+  phantom about the vertical (y) axis.
 
-For example, if the top signal ramp were 59.5mm long and the bottom ramp were 47.2mm long, then the
-calculated slice thickness would be:
+For example, if the top signal ramp were 59.5mm long and the bottom
+ramp were 47.2mm long, then the calculated slice thickness would be:
 
     Slice thickness = 0.2 x (59.5mm x 47.2mm)/(59.5mm + 47.2mm) = 5.26 mm.
 
 
 Notes
-_____
-
+-----
 ..note::
 
-    A failure of this test means that the scanner is producing slices of substantially different thickness from the
-    prescribed thickness. This problem will generally not occur in isolation since the scanner deficiencies that
-    can cause it may also cause other image problems. Therefore, the implications of a failure are not just that
-    the slices are too thick or thin, but can also result in poor image contrast and low SNR.
+    A failure of this test means that the scanner is producing slices
+    of substantially different thickness from the prescribed
+    thickness. This problem will generally not occur in isolation
+    since the scanner deficiencies that can cause it may also cause
+    other image problems. Therefore, the implications of a failure are
+    not just that the slices are too thick or thin, but can also
+    result in poor image contrast and low SNR.
 
 ..warning::
 
-    When making these measurements, **be careful to fully cover the widths of the ramp with the
-    ROIs** in the top-bottom direction, but not to allow the ROIs to stray outside the ramps into adjacent
-    high- or low-signal regions. If there is a large difference,(that is, more than 20%), between the signal
-    values obtained for the ROIs, it is often due to one or both of the ROIs including regions outside the
-    ramps.
+    The automated line placement relies on the insert contour being
+    clearly distinguishable from background.  Poor image contrast or
+    artifacts may cause the aspect ratio heuristic to fail. The
+    fitting algorithm assumes the ramps produce distinct signal peaks;
+    very thin slices (<2mm) may challenge the piecewise sigmoid fit.
 
 Documented by Luis M. Santos, M.D.
 luis.santos2@nih.gov
 
+and
+
+Alex Drysdale
+alexander.drysdale@wales.nhs.uk
 
 """
+
+# Type Checking
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import pydicom
 
 # Python Imports
 import os
 import sys
 import traceback
+from pathlib import Path
 
 # Module Imports
 import cv2
@@ -121,40 +169,70 @@ from hazenlib.utils import XY, Line, Point, get_image_orientation
 
 
 class ACRSliceThickness(HazenTask):
-    """Slice width measurement class for DICOM images of the ACR phantom."""
+    """Slice width measurement class for DICOM images of the ACR phantom.
+
+    Automatically detects the slice thickness insert using computer vision,
+    places measurement lines across the crossed ramps, and calculates slice
+    thickness using piecewise sigmoid fitting to determine FWHM. Handles
+    arbitrary phantom rotation and sagittal acquisitions.
+    """
 
     class SignalLine(Line):
-        """Subclass of Line to implement functionality related to the ACR phantom's ramps"""
+        """Subclass of Line to related to the ACR phantom's ramps.
 
-        def get_FWHM(self):
-            """Calculates the FWHM by fitting a piecewise sigmoid to signal across line"""
+        Extends the Line class with signal profiling and curve fitting
+        capabilities specifically designed for measuring the FWHM of
+        the characteristic ramp signal (low signal slots in high
+        signal background).
+        """
+
+        def get_fwhm(self) -> None:
+            """Calculate the FWHM by fitting a piecewise sigmoid.
+
+            Fits a smooth piecewise sigmoid curve to the signal
+            profile, then calculates the Full Width at Half Maximum
+            (FWHM) using linear interpolation at the half-maximum
+            crossing points. The fitted curve and FWHM value are
+            stored as instance attributes.
+
+            Raises:
+                ValueError: If signal has not been computed via
+                        get_signal() before calling.
+
+            Sets Attributes:
+                fwhm (float): Full width at half maximum in pixels.
+                fitted (XY): Fitted curve as XY coordinates.
+
+            """
             if not hasattr(self, "signal"):
-                raise ValueError("Signal across line has not been computed!")
+                msg = "Signal across line has not been computed!"
+                raise ValueError(msg)
 
             fitted = self._fit_piecewise_sigmoid()
 
-            peaks, props = find_peaks(
-                fitted.y, height=0, prominence=np.max(fitted.y).item() / 4
+            _, props = find_peaks(
+                fitted.y,
+                height=0,
+                prominence=np.max(fitted.y).item() / 4,
             )
             peak_height = np.max(props["peak_heights"])
 
-            backgroundL = fitted.y[0]
-            backgroundR = fitted.y[-1]
+            background_l = fitted.y[0]
+            background_r = fitted.y[-1]
 
-            halfMaxL = (peak_height - backgroundL) / 2 + backgroundL
-            halfMaxR = (peak_height - backgroundR) / 2 + backgroundR
+            half_max_l = (peak_height - background_l) / 2 + background_l
+            half_max_r = (peak_height - background_r) / 2 + background_r
 
-            def simple_interpolate(targetY: float, signal: XY) -> float:
-                crossing_index = np.where(signal.y > targetY)[0][0]
+            def simple_interpolate(target_y: float, signal: XY) -> float:
+                crossing_index = np.where(signal.y > target_y)[0][0]
                 x1, x2 = signal.x[crossing_index - 1], signal.x[crossing_index]
                 y1, y2 = signal.y[crossing_index - 1], signal.y[crossing_index]
-                targetX = x1 + (targetY - y1) * (x2 - x1) / (y2 - y1)
-                return targetX
+                return x1 + (target_y - y1) * (x2 - x1) / (y2 - y1)
 
-            xL = simple_interpolate(halfMaxL, fitted)
-            xR = simple_interpolate(halfMaxR, fitted[:, ::-1])
+            x_l = simple_interpolate(half_max_l, fitted)
+            x_r = simple_interpolate(half_max_r, fitted[:, ::-1])
 
-            self.FWHM = xR - xL
+            self.fwhm = x_r - x_l
             self.fitted = fitted
 
         def _fit_piecewise_sigmoid(self) -> XY:
@@ -166,60 +244,79 @@ class ACRSliceThickness(HazenTask):
             smoothed.y = gaussian_filter1d(smoothed.y, round(k / 2.5))
 
             peaks, props = find_peaks(
-                smoothed.y, height=0, prominence=np.max(smoothed.y).item() / 4
+                smoothed.y,
+                height=0,
+                prominence=np.max(smoothed.y).item() / 4,
             )
             heights = props["peak_heights"]
             peak = peaks[np.argmax(heights)]
 
             def get_specific_sigmoid(
-                wholeData: XY, fitStart: int, fitEnd: int
+                whole_data: XY,
+                fit_start: int,
+                fit_end: int,
             ) -> XY:
-                fitData = wholeData[:, fitStart:fitEnd]
-                A = np.max(fitData.y) - np.min(fitData.y)
-                b = np.min(fitData.y)
+                fit_data = whole_data[:, fit_start:fit_end]
+                a = np.max(fit_data.y) - np.min(fit_data.y)
+                b = np.min(fit_data.y)
 
-                dy = np.diff(fitData.y)
-                dx = np.diff(fitData.x)
+                dy = np.diff(fit_data.y)
+                dx = np.diff(fit_data.x)
                 dx[dx == 0] = 1e-6
-                absDeriv = np.abs(dy / dx)
-                absGradMax = np.max(absDeriv)
-                k = np.sign(fitData.y[-1] - fitData.y[0]) * absGradMax * 0.5
-                x0 = fitData.x[np.argmax(absDeriv)]
+                abs_deriv = np.abs(dy / dx)
+                abs_grad_max = np.max(abs_deriv)
+                k = (
+                    np.sign(fit_data.y[-1] - fit_data.y[0])
+                    * abs_grad_max
+                    * 0.5
+                )
+                x0 = fit_data.x[np.argmax(abs_deriv)]
 
-                p0 = [A, k, x0, b]
+                p0 = [a, k, x0, b]
 
-                def sigmoid(x, A, k, x0, b):
+                def sigmoid(
+                    x: float | np.ndarray,
+                    a: float,
+                    k: float,
+                    x0: float,
+                    b: float,
+                ) -> float:
                     exp_term = np.exp(-k * (x - x0))
-                    return A / (1 + exp_term) + b
+                    return a / (1 + exp_term) + b
 
-                popt, _ = curve_fit(sigmoid, fitData.x, fitData.y, p0=p0)
+                popt, _ = curve_fit(sigmoid, fit_data.x, fit_data.y, p0=p0)
 
-                def specific_sigmoid(x):
+                def specific_sigmoid(x: float | np.ndarray) -> float:
                     return sigmoid(x, *popt)
 
                 return specific_sigmoid
 
-            sigmoidL_func = get_specific_sigmoid(smoothed, 0, peak)
-            sigmoidR_func = get_specific_sigmoid(
-                smoothed, peak, len(smoothed.x)
+            sigmoid_l_func = get_specific_sigmoid(smoothed, 0, peak)
+            sigmoid_r_func = get_specific_sigmoid(
+                smoothed,
+                peak,
+                len(smoothed.x),
             )
 
-            sigmoidL = XY(smoothed.x, sigmoidL_func(smoothed.x))
-            sigmoidR = XY(smoothed.x, sigmoidR_func(smoothed.x))
+            sigmoid_l = XY(smoothed.x, sigmoid_l_func(smoothed.x))
+            sigmoid_r = XY(smoothed.x, sigmoid_r_func(smoothed.x))
 
-            def blending_weight(x, transition_x, transition_width):
+            def blending_weight(
+                x: np.ndarray,
+                transition_x: np.ndarray,
+                transition_width: np.ndarray,
+            ) -> np.ndarray:
                 return 1 / (1 + np.exp(-(x - transition_x) / transition_width))
 
-            W = blending_weight(
+            w = blending_weight(
                 smoothed.x,
                 peak,
                 1 / 20 * peak + 1 / 20 * (len(smoothed.x) - peak),
             )
-            fitted = XY(smoothed.x, (1 - W) * sigmoidL.y + W * sigmoidR.y)
+            return XY(smoothed.x, (1 - w) * sigmoid_l.y + w * sigmoid_r.y)
 
-            return fitted
-
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
+        """Initialise the ACRSliceThickness object."""
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -228,50 +325,24 @@ class ACRSliceThickness(HazenTask):
         super().__init__(**kwargs)
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        self.SAMPLING_LINE_WIDTH = (
-            4 / self.ACR_obj.dx
-        )  # How many pixel lines to use in the sampling during ramp line profiling.
-        self.RAMP_HEIGHT = (
-            4.5 / self.ACR_obj.dx
-        )  # I measured the ramp height to be about 5mm on PACS, but testing shows it might be slightly less??
-        self.RAMP_Y_OFFSET = (
-            1 / self.ACR_obj.dx
-        )  # 1mm adjustment off center to grab the bottom ramp. There's technically a 2mm gap between slots.
-        self.RAMP_X_OFFSET = (
-            10 / self.ACR_obj.dx
-        )  # This is extra padding added to the resolved width of ramp to allow the FWHM have more samples than necessary in the event we underestimated the true length of the ramp.
-        self.INSERT_ROI_HEIGHT = (
-            10 / self.ACR_obj.dx
-        )  # Allow just enough space for slots but exclude insert boundaries
-        self.INSERT_ROI_WIDTH = (
-            150 / self.ACR_obj.dx
-        )  # Allow enough space to capture the slots which might be R-L offsetted.
-        self.CROPPED_ROI_WIDTH = (
-            150 / self.ACR_obj.dx
-        )  # Allow enough space to capture the slots which might be R-L offsetted.
-        self.CROPPED_ROI_HEIGHT = (
-            20 / self.ACR_obj.dx
-        )  # Capture slots plus some surrounding areas to help visualization in report.
-        self.WINDOW_ROI_WIDTH = (
-            10 / self.ACR_obj.dx
-        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
-        self.WINDOW_ROI_HEIGHT = (
-            5 / self.ACR_obj.dx
-        )  # Rectangle that captures enough of a population at the center to determine proper mean signal of slots.
-        self.RAMP_PROFILE_SMOOTHING = (
-            5 / self.ACR_obj.dx
-        )  # Smoothing to apply on sampled line profile to remove local minimas within the slot.
 
     def run(self) -> Result:
-        """Main function for performing slice width measurement
-        using slice 1 from the ACR phantom image set.
+        """Perform slice width measurement.
+
+        Using slice 1 from the ACR phantom image set.
 
         Returns:
-            dict: results are returned in a standardised dictionary structure specifying the task name, input DICOM Series Description + SeriesNumber + InstanceNumber, task measurement key-value pairs, optionally path to the generated images for visualisation.
+            dict: results are returned in a standardised dictionary
+                structure specifying the task name, input DICOM Series
+                Description + SeriesNumber + InstanceNumber, task
+                measurement key-value pairs, optionally path to the
+                generated images for visualisation.
+
         """
         # Identify relevant slice
         slice_thickness_dcm = self.ACR_obj.slice_stack[0]
-        # TODO image may be 90 degrees cw or acw, could use code to identify which or could be added as extra arg
+        # TODO: image may be 90 degrees cw or acw, could use code to
+        # identify which or could be added as extra arg
 
         ori = get_image_orientation(slice_thickness_dcm)
         if ori == "Sagittal":
@@ -329,33 +400,37 @@ class ACRSliceThickness(HazenTask):
 
         return results
 
-    def get_slice_thickness(self, dcm):
-        """Measure slice thickness. \n
-        Identify the ramps, measure the line profile, measure the FWHM, and use this to calculate the slice thickness.
+    def get_slice_thickness(self, dcm: pydicom.Dataset) -> dict:
+        """Measure slice thickness.
+
+        Identify the ramps, measure the line profile, measure the
+        FWHM, and use this to calculate the slice thickness.
 
         Returns:
             dict: Dictionary containing:
                 - ``"thickness"`` (float): Calculated slice thickness in mm.
-                - ``"ramps"`` (list[float]): FWHM values (in pixels) for each ramp line used in the calculation.
+                - ``"ramps"`` (list[float]): FWHM values (in pixels)
+                  for each ramp line used in the calculation.
+
         """
         img = dcm.pixel_array
         lines = self.place_lines(img)
         for line in lines:
-            line.get_FWHM()
+            line.get_fwhm()
         slice_thickness = (
             0.2
-            * (lines[0].FWHM * lines[1].FWHM)
-            / (lines[0].FWHM + lines[1].FWHM)
+            * (lines[0].fwhm * lines[1].fwhm)
+            / (lines[0].fwhm + lines[1].fwhm)
         )
 
         if self.report:
-            import matplotlib.pyplot as plt
+            import matplotlib.pyplot as plt     # noqa: PLC0415 I001
 
             fig, axes = plt.subplots(1, 3, figsize=(16, 8))
             axes[0].imshow(img)
             for i, line in enumerate(lines):
                 axes[0].plot(
-                    [line.start.x, line.end.x], [line.start.y, line.end.y]
+                    [line.start.x, line.end.x], [line.start.y, line.end.y],
                 )
                 axes[i + 1].plot(
                     line.signal.x,
@@ -385,10 +460,8 @@ class ACRSliceThickness(HazenTask):
             plt.tight_layout()
 
             img_path = os.path.realpath(
-                os.path.join(
-                    self.report_path,
-                    f"{self.img_desc(dcm)}_slice_thickness.png",
-                )
+                Path(self.report_path) /
+                f"{self.img_desc(dcm)}_slice_thickness.png",
             )
 
             fig.savefig(img_path, dpi=600)
@@ -396,29 +469,31 @@ class ACRSliceThickness(HazenTask):
 
         return {
             "thickness": slice_thickness,
-            "ramps": [line.FWHM for line in lines],
+            "ramps": [line.fwhm for line in lines],
         }
 
     def place_lines(self, img: np.ndarray) -> list["Line"]:
         """Places line on image within ramps insert.
+
         Works for a rotated phantom.
 
         Args:
             img (np.ndarray): Pixel array from DICOM image.
 
         Returns:
-            finalLines (list): A list of the two lines as Line objects.
+            final_lines (list): A list of the two lines as Line objects.
+
         """
         # Normalize to uint8, enhance contast and binarize using otsu thresh
 
         img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(
-            np.uint8
+            np.uint8,
         )
-        contrastEnhanced = cv2.createCLAHE(
-            clipLimit=2.0, tileGridSize=(3, 3)
+        contrast_enhanced = cv2.createCLAHE(
+            clipLimit=2.0, tileGridSize=(3, 3),
         ).apply(img_uint8)
         _, img_binary = cv2.threshold(
-            contrastEnhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+            contrast_enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU,
         )
 
         # Find contour by x-span sort
@@ -428,47 +503,47 @@ class ACRSliceThickness(HazenTask):
             method=cv2.CHAIN_APPROX_NONE,
         )
 
-        def get_aspect_ratio(contour):
+        def get_aspect_ratio(contour: np.ndarray) -> float:
             _, (width, height), _ = cv2.minAreaRect(contour)
             return min(width, height) / max(width, height)
 
         # filter out tiny contours from noise
-        threshArea = 15 * 15
+        thresh_area = 15 * 15
         contours = [
-            cont for cont in contours if cv2.contourArea(cont) >= threshArea
+            cont for cont in contours if cv2.contourArea(cont) >= thresh_area
         ]
         # select most elongated insert contour (heuristic for central insert)
         contours_sorted = sorted(
             contours,
             key=lambda c: get_aspect_ratio(c),
         )
-        insertContour = contours_sorted[0]
+        insert_contour = contours_sorted[0]
 
         # Create list of Point objects for the four corners of the contour
-        insertCorners = cv2.boxPoints(cv2.minAreaRect(insertContour))
-        corners = [Point(*p) for p in insertCorners]
+        insert_corners = cv2.boxPoints(cv2.minAreaRect(insert_contour))
+        corners = [Point(*p) for p in insert_corners]
 
         # Define short sides of contours by list of line objects
         corners = sorted(
-            corners, key=lambda point: corners[0].get_distance_to(point)
+            corners, key=lambda point: corners[0].get_distance_to(point),
         )
-        shortSides = [Line(*corners[:2]), Line(*corners[2:])]
+        short_sides = [Line(*corners[:2]), Line(*corners[2:])]
 
         # Get sublines of short sides and force start point to be higher in y
-        sublines = [line.get_subline(perc=30) for line in shortSides]
+        sublines = [line.get_subline(perc=30) for line in short_sides]
         for line in sublines:
             if line.start.y < line.end.y:
                 line.point_swap()
 
         # Define connecting lines
-        connectingLines = [
+        connecting_lines = [
             self.SignalLine(sublines[0].start, sublines[1].start),
             self.SignalLine(sublines[0].end, sublines[1].end),
         ]
 
         # Final lines are sublines of connecting lines
-        finalLines = [line.get_subline(perc=95) for line in connectingLines]
-        for line in finalLines:
+        final_lines = [line.get_subline(perc=95) for line in connecting_lines]
+        for line in final_lines:
             line.get_signal(img)
 
-        return finalLines
+        return final_lines
