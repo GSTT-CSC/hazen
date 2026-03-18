@@ -15,8 +15,12 @@ Hazen supports analysis of ACR Large MRI Phantom images via the following tasks:
 *    *acr_slice_position*
 *    *acr_slice_thickness*
 *    *acr_geometric_accuracy*
+*    *acr_sagittal_geometric_accuracy*
+*    *acr_low_contrast_object_detectability*
 
 For each of these ACR tasks, the user should provide a folder path that contains images of all eleven slices of the ACR phantom in one orientation. Each orientation must be analysed separately.
+
+
 
 Specific requirements: SNR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^

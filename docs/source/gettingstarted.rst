@@ -348,22 +348,6 @@ Batch configuration files are written in YAML with the following structure:
   - **folders**: List of paths to DICOM directories
   - **overrides** (optional): Task-specific parameters that override defaults
 
-Task-Specific Overrides
-"""""""""""""""""""""""
-Common overrides by task type:
-
-*ACR SNR*:
-- ``measured_slice_width``: Float value for slice thickness
-- ``subtract``: Path to second dataset for subtraction method
-
-*Relaxometry*:
-- ``calc``: ``"T1"`` or ``"T2"``
-- ``plate_number``: ``4`` or ``5``
-
-*SNR (MagNET)*:
-- ``coil``: ``"head"`` or ``"body"``
-- ``measured_slice_width``: Float value
-
 Validation with Dry-Run
 """""""""""""""""""""""""
 Before executing a batch, validate the configuration without running analysis:
