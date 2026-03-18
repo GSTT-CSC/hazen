@@ -20,11 +20,10 @@ Hazen supports analysis of ACR Large MRI Phantom images via the following tasks:
 
 For each of these ACR tasks, the user should provide a folder path that contains images of all eleven slices of the ACR phantom in one orientation. Each orientation must be analysed separately.
 
-
-
 Specific requirements: SNR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The acr_snr task has two task options.
+
 
 *    *measured_slice_width*: slice width as measured by the acr_slice_thickness task can be provided to give a more accurate normalised SNR. The value should be provided without units.
 *    *subtract*: SNR can be calculated by the subtraction method using the subtract task option. A second data set should be provided that is an identical repeated acquisition of the first data set.
