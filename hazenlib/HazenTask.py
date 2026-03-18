@@ -19,7 +19,7 @@ from pydicom import dcmread
 # Local imports
 from hazenlib.logger import logger
 from hazenlib.types import Result
-from hazenlib.utils import scrub, REGEX_SCRUBNAME
+from hazenlib.utils import REGEX_SCRUBNAME, scrub
 
 
 class HazenTask:
@@ -42,8 +42,8 @@ class HazenTask:
             report_dir : Path to output report images. Defaults to None.
 
         """
-        data_paths = sorted(input_data)
-        self.dcm_list = [dcmread(dicom) for dicom in data_paths]
+        self._data_paths = [Path(p) for p in sorted(input_data)]
+        self.dcm_list = [dcmread(dicom) for dicom in self._data_paths]
 
         # Log acquisition information for each DICOM file
         for dcm in self.dcm_list:
@@ -71,14 +71,18 @@ class HazenTask:
         self.report_path.mkdir(parents=True, exist_ok=True)
         self.report_files: Sequence[str] = []
 
-    def init_result_dict(self, desc: str = "", files: tuple = ()) -> Result:
+    def init_result_dict(self, desc: str = "") -> Result:
         """Initialise measurement results holder and input description.
 
         Returns
             d : holds measurement results and task input description.
 
         """
-        return Result(task=type(self).__name__, desc=desc, files=files)
+        return Result(
+            task=type(self).__name__,
+            desc=desc,
+            files=[p.as_posix() for p in self._data_paths],
+        )
 
     def img_desc(
         self,
