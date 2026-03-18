@@ -361,12 +361,12 @@ ci-release: check-notypes test-comprehensive
 .PHONY: docs
 docs: ## Build documentation
 	@echo "Building documentation..."
-	$(VENV_CMD) sphinx-build -b html $(DOCS_DIR) $(DOCS_DIR)/_build/html
+	$(VENV_CMD) sphinx-build -b html $(DOCS_DIR)/source/ $(DOCS_DIR)/build
 
 .PHONY: docs-serve
 docs-serve: docs ## Build and serve documentation
 	@echo "Serving documentation on http://localhost:8000..."
-	$(VENV_CMD) python -m http.server -d $(DOCS_DIR)/_build/html
+	$(VENV_CMD) python -m http.server -d $(DOCS_DIR)/build/html
 
 ##################
 # Build & Deploy #
