@@ -78,7 +78,7 @@ class ACRSpatialResolution(HazenTask):
 
         # Initialise results dictionary
         results = self.init_result_dict()
-        results["file"] = self.img_desc(mtf_dcm)
+        results.files = [self.img_desc(mtf_dcm)]
 
         try:
             raw_res, fitted_res = self.get_mtf50(mtf_dcm)

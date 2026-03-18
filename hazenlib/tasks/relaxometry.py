@@ -161,9 +161,16 @@ from scipy.special import i0e, ive
 
 class Relaxometry(HazenTask):
     def __init__(self, **kwargs):
+        self.calc = kwargs.pop("calc", "T1")
+        self.plate_number = kwargs.pop("plate_number", None)
         super().__init__(**kwargs)
 
-    def run(self, calc: str = "T1", plate_number=None, verbose=False):
+    def run(
+        self,
+        calc: str | None = None,
+        plate_number: int | None = None,
+        verbose: bool = False,
+    ):
         """
         Calculate T1 or T2 values for relaxometry phantom.
 
@@ -206,6 +213,10 @@ class Relaxometry(HazenTask):
                     calculated relaxometry times and manufacturer provided data.
             }
         """
+        calc = self.calc if calc is None else calc
+        plate_number = (
+            self.plate_number if plate_number is None else plate_number
+        )
 
         # check plate number specified: should be either 4 or 5
         try:
@@ -359,18 +370,70 @@ class Relaxometry(HazenTask):
 
             metadata = Metadata(
                 files=[im.filename for im in image_stack.images],
-                plate=plate_number,
-                relaxation_type=calc.upper(),
                 institution_name=index_im.InstitutionName,
                 manufacturer=index_im.Manufacturer,
                 model=index_im.ManufacturerModelName,
                 date=index_im.StudyDate,
-                manufacturers_times=relax_published.tolist(),
-                calc_times=image_stack.relax_times,
-                frac_time_difference=frac_time_diff.tolist(),
             )
-            # , output_graphics=output_files_path
             results.metadata = metadata
+
+            for idx, (
+                measured_time,
+                manufacturers_time,
+                frac_time_difference,
+            ) in enumerate(
+                zip(
+                    image_stack.relax_times,
+                    relax_published.tolist(),
+                    frac_time_diff.tolist(),
+                    strict=True,
+                ),
+            ):
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=measured_time,
+                        type="measured",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Measured relaxation time.",
+                        unit="ms",
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=manufacturers_time,
+                        type="theoretical",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Manufacturer's relaxation time.",
+                        unit="ms",
+                        visibility="intermediate",
+                    ),
+                )
+                results.add_measurement(
+                    Measurement(
+                        name="Relaxometry",
+                        value=frac_time_difference,
+                        type="measured",
+                        subtype=(
+                            f"Plate {plate_number}"
+                            f" {calc.upper()}"
+                            f" Measurement {str(idx).zfill(2)}"
+                        ),
+                        description="Fractional Time Difference.",
+                        unit="",
+                        visibility="intermediate",
+                    ),
+                )
 
             detailed_output["measurement details"] = {
                 "Echo Time": [im.EchoTime for im in image_stack.images],

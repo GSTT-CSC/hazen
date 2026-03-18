@@ -1,27 +1,37 @@
 """Tests for the orchestration module."""
 
-# ruff: noqa: PT009 PT027
+# ruff: noqa: PT009 PT027 SLF001 S108
 
 # Python imports
+import shutil
+import tempfile
 import unittest
 from collections.abc import Callable
-from unittest.mock import Mock, patch
+from pathlib import Path
+from unittest.mock import Mock, call, mock_open, patch
 
+# Module imports
+import yaml
+
+# Local imports
 from hazenlib.exceptions import (
     UnknownAcquisitionTypeError,
     UnknownTaskNameError,
 )
 from hazenlib.HazenTask import HazenTask
 from hazenlib.orchestration import (
+    PROTOCOL_REGISTRY,
+    TASK_REGISTRY,
     AcquisitionType,
     ACRLargePhantomProtocol,
+    BatchConfig,
+    JobTaskConfig,
     Protocol,
     ProtocolResult,
     ProtocolStep,
     init_task,
 )
 from hazenlib.types import Result
-
 from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 
@@ -221,6 +231,269 @@ class TestProtocolResult(unittest.TestCase):
             self.assertEqual(r.task, f"Task{i}")
 
 
+class TestProtocolResultToDocx(unittest.TestCase):
+    """Unit tests for ProtocolResult.to_docx method."""
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_empty_results_raises_error(
+        self,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document: Mock,  # noqa: ARG002
+    ) -> None:
+        """Verify ValueError raised when results list is empty."""
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        # Access private attribute to simulate uninitialized state
+        protocol_result._results = []  # type: ignore[misc]
+
+        with patch.object(ProtocolResult, "results", None):
+            with self.assertRaises(ValueError) as context:
+                protocol_result.to_docx()
+            self.assertIn("Results cannot be empty", str(context.exception))
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_creates_document_without_template(
+        self,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify Document created and protocol header added when no template."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(
+            task="MyProtocol",
+            desc="test description",
+        )
+
+        result = protocol_result.to_docx()
+
+        self.assertEqual(result, mock_doc)
+        mock_document_class.assert_called_once_with()
+        mock_doc.add_heading.assert_called_once_with(
+            "QA Report: MyProtocol",
+            0,
+        )
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
+    def test_uses_template_when_provided(
+        self,
+        mock_exists: Mock,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify template document is loaded when path provided."""
+        mock_exists.return_value = True
+
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+        template_path = Path("/path/to/template.docx")
+
+        result = protocol_result.to_docx(template_path=template_path)
+
+        self.assertEqual(result, mock_doc)
+        mock_document_class.assert_called_once_with(template_path)
+        # Should not add protocol header when using template
+        protocol_header_calls = [
+            c
+            for c in mock_doc.add_heading.call_args_list
+            if c == call("QA Report: Protocol", 0)
+        ]
+        self.assertEqual(len(protocol_header_calls), 0)
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_skips_protocol_metadata_result(
+        self,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify result matching protocol task name is skipped in output."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        # Result with same task name as protocol (should be skipped)
+        same_name_result = Mock(spec=Result)
+        same_name_result.task = "Protocol"
+
+        # Result with different task name (should be included)
+        subtask_result = Mock(spec=Result)
+        subtask_result.task = "SubTask"
+        subtask_result.filtered.return_value = subtask_result
+        subtask_result.measurements = []
+        subtask_result.report_images = []
+
+        protocol_result.add_result(same_name_result)
+        protocol_result.add_result(subtask_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx()
+
+        # Check headings: protocol header (0) + one task (1), but not metadata
+        heading_calls = mock_doc.add_heading.call_args_list
+        self.assertEqual(len(heading_calls), 2)
+        self.assertEqual(heading_calls[0], call("QA Report: Protocol", 0))
+        self.assertEqual(heading_calls[1], call("SubTask", level=1))
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_applies_level_filter_to_results(
+        self,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify level parameter passed to result"s filtered method."""
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = []
+        mock_result.report_images = []
+
+        protocol_result.add_result(mock_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx(level="final")
+
+        mock_result.filtered.assert_called_once_with("final")
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    def test_creates_table_with_correct_structure(
+        self,
+        mock_inches: Mock,  # noqa: ARG002
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify measurements table has 6 columns and correct headers."""
+        mock_doc = Mock()
+        mock_table = Mock()
+        # Mock header cells (6 columns)
+        mock_hdr_cells = [Mock() for _ in range(6)]
+        mock_table.rows = [Mock(cells=mock_hdr_cells)]
+        # Mock row cells for measurement data
+        mock_row_cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = Mock(cells=mock_row_cells)
+        mock_doc.add_table.return_value = mock_table
+        mock_document_class.return_value = mock_doc
+
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        # Create mock measurement
+        mock_measurement = Mock()
+        mock_measurement.name = "snr"
+        mock_measurement.type = "measured"
+        mock_measurement.subtype = ""
+        mock_measurement.description = "Signal to noise"
+        mock_measurement.value = 42.5
+        mock_measurement.unit = "ratio"
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = [mock_measurement]
+        mock_result.report_images = []
+
+        protocol_result.add_result(mock_result)
+        protocol_result.to_docx()
+
+        # Verify table created with correct dimensions and style
+        mock_doc.add_table.assert_called_once_with(rows=1, cols=6)
+        self.assertEqual(mock_table.style, "Light Grid Accent 1")
+
+        # Verify headers populated
+        expected_headers = [
+            "Name",
+            "Type",
+            "Subtype",
+            "Description",
+            "Value",
+            "Unit",
+        ]
+        for i, header in enumerate(expected_headers):
+            self.assertEqual(mock_hdr_cells[i].text, header)
+
+        # Verify measurement data converted to strings
+        mock_table.add_row.assert_called_once()
+        self.assertEqual(mock_row_cells[0].text, "snr")
+        self.assertEqual(mock_row_cells[1].text, "measured")
+        self.assertEqual(mock_row_cells[4].text, "42.5")
+
+    @patch("hazenlib.orchestration.Document")
+    @patch("hazenlib.orchestration.Inches")
+    @patch("pathlib.Path.exists")
+    def test_adds_report_images_with_five_inch_width(
+        self,
+        mock_exists: Mock,
+        mock_inches: Mock,
+        mock_document_class: Mock,
+    ) -> None:
+        """Verify report images embedded with 5.0 inch width."""
+        mock_exists.return_value = True
+
+        mock_doc = Mock()
+        mock_document_class.return_value = mock_doc
+        mock_inches.return_value = "5_inches_width"
+
+        protocol_result = ProtocolResult(task="Protocol", desc="test")
+
+        mock_result = Mock(spec=Result)
+        mock_result.task = "Task"
+        mock_result.filtered.return_value = mock_result
+        mock_result.measurements = []
+        mock_result.report_images = [
+            "/path/to/image1.png",
+            "/path/to/image2.png",
+        ]
+
+        protocol_result.add_result(mock_result)
+
+        mock_table = Mock()
+        mock_doc.add_table.return_value = mock_table
+        mock_row_mock = Mock()
+        mock_row_mock.cells = [Mock() for _ in range(6)]
+        mock_table.rows = [mock_row_mock]
+        mock_new_row = Mock()
+        mock_new_row.cells = [Mock() for _ in range(6)]
+        mock_table.add_row.return_value = mock_new_row
+
+        protocol_result.to_docx(level="all")
+
+        self.assertEqual(mock_doc.add_picture.call_count, 2)
+        mock_doc.add_picture.assert_any_call(
+            "/path/to/image1.png",
+            width="5_inches_width",
+        )
+        mock_doc.add_picture.assert_any_call(
+            "/path/to/image2.png",
+            width="5_inches_width",
+        )
+        mock_inches.assert_called_with(5.0)
+
+
 class TestACRLargePhantomProtocol(unittest.TestCase):
     """Integration tests for ACRLargePhantomProtocol.
 
@@ -368,6 +641,618 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
 
             for task in expected_tasks:
                 self.assertIn(task, task_names)
+
+
+class TestJobTaskConfig(unittest.TestCase):
+    """Unit tests for JobTaskConfig dataclass."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        self.test_folder = Path("/tmp/test_folder")
+        self.existing_folder = Path("/existing/folder")
+        self.nonexistent_folder = Path("/nonexistent/folder")
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_valid_task_in_task_registry(self, mock_exists: Mock) -> None:
+        """Verify task in TASK_REGISTRY sets is_protocol=False."""
+        mock_exists.return_value = True
+
+        config = JobTaskConfig(
+            task="test_task",
+            folders=[self.existing_folder],
+        )
+
+        self.assertEqual(config.task, "test_task")
+        self.assertFalse(config.is_protocol)
+        self.assertEqual(config.overrides, {})
+
+    @patch.dict(PROTOCOL_REGISTRY, {"test_protocol": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_valid_task_in_protocol_registry(self, mock_exists: Mock) -> None:
+        """Verify task in PROTOCOL_REGISTRY sets is_protocol=True."""
+        mock_exists.return_value = True
+
+        config = JobTaskConfig(
+            task="test_protocol",
+            folders=[
+                self.existing_folder,
+                self.existing_folder,
+                self.existing_folder,
+            ],
+        )
+
+        self.assertTrue(config.is_protocol)
+
+    def test_unknown_task_raises_error(self) -> None:
+        """Verify UnknownTaskNameError for unregistered tasks."""
+        with self.assertRaises(UnknownTaskNameError) as context:
+            JobTaskConfig(
+                task="unknown_task",
+                folders=[self.existing_folder],
+            )
+
+        self.assertIn("Unknown task", str(context.exception))
+        self.assertIn("unknown_task", str(context.exception))
+
+    @patch.dict(
+        PROTOCOL_REGISTRY,
+        {"acr_all": Mock()},
+        clear=False,
+    )
+    @patch("pathlib.Path.exists")
+    def test_acr_all_protocol_validates_three_folders(
+        self,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify acr_all protocol accepts exactly 3 folders."""
+        mock_exists.return_value = True
+
+        config = JobTaskConfig(
+            task="acr_all",
+            folders=[
+                self.existing_folder,
+                self.existing_folder,
+                self.existing_folder,
+            ],
+        )
+
+        self.assertTrue(config.is_protocol)
+
+    @patch.dict(
+        PROTOCOL_REGISTRY,
+        {"acr_all": Mock()},
+        clear=False,
+    )
+    def test_acr_all_with_wrong_folder_count_raises_error(self) -> None:
+        """Verify ValueError when acr_all doesn't have exactly 3 folders."""
+        with self.assertRaises(ValueError) as context:
+            JobTaskConfig(
+                task="acr_all",
+                folders=[self.existing_folder, self.existing_folder],
+            )
+
+        self.assertIn("3 directories", str(context.exception))
+        self.assertIn("got 2", str(context.exception))
+
+    def test_nonexistent_folder_raises_file_not_found(self) -> None:
+        """Verify FileNotFoundError when folder doesn't exist."""
+        with (
+            patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False),
+            self.assertRaises(FileNotFoundError) as context,
+        ):
+            JobTaskConfig(
+                task="test_task",
+                folders=[self.nonexistent_folder],
+            )
+
+        self.assertIn("Folder not found", str(context.exception))
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_overrides_stored(self, mock_exists: Mock) -> None:
+        """Verify overrides dict is stored correctly."""
+        mock_exists.return_value = True
+        overrides = {"param1": "value1", "param2": 42}
+
+        config = JobTaskConfig(
+            task="test_task",
+            folders=[self.existing_folder],
+            overrides=overrides,
+        )
+
+        self.assertEqual(config.overrides, overrides)
+
+
+class TestBatchConfig(unittest.TestCase):
+    """Unit tests for BatchConfig dataclass."""
+
+    def setUp(self) -> None:
+        """Set up test configuration data."""
+        self.config_data = {
+            "version": "1.0",
+            "description": "Test batch config",
+            "output": "/tmp/output",
+            "jobs": [
+                {
+                    "task": "snr",
+                    "folders": ["/tmp/data"],
+                    "overrides": {"param": "value"},
+                },
+            ],
+        }
+        self.config_path = Path("/tmp/test_config.yaml")
+
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_loads_yaml(
+        self,
+        mock_yaml: Mock,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify YAML file is loaded and parsed."""
+        mock_exists.return_value = True
+        mock_yaml.return_value = self.config_data
+
+        with patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False):
+            config = BatchConfig.from_config(self.config_path)
+
+        self.assertEqual(config.version, "1.0")
+        self.assertEqual(config.description, "Test batch config")
+        self.assertEqual(len(config.jobs), 1)
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_resolves_relative_paths(
+        self,
+        mock_yaml: Mock,
+    ) -> None:
+        """Verify relative paths are resolved relative to config file."""
+        mock_yaml.return_value = {
+            **self.config_data,
+            "output": "relative_output",
+            "jobs": [{"task": "snr", "folders": ["relative_folder"]}],
+        }
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+        ):
+            mock_exists.return_value = True
+            config = BatchConfig.from_config("/home/user/config.yaml")
+
+        # Check that relative paths were resolved
+        start_str = Path("/home/user").absolute().as_posix()
+        self.assertTrue(str(config.output).startswith(start_str))
+        job_folders = config.jobs[0].folders
+        self.assertTrue(job_folders[0].as_posix().startswith(start_str))
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_preserves_absolute_paths(
+        self,
+        mock_yaml: Mock,
+    ) -> None:
+        """Verify absolute paths are not modified."""
+        mock_yaml.return_value = {
+            **self.config_data,
+            "output": "/absolute/output/path",
+        }
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+        ):
+            mock_exists.return_value = True
+            config = BatchConfig.from_config("config.yaml")
+
+        self.assertEqual(
+            str(config.output),
+            Path("/absolute/output/path").absolute().as_posix(),
+        )
+
+    def test_validate_hazen_version_valid_constraint(self) -> None:
+        """Verify no error when version constraint satisfied."""
+        # Test with broad constraint that should always pass
+        with patch("hazenlib.orchestration.__version__", "2.0.0"):
+            # Should not raise
+            BatchConfig._validate_hazen_version(">=1.0.0")
+
+    def test_validate_hazen_version_mismatch_raises_runtime_error(
+        self,
+    ) -> None:
+        """Verify RuntimeError when version constraint not satisfied."""
+        with (
+            patch("hazenlib.orchestration.__version__", "1.0.0"),
+            self.assertRaises(RuntimeError) as context,
+        ):
+            BatchConfig._validate_hazen_version(">=2.0.0")
+
+        self.assertIn("Version constraint mismatch", str(context.exception))
+        self.assertIn("pip install", str(context.exception))
+
+    def test_validate_hazen_version_invalid_specifier(self) -> None:
+        """Verify ValueError for invalid version specifier."""
+        with self.assertRaises(ValueError) as context:
+            BatchConfig._validate_hazen_version("not_a_valid_specifier")
+
+        self.assertIn(
+            "Invalid hazen_version_constraint",
+            str(context.exception),
+        )
+
+    def test_validate_schema_version_current(self) -> None:
+        """Verify no migration needed for current schema."""
+        data = {"key": "value"}
+        result = BatchConfig._validate_schema_version("1.0", data)
+        self.assertEqual(result, data)
+
+    def test_validate_schema_version_newer_raises_error(self) -> None:
+        """Verify ValueError when config schema is newer than supported."""
+        with self.assertRaises(ValueError) as context:
+            BatchConfig._validate_schema_version("99.0", {})
+
+        self.assertIn("newer than supported", str(context.exception))
+
+    def test_migrate_config_not_implemented(self) -> None:
+        """Verify NotImplementedError for schema migration."""
+        with self.assertRaises(NotImplementedError):
+            BatchConfig._migrate_config({}, "0.9")
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_validates_hazen_version(
+        self,
+        mock_yaml: Mock,
+    ) -> None:
+        """Verify hazen version constraint is validated during load."""
+        mock_yaml.return_value = {
+            **self.config_data,
+            "hazen_version_constraint": ">=2.0.0",
+        }
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.object(
+                BatchConfig,
+                "_validate_hazen_version",
+            ) as mock_validate,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+        ):
+            mock_exists.return_value = True
+            BatchConfig.from_config(self.config_path)
+
+            mock_validate.assert_called_once_with(">=2.0.0")
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_optional_report_paths(self, mock_yaml: Mock) -> None:
+        """Verify optional report_docx and report_template paths handled."""
+        mock_yaml.return_value = {
+            **self.config_data,
+            "report_docx": "report.docx",
+            "report_template": "template.docx",
+        }
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+        ):
+            mock_exists.return_value = True
+            config = BatchConfig.from_config("/tmp/config.yaml")
+
+        self.assertEqual(
+            config.report_docx,
+            Path("/tmp/report.docx").absolute().as_posix(),
+        )
+        self.assertEqual(
+            config.report_template,
+            Path("/tmp/template.docx").absolute().as_posix(),
+        )
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_from_config_default_values(self, mock_yaml: Mock) -> None:
+        """Verify default values applied when not in config."""
+        minimal_data = {
+            "output": "/tmp/output",
+            "jobs": [],
+        }
+        mock_yaml.return_value = minimal_data
+
+        with patch("pathlib.Path.exists", return_value=True):
+            config = BatchConfig.from_config(self.config_path)
+
+        self.assertEqual(config.version, "1.0")  # default
+        self.assertEqual(config.description, "")  # default
+        self.assertEqual(config.levels, ["final"])  # default
+        self.assertIsNone(config.report_docx)  # default
+        self.assertEqual(config.defaults, {})  # default
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_run_dry_run_mode(self, mock_yaml: Mock) -> None:
+        """Verify dry run prints job info without executing."""
+        mock_yaml.return_value = self.config_data
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+            patch("builtins.print") as mock_print,
+            patch("hazenlib.orchestration.get_dicom_files") as mock_get_files,
+        ):
+            mock_exists.return_value = True
+            mock_get_files.return_value = ["file1.dcm", "file2.dcm"]
+            config = BatchConfig.from_config(self.config_path)
+            result = config.run(dry_run=True)
+
+        # Verify result returned without executing
+        self.assertEqual(result.task, "Batch Configuration Job")
+
+        # Verify dry run output printed
+        print_calls = [str(call) for call in mock_print.call_args_list]
+        self.assertTrue(
+            any("Dry run complete" in c for c in print_calls),
+        )
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_run_executes_protocols(self, mock_yaml: Mock) -> None:
+        """Verify protocols are executed during run."""
+        mock_yaml.return_value = {
+            **self.config_data,
+            "jobs": [{"task": "acr_all", "folders": ["/t1", "/t2", "/sl"]}],
+        }
+
+        mock_protocol_class = Mock()
+        mock_protocol_instance = Mock()
+        mock_protocol_instance.run.return_value = Mock(
+            task="acr_all",
+            results=[],
+        )
+        mock_protocol_class.return_value = mock_protocol_instance
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(
+                PROTOCOL_REGISTRY,
+                {"acr_all": mock_protocol_class},
+                clear=False,
+            ),
+            patch("hazenlib.orchestration.get_dicom_files") as mock_get_files,
+        ):
+            mock_exists.return_value = True
+            mock_get_files.return_value = ["file.dcm"]
+            config = BatchConfig.from_config(self.config_path)
+            config.run(dry_run=False)
+
+        mock_protocol_class.assert_called_once()
+        mock_protocol_instance.run.assert_called_once()
+
+    @patch("pathlib.Path.open", mock_open(read_data="{}"))
+    @patch("yaml.safe_load")
+    def test_run_executes_tasks(self, mock_yaml: Mock) -> None:
+        """Verify individual tasks are executed during run."""
+        mock_yaml.return_value = self.config_data
+
+        with (
+            patch("pathlib.Path.exists") as mock_exists,
+            patch.dict(TASK_REGISTRY, {"snr": Mock()}, clear=False),
+            patch("hazenlib.orchestration.get_dicom_files") as mock_get_files,
+            patch(
+                "hazenlib.orchestration.wait_on_parallel_results",
+            ) as mock_wait,
+        ):
+            mock_exists.return_value = True
+            mock_get_files.return_value = ["file1.dcm", "file2.dcm"]
+            mock_wait.return_value = []
+
+            config = BatchConfig.from_config(self.config_path)
+            config.run(dry_run=False)
+
+            # Verify task jobs were prepared for parallel execution
+            mock_wait.assert_called_once()
+            call_args = mock_wait.call_args
+            self.assertEqual(call_args[1]["debug"], False)
+
+
+class TestBatchConfigToYaml(unittest.TestCase):
+    """Unit tests for BatchConfig.to_yaml method."""
+
+    def setUp(self) -> None:
+        """Set up test fixtures."""
+        self.temp_dir = Path(tempfile.mkdtemp())
+
+    def tearDown(self) -> None:
+        """Clean up temp directory."""
+        shutil.rmtree(self.temp_dir, ignore_errors=True)
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_writes_basic_config(self, mock_exists: Mock) -> None:
+        """Verify basic YAML file is written correctly."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=2.0.0",
+            description="Test description",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        self.assertTrue(output_path.exists())
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        self.assertEqual(data["version"], "1.0")
+        self.assertEqual(data["hazen_version_constraint"], ">=2.0.0")
+        self.assertEqual(data["description"], "Test description")
+        self.assertEqual(
+            data["output"],
+            Path("/tmp/output").absolute().as_posix(),
+        )
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_handles_none_values(self, mock_exists: Mock) -> None:
+        """Verify None values are written to output."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=None,
+            description="Test",
+            output="/tmp/output",
+            jobs=[],
+            report_docx=None,
+            report_template=None,
+            defaults=None,
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # None values should be present in output
+        self.assertIsNone(data["hazen_version_constraint"])
+        self.assertIsNone(data["report_docx"])
+        self.assertIsNone(data["report_template"])
+        self.assertIsNone(data["defaults"])
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_resolves_paths_to_absolute_posix(
+        self,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify paths are converted to absolute POSIX format."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint="1.0.0",
+            description="Test",
+            output=Path("relative/output"),
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/absolute/path"), Path("relative/folder")],
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # All paths should be absolute POSIX format
+        self.assertTrue(Path(data["output"]).is_absolute())
+        for folder in data["jobs"][0]["folders"]:
+            self.assertTrue(Path(folder).is_absolute())
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_includes_job_overrides(self, mock_exists: Mock) -> None:
+        """Verify job overrides are included in output."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                    overrides={"param": "value", "count": 42},
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        self.assertEqual(data["jobs"][0]["overrides"]["param"], "value")
+        self.assertEqual(data["jobs"][0]["overrides"]["count"], 42)
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_creates_parent_directories(
+        self,
+        mock_exists: Mock,
+    ) -> None:
+        """Verify parent directories are created for output path."""
+        mock_exists.return_value = True
+        nested_path = self.temp_dir / "nested" / "dir" / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint=">=1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[],
+        )
+
+        config.to_yaml(nested_path)
+
+        self.assertTrue(nested_path.parent.exists())
+        self.assertTrue(nested_path.exists())
+
+    @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
+    @patch("pathlib.Path.exists")
+    def test_to_yaml_resolves_path_overrides(self, mock_exists: Mock) -> None:
+        """Verify Path values in overrides are resolved to POSIX strings."""
+        mock_exists.return_value = True
+        output_path = self.temp_dir / "output.yaml"
+
+        config = BatchConfig(
+            version="1.0",
+            hazen_version_constraint="1.0.0",
+            description="Test",
+            output="/tmp/output",
+            jobs=[
+                JobTaskConfig(
+                    task="test_task",
+                    folders=[Path("/tmp/data")],
+                    overrides={
+                        "output_path": Path("/custom/output"),
+                        "template": Path("relative/template.docx"),
+                        "count": 42,
+                    },
+                ),
+            ],
+        )
+
+        config.to_yaml(output_path)
+
+        with output_path.open("r") as f:
+            data = yaml.safe_load(f)
+
+        # Path overrides should be converted to absolute POSIX strings
+        overrides = data["jobs"][0]["overrides"]
+        self.assertTrue(Path(overrides["output_path"]).is_absolute())
+        self.assertTrue(Path(overrides["template"]).is_absolute())
+        # Non-path values should remain unchanged
+        self.assertEqual(overrides["count"], 42)
 
 
 if __name__ == "__main__":

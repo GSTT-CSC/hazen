@@ -165,9 +165,8 @@ class ACRObjectDetectability(HazenTask):
             self.ACR_obj.slice_stack[10],
         ]
         # Initialise results dictionary
-        results = self.init_result_dict(
-            files=tuple([self.img_desc(sl) for sl in slices]),
-        )
+        results = self.init_result_dict()
+        results.files = tuple([self.img_desc(sl) for sl in slices])
 
         r = self.get_spokes_and_scores(slices)
 
