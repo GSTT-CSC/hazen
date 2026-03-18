@@ -165,6 +165,61 @@ The ``--report`` option provides additional information for some of the function
 
    hazen snr tests/data/snr/Philips --report
 
+Output Formats
+^^^^^^^^^^^^^^
+
+Hazen supports multiple output formats controlled by the ``--format`` option:
+
+- ``json`` (default): JavaScript Object Notation, ideal for programmatic processing
+- ``csv``: Comma-separated values, suitable for spreadsheet applications  
+- ``tsv``: Tab-separated values, useful for data analysis pipelines
+
+.. code-block:: bash
+
+   # CSV format for import into Excel
+   hazen snr tests/data/snr/Philips --format csv
+   
+   # TSV format for data analysis
+   hazen acr_snr tests/data/acr/Siemens --format tsv
+
+Result Visibility (--level)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Results are categorized by visibility levels to distinguish between final report 
+values and intermediate calculations:
+
+- ``final``: Report-ready metrics suitable for QA records and publication
+- ``intermediate``: Detailed metrics for scientific verification and validation
+- ``all``: All available measurements including internal calculations (default)
+
+.. code-block:: bash
+
+   # Get only final report values
+   hazen snr tests/data/snr/Philips --level final
+   
+   # Include intermediate values for detailed verification
+   hazen acr_uniformity tests/data/acr/Philips --level intermediate
+
+Word Reports (--report-docx, --report-template)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Generate Microsoft Word documents for archival or sharing. This requires the 
+``--report`` flag to include measurement visualisations.
+
+.. code-block:: bash
+
+   # Generate Word report with images
+   hazen snr tests/data/snr/Philips --report --report-docx ./qa_report.docx
+   
+   # Use a custom template for institutional styling
+   hazen acr_all /path/to/T1 /path/to/T2 /path/to/Localiser \
+       --report --report-docx ./monthly_qa.docx \
+       --report-template ./hospital_template.docx
+
+When using batch processing, these options correspond to the ``report_docx`` 
+and ``report_template`` configuration fields (see Batch Processing section).
+
+
 Batch Processing
 ^^^^^^^^^^^^^^^^
 For processing multiple acquisitions or running multiple tasks in a single operation, *hazen* provides a batch mode using YAML configuration files.
