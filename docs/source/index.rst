@@ -31,11 +31,13 @@ We have also built an interactive web-based implementation of *hazen*, which is 
    :caption: Contents:
 
    gettingstarted
-   tasks
-   hazenlib
+   taskdescriptions
+   acquisitionrequirements
+   inputrequirements
+   modules
+   hazenlib.tasks
    getinvolved
    contributors
-
 
 Indices and tables
 ==================

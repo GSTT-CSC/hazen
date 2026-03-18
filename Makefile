@@ -361,7 +361,12 @@ ci-release: check-notypes test-comprehensive
 .PHONY: docs
 docs: ## Build documentation
 	@echo "Building documentation..."
-	$(VENV_CMD) sphinx-build -M html $(DOCS_DIR)/source/ $(DOCS_DIR)/build
+	$(VENV_CMD) sphinx-build \
+	--no-color \
+	--builder html \
+	--fail-on-warning \
+	--quiet \
+	$(DOCS_DIR)/source/ $(DOCS_DIR)/build
 
 .PHONY: docs-serve
 docs-serve: docs ## Build and serve documentation

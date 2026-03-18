@@ -4,6 +4,8 @@ The *hazen* application provides automatic quantitative analysis for MRI data ac
 
 Please refer to **acquisition requirements** for detail related to the acquisition of phantom images, as well as **input requirements** for the required folder structure for hazen input.
 
+  .. note:: The original images seem to be missing from the git history. For now these images have been commented out. Once their whereabouts becomes known then they will be reinstated.
+
 
 Signal-to-noise ratio (SNR)
 ------------------------------
@@ -19,12 +21,13 @@ ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The *acr_snr* task measures SNR in the flood field region, on slice 7 of the ACR phantom. By default, the task uses the smoothing method and Hazen will output both the measured and normalised SNR. The subtraction method can be used by providing a second data set using the *subtract* task option. A more accurate normalised snr can be calculated with the *measured_slice_width* task option.
 
-.. figure:: /_static/snr_ROIs.png
-   :width: 300
-   :height: 300
-   :align: center
+..
+   .. figure:: /_static/snr_ROIs.png
+      :width: 300
+      :height: 300
+      :align: center
 
-   Regions of interest used to measure SNR
+      Regions of interest used to measure SNR
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -69,12 +72,13 @@ The *acr_uniformity* task calculates percentage integral uniformity in slice 7 o
 
 A 200cm\ :sup:`2` ROI is first defined in the centre of the slice before placing 1cm\ :sup:`2` ROIs at every pixel within the large ROI. The mean pixel value of each 1cm\ :sup:`2` ROI is calculated and the minimum and maximum values are used to calculate integral uniformity.
 
-.. figure:: /_static/acr_uni_analysis.png
-   :width: 300
-   :height: 300
-   :align: center
+..
+   .. figure:: /_static/acr_uni_analysis.png
+      :width: 300
+      :height: 300
+      :align: center
 
-   Regions of interest used to measure uniformity with the ACR phantom
+      Regions of interest used to measure uniformity with the ACR phantom
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -82,12 +86,13 @@ The *uniformity* task calculates fractional uniformity for a single-slice image 
 
 To measure fractional uniformity, the modal value in a 10x10 pixel ROI at the centre of the image is first measured. The average of ten 160-pixel profiles at the image centre is then taken in both the horizontal and vertical directions. Fractional uniformity is given by the fraction of pixels in the horizontal and vertical profiles that are within 90-110% of the centre modal value.
 
-.. figure:: /_static/magnet_uniformity.png
-   :width: 660
-   :height: 320
-   :align: center
+..
+   .. figure:: /_static/magnet_uniformity.png
+      :width: 660
+      :height: 320
+      :align: center
 
-   Regions of interest used to measure uniformity with the ACR phantom
+      Regions of interest used to measure uniformity with the ACR phantom
 
 
 Ghosting
@@ -100,12 +105,13 @@ The *acr_ghosting* task measures the ghosting ratio on slice 7 of the ACR phanto
 
 The percent-signal ghosting is calculated by defining a large central 200cm\ :sup:`2` ROI and four elliptical 10cm\ :sup:`2` ROI’s in the background along the cardinal directions. The mean pixel value in each ROI is used to calculate the percent-signal ghosting.
 
-.. figure:: /_static/acr_ghosting_analysis.png
-   :width: 300
-   :height: 300
-   :align: center
+..
+   .. figure:: /_static/acr_ghosting_analysis.png
+      :width: 300
+      :height: 300
+      :align: center
 
-   Regions of interest used to measure ghosting with the ACR phantom
+      Regions of interest used to measure ghosting with the ACR phantom
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -113,12 +119,13 @@ The *ghosting* task measures the percent-signal ghosting using the small bottle 
 
 Ghosting is measured by utilising ROI’s to evaluate the true phantom signal, the signal in regions of ghosting in line with the phantom in the phase-encoding direction and the background noise level. Hazen outputs a ghosting ratio for each echo time.
 
-.. figure:: /_static/magnet_ghosting_analysis.png
-   :width: 300
-   :height: 300
-   :align: center
+..
+   .. figure:: /_static/magnet_ghosting_analysis.png
+      :width: 300
+      :height: 300
+      :align: center
 
-   Regions of interest used to measure ghosting with the small bottle phantom
+      Regions of interest used to measure ghosting with the small bottle phantom
 
 
 Slice Position
@@ -131,12 +138,13 @@ The *acr_slice_position* task measures slice position on slices 1 and 11 of the 
 
 The crossing wedges positioned at the superior and inferior ends of the phantom are visualised on slices 1 and 11 as adjacent dark bars. If there is perfect agreement between the nominal and measured slice position, then the bars will have equal length on the image. If the slice is displaced superiorly with respect to the vertex, the bar on the observer’s right (anatomical left) will be longer. If the slice is displaced inferiorly with respect to the vertex, the bar on the observer’s left will be longer. Hazen outputs the bar length difference, which is twice the slice position displacement, for both slices 1 and 11. A negative sign is assigned to an inferior displacement.
 
-.. figure:: /_static/acr_slice_position.png
-   :width: 684
-   :height: 348
-   :align: center
+..
+   .. figure:: /_static/acr_slice_position.png
+      :width: 684
+      :height: 348
+      :align: center
 
-   Slices 1 and 11 of the ACR phantom are used to measure slice position
+      Slices 1 and 11 of the ACR phantom are used to measure slice position
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -151,12 +159,13 @@ ACR
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The *acr_slice_thickness* task measures slice width on slice 1 of the ACR phantom where there are two crossing ramps inclined at equal and opposite angles to the acquisition plane. The full-width half-maximum of each ramp is determined and used to calculate slice thickness.
 
-.. figure:: /_static/acr_slice_width.png
-   :width: 300
-   :height: 300
-   :align: center
+..
+   .. figure:: /_static/acr_slice_width.png
+      :width: 300
+      :height: 300
+      :align: center
 
-   Slice 1 of the ACR phantom is used to measure slice width
+      Slice 1 of the ACR phantom is used to measure slice width
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -173,12 +182,13 @@ The *acr_geometric_accuracy* task quantifies geometric distortion by measuring t
 
 On slice 1, the diameter is measured in the horizontal and vertical directions and on slice 5 the diameter is measured in the horizontal, vertical and two diagonal directions. Hazen outputs each measured distance as well as the maximum error, minimum error and coefficient of variation for all five measurements.
 
-.. figure:: /_static/acr_geom_measurements.png
-   :width: 684
-   :height: 348
-   :align: center
+..
+   .. figure:: /_static/acr_geom_measurements.png
+      :width: 684
+      :height: 348
+      :align: center
 
-   Diameters on slices 1 and 5 used to measure geometric accuracy
+      Diameters on slices 1 and 5 used to measure geometric accuracy
 
 MagNET
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
