@@ -100,22 +100,6 @@ hazenlib.tasks.hazen\_spatial\_resolution module
    :show-inheritance:
    :undoc-members:
 
-hazenlib.tasks.legacy\_slice\_position module
----------------------------------------------
-
-.. automodule:: hazenlib.tasks.legacy_slice_position
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-hazenlib.tasks.legacy\_slice\_thickness module
-----------------------------------------------
-
-.. automodule:: hazenlib.tasks.legacy_slice_thickness
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 hazenlib.tasks.relaxometry module
 ---------------------------------
 
