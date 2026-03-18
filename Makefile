@@ -388,6 +388,7 @@ clean: ## Clean build artifacts and caches
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov/
 	rm -rf build/ dist/ *.egg-info
+	rm -rf $(DOCS_DIR)/build
 	rm -rf $(DOCS_DIR)/_build
 	rm -rf makefile_output_*
 	@echo "Clean complete"
