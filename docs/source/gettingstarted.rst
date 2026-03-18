@@ -165,6 +165,156 @@ The ``--report`` option provides additional information for some of the function
 
    hazen snr tests/data/snr/Philips --report
 
+Batch Processing
+^^^^^^^^^^^^^^^^
+For processing multiple acquisitions or running multiple tasks in a single operation, *hazen* provides a batch mode using YAML configuration files.
+
+Generating Configuration Files
+""""""""""""""""""""""""""""""""
+The easiest way to get started with batch processing is to auto-generate a configuration file from a directory of DICOM files:
+
+.. code-block:: bash
+
+   # Generate config from directory structure
+   hazen batch --init /path/to/dicom/data
+
+   # Specify custom output location
+   hazen batch --init /path/to/dicom/data --output ./my_batch_config.yml
+
+This scans the directory for DICOM acquisitions and generates a template configuration file with detected tasks and folder paths.
+
+Configuration Schema
+""""""""""""""""""""
+Batch configuration files are written in YAML with the following structure:
+
+.. code-block:: yaml
+
+   # Required: Configuration format version
+   version: "1.0"
+   
+   # Optional: Constrain compatible hazen versions
+   hazen_version_constraint: ">=2.0.0"
+   
+   # Optional: Description of this batch job
+   description: "Monthly QA Analysis"
+   
+   # Required: Output path for results
+   output: "./results/batch_output.json"
+   
+   # Optional: Result visibility levels to include
+   levels: ["final", "all"]
+   
+   # Optional: Generate Word report (requires --report for images)
+   report_docx: "./results/report.docx"
+   
+   # Optional: Custom template for Word reports
+   report_template: "./templates/custom_template.docx"
+   
+   # Default parameters applied to all jobs
+   defaults:
+       report: false
+       verbose: false
+   
+   # List of analysis jobs to execute
+   jobs:
+     - task: acr_all
+       folders:
+         - "./data/acr/T1"
+         - "./data/acr/T2"
+         - "./data/acr/SagittalLocaliser"
+       overrides:
+         report: true
+         verbose: true
+     
+     - task: snr
+       folders:
+         - "./data/snr/head coil 1"
+       overrides:
+         subtract: "./data/snr/head coil 2"
+         coil: "head"
+         measured_slice_width: 5.0
+
+**Key Fields:**
+
+- **version** (required): Configuration file format version (currently "1.0")
+- **output** (required): File path for batch results (JSON, CSV, or TSV based on extension)
+- **levels**: List of visibility levels to output. Options: ``"final"``, ``"intermediate"``, ``"all"``
+- **defaults**: Global parameters applied to all jobs (e.g., ``report``, ``verbose``)
+- **jobs**: List of analysis tasks, each specifying:
+  - **task**: Task name (e.g., ``acr_snr``, ``snr``, ``uniformity``)
+  - **folders**: List of paths to DICOM directories
+  - **overrides** (optional): Task-specific parameters that override defaults
+
+Task-Specific Overrides
+"""""""""""""""""""""""
+Common overrides by task type:
+
+*ACR SNR*:
+- ``measured_slice_width``: Float value for slice thickness
+- ``subtract``: Path to second dataset for subtraction method
+
+*Relaxometry*:
+- ``calc``: ``"T1"`` or ``"T2"``
+- ``plate_number``: ``4`` or ``5``
+
+*SNR (MagNET)*:
+- ``coil``: ``"head"`` or ``"body"``
+- ``measured_slice_width``: Float value
+
+Validation with Dry-Run
+"""""""""""""""""""""""""
+Before executing a batch, validate the configuration without running analysis:
+
+.. code-block:: bash
+
+   # Validate config and list jobs without executing
+   hazen batch my_config.yml --dry-run
+
+This parses the configuration, checks folder existence, validates task names, and displays the execution plan. Use this to verify paths and parameters before processing.
+
+Running Batch Jobs
+""""""""""""""""""
+Execute the batch configuration:
+
+.. code-block:: bash
+
+   # Run batch with default logging
+   hazen batch my_config.yml
+   
+   # Run with detailed logging
+   hazen batch my_config.yml --log=debug
+   
+   # Profile execution time for each job
+   # (Note: batch mode always runs with timed execution)
+
+Output and Reports
+""""""""""""""""""
+Results are written to the path specified in the ``output`` field. When ``report_docx`` is specified, Word documents are generated for each visibility level (e.g., ``report_final.docx``, ``report_all.docx``).
+
+The original configuration file is backed up with a ``.bak`` extension upon successful completion.
+
+Example: Complete ACR Protocol
+""""""""""""""""""""""""""""""
+Process a full ACR Large Phantom protocol in one command:
+
+.. code-block:: yaml
+
+   version: "1.0"
+   output: "./acr_monthly.json"
+   levels: ["final"]
+   report_docx: "./acr_report.docx"
+   
+   defaults:
+       report: true
+       verbose: false
+   
+   jobs:
+     - task: acr_all
+       folders:
+         - "./data/acr/T1"
+         - "./data/acr/T2"
+         - "./data/acr/sag_localiser"
+
 
 Web interface
 ^^^^^^^^^^^^^

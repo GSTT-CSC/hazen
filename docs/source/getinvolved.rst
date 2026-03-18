@@ -24,15 +24,6 @@ If you would like to contribute to the development of *hazen* and get involved w
 
 * Once you’re satisfied with the new feature, the pull request can be formally reviewed for merging
 
-Changing DB models
-------------------
-
-Remember to to generate migration script by running:
-
-.. code-block:: bash
-
- __flask db migrate -m "very short commit message"__
-
 Branching
 ---------
 
