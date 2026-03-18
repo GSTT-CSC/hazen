@@ -1,6 +1,6 @@
 Getting started
 ===============
-.. attention:: These guidelines are written for developers to install *hazen* on MacOS or Linux and are a work in progress!
+.. attention:: These guidelines are written for developers to install *hazen* on MacOS, Linux and Windows and are a work in progress!
 
 If you would like to use with *hazen* via the CLI or contribute to its development, this is the installation guide for you.
 
@@ -11,25 +11,75 @@ Prerequisites
 
 * Python v3.11-3.13
 * Git
+* uv
 * Docker (optional)
 
 Install
 -------
 
-Clone the repository
-^^^^^^^^^^^^^^^^^^^^
+Quick usage with uv (no installation required)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The fastest way to run *hazen* without permanently installing it is using ``uvx`` (requires `uv <https://docs.astral.sh/uv/>`_):
+
+.. code-block:: bash
+
+   # Install uv if you haven't already
+   # On macOS and Linux:
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # On Windows:
+   # powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+   # Then run hazen directly (no install needed):
+   uvx hazen --help
+   uvx hazen snr tests/data/snr/Philips
+
+This downloads and runs the latest version in a temporary environment. To force the absolute latest version (bypassing cache):
+``uvx --reinstall hazen <command>``
+
+.. note::
+   For the Wales-specific version (*hazen-wales*), use ``--from hazen-wales``:
+   
+   .. code-block:: bash
+   
+      uvx --from hazen-wales hazen --help
+
+Install with uv (recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+To install *hazen* permanently using ``uv`` (recommended for most users):
+
+.. code-block:: bash
+
+   uv tool install hazen
+   
+   # Or for the Wales-specific version:
+   uv tool install hazen-wales
+
+   # Verify installation
+   hazen --help
+
+This installs *hazen* in an isolated environment and adds it to your PATH.
+
+Development install (clone repository)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+For developers contributing to *hazen*:
 
 .. code-block:: bash
 
    git clone https://github.com/GSTT-CSC/hazen.git
+   cd hazen
 
-Docker
-^^^^^^^^^^^^^^
-We recommend using the Docker version of *hazen* as it is easy to get up-and-running and is linked to the most stable release. Refer to the `Docker installation instructions <https://docs.docker.com/engine/install>`_ to install Docker on your host computer.
+   # Install dependencies (including dev dependencies)
+   uv sync --group dev
 
-For ease of use, it is recommended to copy the ``hazen-app`` script to a location accessible on the path such as ``/usr/local/bin``. This will allow you to run hazen from any location on your computer. Then, to use Docker hazen, simply run the ``hazen-app`` script appended with the function you want to use (e.g.: ``snr``).
+   # Run tests to ensure everything is working
+   uv run pytest tests/
 
-In Terminal:
+Docker (alternative)
+^^^^^^^^^^^^^^^^^^^^
+Refer to the `Docker installation instructions <https://docs.docker.com/engine/install>`_ to install Docker on your host computer.
+
+For ease of use, copy the ``hazen-app`` script to a location accessible on the path:
 
 .. code-block:: bash
 
@@ -50,61 +100,24 @@ In Terminal:
        'snr_subtraction_measured_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 220.73,
        'snr_subtraction_normalised_seFoV250_2meas_slice5mm_tra_repeat_PSN_noDC_2_1': 2154.69}
 
-Using uv (recommended)
-^^^^^^^^^^^^^^^^^^^^^^
-For developers, hazen can be installed using `uv <https://docs.astral.sh/uv/>`_. This is the recommended method as it provides faster dependency resolution and better reproducibility.
+Legacy install with pip (not recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Alternatively, hazen can be installed using ``pip`` in a virtual environment, though ``uv`` is strongly preferred for better dependency resolution and reproducibility.
 
 .. code-block:: bash
 
-   # Install uv if you haven't already
-   # On macOS and Linux:
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   
-   # On Windows:
-   # powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-   # For M1 Apple Macs, you may need to install OpenBLAS and LAPACK
-   brew install openblas lapack
-   export LDFLAGS="-L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib"
-   export CPPFLAGS="-I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include"
-   export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig:/usr/local/opt/lapack/lib/pkgconfig"
-
-   # Go to local hazen repo directory
-   cd hazen
-
-   # Install hazen and its dependencies (including dev dependencies)
-   uv sync --group dev
-
-   # Run tests to ensure everything is working
-   uv run pytest tests/
-
-Linux & MacOS - Using pip (alternative)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Alternatively, hazen can be installed using ``pip`` in a virtual environment.
-
-.. code-block:: bash
-
-   # Install OpenSSL
+   # Install dependencies (macOS example with Homebrew)
    brew update
    brew upgrade
-   brew install openssl
-   export LDFLAGS="-L`brew --prefix openssl`/lib"
-   export CPPFLAGS="-I`brew --prefix openssl`/include"
-
-   # For M1 Apple Macs, also install OpenBLAS and LAPACK
-   brew install openblas
-   export LDFLAGS="-L/usr/local/opt/openblas/lib"
-   export CPPFLAGS="-I/usr/local/opt/openblas/include"
-   export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig"
-   brew install lapack
-   export LDFLAGS="-L/usr/local/opt/lapack/lib"
-   export CPPFLAGS="-I/usr/local/opt/lapack/include"
-   export PKG_CONFIG_PATH="/usr/local/opt/lapack/lib/pkgconfig"
-
-   # Go to local hazen repo directory
-   cd hazen
+   brew install openssl openblas lapack
+   
+   # Set environment variables
+   export LDFLAGS="-L`brew --prefix openssl`/lib -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib"
+   export CPPFLAGS="-I`brew --prefix openssl`/include -I/usr/local/opt/openblas/include -I/usr/local/opt/lapack/include"
+   export PKG_CONFIG_PATH="/usr/local/opt/openblas/lib/pkgconfig:/usr/local/opt/lapack/lib/pkgconfig"
 
    # Create and activate a virtual environment
+   cd hazen
    python3 -m venv ./hazen-venv
    source hazen-venv/bin/activate
 
@@ -120,31 +133,38 @@ Usage
 
 Command Line
 ^^^^^^^^^^^^
-The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory. If you are not using the Docker version of hazen, replace `hazen-app` with `hazen` in the following commands.
+The CLI version of hazen is designed to be pointed at single folders containing DICOM file(s). Example datasets are provided in the `tests/data/` directory. Depending on your installation method:
 
-To perform an SNR measurement on the provided example Philips DICOMs:
+* If you used ``uv tool install`` or pip: use ``hazen``
+* If you are using ``uvx`` (no installation): use ``uvx hazen``
+* If you are using the development install (cloned repo): use ``uv run hazen``
+* If you are using Docker: use ``hazen-app``
 
-.. code-block:: bash
-
-   hazen-app snr tests/data/snr/Philips
-
-To perform a spatial resolution measurement on example data provided by the East Kent Trust:
-
-.. code-block:: bash
-
-   hazen-app spatial_resolution tests/data/resolution/philips
-
-To see the full list of available tools, enter:
+Examples:
 
 .. code-block:: bash
 
-   hazen-app -h
+   # Installed version (uv tool install or pip)
+   hazen snr tests/data/snr/Philips
 
-The ``--report`` option provides additional information for some of the functions. For example, the user can gain additional insight into the performance of the snr function by entering:
+   # Development version (from cloned repo)
+   uv run hazen snr tests/data/snr/Philips
+
+   # Docker version
+   hazen-app snr tests/data/snr/Siemens/
+
+To see the full list of available tools:
 
 .. code-block:: bash
 
-   hazen-app snr tests/data/snr/Philips --report
+   hazen --help
+
+The ``--report`` option provides additional information for some of the functions:
+
+.. code-block:: bash
+
+   hazen snr tests/data/snr/Philips --report
+
 
 Web interface
 ^^^^^^^^^^^^^
@@ -153,23 +173,25 @@ Please refer to the *hazen web app* GitHub repository `here <https://github.com/
 Contributing
 ------------
 
-* The Release Manager should create a release branch for the future planned release e.g. release-X.X.X
-* The RMs shall organise backlog refinement sessions to ensure issues are allocated to the appropriate release
-* The RM should ensure their release branch is kept up-to-date with master
-* PRs should be merged into the appropriate release branch for the issue(s) it is addressing
+Developers should use the **Development install** method above with ``uv sync --group dev``.
+
+Key points for contributors:
+
+* Create a Git feature-branch for your ticket
+* Ensure all tests pass: ``uv run pytest tests/``
+* Dependencies are managed via ``pyproject.toml``; the ``uv.lock`` file is automatically maintained by ``uv`` and should be committed to the repository
+* The code is properly formatted by either running ``uv run ruff format`` or ``make format``
+
+The ``Makefile`` provides a lot of convenience for testing, formatting, building documentation and more. Run: ``make help`` for more information.
 
 If you would like to contribute to the development of *hazen*, please take a look at the `Contributing`_ page.
-
-Users
------
-Please `raise an Issue <https://github.com/GSTT-CSC/hazen/issues>`_ if you have any problems installing or running *hazen*.
-
-We have used *hazen* with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with *hazen*, or the results are unexpected, please submit an Issue and we will investigate.
 
 Releasing
 ---------
 
 The Release Manager should ensure:
+* Dependencies are managed using ``uv`` and specified in ``pyproject.toml``
+* The ``uv.lock`` file is committed to the repository (automatically maintained by ``uv``)
 * All outstanding issues for the current release have been closed, or, transferred to future release.
 * All tests are passing on Github Actions.
 * The version number has been updated in ``pyproject.toml``:
@@ -177,3 +199,10 @@ The Release Manager should ensure:
 * A new release has been created with a new version tag (tag = version number)
 * RMs of other branches should update their release from the latest release as soon as possible and deal with any merge conflicts.
 * RMs: Ryan Satnarine, Daniel West
+
+Users
+-----
+Please `raise an Issue <https://github.com/GSTT-CSC/hazen/issues>`_ if you have any problems installing or running *hazen*.
+
+We have used *hazen* with MRI data from a handful of different MRI scanners, including multiple different vendors. If your MRI data doesn't work with *hazen*, or the results are unexpected, please submit an Issue and we will investigate.
+
