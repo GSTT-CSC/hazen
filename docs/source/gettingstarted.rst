@@ -430,7 +430,7 @@ The Release Manager should ensure:
 * Dependencies are managed using ``uv`` and specified in ``pyproject.toml``
 * The ``uv.lock`` file is committed to the repository (automatically maintained by ``uv``)
 * All outstanding issues for the current release have been closed, or, transferred to future release.
-* All tests are passing on Github Actions.
+* All tests are passing on GitHub Actions.
 * The version number has been updated in ``pyproject.toml``:
 * The ``release`` branch has been merged into ``main`` branch
 * A new release has been created with a new version tag (tag = version number)
