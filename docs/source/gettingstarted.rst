@@ -165,6 +165,54 @@ The ``--report`` option provides additional information for some of the function
 
    hazen snr tests/data/snr/Philips --report
 
+Task-Specific Arguments
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Several tasks accept additional arguments to modify their behaviour.
+
+Signal-to-Noise Ratio (snr, acr_snr)
+"""""""""""""""""""""""""""""""""""""
+The SNR tasks support the following optional arguments:
+
+- ``--measured_slice_width``: Provide a float value for the measured slice
+  thickness (in mm) to calculate normalised SNR. If omitted, the value is
+  parsed from the DICOM header.
+- ``--subtract``: Path to a second folder containing an
+  identical repeated acquisition to enable calculation via the subtraction
+  method.
+- ``--coil`` (*snr only*): Specify the coil type as ``"head"`` or ``"body"``.
+
+Example usage:
+
+.. code-block:: bash
+
+   hazen snr tests/data/snr/Philips --measured_slice_width 5.0 --coil head
+   hazen acr_snr tests/data/acr/Siemens --subtract tests/data/acr/Siemens_repeat
+
+Relaxometry (relaxometry)
+""""""""""""""""""""""""""
+The relaxometry task requires the following arguments:
+
+- ``--calc``: Choose calculation type, either ``"T1"`` or ``"T2"``.
+- ``--plate_number``: Select which phantom plate to analyse, either ``4`` or
+  ``5``.
+
+**Example:**
+
+.. code-block:: bash
+
+   hazen relaxometry tests/data/relaxometry/T1/site1/plate5 --calc T1 --plate_number 5
+
+Profile Mode (--profile)
+""""""""""""""""""""""""
+Add the ``--profile`` flag to any task to include execution timing metadata
+in the results. This is useful for performance monitoring and optimisation.
+
+.. code-block:: bash
+
+   hazen acr_snr tests/data/acr/Philips --profile
+
+
 Output Formats
 ^^^^^^^^^^^^^^
 
