@@ -707,6 +707,9 @@ def new_dicom(
         dcm[(0x0028, 0x0101)].value,  # Bits Stored
     )
 
+    # Sets instance number
+    new_dcm[(0x0020, 0x0013)].value = instance_number
+
     return new_dcm
 
 

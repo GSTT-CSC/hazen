@@ -795,6 +795,28 @@ class TestRelaxometry(unittest.TestCase):
         2706.2,
     ]
 
+    def _get_calc_times(self, results):
+        """Extract calculated relaxation times from measurement results."""
+        # Get measured Relaxometry entries (not theoretical or RMS error)
+        measurements = results.get_measurement(
+            name="Relaxometry", measurement_type="measured"
+        )
+
+        # Filter for actual time measurements (unit='ms', specific description)
+        # and exclude the RMS aggregate measurement (subtype='rms_frac_time_difference')
+        time_measurements = [
+            m
+            for m in measurements
+            if m.unit == "ms"
+            and m.description == "Measured relaxation time."
+            and m.subtype != "rms_frac_time_difference"
+        ]
+
+        # Sort by subtype to ensure correct order (Measurement 00, 01, etc.)
+        time_measurements.sort(key=lambda m: m.subtype)
+
+        return [m.value for m in time_measurements]
+
     def test_transform_coords(self):
         # no translation, no rotation, input = yx, output = yx
         warp_matrix = np.array([[1, 0, 0], [0, 1, 0]])
@@ -1094,7 +1116,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times, self.PLATE5_T1, rtol=0.02, atol=1
+            self._get_calc_times(results), self.PLATE5_T1, rtol=0.02, atol=1
         )
 
     def test_t1_p4_philips(self):
@@ -1105,7 +1127,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE4_T1_P4,
             rtol=0.02,
             atol=1,
@@ -1119,7 +1141,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE4_T1_P5,
             rtol=0.02,
             atol=1,
@@ -1133,7 +1155,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE4_T2_P4,
             rtol=0.02,
             atol=1,
@@ -1147,7 +1169,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE4_T2_P5,
             rtol=0.02,
             atol=1,
@@ -1188,7 +1210,7 @@ class TestRelaxometry(unittest.TestCase):
                     plate_number=plate, calc=tparam, verbose=True
                 )
                 np.testing.assert_allclose(
-                    results.metadata.calc_times,
+                    self._get_calc_times(results),
                     getattr(self, f"SITE3_{tparam}_P{plate}_VALS"),
                     rtol=0.02,
                     atol=1,
@@ -1210,7 +1232,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE5_T1_P4,
             rtol=0.02,
             atol=1,
@@ -1223,7 +1245,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T1", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE5_T1_P5,
             rtol=0.02,
             atol=1,
@@ -1236,7 +1258,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=4, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE5_T2_P4,
             rtol=0.02,
             atol=1,
@@ -1249,7 +1271,7 @@ class TestRelaxometry(unittest.TestCase):
         task = Relaxometry(input_data=dcms)
         results = task.run(plate_number=5, calc="T2", verbose=True)
         np.testing.assert_allclose(
-            results.metadata.calc_times,
+            self._get_calc_times(results),
             self.SITE5_T2_P5,
             rtol=0.02,
             atol=1,

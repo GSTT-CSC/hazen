@@ -4,10 +4,18 @@
 
 from __future__ import annotations
 
+# Type Checking
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
 # Python imports
 import json
 import unittest
 from dataclasses import FrozenInstanceError
+from unittest.mock import MagicMock, patch
 
 # Module imports
 import numpy as np
@@ -266,6 +274,11 @@ class TestMetadata(unittest.TestCase):
 
         self.assertIsNone(m.institution_name)
         self.assertIsNone(m.manufacturer)
+        self.assertIsNone(m.model)
+        self.assertIsNone(m.date)
+        self.assertIsNone(m.series_id)
+        self.assertIsNone(m.study_id)
+        self.assertIsNotNone(m.version)
 
     def test_metadata_with_values(self) -> None:
         """Verify Metadata accepts construction with values."""
@@ -292,5 +305,147 @@ class TestTaskMetadata(unittest.TestCase):
         self.assertIsNone(tm.requires_args)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestMetadataDicomExtraction(unittest.TestCase):
+    """Tests for Metadata __post_init__ DICOM extraction."""
+
+    def setUp(self) -> None:
+        """Set up realistic GE scanner DICOM attributes."""
+        self.ge_dicom_attrs = {
+            "InstitutionName": "Anon",  # From your DICOM dump
+            "Manufacturer": "GE MEDICAL SYSTEMS",
+            "ManufacturerModelName": "Signa HDxt",
+            "StudyDate": "20200903",
+            "SeriesInstanceUID": (
+                "1.2.840.113619.2.322.2807.4256007.22970.1599113147.28"
+            ),
+            "StudyInstanceUID": (
+                "1.2.840.113619.6.322.29258601288877239892320825850091988423"
+            ),
+            "AcquisitionNumber": "1",
+        }
+
+    def _create_mock_dicom(self, **overrides: dict[str, Any]) -> MagicMock:
+        """Create a mock pydicom Dataset with GE-like attributes."""
+        mock = MagicMock()
+        attrs = {**self.ge_dicom_attrs, **overrides}
+        for key, value in attrs.items():
+            setattr(mock, key, value)
+        # Ensure hasattr works correctly
+        mock.__contains__ = lambda _, key: key in attrs
+        return mock
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_extracts_ge_scanner_metadata(
+        self,
+        mock_dcmread: Callable,
+    ) -> None:
+        """Verify all metadata fields extracted from GE DICOM."""
+        mock_dcmread.return_value = self._create_mock_dicom()
+
+        m = Metadata(files=["tests/data/acr/GE/0.dcm"])
+
+        self.assertEqual(m.institution_name, "Anon")
+        self.assertEqual(m.manufacturer, "GE MEDICAL SYSTEMS")
+        self.assertEqual(m.model, "Signa HDxt")
+        self.assertEqual(m.date, "20200903")
+        self.assertEqual(
+            m.series_id,
+            "1.2.840.113619.2.322.2807.4256007.22970.1599113147.28",
+        )
+        self.assertEqual(
+            m.study_id,
+            "1.2.840.113619.6.322.29258601288877239892320825850091988423",
+        )
+        self.assertEqual(m.acquisition_number, "1")
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_skips_extraction_if_fields_populated(
+        self,
+        mock_dcmread: Callable,
+    ) -> None:
+        """Verify existing values are preserved, not overwritten."""
+        mock_dcmread.return_value = self._create_mock_dicom(
+            InstitutionName="Different Hospital",
+        )
+
+        m = Metadata(
+            files=["test.dcm"],
+            institution_name="Keep This Value",
+            manufacturer="Siemens",  # Also set differently
+        )
+
+        # Should keep provided values, not extract from DICOM
+        self.assertEqual(m.institution_name, "Keep This Value")
+        self.assertEqual(m.manufacturer, "Siemens")
+        # But unset fields should still extract
+        self.assertEqual(m.model, "Signa HDxt")
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_handles_missing_optional_attributes(
+        self,
+        mock_dcmread: Callable,
+    ) -> None:
+        """Verify extraction works when optional DICOM tags are missing."""
+        # Create DICOM without InstitutionName (anonymized/removed)
+        mock = self._create_mock_dicom()
+        delattr(mock, "InstitutionName")
+
+        mock_dcmread.return_value = mock
+
+        m = Metadata(files=["anon.dcm"])
+
+        # Should still extract other fields
+        self.assertEqual(m.manufacturer, "GE MEDICAL SYSTEMS")
+        self.assertIsNone(m.institution_name)  # Not present in DICOM
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_warns_on_multiple_different_values(
+        self,
+        mock_dcmread: Callable,
+    ) -> None:
+        """Verify warning logged when files have different institutions."""
+        mock_dcmread.side_effect = [
+            self._create_mock_dicom(InstitutionName="Hospital A"),
+            self._create_mock_dicom(InstitutionName="Hospital B"),
+            self._create_mock_dicom(InstitutionName="Hospital C"),
+        ]
+
+        with self.assertLogs("hazenlib.types", level="WARNING") as log_context:
+            m = Metadata(files=["1.dcm", "2.dcm", "3.dcm"])
+
+        # Should warn about multiple values
+        self.assertTrue(
+            any(
+                "institution_name" in msg and "Multiple" in msg
+                for msg in log_context.output
+            ),
+        )
+        # Should still pick one value (arbitrary from set)
+        self.assertIn(
+            m.institution_name,
+            ["Hospital A", "Hospital B", "Hospital C"],
+        )
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_graceful_on_dicom_read_error(
+        self,
+        mock_dcmread: Callable,
+    ) -> None:
+        """Verify Metadata creation succeeds even if files can"t be read."""
+        mock_dcmread.side_effect = Exception("Permission denied")
+
+        # Should not raise, just log warning
+        with self.assertLogs("hazenlib.types", level="WARNING"):
+            m = Metadata(files=["corrupt.dcm"])
+
+        # Fields remain None (or version defaults)
+        self.assertIsNone(m.institution_name)
+        self.assertIsNone(m.manufacturer)
+
+    @patch("hazenlib.types.pydicom.dcmread")
+    def test_no_extraction_without_files(self, mock_dcmread: Callable) -> None:
+        """Verify dcmread is never called when files is None."""
+        m = Metadata()  # No files
+
+        mock_dcmread.assert_not_called()
+        self.assertIsNone(m.institution_name)

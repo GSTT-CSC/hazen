@@ -215,7 +215,6 @@ class TestBuildRows(unittest.TestCase):
         result.metadata = Metadata(
             institution_name="Test Hospital",
             manufacturer="Siemens",
-            plate=1,
         )
         result.add_measurement(
             Measurement(
