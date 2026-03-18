@@ -15,8 +15,8 @@ If you would like to contribute to the development of *hazen* and get involved w
 * Create an empty file detailing unit, integration and system tests, where appropriate
 * Create pull request and get the design approved
 * Code according to approved design and acceptance criteria
-* Keep an eye on the feedback from Bitbucket Pipelines and Sonarcube
-* Check a running instance of your app by locally running the latest Docker:
+* Keep an eye on the feedback from GitHub Actions, Pull Requests and Issues.
+* Check a running instance of your app using uv or by locally running the latest Docker:
 
   .. code-block:: docker
 
@@ -33,11 +33,6 @@ Remember to to generate migration script by running:
 
  __flask db migrate -m "very short commit message"__
 
-Sonarcube
----------
-
-To run local, install sonar-scanner. Edit properties file in conf so that url is pointing to cloud instance.
-
 Branching
 ---------
 
@@ -47,7 +42,7 @@ Merging
 -------
 
 * Pull request.
-* Haris is final reviewer.
+* Have approval from a reviewer.
 
 Releasing
 ---------
