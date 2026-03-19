@@ -216,7 +216,7 @@ class TestIsLikelySNR(unittest.TestCase):
 
     def test_fuzzy_matches(self) -> None:
         """Test similarity threshold catches transpositions."""
-        # These all have SequenceMatcher ratio >= 0.67 with "snr"
+        # These all have SequenceMatcher ratio >= 0.66 with "snr"
         fuzzy_typos = ["srn", "nsr", "smr"]  # smr is close on keyboard
         for typo in fuzzy_typos:
             with self.subTest(typo=typo):
