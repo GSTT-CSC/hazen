@@ -9,13 +9,13 @@ hazenlib.tasks.ghosting task
    :undoc-members:
    :show-inheritance:
 
-.. hazenlib.tasks.relaxometry task
-.. ---------------------------------
+hazenlib.tasks.relaxometry task
+---------------------------------
 
-.. .. automodule:: hazenlib.tasks.relaxometry
-..    :members:
-..    :undoc-members:
-..    :show-inheritance:
+.. automodule:: hazenlib.tasks.relaxometry
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 hazenlib.tasks.slice\_position task
 -------------------------------------

@@ -361,12 +361,17 @@ ci-release: check-notypes test-comprehensive
 .PHONY: docs
 docs: ## Build documentation
 	@echo "Building documentation..."
-	$(VENV_CMD) sphinx-build -b html $(DOCS_DIR) $(DOCS_DIR)/_build/html
+	$(VENV_CMD) sphinx-build \
+	--no-color \
+	--builder html \
+	--fail-on-warning \
+	--quiet \
+	$(DOCS_DIR)/source/ $(DOCS_DIR)/build
 
 .PHONY: docs-serve
 docs-serve: docs ## Build and serve documentation
 	@echo "Serving documentation on http://localhost:8000..."
-	$(VENV_CMD) python -m http.server -d $(DOCS_DIR)/_build/html
+	$(VENV_CMD) python -m http.server -d $(DOCS_DIR)/build/html
 
 ##################
 # Build & Deploy #
@@ -388,6 +393,7 @@ clean: ## Clean build artifacts and caches
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	rm -rf .pytest_cache .mypy_cache .ruff_cache .coverage htmlcov/
 	rm -rf build/ dist/ *.egg-info
+	rm -rf $(DOCS_DIR)/build
 	rm -rf $(DOCS_DIR)/_build
 	rm -rf makefile_output_*
 	@echo "Clean complete"
