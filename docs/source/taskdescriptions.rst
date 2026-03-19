@@ -4,7 +4,7 @@ The *hazen* application provides automatic quantitative analysis for MRI data ac
 
 Please refer to **acquisition requirements** for detail related to the acquisition of phantom images, as well as **input requirements** for the required folder structure for hazen input.
 
-  .. note:: The original images seem to be missing from the git history. For now these images have been commented out. Once their whereabouts becomes known then they will be reinstated.
+.. note:: The original images seem to be missing from the git history. For now these images have been commented out. Once their whereabouts become known, they will be reinstated.
 
 
 Signal-to-noise ratio (SNR)
