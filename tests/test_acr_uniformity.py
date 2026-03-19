@@ -33,7 +33,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
         (
             (center_x, center_y),
             _,
-        )= self.acr_uniformity_task.ACR_obj.find_phantom_center(
+        ) = self.acr_uniformity_task.ACR_obj.find_phantom_center(
             img,
             self.acr_uniformity_task.ACR_obj.dx,
             self.acr_uniformity_task.ACR_obj.dy,
@@ -65,7 +65,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
             ~large_roi_valid_space,
         )
 
-        for (x, y) in ([x_min, y_min], [x_max, y_max]):
+        for x, y in ([x_min, y_min], [x_max, y_max]):
             dist_from_center = (
                 np.sqrt((x - center_x) ** 2 + (y - center_y) ** 2)
                 + self.acr_uniformity_task.r_small
@@ -86,6 +86,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
         print("fixed_values:", self.piu)
 
         assert rounded_results == self.piu
+
 
 class TestACRUniformityGESignaArtistT1(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR) / "acr" / "GE_Signa_Artist_1.5T_T1"
