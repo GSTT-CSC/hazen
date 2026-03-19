@@ -360,7 +360,6 @@ dependencies = [
     { name = "pyyaml" },
     { name = "scikit-image" },
     { name = "scipy" },
-    { name = "sphinxcontrib-bibtex" },
     { name = "statsmodels" },
 ]
 
@@ -393,7 +392,6 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "scikit-image", specifier = ">=0.24.0" },
     { name = "scipy", specifier = ">=1.13.1" },
-    { name = "sphinxcontrib-bibtex" },
     { name = "statsmodels", specifier = ">=0.14.5" },
 ]
 
