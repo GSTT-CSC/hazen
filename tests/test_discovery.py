@@ -236,7 +236,7 @@ class TestIsLikelySNR(unittest.TestCase):
                 result = self.is_snr(seq)
                 self.assertFalse(
                     result,
-                    f"Should not detect {typo} as SNR-like",
+                    f"Should not detect {seq} as SNR-like",
                 )
 
 
