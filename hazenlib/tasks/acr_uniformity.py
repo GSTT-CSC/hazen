@@ -103,12 +103,13 @@ class ACRUniformity(HazenTask):
         return results
 
     def write_report(self, img, centre, min_roi, max_roi, piu, dcm):
+        (centre_x, centre_y) = centre
+
         # To keep convention with the rest of this module
         # we'll unpack these variables x, y
         # with the note that x = rows and y = columns
         # which is different to the usual convention
         # of x = columns and y = rows.
-        (centre_x, centre_y) = centre
         x_max, y_max, max_value = max_roi
         x_min, y_min, min_value = min_roi
 
@@ -119,7 +120,7 @@ class ACRUniformity(HazenTask):
         theta = np.linspace(0, 2 * np.pi, 360)
 
         axes[0].imshow(img)
-        axes[0].scatter(centre_x, centre_y, c="red")
+        axes[0].scatter(centre_y, centre_x, c="red")
         axes[0].axis("off")
         axes[0].set_title("Centroid Location")
 
