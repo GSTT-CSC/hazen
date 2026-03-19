@@ -5,8 +5,10 @@ from __future__ import annotations
 # Python imports
 import datetime
 import logging
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from difflib import SequenceMatcher
 from enum import Enum
 from pathlib import Path
 
@@ -56,13 +58,25 @@ class DiscoveredAcquisition:
         """Acquisition equality, i.e. is like the same as other."""
         return self.metadata == other.metadata
 
+    @staticmethod
+    def _is_likely_snr(name: str, threshold: float = 0.66) -> bool:
+        """Fuzzy match using Levenshtein distance approximation."""
+        name_lower = name.lower()
+        tokens = re.findall(r"[a-z]{2,4}", name_lower)
+
+        for token in tokens:
+            similarity = SequenceMatcher(None, token, "snr").ratio()
+            if similarity >= threshold:
+                return True
+        return False
+
     @property
     def type(self) -> str:
         """Return the acquisition task type."""
         acr_obj = ACRObject([self.dicom])
         if acr_obj.acquisition_type(strict=True) != "Unknown":
             return "acr"
-        if "snr" in self.path.name.lower():
+        if self._is_likely_snr(self.path.name.lower()):
             return "snr"
         return "Unknown"
 

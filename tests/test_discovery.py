@@ -9,7 +9,7 @@ from pathlib import Path
 # Module imports
 # Local imports
 from hazenlib._version import __version__
-from hazenlib.discovery import generate_batch_config
+from hazenlib.discovery import DiscoveredAcquisition, generate_batch_config
 from hazenlib.orchestration import BatchConfig, JobTaskConfig
 from tests import TEST_DATA_DIR
 
@@ -202,6 +202,37 @@ class TestGenerateBatchConfig(unittest.TestCase):
             self.batch_config.defaults,
             self.generated_batch_config.defaults,
         )
+
+
+class TestIsLikelySNR(unittest.TestCase):
+    """Tests for difflib-based fuzzy SNR matching."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Set up the class."""
+        cls.is_snr = staticmethod(
+            DiscoveredAcquisition._is_likely_snr,       # noqa: SLF001
+        )
+
+    def test_fuzzy_matches(self) -> None:
+        """Test similarity threshold catches transpositions."""
+        # These all have SequenceMatcher ratio >= 0.67 with "snr"
+        fuzzy_typos = ["srn", "nsr", "smr"]  # smr is close on keyboard
+        for typo in fuzzy_typos:
+            with self.subTest(typo=typo):
+                result = self.is_snr(typo)
+                self.assertTrue(result, f"Should detect {typo} as SNR-like")
+
+        not_snr = [
+            "diffusion", "phase", "sag", "axial", "coronal", "soon",
+        ]
+        for seq in not_snr:
+            with self.subTest(typo=seq):
+                result = self.is_snr(seq)
+                self.assertFalse(
+                    result,
+                    f"Should not detect {typo} as SNR-like",
+                )
 
 
 if __name__ == "__main__":
