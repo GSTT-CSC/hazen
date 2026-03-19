@@ -22,7 +22,6 @@ dependencies = [
     "pyyaml>=6.0.3",
     "scikit-image>=0.24.0",
     "scipy>=1.13.1",
-    "sphinxcontrib-bibtex",
     "statsmodels>=0.14.5",
 ]
 
