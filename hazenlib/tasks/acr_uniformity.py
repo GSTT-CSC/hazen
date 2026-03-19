@@ -103,6 +103,11 @@ class ACRUniformity(HazenTask):
         return results
 
     def write_report(self, img, centre, min_roi, max_roi, piu, dcm):
+        # To keep convention with the rest of this module
+        # we'll unpack these variables x, y
+        # with the note that x = rows and y = columns
+        # which is different to the usual convention
+        # of x = columns and y = rows.
         (centre_x, centre_y) = centre
         x_max, y_max, max_value = max_roi
         x_min, y_min, min_value = min_roi
@@ -119,26 +124,26 @@ class ACRUniformity(HazenTask):
         axes[0].set_title("Centroid Location")
 
         axes[1].imshow(img)
-        axes[1].scatter([y_max, y_min], [x_max, x_min], c="red", marker="x")
+        axes[1].scatter([x_max, x_min], [y_max, y_min], c="red", marker="x")
         axes[1].plot(
-            self.r_small * np.cos(theta) + y_max,
             self.r_small * np.sin(theta) + x_max,
+            self.r_small * np.cos(theta) + y_max,
             c="yellow",
         )
         axes[1].annotate(
             "Min = " + str(np.round(min_value, 1)),
-            [y_min, x_min + self.label_x_offset],
+            [x_min + self.label_x_offset, y_min],
             c="white",
         )
 
         axes[1].plot(
-            self.r_small * np.cos(theta) + y_min,
             self.r_small * np.sin(theta) + x_min,
+            self.r_small * np.cos(theta) + y_min,
             c="yellow",
         )
         axes[1].annotate(
             "Max = " + str(np.round(max_value, 1)),
-            [y_max, x_max + self.label_x_offset],
+            [x_max + self.label_x_offset, y_max],
             c="white",
         )
         axes[1].plot(
