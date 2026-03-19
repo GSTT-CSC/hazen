@@ -2,7 +2,7 @@ Acquisition requirements
 =================================
 The *hazen* application provides automatic quantitative analysis for MRI data acquired with the ACR Large MRI phantom and MagNET Test Objects. Images should be acquired as detailed in the ACR\ :footcite:p:`2015:acrQC` and MagNET guidelines respectively. Acquisition requires precise phantom positioning such that the structures in the phantoms are orientated correctly with respect to the scanner.
 
-  .. note:: The original images seem to be missing from the git history. For now these images have been commented out. Once their whereabouts becomes known then they will be reinstated.
+.. note:: The original images seem to be missing from the git history. For now these images have been commented out. Once their whereabouts become known, they will be reinstated.
 
 
 ACR Large MRI Phantom
