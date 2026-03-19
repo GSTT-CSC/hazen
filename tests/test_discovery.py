@@ -211,7 +211,7 @@ class TestIsLikelySNR(unittest.TestCase):
     def setUpClass(cls) -> None:
         """Set up the class."""
         cls.is_snr = staticmethod(
-            DiscoveredAcquisition._is_likely_snr,       # noqa: SLF001
+            DiscoveredAcquisition._is_likely_snr,  # noqa: SLF001
         )
 
     def test_fuzzy_matches(self) -> None:
@@ -224,7 +224,12 @@ class TestIsLikelySNR(unittest.TestCase):
                 self.assertTrue(result, f"Should detect {typo} as SNR-like")
 
         not_snr = [
-            "diffusion", "phase", "sag", "axial", "coronal", "soon",
+            "diffusion",
+            "phase",
+            "sag",
+            "axial",
+            "coronal",
+            "soon",
         ]
         for seq in not_snr:
             with self.subTest(typo=seq):
