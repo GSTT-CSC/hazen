@@ -1,3 +1,4 @@
+# ruff: noqa: S101
 import unittest
 import pathlib
 
@@ -141,3 +142,54 @@ class TestACRSlicePositionSiemensSolaFit2(TestACRSlicePositionSiemens):
     slice_1_y_pts = [43, 83]
     slice_11_y_pts = [42, 82]
     dL = -1.17, -2.54
+
+
+class PeakCountTestsMixin:
+    """Mixin to verify that find_wedges returns exactly 2 peaks.
+
+    Used for datasets where we want to verify peak detection works
+    but don't have validated expected values.
+    """
+
+    def test_find_wedge_slice1_x(self):
+        assert len(self.slice1_x_pts) == 2, (
+            f"Expected 2 x-peaks for slice 1, got {len(self.slice1_x_pts)}"
+        )
+
+    def test_find_wedge_slice1_y(self):
+        assert len(self.slice1_y_pts) == 2, (
+            f"Expected 2 y-peaks for slice 1, got {len(self.slice1_y_pts)}"
+        )
+
+    def test_find_wedge_slice11_x(self):
+        assert len(self.slice11_x_pts) == 2, (
+            f"Expected 2 x-peaks for slice 11, got {len(self.slice11_x_pts)}"
+        )
+
+    def test_find_wedge_slice11_y(self):
+        assert len(self.slice11_y_pts) == 2, (
+            f"Expected 2 y-peaks for slice 11, got {len(self.slice11_y_pts)}"
+        )
+
+    def test_slice_position(self):
+        # Peak count verification only
+        # - actual slice position values not validated
+        pass
+
+
+class TestACRSlicePositionGEMR450W(
+    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T2")
+
+
+class TestACRSlicePositionSiemensSolaT2(
+    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
+
+
+class TestACRSlicePositionSiemensSolaT1(
+    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+):
+    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1")
