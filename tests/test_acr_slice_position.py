@@ -178,18 +178,21 @@ class PeakCountTestsMixin:
 
 
 class TestACRSlicePositionGEMR450W(
-    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+    PeakCountTestsMixin,
+    TestACRSlicePositionSiemens,
 ):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_MR450W_1.5T_T2")
 
 
 class TestACRSlicePositionSiemensSolaT2(
-    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+    PeakCountTestsMixin,
+    TestACRSlicePositionSiemens,
 ):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T2")
 
 
 class TestACRSlicePositionSiemensSolaT1(
-    PeakCountTestsMixin, TestACRSlicePositionSiemens,
+    PeakCountTestsMixin,
+    TestACRSlicePositionSiemens,
 ):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1")
