@@ -531,7 +531,12 @@ class BatchConfig:
 
         data["report_template"] = resolve_path_as_posix(self.report_template)
 
-        data["defaults"] = self.defaults
+        data["defaults"] = {} if self.defaults is None else self.defaults
+
+        data["defaults"]["report"] = self._check_and_set_default_report(
+            data["levels"],
+            report=data["defaults"].get("report", False),
+        )
 
         # Build jobs list
         jobs_data: list[dict[str, Any]] = []
@@ -727,6 +732,21 @@ class BatchConfig:
             )
             raise RuntimeError(msg)
 
+    @staticmethod
+    def _check_and_set_default_report(
+        levels: list[str],
+        *,
+        report: bool,
+    ) -> bool:
+        if "all" in levels or "intermediate" in levels:
+            logger.info(
+                "levels = %s requires report=True as a default"
+                " so this has been set.",
+                levels,
+            )
+            return True
+        return report
+
     @classmethod
     def from_config(
         cls,
@@ -794,6 +814,12 @@ class BatchConfig:
         levels = data.get("levels", ["final"])
         if isinstance(levels, str):
             levels = [levels]
+
+        defaults = data.get("defaults", {})
+        defaults["report"] = cls._check_and_set_default_report(
+            levels,
+            report=defaults.get("report", False),
+        )
         return cls(
             version=data.get("version", "1.0"),
             hazen_version_constraint=data.get("hazen_version_constraint"),
@@ -803,7 +829,7 @@ class BatchConfig:
             levels=levels,
             report_docx=report_docx,
             report_template=report_template,
-            defaults=data.get("defaults", {}),
+            defaults=defaults,
             _file=config_path,
             _dry_run=dry_run,
         )

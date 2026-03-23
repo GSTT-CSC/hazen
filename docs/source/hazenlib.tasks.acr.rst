@@ -56,3 +56,27 @@ hazenlib.tasks.acr\_uniformity task
    :members:
    :undoc-members:
    :show-inheritance:
+
+hazenlib.tasks.acr\_low\_contrast\_object\_detectability task
+-----------------------------------------------------------------
+
+.. automodule:: hazenlib.tasks.acr_low_contrast_object_detectability
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+hazenlib.tasks.acr\_object\_detectability task
+----------------------------------------------
+
+.. automodule:: hazenlib.tasks.acr_object_detectability
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+hazenlib.tasks.acr\_sagittal\_geometric\_accuracy task
+--------------------------------------------------------
+
+.. automodule:: hazenlib.tasks.acr_sagittal_geometric_accuracy
+   :members:
+   :undoc-members:
+   :show-inheritance:

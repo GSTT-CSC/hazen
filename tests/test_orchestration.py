@@ -968,7 +968,7 @@ class TestBatchConfig(unittest.TestCase):
         self.assertEqual(config.description, "")  # default
         self.assertEqual(config.levels, ["final"])  # default
         self.assertIsNone(config.report_docx)  # default
-        self.assertEqual(config.defaults, {})  # default
+        self.assertEqual(config.defaults, {"report": False})  # default
 
     @patch("pathlib.Path.open", mock_open(read_data="{}"))
     @patch("yaml.safe_load")
@@ -1130,7 +1130,10 @@ class TestBatchConfigToYaml(unittest.TestCase):
         self.assertIsNone(data["hazen_version_constraint"])
         self.assertIsNone(data["report_docx"])
         self.assertIsNone(data["report_template"])
-        self.assertIsNone(data["defaults"])
+
+        # Report is automatically set based on level.
+        # levels=None => levels=("final", "all") => report=True
+        self.assertEqual(data["defaults"], {"report": True})
 
     @patch.dict(TASK_REGISTRY, {"test_task": Mock()}, clear=False)
     @patch("pathlib.Path.exists")
