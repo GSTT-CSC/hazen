@@ -356,7 +356,11 @@ class ACRSlicePosition(HazenTask):
 
         # if only one peak, set dummy range
         if len(peaks) == 1:
-            peaks = [peaks[0] - 50, peaks[0] + 50]
+            # Ensure the peaks stay within a sensible range.
+            peaks = [
+                max(peaks[0] - 50, 0),
+                min(peaks[0] + 50, len(delta) - 1),
+            ]
 
         # set multiplier for right or left shift based on sign of peak
         pos = (
