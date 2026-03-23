@@ -344,8 +344,7 @@ class ACRSlicePosition(HazenTask):
             logger.debug(
                 "Parameters used for peak finding:\n"
                 "\tErosion Percentage: %s\n"
-                "\tMinimum peak height: %s\n"
--               "\tMinimum delta value: %s\n"
+                "\tMinimum peak height: %s\n" - "\tMinimum delta value: %s\n"
                 "\tMaximum delta value: %s\n"
                 "\tAverage delta value: %s\n",
                 half_erosion_frac * 200,
