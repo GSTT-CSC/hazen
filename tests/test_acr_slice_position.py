@@ -174,7 +174,10 @@ class PeakCountTestsMixin:
     def test_slice_position(self):
         # Peak count verification only
         # - actual slice position values not validated
-        pass
+        self.skipTest(
+            "PeakCountTestsMixin only checks wedge peak counts; "
+            "slice position values for this dataset are not validated."
+        )
 
 
 class TestACRSlicePositionGEMR450W(
