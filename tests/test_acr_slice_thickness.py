@@ -19,7 +19,7 @@ class TestACRSliceThicknessSiemens(unittest.TestCase):
     """Base class for ACR Slice Thickness tests."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
-    dz = 4.75
+    dz = 5.89
 
     def setUp(self) -> None:
         """Set up each test."""
@@ -52,21 +52,21 @@ class TestACRSliceThicknessPhilipsAchieva(TestACRSliceThicknessSiemens):
     """Tests for the Philips Achieva data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
-    dz = 5.21
+    dz = 5.36
 
 
 class TestACRSliceThicknessPhilipsAchieva2(TestACRSliceThicknessSiemens):
     """Tests for the Philips Achieva 2 data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva2")
-    dz = 5.0
+    dz = 5.05
 
 
 class TestACRSliceThicknessSiemensSolaFit(TestACRSliceThicknessSiemens):
     """Tests for the Siemens Sola Fit."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
-    dz = 5.14
+    dz = 5.39
 
 
 class TestACRSliceThicknessSiemensLargeSliceLocationDelta(
@@ -77,21 +77,21 @@ class TestACRSliceThicknessSiemensLargeSliceLocationDelta(
     ACR_DATA = pathlib.Path(
         TEST_DATA_DIR / "acr" / "SiemensLargeSliceLocationDelta",
     )
-    dz = 5.58
+    dz = 4.75
 
 
 class TestACRSliceThicknessPhilips3TDStream(TestACRSliceThicknessSiemens):
     """Tests for the Philips 3TD Stream data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Philips3TdStream")
-    dz = 4.9
+    dz = 5.12
 
 
 class TestACRSliceThicknessPhilips3TDStream2(TestACRSliceThicknessSiemens):
     """Tests for the Philips 3TD 2 Stream data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Philips3TdStream2")
-    dz = 5.44
+    dz = 5.49
 
 
 class TestACRPhilipsSliceThicknessLineProfileLocalMinimaIssue(
@@ -104,11 +104,11 @@ class TestACRPhilipsSliceThicknessLineProfileLocalMinimaIssue(
         / "acr"
         / "PhilipsSliceThicknessLineProfileLocalMinimaIssue",
     )
-    dz = 5.19
+    dz = 5.48
 
 
 class TestACRGESignaSliceThickness(TestACRSliceThicknessSiemens):
     """Tests for the GE Signa data."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE_Signa_1.5T_T1")
-    dz = 5.19
+    dz = 5.65
