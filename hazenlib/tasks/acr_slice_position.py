@@ -319,10 +319,39 @@ class ACRSlicePosition(HazenTask):
 
         # difference of line profiles
         delta = interp_line_prof_L - interp_line_prof_R
-        # find two highest peaks
-        peaks, _ = ACRObject.find_n_highest_peaks(
-            abs(delta), 2, 0.5 * np.max(abs(delta))
-        )
+
+        # Keep eroding delta at the edges until at least one peak is found.
+        # We'll set a maximum as 20% of signal eroded as this seems like
+        # a sensible upper bound for now. This may need to be adjusted
+        # if evidence contradicts the above statement.
+        peaks = []
+        half_erosion_frac = 0.1
+        for idx in range(int(len(delta) * half_erosion_frac)):
+            # find two highest peaks
+            _delta = delta[idx:-idx] if idx else delta
+            peaks, _ = ACRObject.find_n_highest_peaks(
+                abs(_delta),
+                2,
+                0.5 * np.max(abs(_delta)),
+            )
+            if len(peaks):
+                break
+        else:
+            msg = "No peaks could be found"
+            logger.error("%s - this test will fail", msg)
+            logger.debug(
+                "Parameters used for peak finding:\n"
+                "\tErosion Percentage: %s\n"
+                "\tMinimum peak height: %s\n"
+                "\tMinimum delta value: %s\n"
+                "\tMaximum delta value: %s\n"
+                "\tAverage delta value: %s\n",
+                half_erosion_frac * 200,
+                np.min(abs(_delta)),
+                np.max(abs(_delta)),
+                np.mean(abs(_delta)),
+            )
+            raise ValueError(msg)
         logger.info(peaks)
 
         # if only one peak, set dummy range
