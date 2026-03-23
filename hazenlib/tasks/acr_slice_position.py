@@ -326,7 +326,9 @@ class ACRSlicePosition(HazenTask):
         # if evidence contradicts the above statement.
         peaks = []
         half_erosion_frac = 0.1
-        for idx in range(int(len(delta) * half_erosion_frac)):
+        for idx in range(
+            max(1, int(len(delta) * half_erosion_frac)),
+        ):
             # find two highest peaks
             _delta = delta[idx:-idx] if idx else delta
             peaks, _ = ACRObject.find_n_highest_peaks(
@@ -343,10 +345,11 @@ class ACRSlicePosition(HazenTask):
                 "Parameters used for peak finding:\n"
                 "\tErosion Percentage: %s\n"
                 "\tMinimum peak height: %s\n"
-                "\tMinimum delta value: %s\n"
+-               "\tMinimum delta value: %s\n"
                 "\tMaximum delta value: %s\n"
                 "\tAverage delta value: %s\n",
                 half_erosion_frac * 200,
+                0.5 * np.max(abs(_delta)),
                 np.min(abs(_delta)),
                 np.max(abs(_delta)),
                 np.mean(abs(_delta)),
