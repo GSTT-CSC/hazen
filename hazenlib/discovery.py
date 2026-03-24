@@ -83,9 +83,13 @@ class DiscoveredAcquisition:
         return "Unknown"
 
     @classmethod
-    def from_path(cls, path: str | Path) -> DiscoveredAcquisition:
+    def from_path(cls, path: str | Path) -> DiscoveredAcquisition | None:
         """Return a DiscoveredAcquisition from a path."""
-        dcm = cls._get_dicoms_from_path(path)[0]
+        try:
+            dcm = cls._get_dicoms_from_path(path)[0]
+        except IndexError:
+            logger.warning("Could not find any DICOMs in %s", path)
+            return None
 
         return cls(
             path=Path(path),
@@ -390,7 +394,11 @@ def generate_batch_config(path: str | Path) -> BatchConfig:
     path = Path(path)
 
     dirs = [d for d in path.glob("*") if d.is_dir()]
-    acqs = [DiscoveredAcquisition.from_path(d) for d in dirs]
+    acqs = [
+        acq
+        for d in dirs
+        if (acq := DiscoveredAcquisition.from_path(d)) is not None
+    ]
     jobs = AcquisitionCollector(acqs).jobs
 
     return BatchConfig(
