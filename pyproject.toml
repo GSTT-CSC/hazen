@@ -1,6 +1,6 @@
 [project]
 name = "hazen"
-version = "2.0.0a9"
+version = "2.0.0a10"
 description = "An automatic MRI QA tool"
 authors = [
         {name = "Alex Drysdale", email = "alexander.drysdale@wales.nhs.uk"},
