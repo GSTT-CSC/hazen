@@ -102,7 +102,7 @@ class DiscoveredAcquisition:
         )
 
     @staticmethod
-    def _get_dicoms_from_path(path: Path) -> list[Path]:
+    def _get_dicoms_from_path(path: Path) -> list[pydicom.Dataset]:
         datasets = []
         for p in path.iterdir():
             if p.is_file():
