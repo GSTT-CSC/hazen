@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 # Python imports
 import datetime
 import logging
@@ -101,7 +102,12 @@ class DiscoveredAcquisition:
 
     @staticmethod
     def _get_dicoms_from_path(path: Path) -> list[Path]:
-        return [pydicom.dcmread(p) for p in path.glob("*.dcm")]
+        datasets = []
+        for p in path.iterdir():
+            if p.is_file():
+                with contextlib.suppress(Exception):
+                    datasets.append(pydicom.dcmread(p))
+        return datasets
 
     @staticmethod
     def _get_receiver_coil(dcm: pydicom.Dataset) -> str:
