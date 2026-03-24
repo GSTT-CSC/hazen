@@ -34,6 +34,7 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from pydicom import dcmread
 
 # Local imports
+import hazenlib.tasks
 from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
 from hazenlib.exceptions import (
