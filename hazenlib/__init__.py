@@ -24,7 +24,6 @@ import shutil
 from pathlib import Path
 from typing import get_args
 
-import hazenlib.tasks
 from hazenlib._version import __version__
 from hazenlib.constants import MEASUREMENT_VISIBILITY
 from hazenlib.discovery import generate_batch_config
