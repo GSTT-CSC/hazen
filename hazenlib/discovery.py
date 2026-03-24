@@ -115,11 +115,13 @@ class DiscoveredAcquisition:
 
         That is, it is the same for both enhanced and standard DICOMS.
         """
-        if is_enhanced_dicom(dcm):
-            return dcm[(0x5200, 0x9229)][0][(0x0018, 0x9042)][0][
-                (0x0018, 0x1250)
-            ].value
-        return dcm[(0x0018, 0x1250)].value
+        with contextlib.suppress(KeyError):
+            if is_enhanced_dicom(dcm):
+                return dcm[(0x5200, 0x9229)][0][(0x0018, 0x9042)][0][
+                    (0x0018, 0x1250)
+                ].value
+            return dcm[(0x0018, 0x1250)].value
+        return "No Receiver Coil in DICOM metadata."
 
     @staticmethod
     def _get_te(dcm: pydicom.Dataset) -> int | float:
@@ -147,9 +149,13 @@ class DiscoveredAcquisition:
 
     @staticmethod
     def _get_sequence_name(dcm: pydicom.Dataset) -> str:
-        if is_enhanced_dicom(dcm):
-            return dcm[(0x0018, 0x9005)].value
-        return dcm[(0x0019, 0x109C)].value
+        try:
+            if is_enhanced_dicom(dcm):
+                return dcm[(0x0018, 0x9005)].value
+            return dcm[(0x0019, 0x109C)].value
+        except KeyError:
+            # Fall back to using name
+            return dcm["SequenceName"].value
 
     @staticmethod
     def _get_acquisition_matrix(dcm: pydicom.Dataset) -> tuple[int, ...]:
@@ -206,10 +212,16 @@ class DiscoveredAcquisition:
                     dcm[(0x0008, 0x002A)].value,
                     tzstring + "%z",
                 )
-        return datetime.datetime.strptime(
-            f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
-            "%Y%m%d%H%M%S",
-        )
+        try:
+            return datetime.datetime.strptime(
+                f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
+                "%Y%m%d%H%M%S",
+            )
+        except ValueError:
+            return datetime.datetime.strptime(
+                f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
+                "%Y%m%d%H%M%S.%f",
+            )
 
 
 @dataclass
