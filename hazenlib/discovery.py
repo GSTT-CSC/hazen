@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+
 # Python imports
 import datetime
 import logging
@@ -81,9 +83,13 @@ class DiscoveredAcquisition:
         return "Unknown"
 
     @classmethod
-    def from_path(cls, path: str | Path) -> DiscoveredAcquisition:
+    def from_path(cls, path: str | Path) -> DiscoveredAcquisition | None:
         """Return a DiscoveredAcquisition from a path."""
-        dcm = cls._get_dicoms_from_path(path)[0]
+        try:
+            dcm = cls._get_dicoms_from_path(path)[0]
+        except IndexError:
+            logger.warning("Could not find any DICOMs in %s", path)
+            return None
 
         return cls(
             path=Path(path),
@@ -100,8 +106,13 @@ class DiscoveredAcquisition:
         )
 
     @staticmethod
-    def _get_dicoms_from_path(path: Path) -> list[Path]:
-        return [pydicom.dcmread(p) for p in path.glob("*.dcm")]
+    def _get_dicoms_from_path(path: Path) -> list[pydicom.Dataset]:
+        datasets = []
+        for p in path.iterdir():
+            if p.is_file():
+                with contextlib.suppress(Exception):
+                    datasets.append(pydicom.dcmread(p))
+        return datasets
 
     @staticmethod
     def _get_receiver_coil(dcm: pydicom.Dataset) -> str:
@@ -109,11 +120,13 @@ class DiscoveredAcquisition:
 
         That is, it is the same for both enhanced and standard DICOMS.
         """
-        if is_enhanced_dicom(dcm):
-            return dcm[(0x5200, 0x9229)][0][(0x0018, 0x9042)][0][
-                (0x0018, 0x1250)
-            ].value
-        return dcm[(0x0018, 0x1250)].value
+        with contextlib.suppress(KeyError):
+            if is_enhanced_dicom(dcm):
+                return dcm[(0x5200, 0x9229)][0][(0x0018, 0x9042)][0][
+                    (0x0018, 0x1250)
+                ].value
+            return dcm[(0x0018, 0x1250)].value
+        return "No Receiver Coil in DICOM metadata."
 
     @staticmethod
     def _get_te(dcm: pydicom.Dataset) -> int | float:
@@ -141,9 +154,13 @@ class DiscoveredAcquisition:
 
     @staticmethod
     def _get_sequence_name(dcm: pydicom.Dataset) -> str:
-        if is_enhanced_dicom(dcm):
-            return dcm[(0x0018, 0x9005)].value
-        return dcm[(0x0019, 0x109C)].value
+        try:
+            if is_enhanced_dicom(dcm):
+                return dcm[(0x0018, 0x9005)].value
+            return dcm[(0x0019, 0x109C)].value
+        except KeyError:
+            # Fall back to using name
+            return dcm["SequenceName"].value
 
     @staticmethod
     def _get_acquisition_matrix(dcm: pydicom.Dataset) -> tuple[int, ...]:
@@ -200,10 +217,16 @@ class DiscoveredAcquisition:
                     dcm[(0x0008, 0x002A)].value,
                     tzstring + "%z",
                 )
-        return datetime.datetime.strptime(
-            f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
-            "%Y%m%d%H%M%S",
-        )
+        try:
+            return datetime.datetime.strptime(
+                f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
+                "%Y%m%d%H%M%S",
+            )
+        except ValueError:
+            return datetime.datetime.strptime(
+                f"{dcm[(0x0008, 0x0022)].value}{dcm[(0x0008, 0x0032)].value}",
+                "%Y%m%d%H%M%S.%f",
+            )
 
 
 @dataclass
@@ -371,7 +394,11 @@ def generate_batch_config(path: str | Path) -> BatchConfig:
     path = Path(path)
 
     dirs = [d for d in path.glob("*") if d.is_dir()]
-    acqs = [DiscoveredAcquisition.from_path(d) for d in dirs]
+    acqs = [
+        acq
+        for d in dirs
+        if (acq := DiscoveredAcquisition.from_path(d)) is not None
+    ]
     jobs = AcquisitionCollector(acqs).jobs
 
     return BatchConfig(
