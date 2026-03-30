@@ -21,3 +21,4 @@ Contributors
 * `Beatriz Laureano <https://github.com/Biaaaaaa12>`_
 * `Melissa Lowe <https://github.com/melissalowe98>`_
 * `Alex Drysdale <https://github.com/abdrysdale>`_
+* `Luis Santos <https://github.com/luissantosHCIT>`_
