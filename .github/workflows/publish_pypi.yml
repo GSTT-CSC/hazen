@@ -39,7 +39,9 @@ jobs:
        sed -i "s/^name = .*/name = \"${repo_name}\"/" pyproject.toml
 
     - name: Build package
-      run: uv build --clean
+      run: |
+          rm -rf dist
+          uv build
 
     - name: Publish package
       run: uv publish --token ${{ secrets.PYPI_API_TOKEN }}
