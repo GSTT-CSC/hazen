@@ -100,7 +100,8 @@ def get_parser() -> argparse.ArgumentParser:
 
     task_options_parser.add_argument(
         "--report",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help="Whether to generate visualisation of the measurement steps",
     )
     task_options_parser.add_argument(
@@ -281,8 +282,12 @@ def get_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """Primary entrypoint to hazen."""
+    print("\n" + "=" * 50)
+    print(">>> SUCCESS: TERMINAL IS RUNNING MY EDIT! <<<")
+    print("=" * 50 + "\n")
     parser = get_parser()
     args = parser.parse_args()
+    print(f"DEBUG: args.report is {args.report}")
 
     try:
         execution_wrapper = (
