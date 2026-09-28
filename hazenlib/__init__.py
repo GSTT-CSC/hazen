@@ -102,13 +102,13 @@ def get_parser() -> argparse.ArgumentParser:
         "--report",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Whether to generate visualisation of the measurement steps",
+        help="Whether to generate visualisation of the measurement steps (enabled by default)",
     )
     task_options_parser.add_argument(
         "--report-docx",
         type=str,
         default=None,
-        help="Path to save Word report (requires --report for images)",
+        help="Path to save Word report",
     )
     task_options_parser.add_argument(
         "--report-template",
