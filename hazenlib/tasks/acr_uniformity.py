@@ -6,7 +6,7 @@ https://www.acraccreditation.org/-/media/acraccreditation/documents/mri/largepha
 Calculates the percentage integral uniformity for slice 7 of the ACR phantom.
 
 This script calculates the percentage integral uniformity in accordance with the ACR Guidance.
-This is done by first defining a large 200cm2 ROI before placing 1cm2 ROIs at every pixel within
+This is done by first defining a large 195cm2 ROI before placing 1cm2 ROIs at every pixel within
 the large ROI. At each point, the mean of the 1cm2 ROI is calculated. The ROIs with the maximum and
 minimum mean value are used to calculate the integral uniformity. The results are also visualised.
 
@@ -49,9 +49,10 @@ class ACRUniformity(HazenTask):
 
         # Initialise ACR object
         self.ACR_obj = ACRObject(self.dcm_list)
-        # Required pixel radius to produce ~200cm2 ROI
-        # (this produces 25000 mm2??)
-        self.r_large = compute_radius_from_area(200, self.ACR_obj.dx)
+        # Required pixel radius to produce ~195cm2 ROI - lower end of the
+        # ACR 195-205cm2 range, so the ROI stays clear of the notch at
+        # 12 o'clock (a 200cm2 ROI reaches the bottom of the notch)
+        self.r_large = compute_radius_from_area(195, self.ACR_obj.dx)
         # Required pixel radius to produce ~1cm2 ROI (produces 150mm2)
         self.r_small = compute_radius_from_area(1, self.ACR_obj.dx)
         # Kernel we can use to convolve on input array to obtain an ROI mean
@@ -59,7 +60,7 @@ class ACRUniformity(HazenTask):
         logger.info(
             f"Generated 2D circular kernel for target => \n{self.r_small_kernel}"
         )
-        # Required pixel radius to produce ~200cm2 ROI - 1cm to ensure small rois live fully within large ROI
+        # Required pixel radius to produce ~195cm2 ROI - 1cm to ensure small rois live fully within large ROI
         self.r_large_filter = self.r_large - self.r_small
         # Offset used when adding labels to plots. They display 10 mm to the bottom and right of the ROI
         self.label_x_offset = np.ceil(np.divide(10, self.ACR_obj.dx))
@@ -268,7 +269,7 @@ class ACRUniformity(HazenTask):
 
     def get_integral_uniformity(self, dcm):
         """Calculates the percent integral uniformity (PIU) of a DICOM pixel array. \n
-        Iterates with a ~1 cm^2 ROI through a ~200 cm^2 ROI inside the phantom region,
+        Iterates with a ~1 cm^2 ROI through a ~195 cm^2 ROI inside the phantom region,
         and calculates the mean non-zero pixel value inside each ~1 cm^2 ROI. \n
         The PIU is defined as: `PIU = 100 * (1 - (max - min) / (max + min))`, where \n
         'max' and 'min' represent the maximum and minimum of the mean non-zero pixel values of each ~1 cm^2 ROI.

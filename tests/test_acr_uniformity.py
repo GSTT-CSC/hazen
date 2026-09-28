@@ -17,7 +17,7 @@ from tests import TEST_DATA_DIR, TEST_REPORT_DIR
 
 class TestACRUniformitySiemens(unittest.TestCase):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
-    piu = 67.49
+    piu = 68.2
 
     def setUp(self):
         input_files = get_dicom_files(self.ACR_DATA)
@@ -90,19 +90,19 @@ class TestACRUniformitySiemens(unittest.TestCase):
 
 class TestACRUniformityGESignaArtistT1(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR) / "acr" / "GE_Signa_Artist_1.5T_T1"
-    piu = 92.03
+    piu = 93.04
 
 
 class TestACRUniformitySiemensSolaFit(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFit")
-    piu = 95.77
+    piu = 95.85
 
 
 class TestACRUniformityPhilipsAchieva(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
-    piu = 80.66
+    piu = 81.45
 
 
 class TestACRUniformityGE(TestACRUniformitySiemens):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "GE")
-    piu = 83.78
+    piu = 84.36
