@@ -282,12 +282,8 @@ def get_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """Primary entrypoint to hazen."""
-    print("\n" + "=" * 50)
-    print(">>> SUCCESS: TERMINAL IS RUNNING MY EDIT! <<<")
-    print("=" * 50 + "\n")
     parser = get_parser()
     args = parser.parse_args()
-    print(f"DEBUG: args.report is {args.report}")
 
     try:
         execution_wrapper = (
