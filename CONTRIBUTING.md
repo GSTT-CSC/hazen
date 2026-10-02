@@ -150,6 +150,7 @@ For each PR:
    - Investigate any which are failing
 3. Merge the PR into the `main` branch
    - Provide a brief description of changes in the PR textbox as this forms the Release Notes 
+   - If the PR changes results or behaviour users will notice, add an entry to "Unreleased changes" in the README
 
 For a new release: <br>
 
@@ -159,6 +160,7 @@ For a new release: <br>
      - This is automatically propagated into across the repository.
    - Update version number and date released in `CITATION.cff`
    - Updated contributors in `docs/source/contributors.rst`
+   - Empty the "Unreleased changes" list in the README and update its "since" version (use its entries when amending the Release Notes)
 6. Create a [new Release](https://github.com/GSTT-CSC/hazen/releases)
    - Create a tag equal to the version number, e.g. 1.2.1
    - Select `main` as the Target branch from which to create the Release
