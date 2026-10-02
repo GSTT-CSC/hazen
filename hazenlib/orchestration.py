@@ -423,13 +423,35 @@ def _execute_step(
     file_groups: dict,
     kwargs: T.kwargs,
 ) -> Result:
-    """Encapsulate the work for a single step."""
-    task = init_task(
-        step.task_name,
-        file_groups[step.acquisition_type],
-        **kwargs,
-    )
-    return task.run()
+    """Encapsulate the work for a single step.
+
+    A failing step returns an empty Result describing the failure so that
+    the remaining steps (and the report) are still produced.
+    """
+    files = file_groups[step.acquisition_type]
+    try:
+        task = init_task(step.task_name, files, **kwargs)
+        return task.run()
+    except Exception as err:
+        logger.exception(
+            "%s failed for %s",
+            step.task_name,
+            step.acquisition_type.value,
+        )
+        return _failed_result(
+            step.task_name,
+            files,
+            f"{step.acquisition_type.value} - {type(err).__name__}: {err}",
+        )
+
+
+def _failed_result(task_name: str, files: list[str], reason: str) -> Result:
+    """Return an empty Result recording that a task failed."""
+    try:
+        name = TASK_REGISTRY[task_name].class_name
+    except KeyError:
+        name = task_name
+    return Result(task=name, desc=f"FAILED: {reason}", files=files)
 
 
 @dataclass(frozen=True)
@@ -841,17 +863,25 @@ def _execute_task(
     files: list[str],
     kwargs: dict[str, Any],
 ) -> Result:
-    """Encapsulate the work for a single task."""
+    """Encapsulate the work for a single task.
+
+    A failing task returns an empty Result describing the failure so that
+    the remaining tasks (and the report) are still produced.
+    """
     report = kwargs.pop("report", False)
     report_dir = kwargs.pop("report_dir", None)
-    task = init_task(
-        task,
-        files,
-        report=report,
-        report_dir=report_dir,
-        **kwargs,
-    )
-    return task.run()
+    try:
+        task_obj = init_task(
+            task,
+            files,
+            report=report,
+            report_dir=report_dir,
+            **kwargs,
+        )
+        return task_obj.run()
+    except Exception as err:
+        logger.exception("%s failed", task)
+        return _failed_result(task, files, f"{type(err).__name__}: {err}")
 
 
 ##############

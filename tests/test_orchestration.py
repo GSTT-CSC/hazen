@@ -29,6 +29,7 @@ from hazenlib.orchestration import (
     Protocol,
     ProtocolResult,
     ProtocolStep,
+    _execute_task,
     init_task,
 )
 from hazenlib.types import Result
@@ -600,6 +601,62 @@ class TestACRLargePhantomProtocol(unittest.TestCase):
         self.assertEqual(mock_init_task.call_count, self.PROTOCOL_STEPS)
         self.assertEqual(len(result.results), self.PROTOCOL_STEPS + 1)
 
+    @patch("hazenlib.orchestration.ACRObject")
+    @patch("hazenlib.orchestration.init_task")
+    def test_run_continues_when_a_step_fails(
+        self,
+        mock_init_task: Callable,
+        mock_acr_obj: Callable,
+    ) -> None:
+        """Verify a failing step is recorded and the docx is still built."""
+        # Arrange
+        mock_acr_instances = []
+        for acq_type in ["T1", "T2", "sagittal localizer"]:
+            mock_inst = Mock()
+            mock_inst.acquisition_type.return_value = acq_type
+            mock_acr_instances.append(mock_inst)
+
+        mock_acr_obj.side_effect = mock_acr_instances
+
+        failing_task = "acr_low_contrast_object_detectability"
+
+        def fake_init_task(task_name: str, *_args, **_kwargs) -> Mock:
+            mock_task = Mock()
+            if task_name == failing_task:
+                mock_task.run.side_effect = RuntimeError("centre not found")
+            else:
+                mock_task.run.return_value = Result(task="MockTask")
+            return mock_task
+
+        mock_init_task.side_effect = fake_init_task
+
+        protocol = ACRLargePhantomProtocol(dirs=self.dirs)
+
+        # Act
+        result = protocol.run(debug=True)
+        doc = result.to_docx()
+
+        # Assert
+        self.assertEqual(len(result.results), self.PROTOCOL_STEPS + 1)
+        failed = [r for r in result.results if r.desc.startswith("FAILED")]
+        # LCOD runs on both the T1 and T2 acquisitions.
+        self.assertEqual(len(failed), 2)
+        for r in failed:
+            self.assertEqual(
+                r.task,
+                TASK_REGISTRY[failing_task].class_name,
+            )
+            self.assertIn("RuntimeError: centre not found", r.desc)
+            self.assertEqual(r.measurements, ())
+        self.assertEqual(
+            {r.desc.split(" - ")[0] for r in failed},
+            {"FAILED: ACR T1", "FAILED: ACR T2"},
+        )
+        headings = [
+            p.text for p in doc.paragraphs if p.style.name == "Heading 1"
+        ]
+        self.assertEqual(len(headings), self.PROTOCOL_STEPS)
+
     def test_steps_contain_expected_tasks(self) -> None:
         """Verify default steps contain expected task names."""
         with (
@@ -1055,6 +1112,20 @@ class TestBatchConfig(unittest.TestCase):
             mock_wait.assert_called_once()
             call_args = mock_wait.call_args
             self.assertEqual(call_args[1]["debug"], False)
+
+    @patch("hazenlib.orchestration.init_task")
+    def test_execute_task_returns_failed_result_on_error(
+        self,
+        mock_init_task: Mock,
+    ) -> None:
+        """Verify a failing batch task returns a Result instead of raising."""
+        mock_init_task.return_value.run.side_effect = ValueError("bad fit")
+
+        result = _execute_task("snr", ["file.dcm"], {"report": False})
+
+        self.assertEqual(result.task, TASK_REGISTRY["snr"].class_name)
+        self.assertEqual(result.desc, "FAILED: ValueError: bad fit")
+        self.assertEqual(result.measurements, ())
 
 
 class TestBatchConfigToYaml(unittest.TestCase):
