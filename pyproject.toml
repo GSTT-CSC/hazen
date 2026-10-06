@@ -16,6 +16,7 @@ dependencies = [
     "numpy>=2.0.2,<2.4.0",
     "opencv-python>=4.11.0.86",
     "opencv-python-headless>=4.11.0.86",
+    "openpyxl>=3.1.5",
     "packaging>=25.0",
     "pydicom>=2.4.4",
     "python-docx>=1.2.0",
@@ -46,11 +47,15 @@ dev = [
     "sphinx-rtd-theme>=3.0.2",
     "sphinxcontrib-bibtex>=2.6.5",
     "ty>=0.0.8",
+    "types-openpyxl>=3.1.5.20260827",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hazenlib*", "tests"]
+
+[tool.setuptools.package-data]
+hazenlib = ["data/*.xlsx"]
 
 [tool.pytest.ini_options]
 markers = [
