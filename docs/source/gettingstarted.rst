@@ -403,6 +403,114 @@ Process a full ACR Large Phantom protocol in one command:
          - "./data/acr/sag_localiser"
 
 
+GSTT ACR Protocol (acr_gstt)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``acr_gstt`` runs every measurement in the GSTT ACR QA work instruction on one
+session folder and writes the results to a single Excel workbook. Unlike
+``acr_all`` (T1, T2 and sagittal localiser), all GSTT acquisitions use the same
+T1 sequence and differ only by coil, plane and reconstruction filters, so each
+acquisition is identified by the name of its folder.
+
+.. code-block:: bash
+
+   hazen acr_gstt /path/to/session
+
+Folder Naming
+"""""""""""""
+Place each acquisition in a subfolder of the session folder named after its
+role. Names are matched ignoring case and separators (``HEAD1``, ``head-1`` and
+``Head_1`` are equivalent). The plane can come before or after the number, with
+``ax`` or ``axial`` accepted for ``Tra``, and anything after a trailing
+separator is ignored, so ``BODY1_ax``, ``BODY4_sag_rotMAT`` and ``Body_Sag_4``
+are all recognised. Two folders matching the same role (e.g. ``HEAD2`` and
+``HEAD2_rep``) stop the run, so rename or move the one not to use. Other folders
+(e.g. RF noise) are listed and ignored.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Folder
+     - Acquisition
+   * - ``Head_1``, ``Head_2``
+     - Head coil, no filters (repeat pair)
+   * - ``Head_3``
+     - Head coil, intensity correction / normalisation on
+   * - ``Head_4``
+     - Head coil, 2D distortion correction on
+   * - ``Head_5``
+     - Head coil, Philips CLASSIC reconstruction (Philips only)
+   * - ``Body_Tra_1`` ... ``Body_Tra_4``
+     - Body coil, transverse; series 1-4 as for the head coil
+   * - ``Body_Sag_1`` ... ``Body_Sag_4``
+     - Body coil, sagittal
+   * - ``Body_Cor_1`` ... ``Body_Cor_4``
+     - Body coil, coronal
+
+Sagittal and coronal images must already be rotated so the phantom appears as
+in a transverse acquisition, ``acr_gstt`` does not rotate images.
+
+Measurements
+""""""""""""
+For each coil and plane:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 30 30
+
+   * - Test
+     - Siemens / Philips
+     - GE
+   * - Slice thickness, slice position, geometric accuracy
+     - series 4
+     - series 1
+   * - Uniformity
+     - series 3
+     - series 3 (head), series 1 (body)
+   * - SNR (subtraction, series 1 minus series 2)
+     - series 1, 2
+     - series 1, 2
+   * - Ghosting (head only)
+     - ``Head_1`` (Philips: ``Head_5``)
+     - ``Head_1``
+
+The vendor is read from the DICOM ``Manufacturer`` tag; use ``--vendor`` to
+override it. Other manufacturers are not supported.
+
+SNR is normalised using the slice thickness measured on the same coil and
+plane's slice thickness series (series 4, or series 1 for GE). If that is
+unavailable the nominal DICOM slice thickness is used and a warning is logged.
+The slice width used is recorded in the results.
+
+A test whose folders are missing is recorded as ``skipped``; a test that raises
+an error is recorded as ``failed`` and the rest still run. ``hazen`` exits with
+a non-zero status if anything failed. SNR is skipped, not measured with the
+single-image method, when the repeat series is missing.
+
+Outputs
+"""""""
+- ``<session>/hazen_results.xlsx`` (or ``--xlsx PATH``) with the two results
+  tables from the GSTT ACR results template (Geometric accuracy in the same
+  cells), plus the report images:
+
+  - **Hazen Output** (A12:F25): SNR, uniformity, ghosting, geometric accuracy,
+    slice thickness and slice position for the head coil (column C) and the
+    body coil transverse, sagittal and coronal planes (columns D-F).
+  - **Geometric accuracy** (A8:C61): the six hazen lengths and their
+    coefficient of variation per coil and plane.
+  - **Head Images**, **Body Tra Images**, **Body Sag Images**, **Body Cor
+    Images**: each test's report images, for a quick visual check (empty with
+    ``--no-report``).
+
+  Spatial resolution is left to fill in by hand. A cell left empty because a
+  test was skipped, failed or produced no value has a comment saying why.
+
+- ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
+  ``--no-report`` to disable).
+- ``--result PATH --format csv|tsv|json`` also writes every measurement, at all
+  visibility levels, as one labelled row each (``coil``, ``plane``, ``role``,
+  ``test``, ``status``, ``detail``, series details and report image paths).
+
 Web interface
 ^^^^^^^^^^^^^
 Please refer to the *hazen web app* GitHub repository `here <https://github.com/GSTT-CSC/hazen-web-app>`_ for more information.
