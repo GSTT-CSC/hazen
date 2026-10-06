@@ -15,6 +15,11 @@ Note that the acr_all task requires 3 directories as arguments
 a single positional directory argument. That is:
 
 hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
+
+The acr_gstt command runs the GSTT ACR QA protocol on a single session
+folder whose subfolders are named by role (Head_1 ... Body_Cor_4):
+
+hazen acr_gstt /path/to/session
 """
 
 import argparse
@@ -36,6 +41,12 @@ from hazenlib.orchestration import (
     BatchConfig,
     init_task,
 )
+from hazenlib.protocols.acr_gstt import (
+    WORKBOOK_TEMPLATE,
+    ACRGSTTProtocol,
+    rows_as_records,
+)
+from hazenlib.protocols.outputs import fill_template, write_records
 from hazenlib.utils import get_dicom_files
 
 
@@ -277,7 +288,99 @@ def get_parser() -> argparse.ArgumentParser:
             nargs="+",
         )
 
+    #######################
+    # GSTT ACR sub parser #
+    #######################
+
+    gstt_parser = subparsers.add_parser(
+        "acr_gstt",
+        help="Run the GSTT ACR QA protocol on a session folder.",
+        parents=[common_parser],
+    )
+    gstt_parser.add_argument(
+        "session",
+        help=(
+            "Folder containing one subfolder per acquisition, named by"
+            " role: Head_1 ... Head_5, Body_Tra_1 ... Body_Cor_4"
+        ),
+    )
+    gstt_parser.add_argument(
+        "--vendor",
+        type=str,
+        default=None,
+        choices=["siemens", "philips", "ge"],
+        help="Vendor rules to apply (default: read from the DICOM headers)",
+    )
+    gstt_parser.add_argument(
+        "--xlsx",
+        type=str,
+        default=None,
+        help="Results workbook path (default: <session>/hazen_results.xlsx)",
+    )
+    gstt_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Folder for report images (default: <session>/hazen_report)",
+    )
+    gstt_parser.add_argument(
+        "--report",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to generate report images (enabled by default)",
+    )
+    gstt_parser.add_argument(
+        "--result",
+        type=str,
+        default=None,
+        help='Also write the result rows to this path ("-" for stdout)',
+    )
+    gstt_parser.add_argument(
+        "--format",
+        type=str,
+        default="csv",
+        choices=["json", "csv", "tsv"],
+        help="Format for --result (default: csv)",
+    )
+
     return parser
+
+
+def run_acr_gstt(args: argparse.Namespace) -> int:
+    """Run the GSTT ACR protocol from parsed arguments.
+
+    Returns:
+        Exit code: 1 if any step failed, otherwise 0.
+
+    """
+    protocol = ACRGSTTProtocol(
+        args.session,
+        vendor=args.vendor,
+        report=args.report,
+        report_dir=args.output,
+    )
+    outcomes = protocol.run()
+    records = rows_as_records(protocol.rows(outcomes))
+
+    xlsx = (
+        Path(args.xlsx)
+        if args.xlsx
+        else protocol.session.path / "hazen_results.xlsx"
+    )
+    fill_template(
+        WORKBOOK_TEMPLATE,
+        protocol.workbook_cells(outcomes),
+        xlsx,
+        images=protocol.image_groups(outcomes),
+    )
+    if args.result:
+        write_records(records, args.format, args.result)
+
+    print(protocol.summary(outcomes))  # noqa: T201
+    print(f"Workbook: {xlsx}")  # noqa: T201
+    if args.report:
+        print(f"Images:   {protocol.report_dir}")  # noqa: T201
+    return int(any(o.status == "failed" for o in outcomes))
 
 
 def main() -> None:
@@ -376,6 +479,15 @@ def main() -> None:
             "Batch job successfully run!"
             f" Current batch file copied to {conf_bak} as a backup.",
         )
+        return
+
+    if args.command == "acr_gstt":
+        try:
+            exit_code = run_acr_gstt(args)
+        except (NotADirectoryError, ValueError) as err:
+            parser.error(str(err))
+        if exit_code:
+            raise SystemExit(exit_code)
         return
 
     #############################
