@@ -36,7 +36,7 @@ from hazenlib.orchestration import (
     BatchConfig,
     init_task,
 )
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import get_dicom_files, open_report_images
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -103,6 +103,15 @@ def get_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Whether to generate visualisation of the measurement steps (enabled by default)",
+    )
+    task_options_parser.add_argument(
+        "--show",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Whether to open the report images in the default image viewer"
+            " after the run (default: on for single tasks, off for acr_all)"
+        ),
     )
     task_options_parser.add_argument(
         "--report-docx",
@@ -392,6 +401,14 @@ def main() -> None:
     # Parse the task and optional arguments:
     selected_task = args.command.lower()
 
+    # Report images are opened by default for single tasks only
+    show = args.show if args.show is not None else selected_task != "acr_all"
+    if args.show and not report:
+        logger.warning(
+            "--show has no effect with --no-report: no report images are made",
+        )
+    show = show and report
+
     #################################
     # Special Case the ACR ALL Task #
     #################################
@@ -411,8 +428,12 @@ def main() -> None:
             )
             doc.save(args.report_docx)
 
+        report_images: list[str] = []
         for result in protocol.results:
             write_result(result, fmt=fmt, path=result_file, level=level)
+            report_images.extend(result.report_images)
+        if show:
+            open_report_images(report_images)
         return
     if len(args.folder) != 1:
         parser.error(
@@ -475,10 +496,14 @@ def main() -> None:
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             # for now these are most likely not enhanced, single-frame
+            report_images = []
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
                 result = execution_wrapper(task.run)
                 write_result(result, fmt=fmt, path=result_file, level=level)
+                report_images.extend(result.report_images)
+            if show:
+                open_report_images(report_images)
             return
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
@@ -493,10 +518,9 @@ def main() -> None:
         )
         result = execution_wrapper(task.run)
 
-        write_result(result, fmt=fmt, path=result_file, level=level)
-        return
-
     write_result(result, fmt=fmt, path=result_file, level=level)
+    if show:
+        open_report_images(result.report_images)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,8 @@ import copy
 import multiprocessing
 import os
 import re
+import subprocess
+import sys
 from collections import defaultdict
 from multiprocessing import Pool
 from typing import Union, TypeVar
@@ -1168,6 +1170,43 @@ def wait_on_parallel_results(fxn, arg_list=None, *, debug: bool = False):
         for r in result_handles:
             results.append(r.get())
         return results
+
+
+def open_report_images(paths) -> None:
+    """Open report images in the operating system's default image viewer.
+
+    Does nothing when running under CI or on Linux without a display.
+    Failure to launch a viewer is logged as a warning and never raised,
+    as opening the images is only a convenience for visual checks.
+
+    Args:
+        paths (Iterable of str or Path): report image files to open.
+    """
+    paths = [str(p) for p in paths]
+    if not paths:
+        return
+    if os.environ.get("CI"):
+        logger.debug("CI environment detected, not opening report images")
+        return
+    if sys.platform.startswith("linux") and not (
+        os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+    ):
+        logger.debug("No display available, not opening report images")
+        return
+
+    logger.info("Opening %s report image(s)", len(paths))
+    try:
+        if sys.platform == "darwin":
+            # A single call groups the images into one Preview window
+            subprocess.Popen(["open", *paths])  # noqa: S603, S607
+        elif sys.platform == "win32":
+            for path in paths:
+                os.startfile(path)  # noqa: S606
+        else:
+            for path in paths:
+                subprocess.Popen(["xdg-open", path])  # noqa: S603, S607
+    except OSError as e:
+        logger.warning("Could not open report images: %s", e)
 
 
 def debug_image_sample(img, out_path=None):
