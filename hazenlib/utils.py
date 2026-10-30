@@ -1198,13 +1198,13 @@ def open_report_images(paths) -> None:
     try:
         if sys.platform == "darwin":
             # A single call groups the images into one Preview window
-            subprocess.Popen(["open", *paths])  # noqa: S603, S607
+            subprocess.Popen(["open", *paths]) 
         elif sys.platform == "win32":
             for path in paths:
-                os.startfile(path)  # noqa: S606
+                os.startfile(path)  
         else:
             for path in paths:
-                subprocess.Popen(["xdg-open", path])  # noqa: S603, S607
+                subprocess.Popen(["xdg-open", path]) 
     except OSError as e:
         logger.warning("Could not open report images: %s", e)
 
