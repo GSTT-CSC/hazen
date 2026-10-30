@@ -3,6 +3,7 @@
 # ruff: noqa: PT009 PT027 SLF001
 
 # Python imports
+import csv
 import io
 import json
 import os
@@ -10,23 +11,19 @@ import shutil
 import sys
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
 # Module imports
-import openpyxl
 import pydicom
 import pytest
-from PIL import Image as PILImage
 
 # Local imports
 import hazenlib
 from hazenlib.orchestration import init_task
 from hazenlib.protocols.acr_gstt import (
     ROLES,
-    WORKBOOK_TEMPLATE,
     ACRGSTTProtocol,
     Session,
     Step,
@@ -36,13 +33,9 @@ from hazenlib.protocols.acr_gstt import (
     match_role,
     rows_as_records,
 )
-from hazenlib.protocols.outputs import (
-    ImageGroup,
-    TemplateCell,
-    fill_template,
-    write_records,
-)
+from hazenlib.protocols.outputs import write_records
 from hazenlib.types import Measurement, Result
+from hazenlib.utils import wait_on_parallel_results
 from tests import TEST_DATA_DIR
 
 SIEMENS_T1 = TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1"
@@ -382,67 +375,65 @@ class TestRun(unittest.TestCase):
         self.assertEqual(skipped.status, "skipped")
         self.assertIsNone(skipped.value)
 
-    def test_image_groups(self, _init: Mock) -> None:
-        protocol = ACRGSTTProtocol(self.root, report_dir=self.tmp / "rep")
-        sheets = protocol.image_groups(protocol.run(debug=True))
-        self.assertEqual(
-            list(sheets),
-            [
-                "Head Images",
-                "Body Tra Images",
-                "Body Sag Images",
-                "Body Cor Images",
-            ],
-        )
-        uniformity = next(
-            g for g in sheets["Head Images"] if g.title == "Head_3 uniformity"
-        )
-        self.assertEqual(uniformity.paths, ("/report/acr_uniformity.png",))
-        self.assertEqual(
-            sheets["Body Cor Images"][0].note,
-            "skipped: missing Body_Cor_4",
+
+@patch("hazenlib.protocols.acr_gstt.init_task", side_effect=fake_init_task)
+@patch(
+    "hazenlib.protocols.acr_gstt.wait_on_parallel_results",
+    # Mocked tasks do not survive into worker processes, so run in-process
+    side_effect=lambda f, args, **_: wait_on_parallel_results(
+        f, args, debug=True
+    ),
+)
+class TestCliOutput(unittest.TestCase):
+    """Where ``hazen acr_gstt`` writes its result rows."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp()).resolve()
+        self.root = make_session(
+            self.tmp / "s",
+            {f"Head_{n}": SIEMENS_T1 for n in range(1, 6)},
         )
 
-    def test_no_image_groups_without_report(self, _init: Mock) -> None:
-        protocol, outcomes = self.run_protocol()
-        sheets = protocol.image_groups(outcomes)
-        self.assertTrue(all(groups == [] for groups in sheets.values()))
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp)
 
-    def test_workbook_cells(self, _init: Mock) -> None:
-        protocol, outcomes = self.run_protocol()
-        cells = {
-            (c.sheet, c.ref): c for c in protocol.workbook_cells(outcomes)
-        }
-        # Head uniformity and slice thickness, normalised SNR
-        self.assertEqual(cells["Hazen Output", "C16"].value, 97.0)
-        self.assertEqual(cells["Hazen Output", "C23"].value, 4.6)
-        self.assertEqual(cells["Hazen Output", "C15"].value, 2000.0)
-        # Ran, but the canned result has no measured SNR
-        self.assertEqual(
-            cells["Hazen Output", "C14"].note,
-            "Head_1 snr: not measured",
-        )
-        # Body roles are missing
-        self.assertIsNone(cells["Hazen Output", "E16"].value)
-        self.assertEqual(
-            cells["Hazen Output", "E16"].note,
-            "Body_Sag_3 uniformity skipped: missing Body_Sag_3",
-        )
-        geometry = [
-            ref for sheet, ref in cells if sheet == "Geometric accuracy"
-        ]
-        self.assertEqual(
-            geometry,
-            [
-                f"B{start + offset}"
-                for start in (12, 26, 40, 54)
-                for offset in (0, 1, 2, 3, 4, 5, 7)
-            ],
-        )
+    def test_result_path(self, *_mocks: Mock) -> None:
+        custom = self.tmp / "custom.json"
+        default_csv = self.root / "hazen_results.csv"
+        default_json = self.root / "hazen_results.json"
+        outputs = (custom, default_csv, default_json)
+        for extra, written in [
+            ([], default_csv),
+            (["--format", "json"], default_json),
+            (["--result", str(custom), "--format", "json"], custom),
+            (["--result", "-"], None),
+        ]:
+            with self.subTest(extra=extra):
+                for path in outputs:
+                    path.unlink(missing_ok=True)
+                argv = ["hazen", "acr_gstt", str(self.root), "--no-report"]
+                with (
+                    patch.object(sys, "argv", [*argv, *extra]),
+                    patch("sys.stdout", new_callable=io.StringIO) as out,
+                ):
+                    hazenlib.main()
+                self.assertEqual(
+                    [p for p in outputs if p.exists()],
+                    [written] if written else [],
+                )
+                if written is None:
+                    self.assertIn("coil,plane,role", out.getvalue())
+                    self.assertNotIn("Results:", out.getvalue())
+                    continue
+                self.assertIn(f"Results: {written}", out.getvalue())
+                if written.suffix == ".json":
+                    self.assertTrue(json.loads(written.read_text()))
+                else:
+                    self.assertTrue(written.read_text().startswith("coil,"))
 
 
 class TestOutputs(unittest.TestCase):
-    """Workbook and record writers."""
+    """Record writers."""
 
     records = [
         {"role": "Head_3", "value": 97.0, "unit": "%"},
@@ -454,53 +445,6 @@ class TestOutputs(unittest.TestCase):
 
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp)
-
-    def test_fill_template(self) -> None:
-        png = self.tmp / "img.png"
-        PILImage.new("L", (800, 1600)).save(png)
-        path = fill_template(
-            WORKBOOK_TEMPLATE,
-            [
-                TemplateCell("Hazen Output", "C16", 97.0),
-                TemplateCell("Geometric accuracy", "B12", note="skipped"),
-            ],
-            self.tmp / "out" / "r.xlsx",
-            images={
-                "Head Images": [
-                    ImageGroup("Head_1 snr", (str(png), str(png))),
-                    ImageGroup("Head_3 uniformity", note="skipped"),
-                ],
-                "Body Tra Images": [],
-            },
-        )
-        wb = openpyxl.load_workbook(path)
-        self.assertEqual(
-            wb.sheetnames,
-            [
-                "Hazen Output",
-                "Geometric accuracy",
-                "Head Images",
-                "Body Tra Images",
-            ],
-        )
-        cover = wb["Hazen Output"]
-        self.assertEqual(cover["C16"].value, 97.0)
-        self.assertEqual(cover["B16"].value, "Uniformity (%)")
-        header = cover.oddHeader
-        self.assertTrue(header is None or header.left.text is None)
-        self.assertIsNone(cover["A27"].value)
-        head = wb["Head Images"]
-        self.assertEqual(head["A1"].value, "Head_1 snr")
-        with zipfile.ZipFile(path) as zf:
-            media = [n for n in zf.namelist() if n.startswith("xl/media/")]
-        self.assertEqual(len(media), 2)
-        # 1600 px scaled to 720 px is 36 rows of 20 px, plus a gap
-        self.assertEqual(head["A39"].value, "Head_3 uniformity")
-        self.assertEqual(head["B39"].value, "skipped")
-        self.assertEqual(wb["Body Tra Images"]["A1"].value, "No report images")
-        geometry = wb["Geometric accuracy"]
-        self.assertIsNone(geometry["B12"].value)
-        self.assertEqual(geometry["B12"].comment.text, "skipped")
 
     def test_csv_and_json(self) -> None:
         write_records(self.records, "csv", self.tmp / "r.csv")
@@ -589,7 +533,7 @@ class TestPhilipsSession(unittest.TestCase):
 
 @pytest.mark.slow
 class TestCli(unittest.TestCase):
-    """``hazen acr_gstt`` writes the workbook and returns 0."""
+    """``hazen acr_gstt`` on real data writes the results CSV, returns 0."""
 
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())
@@ -598,37 +542,34 @@ class TestCli(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def test_cli(self) -> None:
-        xlsx = self.tmp / "results.xlsx"
-        argv = [
-            "hazen",
-            "acr_gstt",
-            str(PHILIPS_SESSION),
-            "--no-report",
-            "--xlsx",
-            str(xlsx),
-            "--result",
-            str(self.tmp / "results.csv"),
-        ]
+        root = make_session(
+            self.tmp / "s",
+            {
+                p.name: p
+                for p in PHILIPS_SESSION.iterdir()
+                if p.name.startswith(("Head", "Body"))
+            },
+        )
+        argv = ["hazen", "acr_gstt", str(root), "--no-report"]
         with (
             patch.object(sys, "argv", argv),
-            patch(
-                "sys.stdout",
-                new_callable=io.StringIO,
-            ) as out,
+            patch("sys.stdout", new_callable=io.StringIO) as out,
         ):
             hazenlib.main()
         self.assertIn("failed 0", out.getvalue())
-        wb = openpyxl.load_workbook(xlsx)
-        self.assertEqual(
-            wb.sheetnames[:3],
-            ["Hazen Output", "Geometric accuracy", "Head Images"],
-        )
+        with (root / "hazen_results.csv").open(newline="") as fh:
+            rows = list(csv.DictReader(fh))
         # Head uniformity from Head_3, body sagittal geometry from Body_Sag_4
-        self.assertIsInstance(wb["Hazen Output"]["C16"].value, (int, float))
-        self.assertIsInstance(
-            wb["Geometric accuracy"]["B40"].value, (int, float)
-        )
-        self.assertTrue((self.tmp / "results.csv").exists())
+        for role, test in [
+            ("Head_3", "uniformity"),
+            ("Body_Sag_4", "geometric_accuracy"),
+        ]:
+            with self.subTest(role=role, test=test):
+                row = next(
+                    r for r in rows if r["role"] == role and r["test"] == test
+                )
+                self.assertEqual(row["status"], "ok")
+                float(row["value"])
 
 
 @pytest.mark.slow

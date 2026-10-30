@@ -41,12 +41,8 @@ from hazenlib.orchestration import (
     BatchConfig,
     init_task,
 )
-from hazenlib.protocols.acr_gstt import (
-    WORKBOOK_TEMPLATE,
-    ACRGSTTProtocol,
-    rows_as_records,
-)
-from hazenlib.protocols.outputs import fill_template, write_records
+from hazenlib.protocols.acr_gstt import ACRGSTTProtocol, rows_as_records
+from hazenlib.protocols.outputs import write_records
 from hazenlib.utils import get_dicom_files
 
 
@@ -312,12 +308,6 @@ def get_parser() -> argparse.ArgumentParser:
         help="Vendor rules to apply (default: read from the DICOM headers)",
     )
     gstt_parser.add_argument(
-        "--xlsx",
-        type=str,
-        default=None,
-        help="Results workbook path (default: <session>/hazen_results.xlsx)",
-    )
-    gstt_parser.add_argument(
         "--output",
         type=str,
         default=None,
@@ -333,14 +323,17 @@ def get_parser() -> argparse.ArgumentParser:
         "--result",
         type=str,
         default=None,
-        help='Also write the result rows to this path ("-" for stdout)',
+        help=(
+            'Result rows path ("-" for stdout,'
+            " default: <session>/hazen_results.<format>)"
+        ),
     )
     gstt_parser.add_argument(
         "--format",
         type=str,
         default="csv",
         choices=["json", "csv", "tsv"],
-        help="Format for --result (default: csv)",
+        help="Format of the result rows (default: csv)",
     )
 
     return parser
@@ -361,23 +354,14 @@ def run_acr_gstt(args: argparse.Namespace) -> int:
     )
     outcomes = protocol.run()
     records = rows_as_records(protocol.rows(outcomes))
-
-    xlsx = (
-        Path(args.xlsx)
-        if args.xlsx
-        else protocol.session.path / "hazen_results.xlsx"
+    result = args.result or (
+        protocol.session.path / f"hazen_results.{args.format}"
     )
-    fill_template(
-        WORKBOOK_TEMPLATE,
-        protocol.workbook_cells(outcomes),
-        xlsx,
-        images=protocol.image_groups(outcomes),
-    )
-    if args.result:
-        write_records(records, args.format, args.result)
+    write_records(records, args.format, result)
 
     print(protocol.summary(outcomes))  # noqa: T201
-    print(f"Workbook: {xlsx}")  # noqa: T201
+    if result != "-":
+        print(f"Results: {result}")  # noqa: T201
     if args.report:
         print(f"Images:   {protocol.report_dir}")  # noqa: T201
     return int(any(o.status == "failed" for o in outcomes))

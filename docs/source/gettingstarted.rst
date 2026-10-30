@@ -406,7 +406,7 @@ Process a full ACR Large Phantom protocol in one command:
 GSTT ACR Protocol (acr_gstt)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``acr_gstt`` runs every measurement in the GSTT ACR QA work instruction on one
-session folder and writes the results to a single Excel workbook. Unlike
+session folder and writes the results to a single CSV file. Unlike
 ``acr_all`` (T1, T2 and sagittal localiser), all GSTT acquisitions use the same
 T1 sequence and differ only by coil, plane and reconstruction filters, so each
 acquisition is identified by the name of its folder.
@@ -489,27 +489,13 @@ single-image method, when the repeat series is missing.
 
 Outputs
 """""""
-- ``<session>/hazen_results.xlsx`` (or ``--xlsx PATH``) with the two results
-  tables from the GSTT ACR results template (Geometric accuracy in the same
-  cells), plus the report images:
-
-  - **Hazen Output** (A12:F25): SNR, uniformity, ghosting, geometric accuracy,
-    slice thickness and slice position for the head coil (column C) and the
-    body coil transverse, sagittal and coronal planes (columns D-F).
-  - **Geometric accuracy** (A8:C61): the six hazen lengths and their
-    coefficient of variation per coil and plane.
-  - **Head Images**, **Body Tra Images**, **Body Sag Images**, **Body Cor
-    Images**: each test's report images, for a quick visual check (empty with
-    ``--no-report``).
-
-  Spatial resolution is left to fill in by hand. A cell left empty because a
-  test was skipped, failed or produced no value has a comment saying why.
-
+- ``<session>/hazen_results.csv`` with every measurement, at all visibility
+  levels, as one labelled row each (``coil``, ``plane``, ``role``, ``test``,
+  ``status``, ``detail``, series details and report image paths). Skipped and
+  failed tests have a row saying why. ``--result PATH`` writes it elsewhere
+  (``-`` for stdout) and ``--format csv|tsv|json`` changes the format.
 - ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
   ``--no-report`` to disable).
-- ``--result PATH --format csv|tsv|json`` also writes every measurement, at all
-  visibility levels, as one labelled row each (``coil``, ``plane``, ``role``,
-  ``test``, ``status``, ``detail``, series details and report image paths).
 
 Web interface
 ^^^^^^^^^^^^^

@@ -153,10 +153,10 @@ Check the unreleased changes below to decide whether you need them.
 - **New `acr_gstt` command for the GSTT ACR QA protocol.** `hazen acr_gstt /path/to/session` runs every measurement in
   GSTT's ACR QA work instruction (slice thickness, slice position, geometric accuracy, uniformity, ghosting and
   subtraction SNR, for the head coil and the body coil in all three planes) on one session folder, and writes the
-  results and report images to a single Excel workbook. Each acquisition goes in a subfolder named by its role
-  (`Head_1` to `Head_5`, `Body_Tra_1` to `Body_Cor_4`). The Siemens, Philips or GE rules are chosen from the DICOM
-  headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. See the
-  [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for folder names and outputs.
+  results to `hazen_results.csv` in the session folder, with report images alongside. Each acquisition goes in a
+  subfolder named by its role (`Head_1` to `Head_5`, `Body_Tra_1` to `Body_Cor_4`). The Siemens, Philips or GE rules are
+  chosen from the DICOM headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. See
+  the [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for folder names and outputs.
 
 ###### Installing the development version
 
