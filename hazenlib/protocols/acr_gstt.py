@@ -34,16 +34,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
-    from hazenlib.types import Measurement, Result
+    from hazenlib.types import Result
 
 # Python imports
 import datetime
 import logging
 import re
 from dataclasses import asdict, dataclass
-from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
 
@@ -54,7 +51,6 @@ from pydicom.multival import MultiValue
 # Local imports
 from hazenlib._version import __version__
 from hazenlib.orchestration import init_task
-from hazenlib.protocols.outputs import ImageGroup, TemplateCell
 from hazenlib.utils import (
     get_dicom_files,
     get_manufacturer,
@@ -445,99 +441,6 @@ def _execute(
 
 
 ############
-# Workbook #
-############
-
-WORKBOOK_TEMPLATE = files("hazenlib") / "data" / "acr_gstt_template.xlsx"
-COVER = "Hazen Output"
-GEOMETRY = "Geometric accuracy"
-
-# Hazen Output result column for each coil and plane
-_COVER_COLUMNS = {
-    (HEAD, "tra"): "C",
-    (BODY, "tra"): "D",
-    (BODY, "sag"): "E",
-    (BODY, "cor"): "F",
-}
-# Hazen Output row for each test, with the measurement that fills it
-_COVER_ROWS: tuple[tuple[str, int, Callable[[Measurement], bool]], ...] = (
-    (
-        "snr",
-        14,
-        lambda m: m.subtype == "subtraction" and m.type == "measured",
-    ),
-    (
-        "snr",
-        15,
-        lambda m: m.subtype == "subtraction" and m.type == "normalised",
-    ),
-    ("uniformity", 16, lambda m: m.name == "Uniformity"),
-    ("ghosting", 17, lambda m: m.name == "Ghosting"),
-    ("slice_thickness", 23, lambda m: m.subtype == "slice width"),
-    (
-        "slice_position",
-        24,
-        lambda m: m.description.startswith("Slice 1 "),
-    ),
-    (
-        "slice_position",
-        25,
-        lambda m: m.description.startswith("Slice 11 "),
-    ),
-)
-# First "Hazen" row of each block on the geometric accuracy sheet
-_GEOMETRY_ROWS = {
-    (HEAD, "tra"): 12,
-    (BODY, "tra"): 26,
-    (BODY, "sag"): 40,
-    (BODY, "cor"): 54,
-}
-# Offset from the first row of a block, with the measurement that fills it.
-# Offset 6 is the template's own "Max error" formula.
-_GEOMETRY_CELLS: tuple[tuple[int, Callable[[Measurement], bool]], ...] = (
-    *(
-        (i, lambda m, s=f"Slice {n} {line} distance": m.subtype == s)
-        for i, (n, line) in enumerate(
-            (
-                (1, "Horizontal"),
-                (1, "Vertical"),
-                (5, "Horizontal"),
-                (5, "Vertical"),
-                (5, "Diagonal SW"),
-                (5, "Diagonal SE"),
-            ),
-        )
-    ),
-    (7, lambda m: m.description == "Coefficient of variation"),
-)
-# Report image sheet for each coil and plane
-_IMAGE_SHEETS = {
-    (HEAD, "tra"): "Head Images",
-    (BODY, "tra"): "Body Tra Images",
-    (BODY, "sag"): "Body Sag Images",
-    (BODY, "cor"): "Body Cor Images",
-}
-
-
-def _targets(step: Step) -> list[tuple[str, str, Callable[..., bool]]]:
-    """Workbook cells filled by a step, with the measurement for each."""
-    role = ROLES_BY_NAME[step.role]
-    key = (role.coil, role.plane)
-    if step.test == "geometric_accuracy":
-        first = _GEOMETRY_ROWS[key]
-        return [
-            (GEOMETRY, f"B{first + offset}", match)
-            for offset, match in _GEOMETRY_CELLS
-        ]
-    column = _COVER_COLUMNS[key]
-    return [
-        (COVER, f"{column}{row}", match)
-        for test, row, match in _COVER_ROWS
-        if test == step.test
-    ]
-
-
-############
 # Protocol #
 ############
 
@@ -801,61 +704,6 @@ class ACRGSTTProtocol:
                 timespec="seconds",
             ),
         }
-
-    def workbook_cells(
-        self,
-        outcomes: list[StepOutcome],
-    ) -> list[TemplateCell]:
-        """Values for the Hazen Output and Geometric accuracy tables.
-
-        Cells without a value get a note saying why (skipped, failed or
-        not measured), so gaps in the workbook are explained.
-        """
-        cells = []
-        for o in outcomes:
-            for sheet, ref, match in _targets(o.step):
-                found = (
-                    [m for m in o.result.measurements if match(m)]
-                    if o.result is not None
-                    else []
-                )
-                if found:
-                    cells.append(TemplateCell(sheet, ref, found[0].value))
-                    continue
-                note = (
-                    f"{o.step.role} {o.step.test} {o.status}: {o.detail}"
-                    if o.status != "ok"
-                    else f"{o.step.role} {o.step.test}: not measured"
-                )
-                cells.append(TemplateCell(sheet, ref, note=note))
-
-        return cells
-
-    def image_groups(
-        self,
-        outcomes: list[StepOutcome],
-    ) -> dict[str, list[ImageGroup]]:
-        """Report images per coil and plane sheet, one group per step.
-
-        Every sheet is empty when report images were not generated.
-        """
-        sheets: dict[str, list[ImageGroup]] = {
-            name: [] for name in _IMAGE_SHEETS.values()
-        }
-        if not self.report:
-            return sheets
-        for o in outcomes:
-            role = ROLES_BY_NAME[o.step.role]
-            images = tuple(o.result.report_images) if o.result else ()
-            note = (
-                f"{o.status}: {o.detail}"
-                if o.status != "ok"
-                else ("" if images else "no report images")
-            )
-            sheets[_IMAGE_SHEETS[role.coil, role.plane]].append(
-                ImageGroup(f"{role.name} {o.step.test}", images, note),
-            )
-        return sheets
 
     def summary(self, outcomes: list[StepOutcome]) -> str:
         """Short human-readable summary of a run."""
