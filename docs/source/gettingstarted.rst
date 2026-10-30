@@ -165,6 +165,16 @@ The ``--report`` option provides additional information for some of the function
 
    hazen snr tests/data/snr/Philips --report
 
+After a single task finishes, its report images open in your default image
+viewer so you can check them visually. Use ``--no-show`` to stop this. For
+``acr_all`` the images are only opened if you pass ``--show``, and
+``hazen batch`` never opens them:
+
+.. code-block:: bash
+
+   hazen acr_uniformity tests/data/acr/GE_Artist_1.5T_T1 --no-show
+   hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser --show
+
 Task-Specific Arguments
 ^^^^^^^^^^^^^^^^^^^^^^^
 
