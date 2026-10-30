@@ -57,9 +57,15 @@ from hazenlib.types import Measurement, Result
 NOMINAL_DIAMETER_MM = 190.0
 
 # Fitting the phantom wall around each end of a diameter (see measure_length).
-WALL_ARC_HALF_WIDTH_MM = 45.0  # wall sampled up to this far either side of the line
-WALL_FIT_TOLERANCE_MM = 0.25  # max distance of a wall point from the fitted circle
-MIN_WALL_INLIER_FRACTION = 0.3  # fraction of sampled points that must be on the wall
+WALL_ARC_HALF_WIDTH_MM = (
+    45.0  # wall sampled up to this far either side of the line
+)
+WALL_FIT_TOLERANCE_MM = (
+    0.25  # max distance of a wall point from the fitted circle
+)
+MIN_WALL_INLIER_FRACTION = (
+    0.3  # fraction of sampled points that must be on the wall
+)
 MIN_WALL_RADIUS_MM = 70.0  # plausible local radius of curvature of the wall
 MAX_WALL_RADIUS_MM = 140.0
 
@@ -74,8 +80,14 @@ MIN_INSERT_SCORE = 0.15
 DIRECTIONS = {
     "Horizontal": (1.0, 0.0),
     "Vertical": (0.0, 1.0),
-    "Diagonal SW": (-1.0 / np.sqrt(2), 1.0 / np.sqrt(2)),  # top-right -> bottom-left
-    "Diagonal SE": (1.0 / np.sqrt(2), 1.0 / np.sqrt(2)),  # top-left -> bottom-right
+    "Diagonal SW": (
+        -1.0 / np.sqrt(2),
+        1.0 / np.sqrt(2),
+    ),  # top-right -> bottom-left
+    "Diagonal SE": (
+        1.0 / np.sqrt(2),
+        1.0 / np.sqrt(2),
+    ),  # top-left -> bottom-right
 }
 
 SLICE_1_DIRECTIONS = ("Horizontal", "Vertical")
@@ -133,7 +145,13 @@ def describe_orientation(k, flip):
     """Human-readable description of the correction applied by `reorient`."""
     parts = []
     if k % 4:
-        parts.append({1: "rotated 90° anticlockwise", 2: "rotated 180°", 3: "rotated 90° clockwise"}[k % 4])
+        parts.append(
+            {
+                1: "rotated 90° anticlockwise",
+                2: "rotated 180°",
+                3: "rotated 90° clockwise",
+            }[k % 4]
+        )
     if flip:
         parts.append("mirrored left-right")
     return " and ".join(parts) if parts else "no correction"
@@ -200,8 +218,12 @@ def _cue_scores(dark, inner, mask, spacing):
         region = region & inner
         return dark[region].mean() if region.any() else 0.0
 
-    bar = frac((np.abs(y) < 3) & (np.abs(x) < 70)) - frac((np.abs(x) < 3) & (np.abs(y) < 70))
-    below = frac((y > 10) & (np.abs(x) < 80)) - frac((y < -10) & (np.abs(x) < 80))
+    bar = frac((np.abs(y) < 3) & (np.abs(x) < 70)) - frac(
+        (np.abs(x) < 3) & (np.abs(y) < 70)
+    )
+    below = frac((y > 10) & (np.abs(x) < 80)) - frac(
+        (y < -10) & (np.abs(x) < 80)
+    )
     ring = frac((y < -15) & (x < -15)) - frac((y < -15) & (x > 15))
     return bar, below, ring
 
@@ -233,7 +255,9 @@ def _residual_tilt(smooth, mask, spacing):
     scores = np.array([bar_score(a) for a in angles])
     near_best = angles[scores >= scores.max() - 0.02]
     # mean of axial angles (theta and theta + 180 are the same line)
-    angle = 0.5 * np.rad2deg(np.arctan2(np.sin(2 * near_best).mean(), np.cos(2 * near_best).mean()))
+    angle = 0.5 * np.rad2deg(
+        np.arctan2(np.sin(2 * near_best).mean(), np.cos(2 * near_best).mean())
+    )
     return float((angle + 45.0) % 90.0 - 45.0)
 
 
@@ -260,7 +284,12 @@ def determine_phantom_orientation(img, spacing):
         iso = min(spacing)
         zoom = (spacing[0] / iso, spacing[1] / iso)
         smooth = ndi.rotate(ndi.zoom(smooth, zoom, order=1), tilt, order=1)
-        mask = ndi.rotate(ndi.zoom(mask.astype(float), zoom, order=1), tilt, order=1) > 0.5
+        mask = (
+            ndi.rotate(
+                ndi.zoom(mask.astype(float), zoom, order=1), tilt, order=1
+            )
+            > 0.5
+        )
         spacing = (iso, iso)
     # Dark pixels don't depend on the candidate orientation: find them once
     dark, inner, _, _ = _dark_pixels(smooth, mask, spacing)
@@ -285,7 +314,8 @@ def determine_phantom_orientation(img, spacing):
             "Phantom orientation could not be determined reliably from slice 1"
             " (bar score %.2f, insert score %.2f); no orientation correction"
             " applied. Check that the series contains ACR slice 1.",
-            bar, below,
+            bar,
+            below,
         )
         return (0, False)
     return best
@@ -311,7 +341,9 @@ def _edge_position(s, grad, s_rough, inward, n_iter=2, search=10.0):
         float: edge position (mm).
     """
     step = s[1] - s[0]
-    g_in = grad * inward  # positive where intensity rises going into the phantom
+    g_in = (
+        grad * inward
+    )  # positive where intensity rises going into the phantom
 
     edge = s_rough
     for _ in range(n_iter):
@@ -338,7 +370,9 @@ def _edge_position(s, grad, s_rough, inward, n_iter=2, search=10.0):
         if 0 < k < g.size - 1:
             denom = g[k - 1] - 2 * g[k] + g[k + 1]
             if denom != 0:
-                offset = np.clip(0.5 * (g[k - 1] - g[k + 1]) / denom, -0.5, 0.5)
+                offset = np.clip(
+                    0.5 * (g[k - 1] - g[k + 1]) / denom, -0.5, 0.5
+                )
         edge = s[idx[k]] + offset * step * inward
     return edge
 
@@ -441,17 +475,26 @@ def measure_length(
     pixel_mm = 0.5 * (row_sp + col_sp)
 
     s = np.arange(-half_length, half_length + step, step)
-    offsets = np.arange(-arc_half_width, arc_half_width + arc_step / 2, arc_step)
+    offsets = np.arange(
+        -arc_half_width, arc_half_width + arc_step / 2, arc_step
+    )
 
     def to_px(t, s_):
-        return (cx + (s_ * ux + t * px_) / col_sp, cy + (s_ * uy + t * py_) / row_sp)
+        return (
+            cx + (s_ * ux + t * px_) / col_sp,
+            cy + (s_ * uy + t * py_) / row_sp,
+        )
 
     edges = {+1: [], -1: []}
     for t in offsets:
         xs, ys = to_px(t, s)
         coords = np.vstack([ys, xs])
-        prof = ndi.map_coordinates(smooth, coords, order=1, mode="constant", cval=0.0)
-        mprof = ndi.map_coordinates(mask.astype(float), coords, order=0, mode="constant", cval=0.0)
+        prof = ndi.map_coordinates(
+            smooth, coords, order=1, mode="constant", cval=0.0
+        )
+        mprof = ndi.map_coordinates(
+            mask.astype(float), coords, order=0, mode="constant", cval=0.0
+        )
         inside = np.nonzero(mprof > 0.5)[0]
         if inside.size == 0:
             edges[+1].append(np.nan)
@@ -460,7 +503,9 @@ def measure_length(
         # Smooth over ~1 pixel before differentiating: bilinear interpolation makes
         # the profile piecewise linear, so its raw derivative is stepwise and noisy.
         # A symmetric kernel does not move the position of a step edge.
-        grad = ndi.gaussian_filter1d(prof, sigma=pixel_mm / step, order=1) / step
+        grad = (
+            ndi.gaussian_filter1d(prof, sigma=pixel_mm / step, order=1) / step
+        )
         edges[+1].append(_edge_position(s, grad, s[inside[0]], +1))
         edges[-1].append(_edge_position(s, grad, s[inside[-1]], -1))
 
@@ -513,8 +558,12 @@ def measure_phantom(img, spacing, directions):
 
     # Refine the centre: the true centre is the midpoint of the diameters
     for _ in range(3):
-        h = measure_length(smooth, mask, centre, DIRECTIONS["Horizontal"], spacing)
-        v = measure_length(smooth, mask, centre, DIRECTIONS["Vertical"], spacing)
+        h = measure_length(
+            smooth, mask, centre, DIRECTIONS["Horizontal"], spacing
+        )
+        v = measure_length(
+            smooth, mask, centre, DIRECTIONS["Vertical"], spacing
+        )
         centre = (
             0.5 * (h["Start"][0] + h["End"][0]),
             0.5 * (v["Start"][1] + v["End"][1]),
@@ -569,7 +618,10 @@ class ACRGeometricAccuracy(HazenTask):
             if self._orientation == (0, False):
                 logger.info("Phantom is in the standard orientation")
             else:
-                logger.warning("Phantom orientation is non-standard; images %s for analysis", msg)
+                logger.warning(
+                    "Phantom orientation is non-standard; images %s for analysis",
+                    msg,
+                )
         return self._orientation
 
     def run(self) -> Result:
@@ -585,7 +637,10 @@ class ACRGeometricAccuracy(HazenTask):
         ]
 
         all_lengths = []
-        for slice_index, names in ((0, SLICE_1_DIRECTIONS), (4, SLICE_5_DIRECTIONS)):
+        for slice_index, names in (
+            (0, SLICE_1_DIRECTIONS),
+            (4, SLICE_5_DIRECTIONS),
+        ):
             dcm = self.ACR_obj.slice_stack[slice_index]
             try:
                 lengths = self.get_geometric_accuracy(slice_index)
@@ -699,7 +754,9 @@ class ACRGeometricAccuracy(HazenTask):
         axes[2].imshow(img, cmap="gray")
         for name, d in lengths.items():
             # wall points used to locate the ends of this diameter
-            axes[2].scatter(*d["WallPoints"], s=1, color=colours[name], alpha=0.6)
+            axes[2].scatter(
+                *d["WallPoints"], s=1, color=colours[name], alpha=0.6
+            )
             (x0, y0), (x1, y1) = d["Start"], d["End"]
             axes[2].plot(
                 [x0, x1],

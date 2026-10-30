@@ -364,7 +364,7 @@ class TestMeasurePhantomSynthetic(unittest.TestCase):
         img = np.clip(self.RADIUS_MM - r + 0.5, 0, 1) * 1000.0
         if obstructed:
             housing = (np.abs(x) < 6) & (y < -self.RADIUS_MM + 9)
-            notches = (np.hypot(np.abs(x) - 12, y + self.RADIUS_MM) < 6)
+            notches = np.hypot(np.abs(x) - 12, y + self.RADIUS_MM) < 6
             img[housing | notches] = 0.0
         return ndi.gaussian_filter(img, 0.7) + 20.0
 

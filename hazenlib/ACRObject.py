@@ -58,8 +58,6 @@ class SliceStack(list):
         return iter(self.present())
 
 
-
-
 class ACRObject:
     """Base class for performing tasks on image sets of the ACR phantom.
 
@@ -264,7 +262,10 @@ class ACRObject:
                         ga.reorient(mask, k, flip),
                         ga.reorient_spacing(spacing, k),
                     )
-                    if bar >= ga.MIN_BAR_SCORE and below >= ga.MIN_INSERT_SCORE:
+                    if (
+                        bar >= ga.MIN_BAR_SCORE
+                        and below >= ga.MIN_INSERT_SCORE
+                    ):
                         return True
         except Exception as e:  # noqa: BLE001
             logger.debug("Slice 1 check failed: %s", e)
@@ -297,7 +298,10 @@ class ACRObject:
             iop = np.array(get_image_IOP(dcm_list[0]), dtype=float)
             normal = np.cross(iop[:3], iop[3:])
             pos = np.array(
-                [np.dot(np.array(get_image_IPP(d), dtype=float), normal) for d in dcm_list]
+                [
+                    np.dot(np.array(get_image_IPP(d), dtype=float), normal)
+                    for d in dcm_list
+                ]
             )
         except (AttributeError, KeyError, TypeError, ValueError, IndexError):
             logger.warning(
@@ -315,7 +319,9 @@ class ACRObject:
         if (
             pitch <= 0
             or np.any(gaps <= 0)
-            or np.any(np.abs(slots - np.round(slots)) > SLICE_POSITION_TOLERANCE)
+            or np.any(
+                np.abs(slots - np.round(slots)) > SLICE_POSITION_TOLERANCE
+            )
             or np.round(slots[-1]) >= ACR_SLICE_COUNT
         ):
             logger.warning(
@@ -347,7 +353,8 @@ class ACRObject:
             " %.1f mm apart); the remaining slices are kept at their"
             " positions",
             "s" if len(missing) > 1 else "",
-            ", ".join(str(m) for m in missing) + (" are" if len(missing) > 1 else " is"),
+            ", ".join(str(m) for m in missing)
+            + (" are" if len(missing) > 1 else " is"),
             n,
             ACR_SLICE_COUNT,
             pitch,
