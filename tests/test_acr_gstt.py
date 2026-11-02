@@ -11,13 +11,17 @@ import shutil
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
 
 # Module imports
+import numpy as np
+import openpyxl
 import pydicom
 import pytest
+from PIL import Image as PILImage
 
 # Local imports
 import hazenlib
@@ -25,12 +29,18 @@ from hazenlib.orchestration import init_task
 from hazenlib.protocols.acr_gstt import ROLES, ACRGSTTProtocol, match_role
 from hazenlib.protocols.engine import (
     Cell,
+    Table,
+    TableRow,
     Step,
     StepOutcome,
     detect_vendor,
     rows_as_records,
 )
-from hazenlib.protocols.outputs import write_records
+from hazenlib.protocols.outputs import (
+    ImageGroup,
+    write_records,
+    write_workbook,
+)
 from hazenlib.types import Measurement, Result
 from hazenlib.utils import wait_on_parallel_results
 from tests import TEST_DATA_DIR
@@ -503,6 +513,116 @@ class TestOutputs(unittest.TestCase):
     def test_bad_format(self) -> None:
         with self.assertRaises(ValueError):
             write_records(self.records, "xml")
+
+    def test_workbook(self) -> None:
+        red = Cell(None, missing=True)
+        table = Table(
+            ("TRA", "SAG", "COR"),
+            (
+                TableRow(
+                    "snr",
+                    "Normalised SNR (smoothing)",
+                    {"TRA": Cell(np.float64(2671.54)), "SAG": red},
+                ),
+                TableRow(
+                    "slice_position",
+                    "Length difference (slice 1)",
+                    {"TRA": Cell(0.2, "mm"), "SAG": Cell(-0.59), "COR": red},
+                ),
+                # A missing cell is left empty whatever it holds
+                TableRow(
+                    "slice_position",
+                    "Length difference (slice 11)",
+                    {
+                        "TRA": Cell(-1.76, "mm"),
+                        "SAG": Cell(1.0, missing=True),
+                        "COR": red,
+                    },
+                ),
+            ),
+        )
+        tall, short = self.tmp / "tall.png", self.tmp / "short.png"
+        PILImage.new("RGBA", (400, 600), "blue").save(tall)
+        PILImage.new("RGBA", (400, 300), "blue").save(short)
+        images_only = "an_images_only_test_with_a_long_name"
+        # Image sheets follow the results order, then tests only here
+        images = {
+            images_only: [ImageGroup("TRA_Extra", (str(short),))],
+            "other": [],
+            "slice_position": [
+                ImageGroup("SAG_SlicePosition", (str(tall), str(short))),
+                ImageGroup("TRA_SlicePosition", (str(short),)),
+            ],
+            "snr": [ImageGroup("TRA_SNR", (str(short),))],
+        }
+        path = self.tmp / "r.xlsx"
+        write_workbook(table, images, path)
+        wb = openpyxl.load_workbook(path)
+        self.assertEqual(
+            wb.sheetnames,
+            ["Results", "snr", "slice_position", images_only[:31]],
+        )
+
+        ws = wb["Results"]
+        self.assertEqual(
+            [[c.value for c in row] for row in ws.iter_rows()],
+            [
+                ["test", "measurement", "TRA", "SAG", "COR"],
+                ["snr", "Normalised SNR (smoothing)", 2671.54, None, None],
+                [
+                    "slice_position",
+                    "Length difference (slice 1)",
+                    0.2,
+                    -0.59,
+                    None,
+                ],
+                [None, "Length difference (slice 11)", -1.76, None, None],
+            ],
+        )
+        self.assertTrue(ws["A1"].font.b)
+        self.assertEqual([str(r) for r in ws.merged_cells.ranges], ["A3:A4"])
+        self.assertEqual(ws["A3"].alignment.vertical, "top")
+        self.assertEqual(
+            [ws[c].number_format for c in ("C2", "C3", "D3")],
+            ["General", 'General" mm"', "General"],
+        )
+        # Red only where a step was skipped or failed, not for blanks
+        self.assertEqual(
+            [
+                c.coordinate
+                for row in ws.iter_rows(min_row=2)
+                for c in row
+                if c.fill.fill_type == "solid"
+            ],
+            ["D2", "E3", "D4", "E4"],
+        )
+        self.assertEqual(ws["D2"].fill.fgColor.rgb, "00FFC7CE")
+
+        ws = wb["slice_position"]
+        self.assertTrue(ws["A1"].font.b)
+        headings = {c.value: c.row for c in ws["A"] if c.value is not None}
+        # Next group below the tallest image: 600 px scaled to 540 px is
+        # 27 rows of 20 px, after the heading row and before a gap row
+        self.assertEqual(
+            headings,
+            {"SAG_SlicePosition": 1, "TRA_SlicePosition": 30},
+        )
+        loaded = ws._images  # type: ignore[attr-defined]
+        self.assertEqual(
+            [(i.anchor._from.row + 1, i.anchor._from.col) for i in loaded],
+            [(2, 0), (2, 1), (31, 0)],
+        )
+        self.assertEqual({i.anchor.ext.width for i in loaded}, {360 * 9525})
+        with zipfile.ZipFile(path) as xlsx:
+            media = [n for n in xlsx.namelist() if "/media/" in n]
+        self.assertEqual(len(media), 5)
+        self.assertTrue(all(n.endswith(".jpeg") for n in media))
+
+        write_workbook(table, {}, self.tmp / "no_images.xlsx")
+        self.assertEqual(
+            openpyxl.load_workbook(self.tmp / "no_images.xlsx").sheetnames,
+            ["Results"],
+        )
 
 
 @pytest.mark.slow
