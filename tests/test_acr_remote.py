@@ -5,6 +5,7 @@ import shutil
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 # Module imports
 import pydicom
@@ -14,6 +15,7 @@ from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 # Local imports
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
 from hazenlib.protocols.engine import Step
+from hazenlib.types import Measurement, Result
 
 LOGGER = "hazenlib.protocols.acr_remote"
 
@@ -338,3 +340,55 @@ class TestRemoteSteps(unittest.TestCase):
                 self.assertEqual(
                     ACRRemoteProtocol.build_steps(vendor), expected
                 )
+
+
+def fake_init_task(task_name: str, files: list, **kwargs: object) -> Mock:
+    """Stand-in for init_task returning one measurement per task."""
+    result = Result(task=task_name, _load_metadata=False)
+    result.add_measurement(Measurement("SNR", 150.0, type="measured"))
+    task = Mock()
+    task.run.return_value = result
+    return task
+
+
+@patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
+class TestRemoteRun(unittest.TestCase):
+    """The engine runs Remote steps, with tasks mocked out."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        for n, plane in enumerate(("TRA", "SAG", "COR")):
+            make_series(
+                self.root / plane,
+                SeriesNumber=n,
+                SeriesDescription=f"ACR_{plane}",
+            )
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root)
+
+    def test_single_image_snr(self, init_task: Mock) -> None:
+        protocol = ACRRemoteProtocol(self.root, report=False)
+        outcomes = protocol.run(debug=True)
+
+        self.assertEqual([o.status for o in outcomes], ["ok"] * 18)
+        # (task, plane folder) per call, in call order
+        calls = [
+            (c.args[0], Path(c.args[1][0]).parent.name)
+            for c in init_task.call_args_list
+        ]
+        for c in init_task.call_args_list:
+            if c.args[0] == "acr_snr":
+                self.assertNotIn("subtract", c.kwargs)
+                self.assertNotIn("measured_slice_width", c.kwargs)
+        for plane in ("TRA", "SAG", "COR"):
+            with self.subTest(plane=plane):
+                # First stage: SNR does not wait for the slice thickness
+                self.assertLess(
+                    calls.index(("acr_snr", plane)),
+                    calls.index(("acr_slice_thickness", plane)),
+                )
+        rows = protocol.rows(outcomes)
+        self.assertEqual(len(rows), 18)
+        self.assertNotIn("SliceWidth", [r.measurement for r in rows])
+        self.assertEqual({r.detail for r in rows}, {""})
