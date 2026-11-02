@@ -41,7 +41,8 @@ from hazenlib.orchestration import (
     BatchConfig,
     init_task,
 )
-from hazenlib.protocols.acr_gstt import ACRGSTTProtocol, rows_as_records
+from hazenlib.protocols.acr_gstt import ACRGSTTProtocol
+from hazenlib.protocols.engine import rows_as_records
 from hazenlib.protocols.outputs import write_records
 from hazenlib.utils import get_dicom_files
 

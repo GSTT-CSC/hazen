@@ -22,21 +22,19 @@ import pytest
 # Local imports
 import hazenlib
 from hazenlib.orchestration import init_task
-from hazenlib.protocols.acr_gstt import (
-    ROLES,
-    ACRGSTTProtocol,
-    Session,
+from hazenlib.protocols.acr_gstt import ROLES, ACRGSTTProtocol, match_role
+from hazenlib.protocols.engine import (
     Step,
     StepOutcome,
-    build_steps,
     detect_vendor,
-    match_role,
     rows_as_records,
 )
 from hazenlib.protocols.outputs import write_records
 from hazenlib.types import Measurement, Result
 from hazenlib.utils import wait_on_parallel_results
 from tests import TEST_DATA_DIR
+
+SUPPORTED = ACRGSTTProtocol.supported_vendors
 
 SIEMENS_T1 = TEST_DATA_DIR / "acr" / "Siemens_Sola_1.5T_T1"
 GE_T1 = TEST_DATA_DIR / "acr" / "GE_Artist_1.5T_T1"
@@ -129,7 +127,7 @@ class TestBuildSteps(unittest.TestCase):
         return [s.role for s in steps if s.test == test]
 
     def test_siemens(self) -> None:
-        steps = build_steps("siemens")
+        steps = ACRGSTTProtocol.build_steps("siemens")
         self.assertEqual(len(steps), 21)
         self.assertEqual(self.roles_for(steps, "ghosting"), ["Head_1"])
         self.assertEqual(
@@ -142,11 +140,11 @@ class TestBuildSteps(unittest.TestCase):
         )
 
     def test_philips_ghosting_uses_head_5(self) -> None:
-        steps = build_steps("philips")
+        steps = ACRGSTTProtocol.build_steps("philips")
         self.assertEqual(self.roles_for(steps, "ghosting"), ["Head_5"])
 
     def test_ge_uses_series_1(self) -> None:
-        steps = build_steps("ge")
+        steps = ACRGSTTProtocol.build_steps("ge")
         for test in (
             "slice_thickness",
             "slice_position",
@@ -163,7 +161,11 @@ class TestBuildSteps(unittest.TestCase):
         )
 
     def test_snr_pairs_and_slice_width_source(self) -> None:
-        snr = [s for s in build_steps("siemens") if s.test == "snr"]
+        snr = [
+            s
+            for s in ACRGSTTProtocol.build_steps("siemens")
+            if s.test == "snr"
+        ]
         self.assertEqual(
             [(s.role, s.subtract, s.slice_width_from) for s in snr],
             [
@@ -192,7 +194,7 @@ class TestSessionAndVendor(unittest.TestCase):
         (root / "RF_noise1").mkdir()
         (root / "Head_2").mkdir()  # empty, so ignored
         (root / "hazen_report").mkdir()  # earlier output, not listed
-        session = Session.from_dir(root)
+        session = ACRGSTTProtocol.discover(root)
         self.assertEqual(list(session.roles), ["Head_1", "Body_Sag_4"])
         self.assertEqual(
             sorted(ls.path.name for ls in session.listed),
@@ -205,15 +207,17 @@ class TestSessionAndVendor(unittest.TestCase):
             {"Head_1": SIEMENS_T1, "head-1": SIEMENS_T1},
         )
         with self.assertRaisesRegex(ValueError, "both match role Head_1"):
-            Session.from_dir(root)
+            ACRGSTTProtocol.discover(root)
 
     def test_missing_session_raises(self) -> None:
         with self.assertRaises(NotADirectoryError):
-            Session.from_dir(self.tmp / "nope")
+            ACRGSTTProtocol.discover(self.tmp / "nope")
 
     def test_vendor_detected(self) -> None:
         root = make_session(self.tmp / "s", {"Head_1": SIEMENS_T1})
-        self.assertEqual(detect_vendor(Session.from_dir(root)), "siemens")
+        self.assertEqual(
+            detect_vendor(ACRGSTTProtocol.discover(root), SUPPORTED), "siemens"
+        )
 
     def test_mixed_vendors_raise(self) -> None:
         root = make_session(
@@ -221,7 +225,7 @@ class TestSessionAndVendor(unittest.TestCase):
             {"Head_1": SIEMENS_T1, "Head_2": GE_T1},
         )
         with self.assertRaisesRegex(ValueError, "single scanner"):
-            detect_vendor(Session.from_dir(root))
+            detect_vendor(ACRGSTTProtocol.discover(root), SUPPORTED)
 
     def test_override_wins(self) -> None:
         root = make_session(
@@ -229,7 +233,9 @@ class TestSessionAndVendor(unittest.TestCase):
             {"Head_1": SIEMENS_T1, "Head_2": GE_T1},
         )
         self.assertEqual(
-            detect_vendor(Session.from_dir(root), override="Philips"),
+            detect_vendor(
+                ACRGSTTProtocol.discover(root), SUPPORTED, override="Philips"
+            ),
             "philips",
         )
 
@@ -242,7 +248,7 @@ class TestSessionAndVendor(unittest.TestCase):
             ds.save_as(canon / src.name)
         root = make_session(self.tmp / "s", {"Head_1": canon})
         with self.assertRaisesRegex(ValueError, "'canon' is not covered"):
-            detect_vendor(Session.from_dir(root))
+            detect_vendor(ACRGSTTProtocol.discover(root), SUPPORTED)
 
     def test_no_roles_raises(self) -> None:
         (self.tmp / "s" / "RF_noise1").mkdir(parents=True)
@@ -250,7 +256,7 @@ class TestSessionAndVendor(unittest.TestCase):
             ACRGSTTProtocol(self.tmp / "s")
 
 
-@patch("hazenlib.protocols.acr_gstt.init_task", side_effect=fake_init_task)
+@patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
 class TestRun(unittest.TestCase):
     """Staging, skipping and failure handling, with tasks mocked out."""
 
@@ -376,9 +382,9 @@ class TestRun(unittest.TestCase):
         self.assertIsNone(skipped.value)
 
 
-@patch("hazenlib.protocols.acr_gstt.init_task", side_effect=fake_init_task)
+@patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
 @patch(
-    "hazenlib.protocols.acr_gstt.wait_on_parallel_results",
+    "hazenlib.protocols.engine.wait_on_parallel_results",
     # Mocked tasks do not survive into worker processes, so run in-process
     side_effect=lambda f, args, **_: wait_on_parallel_results(
         f, args, debug=True
