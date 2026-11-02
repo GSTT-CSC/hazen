@@ -15,14 +15,25 @@ from __future__ import annotations
 # Python imports
 import logging
 import re
+from pathlib import Path
+
+# Module imports
+import pydicom
+from pydicom.errors import InvalidDicomError
 
 # Local imports
 from hazenlib.protocols.engine import (
     PLANE_ALIASES,
     PLANE_PATTERN,
+    REPORT_DIR_NAME,
     ListedKind,
+    ListedSeries,
     Role,
+    RoleSeries,
+    Session,
+    SessionProtocol,
 )
+from hazenlib.utils import get_manufacturer
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +134,7 @@ def classify_series(
             "%s: distortion correction status cannot be read from %s"
             " headers - using it for %s",
             label,
-            vendor,
+            vendor or "unrecognised manufacturer",
             role.name,
         )
         return role, None
@@ -153,3 +164,154 @@ def classify_series(
         label,
     )
     return None, "unknown"
+
+
+def _vendor(dcm: pydicom.Dataset) -> str | None:
+    try:
+        return get_manufacturer(dcm)
+    except Exception:  # noqa: BLE001 - unknown or missing manufacturer
+        return None
+
+
+def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
+    """Group the DICOM files under *path* by SeriesInstanceUID.
+
+    Report folders, non-DICOM files and DICOM files without a series
+    (e.g. DICOMDIR) are skipped.
+
+    Returns:
+        The first file's header and the files of each series.
+
+    """
+    series: dict[str, tuple[pydicom.Dataset, list[str]]] = {}
+    for file in sorted(path.rglob("*")):
+        if (
+            not file.is_file()
+            or REPORT_DIR_NAME in file.relative_to(path).parts
+        ):
+            continue
+        try:
+            dcm = pydicom.dcmread(file, stop_before_pixels=True)
+        except InvalidDicomError:
+            continue
+        uid = dcm.get("SeriesInstanceUID")
+        if uid is None:
+            continue
+        series.setdefault(str(uid), (dcm, []))[1].append(str(file))
+    return list(series.values())
+
+
+def _check_one_scanner(headers: list[pydicom.Dataset]) -> None:
+    """Refuse sessions from two scanners, warn about several dates.
+
+    Raises:
+        ValueError: If the series come from more than one scanner.
+
+    """
+    scanners = {
+        str(dcm.get("DeviceSerialNumber") or dcm.get("StationName") or "")
+        for dcm in headers
+    } - {""}
+    if len(scanners) > 1:
+        msg = (
+            "The session holds series from more than one scanner"
+            f" ({', '.join(sorted(scanners))}). Give hazen one scanner's"
+            " export at a time."
+        )
+        raise ValueError(msg)
+    dates = {str(dcm.get("StudyDate", "")) for dcm in headers} - {""}
+    if len(dates) > 1:
+        logger.warning(
+            "The session holds more than one study date (%s)",
+            ", ".join(sorted(dates)),
+        )
+
+
+class ACRRemoteProtocol(SessionProtocol):
+    """Remote ACR QA protocol over one exported session folder."""
+
+    name = "ACR Large Phantom (Remote)"
+    roles = REMOTE_ROLES
+
+    @classmethod
+    def discover(cls, path: str | Path) -> Session:
+        """Group an export into series and match each on its headers.
+
+        Raises:
+            NotADirectoryError: If *path* is not a folder.
+            ValueError: If two series match one role, or the series
+                come from more than one scanner.
+
+        """
+        path = Path(path).resolve()
+        if not path.is_dir():
+            msg = f"Session folder not found: {path}"
+            raise NotADirectoryError(msg)
+
+        series = _read_series(path)
+        _check_one_scanner([dcm for dcm, _ in series])
+
+        found: dict[str, tuple[RoleSeries, str]] = {}
+        listed: list[ListedSeries] = []
+        uncorrected_planes: set[str] = set()
+        for dcm, files in series:
+            folder = Path(files[0]).parent
+            description = str(dcm.get("SeriesDescription", ""))
+            number = str(dcm.get("SeriesNumber", ""))
+            protocol_name = str(dcm.get("ProtocolName", ""))
+            label = (
+                f"series {number} {description!r} in"
+                f" {folder.relative_to(path).as_posix()}"
+            )
+            vendor = _vendor(dcm)
+            role, kind = classify_series(
+                description,
+                protocol_name,
+                tuple(str(v) for v in dcm.get("ImageType", ())),
+                vendor,
+                label=label,
+            )
+            if role is None:
+                listed.append(
+                    ListedSeries(
+                        kind or "unknown", folder, description, number
+                    ),
+                )
+                if kind == "uncorrected":
+                    uncorrected_planes.add(
+                        _plane(description) or _plane(protocol_name) or "",
+                    )
+                continue
+            if role.name in found:
+                msg = (
+                    f"{found[role.name][1]} and {label} both match role"
+                    f" {role.name}. Move the one that should not be used"
+                    " out of the session folder."
+                )
+                raise ValueError(msg)
+            found[role.name] = (
+                RoleSeries(
+                    role=role,
+                    path=folder,
+                    files=tuple(files),
+                    series_description=description,
+                    series_number=number,
+                    manufacturer=str(dcm.get("Manufacturer", "")),
+                    vendor=vendor,
+                ),
+                label,
+            )
+
+        for role in cls.roles:
+            if role.plane in uncorrected_planes and role.name not in found:
+                logger.warning(
+                    "Only an uncorrected series for %s, so its tests are"
+                    " skipped: no distortion-corrected series for %s."
+                    " Reconstruct it again with distortion correction.",
+                    role.name,
+                    role.name,
+                )
+        roles = {
+            r.name: found[r.name][0] for r in cls.roles if r.name in found
+        }
+        return Session(path, roles, tuple(listed))
