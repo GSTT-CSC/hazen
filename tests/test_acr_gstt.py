@@ -485,10 +485,18 @@ class TestPhilipsSession(unittest.TestCase):
 
     protocol: ACRGSTTProtocol
     outcomes: list[StepOutcome]
+    report_dir: Path
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.protocol = ACRGSTTProtocol(PHILIPS_SESSION, report=False)
+        # Tasks create their report folders even without --report
+        cls.report_dir = Path(tempfile.mkdtemp())
+        cls.addClassCleanup(shutil.rmtree, cls.report_dir)
+        cls.protocol = ACRGSTTProtocol(
+            PHILIPS_SESSION,
+            report=False,
+            report_dir=cls.report_dir,
+        )
         cls.outcomes = cls.protocol.run()
 
     def test_statuses(self) -> None:
@@ -521,7 +529,11 @@ class TestPhilipsSession(unittest.TestCase):
                     str(p) for p in (PHILIPS_SESSION / o.step.role).iterdir()
                 ]
                 expected = init_task(
-                    o.step.task, files, report=False, **kwargs
+                    o.step.task,
+                    files,
+                    report=False,
+                    report_dir=str(self.report_dir / "individual"),
+                    **kwargs,
                 ).run()
                 self.assertEqual(
                     o.result.measurements,
