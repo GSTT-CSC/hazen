@@ -20,6 +20,11 @@ The acr_gstt command runs the GSTT ACR QA protocol on a single session
 folder whose subfolders are named by role (Head_1 ... Body_Cor_4):
 
 hazen acr_gstt /path/to/session
+
+The acr_remote command runs the Remote ACR QA protocol on a site's
+export, matching series on their DICOM headers (ACR_TRA, ACR_SAG, ACR_COR):
+
+hazen acr_remote /path/to/export
 """
 
 import argparse
@@ -42,9 +47,16 @@ from hazenlib.orchestration import (
     init_task,
 )
 from hazenlib.protocols.acr_gstt import ACRGSTTProtocol
-from hazenlib.protocols.engine import rows_as_records
+from hazenlib.protocols.acr_remote import ACRRemoteProtocol
+from hazenlib.protocols.engine import SessionProtocol, rows_as_records
 from hazenlib.protocols.outputs import write_records
 from hazenlib.utils import get_dicom_files
+
+# Protocols run over one session folder, by CLI command
+PROTOCOLS: dict[str, type[SessionProtocol]] = {
+    "acr_gstt": ACRGSTTProtocol,
+    "acr_remote": ACRRemoteProtocol,
+}
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -285,42 +297,28 @@ def get_parser() -> argparse.ArgumentParser:
             nargs="+",
         )
 
-    #######################
-    # GSTT ACR sub parser #
-    #######################
+    ########################
+    # Session protocols    #
+    ########################
 
-    gstt_parser = subparsers.add_parser(
-        "acr_gstt",
-        help="Run the GSTT ACR QA protocol on a session folder.",
-        parents=[common_parser],
-    )
-    gstt_parser.add_argument(
+    session_parser = argparse.ArgumentParser(add_help=False)
+    session_parser.add_argument(
         "session",
-        help=(
-            "Folder containing one subfolder per acquisition, named by"
-            " role: Head_1 ... Head_5, Body_Tra_1 ... Body_Cor_4"
-        ),
+        help="Session folder (see the command description for the layout)",
     )
-    gstt_parser.add_argument(
-        "--vendor",
-        type=str,
-        default=None,
-        choices=["siemens", "philips", "ge"],
-        help="Vendor rules to apply (default: read from the DICOM headers)",
-    )
-    gstt_parser.add_argument(
+    session_parser.add_argument(
         "--output",
         type=str,
         default=None,
         help="Folder for report images (default: <session>/hazen_report)",
     )
-    gstt_parser.add_argument(
+    session_parser.add_argument(
         "--report",
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Whether to generate report images (enabled by default)",
     )
-    gstt_parser.add_argument(
+    session_parser.add_argument(
         "--result",
         type=str,
         default=None,
@@ -329,7 +327,7 @@ def get_parser() -> argparse.ArgumentParser:
             " default: <session>/hazen_results.<format>)"
         ),
     )
-    gstt_parser.add_argument(
+    session_parser.add_argument(
         "--format",
         type=str,
         default="csv",
@@ -337,19 +335,51 @@ def get_parser() -> argparse.ArgumentParser:
         help="Format of the result rows (default: csv)",
     )
 
+    gstt_parser = subparsers.add_parser(
+        "acr_gstt",
+        help="Run the GSTT ACR QA protocol on a session folder.",
+        description=(
+            "Run the GSTT ACR QA protocol on a session folder containing"
+            " one subfolder per acquisition, named by role: Head_1 ..."
+            " Head_5, Body_Tra_1 ... Body_Cor_4."
+        ),
+        parents=[common_parser, session_parser],
+    )
+    gstt_parser.add_argument(
+        "--vendor",
+        type=str,
+        default=None,
+        choices=list(ACRGSTTProtocol.supported_vendors),
+        help="Vendor rules to apply (default: read from the DICOM headers)",
+    )
+
+    subparsers.add_parser(
+        "acr_remote",
+        help="Run the Remote ACR QA protocol on an exported session folder.",
+        description=(
+            "Run the Remote ACR QA protocol on a site's export. Series are"
+            " matched on their DICOM headers (ACR + plane, e.g. ACR_TRA)"
+            " and only the distortion-corrected series are analysed."
+        ),
+        parents=[common_parser, session_parser],
+    )
+
     return parser
 
 
-def run_acr_gstt(args: argparse.Namespace) -> int:
-    """Run the GSTT ACR protocol from parsed arguments.
+def run_protocol(
+    cls: type[SessionProtocol],
+    args: argparse.Namespace,
+) -> int:
+    """Run a session protocol from parsed arguments.
 
     Returns:
         Exit code: 1 if any step failed, otherwise 0.
 
     """
-    protocol = ACRGSTTProtocol(
+    protocol = cls(
         args.session,
-        vendor=args.vendor,
+        vendor=getattr(args, "vendor", None),
         report=args.report,
         report_dir=args.output,
     )
@@ -466,9 +496,9 @@ def main() -> None:
         )
         return
 
-    if args.command == "acr_gstt":
+    if args.command in PROTOCOLS:
         try:
-            exit_code = run_acr_gstt(args)
+            exit_code = run_protocol(PROTOCOLS[args.command], args)
         except (NotADirectoryError, ValueError) as err:
             parser.error(str(err))
         if exit_code:

@@ -1,7 +1,11 @@
 """Tests for the Remote ACR protocol (acr_remote)."""
 
 # Python imports
+import contextlib
+import csv
+import io
 import shutil
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +17,7 @@ from pydicom.dataset import FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 
 # Local imports
+import hazenlib
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
 from hazenlib.protocols.engine import Step
 from hazenlib.types import Measurement, Result
@@ -419,3 +424,89 @@ class TestRemoteRun(unittest.TestCase):
             ),
             line,
         )
+
+
+@patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
+@patch(
+    "hazenlib.protocols.engine.wait_on_parallel_results",
+    side_effect=lambda f, args, debug=False: [f(*a) for a in args],
+)
+class TestRemoteCli(unittest.TestCase):
+    """``hazen acr_remote`` shares the protocol options but not --vendor."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        # Not Siemens, so the vendor visibly comes from the headers
+        for n, plane in enumerate(("TRA", "SAG", "COR")):
+            make_series(
+                self.root / plane,
+                SeriesNumber=n,
+                SeriesDescription=f"ACR_{plane}",
+                Manufacturer="Philips",
+            )
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root)
+
+    @staticmethod
+    def main(session: Path, *extra: str) -> tuple[str, str]:
+        """Run ``hazen acr_remote``, returning stdout and stderr."""
+        argv = ["hazen", "acr_remote", str(session), *extra]
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            patch.object(sys, "argv", argv),
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+        ):
+            hazenlib.main()
+        return out.getvalue(), err.getvalue()
+
+    def test_parser(self, *_mocks: Mock) -> None:
+        parser = hazenlib.get_parser()
+        self.assertEqual(
+            parser.parse_args(["acr_gstt", "s", "--vendor", "ge"]).vendor,
+            "ge",
+        )
+        for argv, message in [
+            (["acr_remote", "s", "--vendor", "ge"], "unrecognized arguments"),
+            (["acr_gstt", "s", "--vendor", "canon"], "invalid choice"),
+        ]:
+            with (
+                self.subTest(argv=argv),
+                self.assertRaises(SystemExit),
+                contextlib.redirect_stderr(io.StringIO()) as err,
+            ):
+                parser.parse_args(argv)
+            self.assertIn(message, err.getvalue())
+
+    def test_run(self, _wait: Mock, init_task: Mock) -> None:
+        images = self.root / "imgs"
+        out, _ = self.main(self.root, "--no-report", "--output", str(images))
+        self.assertIn("philips rules - 3 roles found", out)
+        self.assertNotIn("Images:", out)
+        for c in init_task.call_args_list:
+            self.assertFalse(c.kwargs["report"])
+            self.assertEqual(Path(c.kwargs["report_dir"]).parent, images)
+        with (self.root / "hazen_results.csv").open(newline="") as fh:
+            roles = {row["role"] for row in csv.DictReader(fh)}
+        self.assertEqual(roles, {"TRA", "SAG", "COR"})
+
+    def test_exit_codes(self, _wait: Mock, init_task: Mock) -> None:
+        for session, failing, code, message in [
+            (self.root, True, 1, ""),
+            (self.root / "missing", False, 2, "Session folder not found"),
+        ]:
+            with self.subTest(session=session.name, failing=failing):
+                init_task.side_effect = (
+                    RuntimeError("boom") if failing else fake_init_task
+                )
+                argv = ["hazen", "acr_remote", str(session), "--no-report"]
+                with (
+                    patch.object(sys, "argv", argv),
+                    contextlib.redirect_stdout(io.StringIO()),
+                    contextlib.redirect_stderr(io.StringIO()) as err,
+                    self.assertRaises(SystemExit) as raised,
+                ):
+                    hazenlib.main()
+                self.assertEqual(raised.exception.code, code)
+                self.assertIn(message, err.getvalue())
