@@ -8,21 +8,26 @@ import shutil
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 # Module imports
 import pydicom
+import pytest
 from pydicom.dataset import FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 
 # Local imports
 import hazenlib
+from hazenlib.orchestration import init_task
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
-from hazenlib.protocols.engine import Step
+from hazenlib.protocols.engine import Step, StepOutcome
 from hazenlib.types import Measurement, Result
+from tests import TEST_DATA_DIR
 
 LOGGER = "hazenlib.protocols.acr_remote"
+REMOTE_SESSION = TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_Remote"
 
 DIS2D = ("ORIGINAL", "PRIMARY", "M", "NORM", "DIS2D", "MFSPLIT")
 ND = ("ORIGINAL", "PRIMARY", "M", "ND", "NORM", "MFSPLIT")
@@ -426,11 +431,19 @@ class TestRemoteRun(unittest.TestCase):
         )
 
 
-@patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
-@patch(
-    "hazenlib.protocols.engine.wait_on_parallel_results",
-    side_effect=lambda f, args, debug=False: [f(*a) for a in args],
-)
+def mock_tasks(test: Callable[..., None]) -> Callable[..., None]:
+    """Mock the tasks out and run them in-process."""
+    return patch(
+        "hazenlib.protocols.engine.init_task",
+        side_effect=fake_init_task,
+    )(
+        patch(
+            "hazenlib.protocols.engine.wait_on_parallel_results",
+            side_effect=lambda f, args, debug=False: [f(*a) for a in args],
+        )(test),
+    )
+
+
 class TestRemoteCli(unittest.TestCase):
     """``hazen acr_remote`` shares the protocol options but not --vendor."""
 
@@ -461,7 +474,7 @@ class TestRemoteCli(unittest.TestCase):
             hazenlib.main()
         return out.getvalue(), err.getvalue()
 
-    def test_parser(self, *_mocks: Mock) -> None:
+    def test_parser(self) -> None:
         parser = hazenlib.get_parser()
         self.assertEqual(
             parser.parse_args(["acr_gstt", "s", "--vendor", "ge"]).vendor,
@@ -479,6 +492,7 @@ class TestRemoteCli(unittest.TestCase):
                 parser.parse_args(argv)
             self.assertIn(message, err.getvalue())
 
+    @mock_tasks
     def test_run(self, _wait: Mock, init_task: Mock) -> None:
         images = self.root / "imgs"
         out, _ = self.main(self.root, "--no-report", "--output", str(images))
@@ -491,6 +505,7 @@ class TestRemoteCli(unittest.TestCase):
             roles = {row["role"] for row in csv.DictReader(fh)}
         self.assertEqual(roles, {"TRA", "SAG", "COR"})
 
+    @mock_tasks
     def test_exit_codes(self, _wait: Mock, init_task: Mock) -> None:
         for session, failing, code, message in [
             (self.root, True, 1, ""),
@@ -510,3 +525,81 @@ class TestRemoteCli(unittest.TestCase):
                     hazenlib.main()
                 self.assertEqual(raised.exception.code, code)
                 self.assertIn(message, err.getvalue())
+
+    @pytest.mark.slow
+    def test_cli(self) -> None:
+        session = self.root / "export"
+        shutil.copytree(REMOTE_SESSION, session)
+        out, _ = self.main(session, "--no-report")
+        self.assertIn("3 roles found · listed: 3 uncorrected", out)
+        self.assertIn("ok 18 · skipped 0 · failed 0", out)
+        with (session / "hazen_results.csv").open(newline="") as fh:
+            roles = {row["role"] for row in csv.DictReader(fh)}
+        self.assertEqual(roles, {"TRA", "SAG", "COR"})
+
+
+class TestRemoteSession(unittest.TestCase):
+    """End to end on the scrubbed Siemens Aera Remote export."""
+
+    protocol: ACRRemoteProtocol
+    outcomes: list[StepOutcome]
+    report_dir: Path
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Tasks create their report folders even without --report
+        cls.report_dir = Path(tempfile.mkdtemp())
+        cls.addClassCleanup(shutil.rmtree, cls.report_dir)
+        cls.protocol = ACRRemoteProtocol(
+            REMOTE_SESSION,
+            report=False,
+            report_dir=cls.report_dir,
+        )
+        cls.outcomes = cls.protocol.run()
+
+    def test_corrected_series_are_the_roles(self) -> None:
+        session = self.protocol.session
+        self.assertEqual(
+            {role: rs.series_number for role, rs in session.roles.items()},
+            {"TRA": "4001", "SAG": "1020001", "COR": "10001"},
+        )
+        self.assertEqual(
+            sorted((ls.kind, ls.series_number) for ls in session.listed),
+            [
+                ("uncorrected", "1013001"),
+                ("uncorrected", "3001"),
+                ("uncorrected", "9001"),
+            ],
+        )
+
+    def test_matches_individual_tasks(self) -> None:
+        """Protocol output must equal running each task on its own."""
+        self.assertEqual([o.status for o in self.outcomes], ["ok"] * 18)
+        for o in self.outcomes:
+            with self.subTest(role=o.step.role, test=o.step.test):
+                if o.result is None:
+                    self.fail("no result")
+                files = list(self.protocol.session.roles[o.step.role].files)
+                expected = init_task(
+                    o.step.task,
+                    files,
+                    report=False,
+                    report_dir=str(self.report_dir / "individual"),
+                ).run()
+                self.assertEqual(o.result.measurements, expected.measurements)
+
+    def test_snr_reference(self) -> None:
+        for role, snr in {"TRA": 181.74, "SAG": 161.19, "COR": 195.08}.items():
+            with self.subTest(role=role):
+                outcome = next(
+                    o
+                    for o in self.outcomes
+                    if o.step.role == role and o.step.test == "snr"
+                )
+                if outcome.result is None:
+                    self.fail("no result")
+                measured = outcome.result.get_measurement(
+                    name="SNR",
+                    measurement_type="measured",
+                )
+                self.assertAlmostEqual(float(measured[0].value), snr, places=2)
