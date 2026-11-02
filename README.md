@@ -166,6 +166,13 @@ Check the unreleased changes below to decide whether you need them.
   subfolder named by its role (`Head_1` to `Head_5`, `Body_Tra_1` to `Body_Cor_4`). The Siemens, Philips or GE rules are
   chosen from the DICOM headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. See
   the [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for folder names and outputs.
+- **New `acr_remote` command for remotely acquired ACR QA.** `hazen acr_remote /path/to/export` runs the ACR part of
+  the NHSBSP breast-screening MRI QA on a site's export as it arrives: series are matched on their DICOM headers
+  (`ACR_TRA`, `ACR Axial`, `acr-coronal`, ...), not folder names. SNR, uniformity, ghosting, slice thickness, slice
+  position and geometric accuracy are measured on the distortion-corrected series of each plane (single-image SNR),
+  with uncorrected, visual-check (RF noise, field map, NONSUP/FATSUP) and unknown series listed in the summary.
+  Results are written to `hazen_results.csv` as for `acr_gstt`. See the
+  [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for the matching rules.
 
 ###### Installing the development version
 

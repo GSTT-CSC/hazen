@@ -497,6 +497,97 @@ Outputs
 - ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
   ``--no-report`` to disable).
 
+Remote ACR Protocol (acr_remote)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``acr_remote`` runs the ACR measurements of the NHSBSP breast-screening MRI QA
+on a session acquired by a site and sent to us: one T1 acquisition per plane,
+transverse on the head/neck coil and sagittal and coronal on the body and spine
+coils. Results go to the same CSV layout as ``acr_gstt``.
+
+.. code-block:: bash
+
+   hazen acr_remote /path/to/export
+
+Series Matching
+"""""""""""""""
+Pass the whole export as it arrives; folder names are ignored. Every DICOM file
+under the session folder is read (``hazen_report``, ``DICOMDIR`` and non-DICOM
+files are skipped), grouped into series by ``SeriesInstanceUID`` and matched on
+its headers:
+
+- The plane is ``ACR`` followed by a plane name in the ``SeriesDescription``,
+  ignoring case and separators: ``tra``, ``ax``, ``axial`` or ``transverse``;
+  ``sag`` or ``sagittal``; ``cor`` or ``coronal``. So ``ACR_TRA``,
+  ``ACR Axial`` and ``acr-coronal`` all match. ``ProtocolName`` is used when the
+  description names no plane; if both name a plane and disagree, the
+  description wins and a warning is logged.
+- On Siemens, only the distortion-corrected series (``DIS2D`` in
+  ``ImageType``) of each plane is analysed. ``ImageType`` wins over an ``_ND``
+  suffix in the name; a mismatch is warned about.
+
+Everything else is listed in the summary but not analysed:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Listed as
+     - Series
+   * - uncorrected
+     - The same acquisition without distortion correction (``ND`` in
+       ``ImageType``, "unfiltered images")
+   * - visual check
+     - RF noise, B0 field map and breast NONSUP / FATSUP series, kept for a
+       physicist to view (description contains ``noise``, ``field_map``,
+       ``fieldmap``, ``b0_map``, ``b0map``, ``nonsup``, ``nosup``,
+       ``non_sup``, ``fatsup``, ``fat_sup`` or ``fat sup``)
+   * - unknown
+     - Anything else, with a warning naming the series
+
+Other manufacturers have no ``DIS2D`` / ``ND`` marker, so every ACR series of a
+plane is a candidate and a warning says the correction status could not be
+read. Export only the distortion-corrected series for each plane.
+
+Measurements
+""""""""""""
+Each plane's distortion-corrected series gets every test:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - Role
+     - Coil
+     - Tests
+   * - ``TRA``
+     - head
+     - SNR, uniformity, ghosting, slice thickness, slice position,
+       geometric accuracy
+   * - ``SAG``
+     - body
+     - as for ``TRA``
+   * - ``COR``
+     - body
+     - as for ``TRA``
+
+SNR uses the single-image method on the distortion-corrected series (there is
+no repeat acquisition to subtract), so no slice width is recorded for it.
+
+A plane with no series, or with only an uncorrected series, has its tests
+recorded as ``skipped``; the second case also warns that the series should be
+reconstructed again with distortion correction. Two series matching the same
+plane, or series from more than one scanner (``DeviceSerialNumber``, else
+``StationName``), stop the run: move the unwanted series out of the folder. A
+session spread over several study dates from one scanner is allowed, with a
+warning.
+
+Outputs
+"""""""
+As for ``acr_gstt``: ``<session>/hazen_results.csv`` (``--result`` and
+``--format`` to change) and ``<session>/hazen_report/<Role>/<Task>/`` report
+images (``--output`` to change, ``--no-report`` to disable). There is no
+``--vendor`` option.
+
 Web interface
 ^^^^^^^^^^^^^
 Please refer to the *hazen web app* GitHub repository `here <https://github.com/GSTT-CSC/hazen-web-app>`_ for more information.
