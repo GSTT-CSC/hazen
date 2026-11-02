@@ -38,6 +38,7 @@ from hazenlib.protocols.engine import (
 )
 from hazenlib.protocols.outputs import (
     ImageGroup,
+    table_records,
     write_records,
     write_workbook,
 )
@@ -460,12 +461,13 @@ class TestCliOutput(unittest.TestCase):
         custom = self.tmp / "custom.json"
         default = {
             fmt: self.root / f"hazen_results.{fmt}"
-            for fmt in ("xlsx", "csv", "json")
+            for fmt in ("xlsx", "csv", "tsv", "json")
         }
         outputs = (custom, *default.values())
         for extra, written in [
             ([], default["xlsx"]),
             (["--format", "csv"], default["csv"]),
+            (["--format", "tsv"], default["tsv"]),
             (["--format", "json"], default["json"]),
             (["--result", str(custom), "--format", "json"], custom),
             (["--result", "-", "--format", "csv"], None),
@@ -497,14 +499,19 @@ class TestCliOutput(unittest.TestCase):
                 if written.suffix == ".json":
                     records = json.loads(written.read_text())
                     self.assertEqual(list(records[0]), header)
-                elif written.suffix == ".csv":
+                elif written.suffix in {".csv", ".tsv"}:
                     first = written.read_text().splitlines()[0]
-                    self.assertEqual(first, ",".join(header))
+                    sep = "," if written.suffix == ".csv" else "\t"
+                    self.assertEqual(first, sep.join(header))
                 else:
                     ws = openpyxl.load_workbook(written)["Results"]
                     self.assertEqual([c.value for c in ws[1]], header)
 
-    def test_xlsx_to_stdout_is_rejected(self, *_mocks: Mock) -> None:
+    def test_xlsx_to_stdout_is_rejected(
+        self,
+        _wait: Mock,
+        init_task: Mock,
+    ) -> None:
         argv = ["hazen", "acr_gstt", str(self.root), "--result", "-"]
         with (
             patch.object(sys, "argv", argv),
@@ -515,6 +522,7 @@ class TestCliOutput(unittest.TestCase):
             hazenlib.main()
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("xlsx", err.getvalue())
+        init_task.assert_not_called()  # refused before running anything
 
 
 class TestOutputs(unittest.TestCase):
@@ -651,6 +659,33 @@ class TestOutputs(unittest.TestCase):
         self.assertEqual(len(media), 5)
         self.assertTrue(all(n.endswith(".jpeg") for n in media))
 
+        self.assertEqual(
+            table_records(table),
+            [
+                {
+                    "test": "snr",
+                    "measurement": "Normalised SNR (smoothing)",
+                    "TRA": 2671.54,
+                    "SAG": "",
+                    "COR": "",
+                },
+                {
+                    "test": "slice_position",
+                    "measurement": "Length difference (slice 1)",
+                    "TRA": "0.2 mm",
+                    "SAG": -0.59,
+                    "COR": "",
+                },
+                {
+                    "test": "slice_position",
+                    "measurement": "Length difference (slice 11)",
+                    "TRA": "-1.76 mm",
+                    "SAG": "",
+                    "COR": "",
+                },
+            ],
+        )
+
         write_workbook(table, {}, self.tmp / "no_images.xlsx")
         self.assertEqual(
             openpyxl.load_workbook(self.tmp / "no_images.xlsx").sheetnames,
@@ -740,7 +775,7 @@ class TestPhilipsSession(unittest.TestCase):
 
 @pytest.mark.slow
 class TestCli(unittest.TestCase):
-    """``hazen acr_gstt`` on real data writes the results CSV, returns 0."""
+    """``hazen acr_gstt`` on real data writes the results xlsx, returns 0."""
 
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())

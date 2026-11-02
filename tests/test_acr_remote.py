@@ -649,14 +649,15 @@ def image_init_task(
     report_dir: str,
     **kwargs: object,
 ) -> Mock:
-    """Stand-in for init_task that saves one report image."""
+    """Stand-in for init_task saving one report image, none for ghosting."""
     class_name = TASK_REGISTRY[task_name].class_name
     image = Path(report_dir) / class_name / "result.png"
     image.parent.mkdir(parents=True, exist_ok=True)
     PILImage.new("RGB", (40, 30), "white").save(image)
     result = Result(task=class_name, _load_metadata=False)
     result.add_measurement(Measurement("SNR", 150.0))
-    result.add_report_image(str(image))
+    if task_name != "acr_ghosting":
+        result.add_report_image(str(image))
     task = Mock()
     task.run.return_value = result
     return task
@@ -733,6 +734,11 @@ class TestRemoteCli(unittest.TestCase):
             self.assertFalse(c.kwargs["report"])
             self.assertEqual(Path(c.kwargs["report_dir"]).parent, images)
         self.assertEqual(results_header(self.root), HEADER)
+        # Without --report no image sheets, even if a task returns images
+        init_task.side_effect = image_init_task
+        self.main(self.root, "--no-report", "--output", str(images))
+        wb = openpyxl.load_workbook(self.root / "hazen_results.xlsx")
+        self.assertEqual(wb.sheetnames, ["Results"])
 
     @mock_tasks
     def test_report_images(self, _wait: Mock, init_task: Mock) -> None:
@@ -746,7 +752,6 @@ class TestRemoteCli(unittest.TestCase):
                 "Results",
                 "snr",
                 "uniformity",
-                "ghosting",
                 "slice_thickness",
                 "slice_position",
                 "geometric_accuracy",
