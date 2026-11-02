@@ -489,11 +489,16 @@ single-image method, when the repeat series is missing.
 
 Outputs
 """""""
-- ``<session>/hazen_results.csv`` with every measurement, at all visibility
-  levels, as one labelled row each (``coil``, ``plane``, ``role``, ``test``,
-  ``status``, ``detail``, series details and report image paths). Skipped and
-  failed tests have a row saying why. ``--result PATH`` writes it elsewhere
-  (``-`` for stdout) and ``--format csv|tsv|json`` changes the format.
+- ``<session>/hazen_results.xlsx``. The *Results* sheet has one row per test
+  and report-ready measurement (e.g. ``uniformity`` / ``Integral uniformity``)
+  and one column per coil and plane (``Head TRA``, ``Body TRA``, ``Body SAG``,
+  ``Body COR``). Values stay numeric with their unit shown in the cell format.
+  A cell is filled red when its test was skipped or failed there; the reason
+  is in the summary printed at the end. Each test then has its own sheet of
+  report images, labelled by role and task, e.g. ``Body_Sag_4_SlicePosition``.
+- ``--result PATH`` writes the results elsewhere and ``--format csv|tsv|json``
+  writes the same table as text, without images and with units after each
+  value (``-`` writes it to stdout).
 - ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
   ``--no-report`` to disable).
 
@@ -587,10 +592,11 @@ spread over several study dates from one scanner is allowed, with a warning.
 
 Outputs
 """""""
-As for ``acr_gstt``: ``<session>/hazen_results.csv`` (``--result`` and
-``--format`` to change) and ``<session>/hazen_report/<Role>/<Task>/`` report
-images (``--output`` to change, ``--no-report`` to disable). There is no
-``--vendor`` option.
+As for ``acr_gstt``: ``<session>/hazen_results.xlsx`` (``--result`` and
+``--format`` to change), with one column per plane (``TRA``, ``SAG``,
+``COR``) and image sheets labelled e.g. ``COR_SlicePosition``, and
+``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to
+change, ``--no-report`` to disable). There is no ``--vendor`` option.
 
 Web interface
 ^^^^^^^^^^^^^

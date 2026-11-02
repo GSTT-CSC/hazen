@@ -2,7 +2,6 @@
 
 # Python imports
 import contextlib
-import csv
 import io
 import shutil
 import sys
@@ -13,14 +12,16 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 # Module imports
+import openpyxl
 import pydicom
 import pytest
+from PIL import Image as PILImage
 from pydicom.dataset import FileMetaDataset
 from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 
 # Local imports
 import hazenlib
-from hazenlib.orchestration import init_task
+from hazenlib.orchestration import TASK_REGISTRY, init_task
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
 from hazenlib.protocols.engine import (
     Cell,
@@ -633,6 +634,34 @@ class TestRemoteTable(unittest.TestCase):
         )
 
 
+HEADER = ["test", "measurement", "TRA", "SAG", "COR"]
+
+
+def results_header(session: Path) -> list[object]:
+    """Header row of the Results sheet written into *session*."""
+    ws = openpyxl.load_workbook(session / "hazen_results.xlsx")["Results"]
+    return [c.value for c in ws[1]]
+
+
+def image_init_task(
+    task_name: str,
+    files: list,
+    report_dir: str,
+    **kwargs: object,
+) -> Mock:
+    """Stand-in for init_task that saves one report image."""
+    class_name = TASK_REGISTRY[task_name].class_name
+    image = Path(report_dir) / class_name / "result.png"
+    image.parent.mkdir(parents=True, exist_ok=True)
+    PILImage.new("RGB", (40, 30), "white").save(image)
+    result = Result(task=class_name, _load_metadata=False)
+    result.add_measurement(Measurement("SNR", 150.0))
+    result.add_report_image(str(image))
+    task = Mock()
+    task.run.return_value = result
+    return task
+
+
 def mock_tasks(test: Callable[..., None]) -> Callable[..., None]:
     """Mock the tasks out and run them in-process."""
     return patch(
@@ -703,9 +732,32 @@ class TestRemoteCli(unittest.TestCase):
         for c in init_task.call_args_list:
             self.assertFalse(c.kwargs["report"])
             self.assertEqual(Path(c.kwargs["report_dir"]).parent, images)
-        with (self.root / "hazen_results.csv").open(newline="") as fh:
-            roles = {row["role"] for row in csv.DictReader(fh)}
-        self.assertEqual(roles, {"TRA", "SAG", "COR"})
+        self.assertEqual(results_header(self.root), HEADER)
+
+    @mock_tasks
+    def test_report_images(self, _wait: Mock, init_task: Mock) -> None:
+        init_task.side_effect = image_init_task
+        out, _ = self.main(self.root)
+        self.assertIn(f"Images:   {self.root / 'hazen_report'}", out)
+        wb = openpyxl.load_workbook(self.root / "hazen_results.xlsx")
+        self.assertEqual(
+            wb.sheetnames,
+            [
+                "Results",
+                "snr",
+                "uniformity",
+                "ghosting",
+                "slice_thickness",
+                "slice_position",
+                "geometric_accuracy",
+            ],
+        )
+        headings = [c.value for c in wb["slice_position"]["A"] if c.value]
+        self.assertEqual(
+            headings,
+            ["TRA_SlicePosition", "SAG_SlicePosition", "COR_SlicePosition"],
+        )
+        self.assertEqual(wb["snr"]["A1"].value, "TRA_SNR")
 
     @mock_tasks
     def test_exit_codes(self, _wait: Mock, init_task: Mock) -> None:
@@ -735,9 +787,7 @@ class TestRemoteCli(unittest.TestCase):
         out, _ = self.main(session, "--no-report")
         self.assertIn("3 roles found · listed: 3 uncorrected", out)
         self.assertIn("ok 18 · skipped 0 · failed 0", out)
-        with (session / "hazen_results.csv").open(newline="") as fh:
-            roles = {row["role"] for row in csv.DictReader(fh)}
-        self.assertEqual(roles, {"TRA", "SAG", "COR"})
+        self.assertEqual(results_header(session), HEADER)
 
 
 class TestRemoteSession(unittest.TestCase):

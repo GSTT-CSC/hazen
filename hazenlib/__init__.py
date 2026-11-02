@@ -48,8 +48,12 @@ from hazenlib.orchestration import (
 )
 from hazenlib.protocols.acr_gstt import ACRGSTTProtocol
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol
-from hazenlib.protocols.engine import SessionProtocol, rows_as_records
-from hazenlib.protocols.outputs import write_records
+from hazenlib.protocols.engine import SessionProtocol
+from hazenlib.protocols.outputs import (
+    table_records,
+    write_records,
+    write_workbook,
+)
 from hazenlib.utils import get_dicom_files
 
 # Protocols run over one session folder, by CLI command
@@ -330,9 +334,12 @@ def get_parser() -> argparse.ArgumentParser:
     session_parser.add_argument(
         "--format",
         type=str,
-        default="csv",
-        choices=["json", "csv", "tsv"],
-        help="Format of the result rows (default: csv)",
+        default="xlsx",
+        choices=["xlsx", "json", "csv", "tsv"],
+        help=(
+            "Format of the results (default: xlsx, with report images on"
+            " one sheet per test)"
+        ),
     )
 
     gstt_parser = subparsers.add_parser(
@@ -376,7 +383,14 @@ def run_protocol(
     Returns:
         Exit code: 1 if any step failed, otherwise 0.
 
+    Raises:
+        ValueError: If xlsx is asked for on stdout, or the session
+            cannot be run.
+
     """
+    if args.format == "xlsx" and args.result == "-":
+        msg = "xlsx results cannot go to stdout; use --format csv or json"
+        raise ValueError(msg)
     protocol = cls(
         args.session,
         vendor=getattr(args, "vendor", None),
@@ -384,11 +398,14 @@ def run_protocol(
         report_dir=args.output,
     )
     outcomes = protocol.run()
-    records = rows_as_records(protocol.rows(outcomes))
+    table = protocol.table(outcomes)
     result = args.result or (
         protocol.session.path / f"hazen_results.{args.format}"
     )
-    write_records(records, args.format, result)
+    if args.format == "xlsx":
+        write_workbook(table, protocol.images(outcomes), result)
+    else:
+        write_records(table_records(table), args.format, result)
 
     print(protocol.summary(outcomes))  # noqa: T201
     if result != "-":

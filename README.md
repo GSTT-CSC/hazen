@@ -162,7 +162,8 @@ Check the unreleased changes below to decide whether you need them.
 - **New `acr_gstt` command for the GSTT ACR QA protocol.** `hazen acr_gstt /path/to/session` runs every measurement in
   GSTT's ACR QA work instruction (slice thickness, slice position, geometric accuracy, uniformity, ghosting and
   subtraction SNR, for the head coil and the body coil in all three planes) on one session folder, and writes the
-  results to `hazen_results.csv` in the session folder, with report images alongside. Each acquisition goes in a
+  results to `hazen_results.xlsx` in the session folder: one row per measurement, one column per coil and plane,
+  red cells for skipped or failed tests, and the report images on one sheet per test. Each acquisition goes in a
   subfolder named by its role (`Head_1` to `Head_5`, `Body_Tra_1` to `Body_Cor_4`). The Siemens, Philips or GE rules are
   chosen from the DICOM headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. See
   the [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for folder names and outputs.
@@ -171,7 +172,7 @@ Check the unreleased changes below to decide whether you need them.
   (`ACR_TRA`, `ACR Axial`, `acr-coronal`, ...), not folder names. SNR, uniformity, ghosting, slice thickness, slice
   position and geometric accuracy are measured on the distortion-corrected series of each plane (single-image SNR),
   with uncorrected, visual-check (RF noise, field map, NONSUP/FATSUP) and unknown series listed in the summary.
-  Results are written to `hazen_results.csv` as for `acr_gstt`. See the
+  Results are written to `hazen_results.xlsx` as for `acr_gstt`, with one column per plane. See the
   [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for the matching rules.
 
 ###### Installing the development version

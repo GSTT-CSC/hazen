@@ -151,6 +151,27 @@ def _downscaled(path: str) -> Image:
     return Image(PILImage.open(buffer))
 
 
+def table_records(table: Table) -> list[Record]:
+    """The results table as records for CSV/TSV/JSON.
+
+    Units are written after each value, and skipped or failed cells
+    are left empty like blank ones.
+    """
+    records = []
+    for row in table.rows:
+        record: Record = {"test": row.test, "measurement": row.measurement}
+        for column in table.columns:
+            cell = row.cells.get(column)
+            if cell is None or cell.missing:
+                record[column] = ""
+            elif cell.unit:
+                record[column] = f"{_cell_value(cell.value)} {cell.unit}"
+            else:
+                record[column] = _cell_value(cell.value)
+        records.append(record)
+    return records
+
+
 def write_records(
     records: Sequence[Record],
     fmt: str,

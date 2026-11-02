@@ -35,6 +35,7 @@ from pydicom.multival import MultiValue
 # Local imports
 from hazenlib._version import __version__
 from hazenlib.orchestration import init_task
+from hazenlib.protocols.outputs import ImageGroup
 from hazenlib.utils import get_slice_thickness, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
@@ -635,6 +636,25 @@ class SessionProtocol:
                 )
                 rows.append(TableRow(test, label, row))
         return Table(columns, tuple(rows))
+
+    def images(
+        self, outcomes: list[StepOutcome]
+    ) -> dict[str, list[ImageGroup]]:
+        """Report images by test, each group titled e.g. ``COR_SlicePosition``.
+
+        Empty unless the run saved report images.
+        """
+        groups: dict[str, list[ImageGroup]] = {}
+        if not self.report:
+            return groups
+        for o in outcomes:
+            if o.result is None or not o.result.report_images:
+                continue
+            title = f"{o.step.role}_{o.result.task.removeprefix('ACR')}"
+            groups.setdefault(o.step.test, []).append(
+                ImageGroup(title, tuple(o.result.report_images)),
+            )
+        return groups
 
     def session_info(self) -> dict[str, Any]:
         """Scanner and run details, read from the first role."""

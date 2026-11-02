@@ -3,7 +3,7 @@
 # ruff: noqa: PT009 PT027 SLF001
 
 # Python imports
-import csv
+import contextlib
 import io
 import json
 import os
@@ -71,8 +71,14 @@ def fake_result(task: str, *measurements: Measurement) -> Result:
     return result
 
 
+COLUMNS = ["Head TRA", "Body TRA", "Body SAG", "Body COR"]
 SLICE_WIDTH = Measurement("SliceWidth", 4.6, subtype="slice width")
-UNIFORMITY = Measurement("Uniformity", 97.0, subtype="Integral uniformity")
+UNIFORMITY = Measurement(
+    "Uniformity",
+    97.0,
+    subtype="Integral uniformity",
+    unit="%",
+)
 SNR = Measurement("SNR", 2000.0, type="normalised", subtype="subtraction")
 
 
@@ -308,7 +314,7 @@ class TestRun(unittest.TestCase):
         self.assertEqual(
             rows["uniformity", "Integral uniformity"],
             {
-                "Head TRA": Cell(UNIFORMITY.value),
+                "Head TRA": Cell(UNIFORMITY.value, "%"),
                 "Body TRA": red,
                 "Body SAG": red,
                 "Body COR": red,
@@ -317,7 +323,7 @@ class TestRun(unittest.TestCase):
         # fake_init_task gives ghosting the uniformity measurement
         self.assertEqual(
             rows["ghosting", "Integral uniformity"],
-            {"Head TRA": Cell(UNIFORMITY.value)},
+            {"Head TRA": Cell(UNIFORMITY.value, "%")},
         )
 
     @staticmethod
@@ -450,15 +456,19 @@ class TestCliOutput(unittest.TestCase):
         shutil.rmtree(self.tmp)
 
     def test_result_path(self, *_mocks: Mock) -> None:
+        header = ["test", "measurement", *COLUMNS]
         custom = self.tmp / "custom.json"
-        default_csv = self.root / "hazen_results.csv"
-        default_json = self.root / "hazen_results.json"
-        outputs = (custom, default_csv, default_json)
+        default = {
+            fmt: self.root / f"hazen_results.{fmt}"
+            for fmt in ("xlsx", "csv", "json")
+        }
+        outputs = (custom, *default.values())
         for extra, written in [
-            ([], default_csv),
-            (["--format", "json"], default_json),
+            ([], default["xlsx"]),
+            (["--format", "csv"], default["csv"]),
+            (["--format", "json"], default["json"]),
             (["--result", str(custom), "--format", "json"], custom),
-            (["--result", "-"], None),
+            (["--result", "-", "--format", "csv"], None),
         ]:
             with self.subTest(extra=extra):
                 for path in outputs:
@@ -474,14 +484,37 @@ class TestCliOutput(unittest.TestCase):
                     [written] if written else [],
                 )
                 if written is None:
-                    self.assertIn("coil,plane,role", out.getvalue())
+                    lines = out.getvalue().splitlines()
+                    self.assertIn(",".join(header), lines)
+                    # Units go with the value; missing cells are empty
+                    self.assertIn(
+                        "uniformity,Integral uniformity,97.0 %,,,",
+                        lines,
+                    )
                     self.assertNotIn("Results:", out.getvalue())
                     continue
                 self.assertIn(f"Results: {written}", out.getvalue())
                 if written.suffix == ".json":
-                    self.assertTrue(json.loads(written.read_text()))
+                    records = json.loads(written.read_text())
+                    self.assertEqual(list(records[0]), header)
+                elif written.suffix == ".csv":
+                    first = written.read_text().splitlines()[0]
+                    self.assertEqual(first, ",".join(header))
                 else:
-                    self.assertTrue(written.read_text().startswith("coil,"))
+                    ws = openpyxl.load_workbook(written)["Results"]
+                    self.assertEqual([c.value for c in ws[1]], header)
+
+    def test_xlsx_to_stdout_is_rejected(self, *_mocks: Mock) -> None:
+        argv = ["hazen", "acr_gstt", str(self.root), "--result", "-"]
+        with (
+            patch.object(sys, "argv", argv),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(io.StringIO()) as err,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            hazenlib.main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("xlsx", err.getvalue())
 
 
 class TestOutputs(unittest.TestCase):
@@ -731,19 +764,21 @@ class TestCli(unittest.TestCase):
         ):
             hazenlib.main()
         self.assertIn("failed 0", out.getvalue())
-        with (root / "hazen_results.csv").open(newline="") as fh:
-            rows = list(csv.DictReader(fh))
+        ws = openpyxl.load_workbook(root / "hazen_results.xlsx")["Results"]
+        header = [c.value for c in ws[1]]
+        self.assertEqual(header, ["test", "measurement", *COLUMNS])
+        rows = {(r[0].value, r[1].value): r for r in ws.iter_rows(min_row=2)}
         # Head uniformity from Head_3, body sagittal geometry from Body_Sag_4
-        for role, test in [
-            ("Head_3", "uniformity"),
-            ("Body_Sag_4", "geometric_accuracy"),
+        for column, key in [
+            ("Head TRA", ("uniformity", "Integral uniformity")),
+            (
+                "Body SAG",
+                ("geometric_accuracy", "Slice 1 Horizontal distance"),
+            ),
         ]:
-            with self.subTest(role=role, test=test):
-                row = next(
-                    r for r in rows if r["role"] == role and r["test"] == test
-                )
-                self.assertEqual(row["status"], "ok")
-                float(row["value"])
+            with self.subTest(column=column, test=key[0]):
+                cell = rows[key][header.index(column)]
+                self.assertIsInstance(cell.value, (int, float))
 
 
 @pytest.mark.slow
