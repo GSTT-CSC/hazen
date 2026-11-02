@@ -32,6 +32,7 @@ from hazenlib.protocols.engine import (
     RoleSeries,
     Session,
     SessionProtocol,
+    Step,
 )
 from hazenlib.utils import get_manufacturer
 
@@ -43,6 +44,16 @@ REMOTE_ROLES: tuple[Role, ...] = (
     Role("COR", "body", "cor"),
 )
 ROLES_BY_PLANE = {r.plane: r for r in REMOTE_ROLES}
+
+# QA test and TASK_REGISTRY key, run on every role
+REMOTE_TESTS = (
+    ("snr", "acr_snr"),
+    ("uniformity", "acr_uniformity"),
+    ("ghosting", "acr_ghosting"),
+    ("slice_thickness", "acr_slice_thickness"),
+    ("slice_position", "acr_slice_position"),
+    ("geometric_accuracy", "acr_geometric_accuracy"),
+)
 
 # Case-insensitive SeriesDescription substrings of visual-check series
 VISUAL_CHECK = (
@@ -232,6 +243,20 @@ class ACRRemoteProtocol(SessionProtocol):
 
     name = "ACR Large Phantom (Remote)"
     roles = REMOTE_ROLES
+    supported_vendors = ("siemens", "philips", "ge")
+
+    @classmethod
+    def build_steps(cls, vendor: str) -> tuple[Step, ...]:
+        """Return every Remote test on every role, for any vendor.
+
+        SNR steps have no ``subtract`` or ``slice_width_from``, so the
+        engine runs them as single-image SNR in the first stage.
+        """
+        return tuple(
+            Step(test, task, role.name)
+            for role in cls.roles
+            for test, task in REMOTE_TESTS
+        )
 
     @classmethod
     def discover(cls, path: str | Path) -> Session:

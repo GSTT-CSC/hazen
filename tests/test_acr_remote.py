@@ -13,6 +13,7 @@ from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 
 # Local imports
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
+from hazenlib.protocols.engine import Step
 
 LOGGER = "hazenlib.protocols.acr_remote"
 
@@ -310,3 +311,30 @@ class TestRemoteDiscover(unittest.TestCase):
     def test_missing_session_raises(self) -> None:
         with self.assertRaises(NotADirectoryError):
             ACRRemoteProtocol.discover(self.root / "nope")
+
+
+class TestRemoteSteps(unittest.TestCase):
+    """Six tests per plane; SNR is single-image on the corrected series."""
+
+    def test_steps(self) -> None:
+        expected = tuple(
+            Step(test, f"acr_{test}", role)
+            for role in ("TRA", "SAG", "COR")
+            for test in (
+                "snr",
+                "uniformity",
+                "ghosting",
+                "slice_thickness",
+                "slice_position",
+                "geometric_accuracy",
+            )
+        )
+        self.assertEqual(
+            ACRRemoteProtocol.supported_vendors,
+            ("siemens", "philips", "ge"),
+        )
+        for vendor in ACRRemoteProtocol.supported_vendors:
+            with self.subTest(vendor=vendor):
+                self.assertEqual(
+                    ACRRemoteProtocol.build_steps(vendor), expected
+                )
