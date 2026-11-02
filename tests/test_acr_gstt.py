@@ -250,6 +250,16 @@ class TestSessionAndVendor(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "'canon' is not covered"):
             detect_vendor(ACRGSTTProtocol.discover(root), SUPPORTED)
 
+    def test_summary_names_ignored_folders(self) -> None:
+        root = make_session(self.tmp / "s", {"Head_1": SIEMENS_T1})
+        (root / "Head_2").mkdir()  # empty, so ignored
+        protocol = ACRGSTTProtocol(root, report=False)
+        line = protocol.summary([]).splitlines()[0]
+        self.assertTrue(
+            line.endswith(" - 1 roles found · listed: 1 ignored (Head_2)"),
+            line,
+        )
+
     def test_no_roles_raises(self) -> None:
         (self.tmp / "s" / "RF_noise1").mkdir(parents=True)
         with self.assertRaisesRegex(ValueError, "No role folders"):

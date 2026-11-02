@@ -392,3 +392,30 @@ class TestRemoteRun(unittest.TestCase):
         self.assertEqual(len(rows), 18)
         self.assertNotIn("SliceWidth", [r.measurement for r in rows])
         self.assertEqual({r.detail for r in rows}, {""})
+
+    def test_summary_listed_counts(self, init_task: Mock) -> None:
+        def first_line() -> str:
+            protocol = ACRRemoteProtocol(self.root, report=False)
+            return protocol.summary([]).splitlines()[0]
+
+        self.assertTrue(first_line().endswith(" - 3 roles found"))
+
+        extras = self.root / "extras"
+        make_series(extras, SeriesNumber=10, SeriesDescription="loc")
+        make_series(extras, SeriesNumber=14, SeriesDescription="loc2")
+        make_series(extras, SeriesNumber=11, SeriesDescription="RF_noise")
+        make_series(extras, SeriesNumber=12, SeriesDescription="B0_map")
+        make_series(
+            extras,
+            SeriesNumber=13,
+            SeriesDescription="ACR_TRA_ND",
+            ImageType=list(ND),
+        )
+        line = first_line()
+        self.assertTrue(
+            line.endswith(
+                " - 3 roles found · listed: 1 uncorrected, 2 visual check,"
+                " 2 unknown (loc, loc2)",
+            ),
+            line,
+        )

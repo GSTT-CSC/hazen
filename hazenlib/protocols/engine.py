@@ -582,16 +582,24 @@ class SessionProtocol:
             s: sum(o.status == s for o in outcomes)
             for s in ("ok", "skipped", "failed")
         }
+        listed = []
+        for kind in ("uncorrected", "visual_check", "unknown", "ignored"):
+            of_kind = [ls for ls in self.session.listed if ls.kind == kind]
+            if not of_kind:
+                continue
+            text = f"{len(of_kind)} {kind.replace('_', ' ')}"
+            # Name the series that may need attention
+            if kind in ("unknown", "ignored"):
+                names = (
+                    ls.series_description or ls.path.name for ls in of_kind
+                )
+                text += f" ({', '.join(names)})"
+            listed.append(text)
         lines = [
             f"{info['Manufacturer']} {info['Model']}"
             f" {info['Field strength (T)']}T - {self.vendor} rules -"
-            f" {len(self.session.roles)} role folders found,"
-            f" {len(self.session.listed)} ignored"
-            + (
-                f" ({', '.join(ls.path.name for ls in self.session.listed)})"
-                if self.session.listed
-                else ""
-            ),
+            f" {len(self.session.roles)} roles found"
+            + (f" · listed: {', '.join(listed)}" if listed else ""),
             f"ok {counts['ok']} · skipped {counts['skipped']}"
             f" · failed {counts['failed']}",
         ]
