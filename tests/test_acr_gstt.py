@@ -34,7 +34,6 @@ from hazenlib.protocols.engine import (
     Step,
     StepOutcome,
     detect_vendor,
-    rows_as_records,
 )
 from hazenlib.protocols.outputs import (
     ImageGroup,
@@ -321,6 +320,21 @@ class TestRun(unittest.TestCase):
                 "Body COR": red,
             },
         )
+        # SNR records the measured slice width it was normalised by,
+        # below the SNR value
+        self.assertEqual(
+            [r.measurement for r in table.rows if r.test == "snr"],
+            ["Normalised SNR (subtraction)", "Slice width used"],
+        )
+        self.assertEqual(
+            rows["snr", "Slice width used"],
+            {
+                "Head TRA": Cell(SLICE_WIDTH.value, "mm"),
+                "Body TRA": red,
+                "Body SAG": red,
+                "Body COR": red,
+            },
+        )
         # fake_init_task gives ghosting the uniformity measurement
         self.assertEqual(
             rows["ghosting", "Integral uniformity"],
@@ -376,12 +390,16 @@ class TestRun(unittest.TestCase):
         self.assertEqual(snr.status, "ok")
         self.assertTrue(snr.slice_width_source.startswith("nominal"))
 
-        width_row = next(
-            r
-            for r in protocol.rows(outcomes)
-            if r.role == "Head_1" and r.measurement == "SliceWidth"
+        # The nominal width gets its own row so it stands out
+        rows = {
+            (r.test, r.measurement): r.cells
+            for r in protocol.table(outcomes).rows
+        }
+        self.assertEqual(
+            rows["snr", "Slice width used (nominal)"]["Head TRA"],
+            Cell(5.0, "mm"),  # SliceThickness of the Siemens T1 data
         )
-        self.assertEqual(width_row.type, "nominal")
+        self.assertNotIn(("snr", "Slice width used"), rows)
 
     def test_snr_without_repeat_is_skipped(self, init: Mock) -> None:
         (self.root / "Head_2").unlink()
@@ -417,22 +435,6 @@ class TestRun(unittest.TestCase):
             Path(uniformity.kwargs["report_dir"]),
             self.tmp / "rep" / "Head_3",
         )
-
-    def test_rows_are_labelled(self, _init: Mock) -> None:
-        protocol, outcomes = self.run_protocol()
-        rows = protocol.rows(outcomes)
-        uniformity = next(r for r in rows if r.test == "uniformity")
-        self.assertEqual(
-            (uniformity.coil, uniformity.plane, uniformity.role),
-            ("head", "tra", "Head_3"),
-        )
-        self.assertEqual(uniformity.value, 97.0)
-        self.assertEqual(
-            uniformity.report_images, "/report/acr_uniformity.png"
-        )
-        skipped = next(r for r in rows if r.role == "Body_Cor_3")
-        self.assertEqual(skipped.status, "skipped")
-        self.assertIsNone(skipped.value)
 
 
 @patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
@@ -522,6 +524,7 @@ class TestCliOutput(unittest.TestCase):
             hazenlib.main()
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("xlsx", err.getvalue())
+        self.assertIn("csv, tsv or json", err.getvalue())
         init_task.assert_not_called()  # refused before running anything
 
 
@@ -834,4 +837,4 @@ class TestLocalFullSession(unittest.TestCase):
             [(o.step.role, o.step.test) for o in outcomes if o.status != "ok"],
             [],
         )
-        self.assertTrue(rows_as_records(protocol.rows(outcomes)))
+        self.assertTrue(protocol.table(outcomes).rows)

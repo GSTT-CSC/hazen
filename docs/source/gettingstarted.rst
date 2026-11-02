@@ -406,7 +406,7 @@ Process a full ACR Large Phantom protocol in one command:
 GSTT ACR Protocol (acr_gstt)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ``acr_gstt`` runs every measurement in the GSTT ACR QA work instruction on one
-session folder and writes the results to a single CSV file. Unlike
+session folder and writes the results to a single workbook. Unlike
 ``acr_all`` (T1, T2 and sagittal localiser), all GSTT acquisitions use the same
 T1 sequence and differ only by coil, plane and reconstruction filters, so each
 acquisition is identified by the name of its folder.
@@ -480,7 +480,8 @@ override it. Other manufacturers are not supported.
 SNR is normalised using the slice thickness measured on the same coil and
 plane's slice thickness series (series 4, or series 1 for GE). If that is
 unavailable the nominal DICOM slice thickness is used and a warning is logged.
-The slice width used is recorded in the results.
+The slice width used is recorded under SNR as ``Slice width used``, or
+``Slice width used (nominal)`` when the DICOM value was used.
 
 A test whose folders are missing is recorded as ``skipped``; a test that raises
 an error is recorded as ``failed`` and the rest still run. ``hazen`` exits with
@@ -507,7 +508,7 @@ Remote ACR Protocol (acr_remote)
 ``acr_remote`` runs the ACR measurements of the NHSBSP breast-screening MRI QA
 on a session acquired by a site and sent to us: one T1 acquisition per plane,
 transverse on the head/neck coil and sagittal and coronal on the body and spine
-coils. Results go to the same CSV layout as ``acr_gstt``.
+coils. Results go to the same workbook layout as ``acr_gstt``.
 
 .. code-block:: bash
 
@@ -578,7 +579,7 @@ Each plane's distortion-corrected series gets every test:
      - as for ``TRA``
 
 SNR uses the single-image method on the distortion-corrected series (there is
-no repeat acquisition to subtract), so no slice width is recorded for it.
+no repeat acquisition to subtract), so it has no ``Slice width used`` row.
 
 A plane with no series, or with only an uncorrected series, has its tests
 recorded as ``skipped``; the second case also warns that the series should be

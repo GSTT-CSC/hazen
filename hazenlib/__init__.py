@@ -389,7 +389,7 @@ def run_protocol(
 
     """
     if args.format == "xlsx" and args.result == "-":
-        msg = "xlsx results cannot go to stdout; use --format csv or json"
+        msg = "xlsx results cannot go to stdout; use --format csv, tsv or json"
         raise ValueError(msg)
     protocol = cls(
         args.session,
@@ -411,7 +411,7 @@ def run_protocol(
     if result != "-":
         print(f"Results: {result}")  # noqa: T201
     if args.report:
-        print(f"Images:   {protocol.report_dir}")  # noqa: T201
+        print(f"Images:  {protocol.report_dir}")  # noqa: T201
     return int(any(o.status == "failed" for o in outcomes))
 
 

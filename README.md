@@ -165,7 +165,8 @@ Check the unreleased changes below to decide whether you need them.
   results to `hazen_results.xlsx` in the session folder: one row per measurement, one column per coil and plane,
   red cells for skipped or failed tests, and the report images on one sheet per test. Each acquisition goes in a
   subfolder named by its role (`Head_1` to `Head_5`, `Body_Tra_1` to `Body_Cor_4`). The Siemens, Philips or GE rules are
-  chosen from the DICOM headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. See
+  chosen from the DICOM headers, and SNR is normalised with the measured slice thickness. `acr_all` is unchanged. Adds
+  `openpyxl` as a dependency. See
   the [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for folder names and outputs.
 - **New `acr_remote` command for remotely acquired ACR QA.** `hazen acr_remote /path/to/export` runs the ACR part of
   the NHSBSP breast-screening MRI QA on a site's export as it arrives: series are matched on their DICOM headers

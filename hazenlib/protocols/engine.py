@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 import datetime
 import logging
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
@@ -201,29 +201,6 @@ class StepOutcome:
 
 
 @dataclass(frozen=True)
-class ResultRow:
-    """One labelled row of the results table."""
-
-    coil: str
-    plane: str
-    role: str
-    test: str
-    measurement: str
-    subtype: str
-    type: str
-    description: str
-    value: Any
-    unit: str
-    visibility: str
-    status: Status
-    detail: str
-    series_description: str
-    series_number: str
-    folder: str
-    report_images: str
-
-
-@dataclass(frozen=True)
 class Cell:
     """One value of the results table; *missing* marks a skipped or
     failed step that should have filled it.
@@ -270,43 +247,6 @@ def _measurement_label(m: Measurement) -> str:
     return label
 
 
-def _row(
-    outcome: StepOutcome,
-    role: Role,
-    folder: RoleSeries | None,
-    *,
-    measurement: str = "",
-    subtype: str = "",
-    type_: str = "",
-    description: str = "",
-    value: Any = None,
-    unit: str = "",
-    visibility: str = "",
-    report_images: str = "",
-    detail: str | None = None,
-) -> ResultRow:
-    """Build a result row labelled with the outcome's role and status."""
-    return ResultRow(
-        coil=role.coil,
-        plane=role.plane,
-        role=role.name,
-        test=outcome.step.test,
-        measurement=measurement,
-        subtype=subtype,
-        type=type_,
-        description=description,
-        value=value,
-        unit=unit,
-        visibility=visibility,
-        status=outcome.status,
-        detail=outcome.detail if detail is None else detail,
-        series_description=folder.series_description if folder else "",
-        series_number=folder.series_number if folder else "",
-        folder=folder.path.as_posix() if folder else "",
-        report_images=report_images,
-    )
-
-
 def _execute(
     step: Step,
     files: list[str],
@@ -321,11 +261,6 @@ def _execute(
     except (Exception, SystemExit) as err:  # noqa: BLE001
         logger.exception("%s failed on %s", step.task, step.role)
         return "failed", f"{type(err).__name__}: {err}", None
-
-
-def rows_as_records(rows: list[ResultRow]) -> list[dict[str, Any]]:
-    """Convert result rows to plain dictionaries for the writers."""
-    return [asdict(r) for r in rows]
 
 
 ############
@@ -548,56 +483,6 @@ class SessionProtocol:
     # Outputs #
     ###########
 
-    def rows(self, outcomes: list[StepOutcome]) -> list[ResultRow]:
-        """Flatten outcomes into labelled rows, one per measurement."""
-        roles = {r.name: r for r in self.roles}
-        rows = []
-        for o in outcomes:
-            role = roles[o.step.role]
-            folder = self.session.roles.get(o.step.role)
-            if o.result is None:
-                rows.append(_row(o, role, folder))
-                continue
-
-            images = "; ".join(o.result.report_images)
-            rows.extend(
-                _row(
-                    o,
-                    role,
-                    folder,
-                    measurement=m.name,
-                    subtype=m.subtype,
-                    type_=m.type,
-                    description=m.description,
-                    value=m.value,
-                    unit=m.unit,
-                    visibility=m.visibility,
-                    report_images=images,
-                )
-                for m in o.result.measurements
-            )
-            if o.slice_width is not None:
-                source = o.slice_width_source or ""
-                rows.append(
-                    _row(
-                        o,
-                        role,
-                        folder,
-                        measurement="SliceWidth",
-                        subtype="slice width used for SNR normalisation",
-                        type_=(
-                            "nominal"
-                            if source.startswith("nominal")
-                            else "measured"
-                        ),
-                        value=o.slice_width,
-                        unit="mm",
-                        visibility="intermediate",
-                        detail=f"source: {source}",
-                    ),
-                )
-        return rows
-
     def column(self, role: Role) -> str:
         """Results table column for a role: its coil and plane."""
         return f"{role.coil.capitalize()} {role.plane.upper()}"
@@ -625,6 +510,16 @@ class SessionProtocol:
                 if m.final:
                     key = (o.step.test, _measurement_label(m))
                     cells.setdefault(key, {})[column] = Cell(m.value, m.unit)
+            if o.slice_width is not None:
+                # What subtraction SNR was normalised by; a nominal
+                # width gets its own row so it stands out
+                label = "Slice width used"
+                if (o.slice_width_source or "").startswith("nominal"):
+                    label += " (nominal)"
+                cells.setdefault((o.step.test, label), {})[column] = Cell(
+                    o.slice_width,
+                    "mm",
+                )
 
         rows = []
         for test, missing_columns in missing.items():

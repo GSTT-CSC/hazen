@@ -442,10 +442,9 @@ class TestRemoteRun(unittest.TestCase):
                     calls.index(("acr_snr", plane)),
                     calls.index(("acr_slice_thickness", plane)),
                 )
-        rows = protocol.rows(outcomes)
-        self.assertEqual(len(rows), 18)
-        self.assertNotIn("SliceWidth", [r.measurement for r in rows])
-        self.assertEqual({r.detail for r in rows}, {""})
+        # Single-image SNR is not normalised by a slice width
+        labels = [r.measurement for r in protocol.table(outcomes).rows]
+        self.assertFalse([m for m in labels if m.startswith("Slice width")])
 
     def test_summary_listed_counts(self, init_task: Mock) -> None:
         def first_line() -> str:
@@ -744,7 +743,8 @@ class TestRemoteCli(unittest.TestCase):
     def test_report_images(self, _wait: Mock, init_task: Mock) -> None:
         init_task.side_effect = image_init_task
         out, _ = self.main(self.root)
-        self.assertIn(f"Images:   {self.root / 'hazen_report'}", out)
+        # Paths line up under each other
+        self.assertIn(f"Images:  {self.root / 'hazen_report'}", out)
         wb = openpyxl.load_workbook(self.root / "hazen_results.xlsx")
         self.assertEqual(
             wb.sheetnames,
