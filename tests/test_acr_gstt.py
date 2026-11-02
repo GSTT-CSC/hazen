@@ -24,6 +24,7 @@ import hazenlib
 from hazenlib.orchestration import init_task
 from hazenlib.protocols.acr_gstt import ROLES, ACRGSTTProtocol, match_role
 from hazenlib.protocols.engine import (
+    Cell,
     Step,
     StepOutcome,
     detect_vendor,
@@ -283,6 +284,31 @@ class TestRun(unittest.TestCase):
     def run_protocol(self) -> tuple[ACRGSTTProtocol, list]:
         protocol = ACRGSTTProtocol(self.root, report=False)
         return protocol, protocol.run(debug=True)
+
+    def test_table_columns_by_coil_and_plane(self, *_mocks: Mock) -> None:
+        protocol, outcomes = self.run_protocol()
+        table = protocol.table(outcomes)
+        self.assertEqual(
+            table.columns,
+            ("Head TRA", "Body TRA", "Body SAG", "Body COR"),
+        )
+        rows = {(r.test, r.measurement): r.cells for r in table.rows}
+        red = Cell(None, missing=True)
+        # Body roles are missing, so red; ghosting is head-only, so blank
+        self.assertEqual(
+            rows["uniformity", "Integral uniformity"],
+            {
+                "Head TRA": Cell(UNIFORMITY.value),
+                "Body TRA": red,
+                "Body SAG": red,
+                "Body COR": red,
+            },
+        )
+        # fake_init_task gives ghosting the uniformity measurement
+        self.assertEqual(
+            rows["ghosting", "Integral uniformity"],
+            {"Head TRA": Cell(UNIFORMITY.value)},
+        )
 
     @staticmethod
     def outcome(outcomes: list, role: str, test: str):  # noqa: ANN205

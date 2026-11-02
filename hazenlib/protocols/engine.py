@@ -18,11 +18,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from hazenlib.types import Result
+    from hazenlib.types import Measurement, Result
 
 # Python imports
 import datetime
 import logging
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, ClassVar, Literal
@@ -219,6 +220,53 @@ class ResultRow:
     series_number: str
     folder: str
     report_images: str
+
+
+@dataclass(frozen=True)
+class Cell:
+    """One value of the results table; *missing* marks a skipped or
+    failed step that should have filled it.
+    """
+
+    value: Any
+    unit: str = ""
+    missing: bool = False
+
+
+@dataclass(frozen=True)
+class TableRow:
+    """One measurement of a test, by column; absent columns are blank."""
+
+    test: str
+    measurement: str
+    cells: dict[str, Cell]
+
+
+@dataclass(frozen=True)
+class Table:
+    """Final measurements with one row per test and measurement."""
+
+    columns: tuple[str, ...]
+    rows: tuple[TableRow, ...]
+
+
+def _measurement_label(m: Measurement) -> str:
+    """Name a measurement the same way for every role.
+
+    The subtype, with the type when it is not a plain measurement and
+    the slice from the description when the subtype does not give it,
+    e.g. "Normalised SNR (smoothing)", "Length difference (slice 1)".
+    """
+    if m.type != "measured":
+        label = f"{m.type.capitalize()} {m.name}"
+        label += f" ({m.subtype})" if m.subtype else ""
+    else:
+        label = m.subtype or m.name
+        label = label[:1].upper() + label[1:]
+    found = re.match(r"Slice \d+", m.description)
+    if found and not label.lower().startswith("slice"):
+        label += f" ({found[0].lower()})"
+    return label
 
 
 def _row(
@@ -548,6 +596,45 @@ class SessionProtocol:
                     ),
                 )
         return rows
+
+    def column(self, role: Role) -> str:
+        """Results table column for a role: its coil and plane."""
+        return f"{role.coil.capitalize()} {role.plane.upper()}"
+
+    def table(self, outcomes: list[StepOutcome]) -> Table:
+        """Final measurements, one row per test and measurement.
+
+        Each column is a coil and plane. A step that was skipped or
+        failed marks its column missing on every row of its test, and
+        a test with no measurements at all gets one unnamed row.
+        """
+        roles = {r.name: r for r in self.roles}
+        columns = tuple(
+            dict.fromkeys(self.column(roles[s.role]) for s in self.steps),
+        )
+        cells: dict[tuple[str, str], dict[str, Cell]] = {}
+        missing: dict[str, list[str]] = {}
+        for o in outcomes:
+            column = self.column(roles[o.step.role])
+            missing.setdefault(o.step.test, [])
+            if o.status != "ok" or o.result is None:
+                missing[o.step.test].append(column)
+                continue
+            for m in o.result.measurements:
+                if m.final:
+                    key = (o.step.test, _measurement_label(m))
+                    cells.setdefault(key, {})[column] = Cell(m.value, m.unit)
+
+        rows = []
+        for test, missing_columns in missing.items():
+            labels = [label for t, label in cells if t == test] or [""]
+            for label in labels:
+                row = cells.get((test, label), {})
+                row.update(
+                    (c, Cell(None, missing=True)) for c in missing_columns
+                )
+                rows.append(TableRow(test, label, row))
+        return Table(columns, tuple(rows))
 
     def session_info(self) -> dict[str, Any]:
         """Scanner and run details, read from the first role."""

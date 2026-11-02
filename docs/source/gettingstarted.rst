@@ -543,6 +543,8 @@ Everything else is listed in the summary but not analysed:
        ``non_sup``, ``fatsup``, ``fat_sup`` or ``fat sup``)
    * - unknown
      - Anything else, with a warning naming the series
+   * - ignored
+     - An older distortion-corrected series of a plane that has a newer one
 
 Other manufacturers have no ``DIS2D`` / ``ND`` marker, so every ACR series of a
 plane is a candidate and a warning says the correction status could not be
@@ -575,11 +577,13 @@ no repeat acquisition to subtract), so no slice width is recorded for it.
 
 A plane with no series, or with only an uncorrected series, has its tests
 recorded as ``skipped``; the second case also warns that the series should be
-reconstructed again with distortion correction. Two series matching the same
-plane, or series from more than one scanner (``DeviceSerialNumber``, else
-``StationName``), stop the run: move the unwanted series out of the folder. A
-session spread over several study dates from one scanner is allowed, with a
-warning.
+reconstructed again with distortion correction. If two distortion-corrected
+series match the same plane (a repeat, or a copy rotated on the scanner), the
+newest is used (latest ``SeriesDate`` / ``SeriesTime``, then highest
+``SeriesNumber``) and the other is listed as ignored, with a warning naming
+both. Series from more than one scanner (``DeviceSerialNumber``, else
+``StationName``) stop the run: send one scanner's export at a time. A session
+spread over several study dates from one scanner is allowed, with a warning.
 
 Outputs
 """""""

@@ -212,6 +212,21 @@ def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
     return list(series.values())
 
 
+def _newness(dcm: pydicom.Dataset) -> tuple[str, str, int]:
+    """Sort key putting the most recently created series last.
+
+    SeriesDate and SeriesTime, then SeriesNumber: a series rotated or
+    reconstructed again on the scanner keeps its acquisition time but
+    gets a later series time.
+    """
+    number = dcm.get("SeriesNumber")
+    return (
+        str(dcm.get("SeriesDate", "")),
+        str(dcm.get("SeriesTime", "")),
+        int(number) if number is not None else -1,
+    )
+
+
 def _check_one_scanner(headers: list[pydicom.Dataset]) -> None:
     """Refuse sessions from two scanners, warn about several dates.
 
@@ -245,6 +260,10 @@ class ACRRemoteProtocol(SessionProtocol):
     roles = REMOTE_ROLES
     supported_vendors = ("siemens", "philips", "ge")
 
+    def column(self, role: Role) -> str:
+        """Results table column for a role: one role per plane."""
+        return role.name
+
     @classmethod
     def build_steps(cls, vendor: str) -> tuple[Step, ...]:
         """Return every Remote test on every role, for any vendor.
@@ -264,8 +283,7 @@ class ACRRemoteProtocol(SessionProtocol):
 
         Raises:
             NotADirectoryError: If *path* is not a folder.
-            ValueError: If two series match one role, or the series
-                come from more than one scanner.
+            ValueError: If the series come from more than one scanner.
 
         """
         path = Path(path).resolve()
@@ -276,7 +294,8 @@ class ACRRemoteProtocol(SessionProtocol):
         series = _read_series(path)
         _check_one_scanner([dcm for dcm, _ in series])
 
-        found: dict[str, tuple[RoleSeries, str]] = {}
+        # Role name -> series, its label and its newness
+        found: dict[str, tuple[RoleSeries, str, tuple[str, str, int]]] = {}
         listed: list[ListedSeries] = []
         uncorrected_planes: set[str] = set()
         for dcm, files in series:
@@ -307,13 +326,32 @@ class ACRRemoteProtocol(SessionProtocol):
                         _plane(description) or _plane(protocol_name) or "",
                     )
                 continue
+            newness = _newness(dcm)
             if role.name in found:
-                msg = (
-                    f"{found[role.name][1]} and {label} both match role"
-                    f" {role.name}. Move the one that should not be used"
-                    " out of the session folder."
+                kept, kept_label, kept_newness = found[role.name]
+                if newness <= kept_newness:
+                    older = ListedSeries(
+                        "ignored", folder, description, number
+                    )
+                    newer_label, older_label = kept_label, label
+                else:
+                    older = ListedSeries(
+                        "ignored",
+                        kept.path,
+                        kept.series_description,
+                        kept.series_number,
+                    )
+                    newer_label, older_label = label, kept_label
+                listed.append(older)
+                logger.warning(
+                    "Using %s for %s, the newer of two candidates;"
+                    " ignoring %s",
+                    newer_label,
+                    role.name,
+                    older_label,
                 )
-                raise ValueError(msg)
+                if newness <= kept_newness:
+                    continue
             found[role.name] = (
                 RoleSeries(
                     role=role,
@@ -325,6 +363,7 @@ class ACRRemoteProtocol(SessionProtocol):
                     vendor=vendor,
                 ),
                 label,
+                newness,
             )
 
         for role in cls.roles:

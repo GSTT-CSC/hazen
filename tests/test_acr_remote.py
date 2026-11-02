@@ -22,7 +22,13 @@ from pydicom.uid import ExplicitVRLittleEndian, MRImageStorage, generate_uid
 import hazenlib
 from hazenlib.orchestration import init_task
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol, classify_series
-from hazenlib.protocols.engine import Step, StepOutcome
+from hazenlib.protocols.engine import (
+    Cell,
+    ListedSeries,
+    Step,
+    StepOutcome,
+    TableRow,
+)
 from hazenlib.types import Measurement, Result
 from tests import TEST_DATA_DIR
 
@@ -247,11 +253,48 @@ class TestRemoteDiscover(unittest.TestCase):
                     "no distortion-corrected .* SAG",
                 )
 
-    def test_duplicate_plane_raises(self) -> None:
-        make_series(self.root / "1", SeriesNumber=4)
-        make_series(self.root / "2", SeriesNumber=5)
-        with self.assertRaisesRegex(ValueError, "series 4 .* series 5"):
-            ACRRemoteProtocol.discover(self.root)
+    def test_duplicate_plane_keeps_newest(self) -> None:
+        # (number, date, time) of the older then the newer series
+        cases = [
+            (("9", "20260721", "090000"), ("8", "20260722", "070000")),
+            (("9", "20260721", "072110"), ("8", "20260721", "073531")),
+            (("900", "20260721", "072110"), ("1015001", "20260721", "072110")),
+            ((None, "20260721", "072110"), ("1", "20260721", "072110")),
+        ]
+        for older, newer in cases:
+            # Both disk orders: kept first, and replacing the kept series
+            for new_dir, old_dir in (("a", "b"), ("b", "a")):
+                with self.subTest(older=older, newer=newer, first=new_dir):
+                    root = self.root / str(older[0]) / new_dir
+                    for folder, description, (number, date, time) in (
+                        (new_dir, "ACR_SAG_new_90", newer),
+                        (old_dir, "ACR_SAG", older),
+                    ):
+                        make_series(
+                            root / folder,
+                            SeriesNumber=number,
+                            SeriesDescription=description,
+                            SeriesDate=date,
+                            SeriesTime=time,
+                        )
+                    with self.assertLogs(LOGGER) as logs:
+                        session = ACRRemoteProtocol.discover(root)
+                    old_no = older[0] or ""
+                    self.assertEqual(session.roles["SAG"].path, root / new_dir)
+                    self.assertEqual(
+                        session.listed,
+                        (
+                            ListedSeries(
+                                "ignored", root / old_dir, "ACR_SAG", old_no
+                            ),
+                        ),
+                    )
+                    self.assertEqual(len(logs.output), 1)
+                    self.assertRegex(
+                        logs.output[0],
+                        rf"Using series {newer[0]} 'ACR_SAG_new_90' in {new_dir}"
+                        rf" .* ignoring series {old_no} 'ACR_SAG' in {old_dir}$",
+                    )
 
     def test_more_than_one_scanner_raises(self) -> None:
         # serials, stations, raises
@@ -428,6 +471,165 @@ class TestRemoteRun(unittest.TestCase):
                 " 2 unknown (loc, loc2)",
             ),
             line,
+        )
+
+
+def table_init_task(task_name: str, files: list, **kwargs: object) -> Mock:
+    """Stand-in for init_task: SAG values are TRA's plus one."""
+    plane = Path(files[0]).parent.name
+    offset = {"TRA": 0, "SAG": 1}[plane]
+    if task_name == "acr_slice_thickness" or (
+        task_name == "acr_ghosting" and plane == "SAG"
+    ):
+        raise RuntimeError("no ramps")
+    measurements = {
+        "acr_snr": [
+            Measurement("SNR", 150.0, type="normalised", subtype="smoothing"),
+            Measurement(
+                "SNR",
+                9.0,
+                subtype="smoothing",
+                visibility="intermediate",
+            ),
+            Measurement("SNR", 1.0, type="normalised"),
+        ],
+        "acr_uniformity": [
+            # Slice N only counts at the start of the description
+            Measurement(
+                "Uniformity",
+                95.0,
+                subtype="Integral uniformity",
+                description="ACR_TRA Slice 7",
+                unit="%",
+            ),
+            Measurement("Uniformity", 4.0),
+        ],
+        "acr_ghosting": [
+            Measurement("Ghosting", 0.5, subtype="signal ghosting", unit="%"),
+        ],
+        "acr_slice_position": [
+            Measurement(
+                "SlicePosition",
+                -3.0,
+                subtype="length difference",
+                description="Slice 11 ACR_TRA_3001_11",
+            ),
+            Measurement(
+                "SlicePosition",
+                2.0,
+                subtype="length difference",
+                description="Slice 1 ACR_TRA_3001_1",
+            ),
+        ],
+        "acr_geometric_accuracy": [
+            Measurement(
+                "GeometricAccuracy",
+                190.0,
+                subtype="Slice 1 Horizontal distance",
+                description="Slice 1 ACR_TRA_3001_1",
+                unit="mm",
+            ),
+        ],
+    }[task_name]
+    result = Result(task=task_name, _load_metadata=False)
+    for m in measurements:
+        result.add_measurement(
+            Measurement(
+                m.name,
+                m.value + offset,
+                type=m.type,
+                subtype=m.subtype,
+                description=m.description,
+                unit=m.unit,
+                visibility=m.visibility,
+            ),
+        )
+    task = Mock()
+    task.run.return_value = result
+    return task
+
+
+class TestRemoteTable(unittest.TestCase):
+    """Final measurements in one row per test and label, a column per role."""
+
+    def setUp(self) -> None:
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        for n, plane in enumerate(("TRA", "SAG")):  # no COR
+            make_series(
+                self.root / plane,
+                SeriesNumber=n,
+                SeriesDescription=f"ACR_{plane}",
+            )
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.root)
+
+    @patch("hazenlib.protocols.engine.init_task", side_effect=table_init_task)
+    def test_table(self, _init_task: Mock) -> None:
+        protocol = ACRRemoteProtocol(self.root, report=False)
+        table = protocol.table(protocol.run(debug=True))
+
+        red = Cell(None, missing=True)
+        self.assertEqual(table.columns, ("TRA", "SAG", "COR"))
+        self.assertEqual(
+            list(table.rows),
+            [
+                TableRow(
+                    "snr",
+                    "Normalised SNR (smoothing)",
+                    {"TRA": Cell(150.0), "SAG": Cell(151.0), "COR": red},
+                ),
+                TableRow(
+                    "snr",
+                    "Normalised SNR",
+                    {"TRA": Cell(1.0), "SAG": Cell(2.0), "COR": red},
+                ),
+                TableRow(
+                    "uniformity",
+                    "Integral uniformity",
+                    {
+                        "TRA": Cell(95.0, "%"),
+                        "SAG": Cell(96.0, "%"),
+                        "COR": red,
+                    },
+                ),
+                TableRow(
+                    "uniformity",
+                    "Uniformity",
+                    {"TRA": Cell(4.0), "SAG": Cell(5.0), "COR": red},
+                ),
+                # Failed on SAG, skipped on COR
+                TableRow(
+                    "ghosting",
+                    "Signal ghosting",
+                    {"TRA": Cell(0.5, "%"), "SAG": red, "COR": red},
+                ),
+                # Failed everywhere, so no measurement names are known
+                TableRow(
+                    "slice_thickness",
+                    "",
+                    {"TRA": red, "SAG": red, "COR": red},
+                ),
+                TableRow(
+                    "slice_position",
+                    "Length difference (slice 11)",
+                    {"TRA": Cell(-3.0), "SAG": Cell(-2.0), "COR": red},
+                ),
+                TableRow(
+                    "slice_position",
+                    "Length difference (slice 1)",
+                    {"TRA": Cell(2.0), "SAG": Cell(3.0), "COR": red},
+                ),
+                TableRow(
+                    "geometric_accuracy",
+                    "Slice 1 Horizontal distance",
+                    {
+                        "TRA": Cell(190.0, "mm"),
+                        "SAG": Cell(191.0, "mm"),
+                        "COR": red,
+                    },
+                ),
+            ],
         )
 
 
