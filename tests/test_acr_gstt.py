@@ -193,9 +193,9 @@ class TestSessionAndVendor(unittest.TestCase):
         (root / "Head_2").mkdir()  # empty, so ignored
         (root / "hazen_report").mkdir()  # earlier output, not listed
         session = Session.from_dir(root)
-        self.assertEqual(list(session.folders), ["Head_1", "Body_Sag_4"])
+        self.assertEqual(list(session.roles), ["Head_1", "Body_Sag_4"])
         self.assertEqual(
-            sorted(p.name for p in session.ignored),
+            sorted(ls.path.name for ls in session.listed),
             ["Head_2", "RF_noise1"],
         )
 

@@ -81,21 +81,25 @@ REPORT_DIR_NAME = "hazen_report"
 class Role:
     """An acquisition role within a session, e.g. ``Body_Sag_4``."""
 
+    name: str
     coil: str
     plane: str
-    number: int
 
-    @property
-    def name(self) -> str:
-        """Canonical folder name for the role."""
-        if self.coil == HEAD:
-            return f"Head_{self.number}"
-        return f"Body_{self.plane.capitalize()}_{self.number}"
+
+def _role_name(coil: str, plane: str, number: int) -> str:
+    """Canonical folder name for a GSTT role."""
+    if coil == HEAD:
+        return f"Head_{number}"
+    return f"Body_{plane.capitalize()}_{number}"
 
 
 ROLES: tuple[Role, ...] = (
-    *(Role(HEAD, "tra", n) for n in range(1, 6)),
-    *(Role(BODY, plane, n) for plane in PLANES for n in range(1, 5)),
+    *(Role(_role_name(HEAD, "tra", n), HEAD, "tra") for n in range(1, 6)),
+    *(
+        Role(_role_name(BODY, plane, n), BODY, plane)
+        for plane in PLANES
+        for n in range(1, 5)
+    ),
 )
 ROLES_BY_NAME = {r.name: r for r in ROLES}
 
@@ -141,17 +145,17 @@ def match_role(folder_name: str) -> str | None:
     plane = _PLANE_ALIASES[(before or after or "tra").lower()]
     if coil == BODY and not (before or after):
         return None
-    role = Role(coil, plane, int(found["number"]))
     if coil == HEAD and plane != "tra":
         return None
-    return role.name if role.name in ROLES_BY_NAME else None
+    name = _role_name(coil, plane, int(found["number"]))
+    return name if name in ROLES_BY_NAME else None
 
 
 @dataclass(frozen=True)
-class RoleFolder:
-    """A session subfolder identified as a role."""
+class RoleSeries:
+    """The images found for a role."""
 
-    role: str
+    role: Role
     path: Path
     files: tuple[str, ...]
     series_description: str
@@ -160,13 +164,26 @@ class RoleFolder:
     vendor: str | None
 
 
+ListedKind = Literal["ignored", "uncorrected", "visual_check", "unknown"]
+
+
+@dataclass(frozen=True)
+class ListedSeries:
+    """Something in a session that is reported but not analysed."""
+
+    kind: ListedKind
+    path: Path
+    series_description: str = ""
+    series_number: str = ""
+
+
 @dataclass(frozen=True)
 class Session:
-    """A session folder split into role folders and ignored folders."""
+    """A session split into roles and listed-only series."""
 
     path: Path
-    folders: dict[str, RoleFolder]
-    ignored: tuple[Path, ...]
+    roles: dict[str, RoleSeries]
+    listed: tuple[ListedSeries, ...]
 
     @classmethod
     def from_dir(cls, path: str | Path) -> Session:
@@ -182,7 +199,7 @@ class Session:
             msg = f"Session folder not found: {path}"
             raise NotADirectoryError(msg)
 
-        folders: dict[str, RoleFolder] = {}
+        folders: dict[str, RoleSeries] = {}
         ignored: list[Path] = []
         for sub in sorted(
             p
@@ -205,7 +222,11 @@ class Session:
                 logger.warning("No DICOM images in %s - ignoring", sub)
                 ignored.append(sub)
                 continue
-            folders[role] = _read_role_folder(role, sub, files)
+            folders[role] = _read_role_series(
+                ROLES_BY_NAME[role],
+                sub,
+                files,
+            )
 
         if ignored:
             logger.warning(
@@ -213,20 +234,21 @@ class Session:
                 ", ".join(p.name for p in ignored),
             )
         ordered = {r.name: folders[r.name] for r in ROLES if r.name in folders}
-        return cls(path, ordered, tuple(ignored))
+        listed = tuple(ListedSeries("ignored", p) for p in ignored)
+        return cls(path, ordered, listed)
 
 
-def _read_role_folder(
-    role: str,
+def _read_role_series(
+    role: Role,
     path: Path,
     files: tuple[str, ...],
-) -> RoleFolder:
+) -> RoleSeries:
     dcm = pydicom.dcmread(files[0], stop_before_pixels=True)
     try:
         vendor = get_manufacturer(dcm)
     except Exception:  # noqa: BLE001 - unknown or missing manufacturer
         vendor = None
-    return RoleFolder(
+    return RoleSeries(
         role=role,
         path=path,
         files=files,
@@ -249,7 +271,7 @@ def detect_vendor(session: Session, override: str | None = None) -> str:
             read, or the vendor is not covered by the protocol.
 
     """
-    vendors = {rf.role: rf.vendor for rf in session.folders.values()}
+    vendors = {rs.role.name: rs.vendor for rs in session.roles.values()}
     found = set(vendors.values())
 
     if override is not None:
@@ -320,7 +342,7 @@ def build_steps(vendor: str) -> tuple[Step, ...]:
     ):
 
         def role(n: int, coil: str = coil, plane: str = plane) -> str:
-            return Role(coil, plane, n).name
+            return _role_name(coil, plane, n)
 
         geometry = role(1 if vendor == "ge" else 4)
         # For GE, the uniformity test is run on a different role
@@ -389,7 +411,7 @@ class ResultRow:
 
 def _row(
     outcome: StepOutcome,
-    folder: RoleFolder | None,
+    folder: RoleSeries | None,
     *,
     measurement: str = "",
     subtype: str = "",
@@ -473,7 +495,7 @@ class ACRGSTTProtocol:
 
         """
         self.session = Session.from_dir(session_dir)
-        if not self.session.folders:
+        if not self.session.roles:
             msg = (
                 f"No role folders (Head_1, Body_Sag_4, ...) found in"
                 f" {self.session.path}"
@@ -521,9 +543,9 @@ class ACRGSTTProtocol:
             kwargs: dict[str, Any] = {
                 "measured_slice_width": width if measured else None,
             }
-            if step.subtract in self.session.folders:
+            if step.subtract in self.session.roles:
                 kwargs["subtract"] = str(
-                    self.session.folders[step.subtract].path,
+                    self.session.roles[step.subtract].path,
                 )
             snr_jobs.append((step, kwargs))
 
@@ -555,7 +577,7 @@ class ACRGSTTProtocol:
             missing = [
                 r
                 for r in (step.role, step.subtract)
-                if r is not None and r not in self.session.folders
+                if r is not None and r not in self.session.roles
             ]
             if missing:
                 outcomes[step] = StepOutcome(
@@ -569,7 +591,7 @@ class ACRGSTTProtocol:
         args = [
             (
                 step,
-                list(self.session.folders[step.role].files),
+                list(self.session.roles[step.role].files),
                 {
                     "report": self.report,
                     "report_dir": str(self.report_dir / step.role),
@@ -614,9 +636,9 @@ class ACRGSTTProtocol:
             else f"no slice thickness step for {from_role}"
         )
         nominal = None
-        if step.role in self.session.folders:
+        if step.role in self.session.roles:
             dcm = pydicom.dcmread(
-                self.session.folders[step.role].files[0],
+                self.session.roles[step.role].files[0],
                 stop_before_pixels=True,
             )
             nominal = float(get_slice_thickness(dcm))
@@ -637,7 +659,7 @@ class ACRGSTTProtocol:
         """Flatten outcomes into labelled rows, one per measurement."""
         rows = []
         for o in outcomes:
-            folder = self.session.folders.get(o.step.role)
+            folder = self.session.roles.get(o.step.role)
             if o.result is None:
                 rows.append(_row(o, folder))
                 continue
@@ -681,7 +703,7 @@ class ACRGSTTProtocol:
 
     def session_info(self) -> dict[str, Any]:
         """Scanner and run details, read from the first role folder."""
-        first = next(iter(self.session.folders.values()))
+        first = next(iter(self.session.roles.values()))
         dcm = pydicom.dcmread(first.files[0], stop_before_pixels=True)
         software = dcm.get("SoftwareVersions", "")
         if isinstance(software, MultiValue):
@@ -715,11 +737,11 @@ class ACRGSTTProtocol:
         lines = [
             f"{info['Manufacturer']} {info['Model']}"
             f" {info['Field strength (T)']}T - {self.vendor} rules -"
-            f" {len(self.session.folders)} role folders found,"
-            f" {len(self.session.ignored)} ignored"
+            f" {len(self.session.roles)} role folders found,"
+            f" {len(self.session.listed)} ignored"
             + (
-                f" ({', '.join(p.name for p in self.session.ignored)})"
-                if self.session.ignored
+                f" ({', '.join(ls.path.name for ls in self.session.listed)})"
+                if self.session.listed
                 else ""
             ),
             f"ok {counts['ok']} · skipped {counts['skipped']}"
