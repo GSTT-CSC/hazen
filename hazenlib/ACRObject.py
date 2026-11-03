@@ -22,10 +22,40 @@ from hazenlib.utils import (
     expand_data_range,
     get_datatype_max,
     get_datatype_min,
+    get_image_IOP,
+    get_image_IPP,
     get_image_spacing,
     is_enhanced_dicom,
     split_dicom,
 )
+
+ACR_SLICE_COUNT = 11  # slices in the ACR axial series
+SLICE_POSITION_TOLERANCE = 0.2  # fraction of the slice pitch
+
+
+class SliceStack(list):
+    """The ACR slices in phantom order, with None where a slice is missing.
+
+    Slice n of the ACR series is always at index n - 1 (and the last slice
+    at index -1), even if images are missing from the series, so tasks that
+    ask for a fixed slice get that slice. Asking for a missing slice raises
+    an error naming it rather than silently returning a neighbour.
+    """
+
+    def __getitem__(self, index):
+        item = super().__getitem__(index)
+        if item is None:
+            number = range(len(self))[index] + 1
+            msg = f"ACR slice {number} is missing from this series"
+            raise ValueError(msg)
+        return item
+
+    def present(self):
+        """The images that are present, in phantom order."""
+        return [dcm for dcm in list.__iter__(self) if dcm is not None]
+
+    def __iter__(self):
+        return iter(self.present())
 
 
 class ACRObject:
@@ -57,15 +87,23 @@ class ACRObject:
 
         if is_enhanced_dicom(first_dcm):
             # We do not need to sort an enhanced multiframe object
-            self.slice_stack = split_dicom(first_dcm)
+            self.slice_stack = SliceStack(split_dicom(first_dcm))
         else:
             # Perform sorting of the input DICOM list based on position
             sorted_dcms = self.sort_dcms(dcm_list)
 
             # Perform sorting of the image slices based on phantom orientation
-            self.slice_stack = self.order_phantom_slices(sorted_dcms)
+            ordered_dcms = self.order_phantom_slices(sorted_dcms)
+
+            # Put each image at the index of its ACR slice, so that a missing
+            # image cannot shift the slices after it
+            self.slice_stack = self.place_slices(ordered_dcms)
         logger.info(
-            f"Ordered slices => {[sl.InstanceNumber for sl in self.slice_stack]}"
+            "Ordered slices => %s",
+            [
+                str(sl.InstanceNumber) if sl is not None else "missing"
+                for sl in list.__iter__(self.slice_stack)
+            ],
         )
 
     def acquisition_type(self, *, strict: bool = True) -> str:
@@ -201,6 +239,127 @@ class ACRObject:
 
         logger.debug("Neither slices had a circle detected")
         return dcm_list
+
+    def looks_like_slice_1(self, dcm):
+        """Whether an image shows ACR slice 1: in some 90-degree orientation,
+        a long dark bar through the centre with the resolution insert below it.
+
+        (The small circle used to order the slices is also in slice 2, so it
+        cannot tell whether slice 1 itself is missing.)
+        """
+        # Imported here: the task module imports this one
+        from hazenlib.tasks import acr_geometric_accuracy as ga
+
+        try:
+            spacing = (self.dx, self.dy)
+            smooth, mask = ga._orientation_mask(dcm.pixel_array)
+            dark, inner, _, _ = ga._dark_pixels(smooth, mask, spacing)
+            for k in range(4):
+                for flip in (False, True):
+                    bar, below, _ = ga._cue_scores(
+                        ga.reorient(dark, k, flip),
+                        ga.reorient(inner, k, flip),
+                        ga.reorient(mask, k, flip),
+                        ga.reorient_spacing(spacing, k),
+                    )
+                    if (
+                        bar >= ga.MIN_BAR_SCORE
+                        and below >= ga.MIN_INSERT_SCORE
+                    ):
+                        return True
+        except Exception as e:  # noqa: BLE001
+            logger.debug("Slice 1 check failed: %s", e)
+        return False
+
+    def place_slices(self, dcm_list):
+        """Place each image at the index of its ACR slice.
+
+        The slice positions (along the slice normal) are converted into slice
+        numbers using the slice pitch, the smallest spacing between adjacent
+        images (10 mm in the ACR protocol). Missing slices are left as None in
+        the returned SliceStack and reported in the log.
+
+        A series with all 11 slices, or one whose positions cannot be
+        resolved, is returned unchanged (apart from the SliceStack wrapper).
+        Slice 1 anchors the numbering, so the first image must be recognised
+        as slice 1 (resolution insert below the long bar); if it is not, slice
+        1 is probably missing and the images are left in the order found.
+
+        Args:
+            dcm_list (list): pydicom Datasets in phantom order (slice 1 first)
+
+        Returns:
+            SliceStack: images indexed by ACR slice number - 1
+        """
+        n = len(dcm_list)
+        if n >= ACR_SLICE_COUNT or n < 2:
+            return SliceStack(dcm_list)
+        try:
+            iop = np.array(get_image_IOP(dcm_list[0]), dtype=float)
+            normal = np.cross(iop[:3], iop[3:])
+            pos = np.array(
+                [
+                    np.dot(np.array(get_image_IPP(d), dtype=float), normal)
+                    for d in dcm_list
+                ]
+            )
+        except (AttributeError, KeyError, TypeError, ValueError, IndexError):
+            logger.warning(
+                "Only %d of %d ACR slices, and their positions could not be"
+                " read; slices are used in the order found",
+                n,
+                ACR_SLICE_COUNT,
+            )
+            return SliceStack(dcm_list)
+
+        offset = np.abs(pos - pos[0])
+        gaps = np.diff(offset)
+        pitch = float(np.min(gaps)) if len(gaps) else 0.0
+        slots = offset / pitch if pitch > 0 else offset
+        if (
+            pitch <= 0
+            or np.any(gaps <= 0)
+            or np.any(
+                np.abs(slots - np.round(slots)) > SLICE_POSITION_TOLERANCE
+            )
+            or np.round(slots[-1]) >= ACR_SLICE_COUNT
+        ):
+            logger.warning(
+                "Only %d of %d ACR slices, at irregular positions; slices"
+                " are used in the order found",
+                n,
+                ACR_SLICE_COUNT,
+            )
+            return SliceStack(dcm_list)
+
+        slots = np.round(slots).astype(int)
+        if not self.looks_like_slice_1(dcm_list[0]):
+            logger.warning(
+                "Only %d of %d ACR slices, and the first is not ACR slice 1"
+                " (slice 1 could not be identified); slices are used in the"
+                " order found, so slice numbers may be wrong. Check that the"
+                " series is complete.",
+                n,
+                ACR_SLICE_COUNT,
+            )
+            return SliceStack(dcm_list)
+
+        stack = [None] * ACR_SLICE_COUNT
+        for slot, dcm in zip(slots, dcm_list):
+            stack[slot] = dcm
+        missing = [i + 1 for i, d in enumerate(stack) if d is None]
+        logger.warning(
+            "ACR slice%s %s missing from the series (%d of %d present,"
+            " %.1f mm apart); the remaining slices are kept at their"
+            " positions",
+            "s" if len(missing) > 1 else "",
+            ", ".join(str(m) for m in missing)
+            + (" are" if len(missing) > 1 else " is"),
+            n,
+            ACR_SLICE_COUNT,
+            pitch,
+        )
+        return SliceStack(stack)
 
     @staticmethod
     def calculate_rotation(img: np.ndarray) -> float:
@@ -558,6 +717,11 @@ class ACRObject:
         Mask an image by magnitude threshold before applying morphological opening to remove small unconnected
         features. The convex hull is calculated in order to accommodate for potential air bubbles.
 
+        If the signal near the centre varies strongly (for example strong coil shading, or a disc of
+        radius 80 mm that includes background), a threshold relative to the maximum could cut off dim
+        parts of the phantom. A threshold set from the background noise level is used instead (see
+        ``_noise_based_threshold``), so phantom signal down to about 1% of the maximum is kept.
+
         Args:
             image (np.ndarray): pixel array of the dicom
             centre (tuple): x,y coordinates of the circle centre.
@@ -576,11 +740,12 @@ class ACRObject:
         ) > 0.9 * np.max(image):
             logger.warning(
                 "Large intensity variations detected in image."
-                " Using local thresholding!"
+                " Using a log-domain Otsu threshold!"
             )
-            initial_mask = skimage.filters.threshold_sauvola(
-                image, window_size=3, k=0.95
-            )
+            # NB: skimage.filters.threshold_sauvola returns a threshold *map*,
+            # which was previously used as the mask itself, so the mask covered
+            # the whole image.
+            initial_mask = image > self._noise_based_threshold(image)
         else:
             initial_mask = image > mag_threshold * np.max(image)
 
@@ -594,71 +759,113 @@ class ACRObject:
         return final_mask
 
     @staticmethod
-    def circular_mask(centre, radius, dims):
-        """Generates a circular mask using given centre coordinates and a given radius. Generates a linspace grid the
-        size of the given dimensions and checks whether each point on the linspace grid is within the desired radius
-        from the given centre coordinates. Each linspace value within the chosen radius then becomes part of the mask.
+    def _noise_based_threshold(image, noise_factor=4.0, min_fraction=0.005):
+        """Signal threshold set just above the background noise.
 
+        An Otsu split of the log image separates a background population (the logarithm compresses
+        shading, so the split is not pulled into the phantom by bright regions). The typical
+        background level is the median of its non-zero values, which also works for zero-filled
+        backgrounds; for magnitude (Rician) noise the median is about 1.18 noise SDs, so the default
+        threshold of 4 times the median is about 4.7 SDs, above essentially all noise pixels. The
+        threshold is never above the Otsu split, nor below ``min_fraction`` of the maximum.
 
         Args:
-            centre (tuple): centre coordinates of the circular mask.
-            radius (int): radius of the circular mask.
-            dims (tuple): dimensions to create the base linspace grid from.
+            image (np.ndarray): pixel array.
+            noise_factor (float): threshold as a multiple of the typical background level.
+            min_fraction (float): lowest threshold, as a fraction of the image maximum.
 
         Returns:
-            np.ndarray: A sorted stack of images, where each image is represented as a 2D numpy array.
+            float: threshold in pixel value units.
         """
-        # Define a circular logical mask
-        x = np.linspace(1, dims[0], dims[0])
-        y = np.linspace(1, dims[1], dims[1])
+        img = np.clip(np.asarray(image, dtype=float), 0, None)
+        log_img = np.log1p(img)
+        split = np.expm1(skimage.filters.threshold_otsu(log_img))
+        background = img[(img <= split) & (img > 0)]
+        level = np.median(background) if background.size else 0.0
+        threshold = min(noise_factor * level, split)
+        return max(threshold, min_fraction * img.max())
 
-        X, Y = np.meshgrid(x, y)
-        mask = (X - centre[0]) ** 2 + (Y - centre[1]) ** 2 <= radius**2
+    @staticmethod
+    def circular_mask(centre, radius, dims):
+        """Generates a circular mask using given centre coordinates and a given radius.
 
-        return mask
+        Args:
+            centre (tuple): (x, y), i.e. (column, row), of the centre in pixels.
+            radius (int): radius of the circular mask in pixels.
+            dims (tuple): (rows, columns) of the mask, e.g. ``image.shape``.
+
+        Returns:
+            np.ndarray: boolean mask of shape ``dims`` (rows, columns).
+        """
+        # 0-based pixel indices with the same shape as the image. (The grid
+        # used to be 1-based and transposed, which shifted the circle by a
+        # pixel and gave the wrong shape for non-square images.)
+        rows, cols = np.ogrid[: dims[0], : dims[1]]
+        return (cols - centre[0]) ** 2 + (rows - centre[1]) ** 2 <= radius**2
 
     def measure_orthogonal_lengths(
         self, mask, cxy, h_offset=(0, 0), v_offset=(0, 0)
     ):
         """Compute the horizontal and vertical lengths of a mask, based on the centroid.
 
+        The horizontal line runs along the image row through the centre and
+        the vertical line along the image column through the centre (each
+        optionally shifted, see below). The length of the mask along each
+        line is measured edge to edge: a run of N mask pixels is N pixels
+        long. (Previously it was measured between the first and last pixel
+        *centres*, i.e. N - 1 pixels, so every length was one pixel short.)
+        Horizontal lengths use the column spacing and vertical lengths the
+        row spacing, so non-square pixels are handled.
+
+        The result is only as accurate as the mask: a mask made with a low
+        threshold (e.g. 7% of the maximum) includes partial-volume pixels at
+        the edges, so it overestimates the object by roughly a pixel. Use a
+        sub-pixel edge measurement where accuracy matters.
+
         Args:
             mask (np.ndarray): Boolean array of the image where pixel values meet threshold
             cxy  (tuple): x,y coordinates of the circle centre.
+            h_offset (tuple): (x, y) shift in pixels of the horizontal line;
+                only the y (row) component moves the line.
+            v_offset (tuple): (x, y) shift in pixels of the vertical line;
+                only the x (column) component moves the line.
 
         Returns:
             dict: a dictionary with the following:
                 'Horizontal Start'      | 'Vertical Start' : tuple of int
-                    Horizontal/vertical starting point of the object.
+                    (row, column) of the start of the horizontal/vertical line.
                 'Horizontal End'        | 'Vertical End' : tuple of int
-                    Horizontal/vertical ending point of the object.
+                    (row, column) of the end of the horizontal/vertical line.
                 'Horizontal Extent'     | 'Vertical Extent' : np.ndarray of int
-                    Indices of the non-zero elements of the horizontal/vertical line profile.
+                    Column (horizontal) or row (vertical) indices of the mask pixels on the line.
                 'Horizontal Distance'   | 'Vertical Distance' : float
-                    The horizontal/vertical length of the object.
+                    The horizontal/vertical length of the object in mm.
         """
-        dims = mask.shape
-        (vertical, horizontal) = cxy
+        n_rows, n_cols = mask.shape
+        row_spacing, col_spacing = self.dx, self.dy  # PixelSpacing[0], [1]
+        (cx, cy) = cxy
 
-        horizontal_start = (horizontal + h_offset[1], 0)
-        horizontal_end = (horizontal + h_offset[1], dims[0] - 1 + h_offset[0])
-        horizontal_line_profile = skimage.measure.profile_line(
-            mask, horizontal_start, horizontal_end
-        )
-        horizontal_extent = np.nonzero(horizontal_line_profile)[0]
+        row = int(np.clip(round(cy + h_offset[1]), 0, n_rows - 1))
+        horizontal_start = (row, 0)
+        horizontal_end = (row, n_cols - 1)
+        horizontal_extent = np.nonzero(mask[row, :])[0]
+        if horizontal_extent.size == 0:
+            msg = "The horizontal line does not cross the mask"
+            raise ValueError(msg)
         horizontal_distance = (
-            horizontal_extent[-1] - horizontal_extent[0]
-        ) * self.dx
+            horizontal_extent[-1] - horizontal_extent[0] + 1
+        ) * col_spacing
 
-        vertical_start = (0 + v_offset[1], vertical + v_offset[0])
-        vertical_end = (dims[1] - 1 + v_offset[1], vertical + v_offset[0])
-        vertical_line_profile = skimage.measure.profile_line(
-            mask, vertical_start, vertical_end
-        )
-        vertical_extent = np.nonzero(vertical_line_profile)[0]
+        col = int(np.clip(round(cx + v_offset[0]), 0, n_cols - 1))
+        vertical_start = (0, col)
+        vertical_end = (n_rows - 1, col)
+        vertical_extent = np.nonzero(mask[:, col])[0]
+        if vertical_extent.size == 0:
+            msg = "The vertical line does not cross the mask"
+            raise ValueError(msg)
         vertical_distance = (
-            vertical_extent[-1] - vertical_extent[0]
-        ) * self.dy
+            vertical_extent[-1] - vertical_extent[0] + 1
+        ) * row_spacing
 
         length_dict = {
             "Horizontal Start": horizontal_start,
