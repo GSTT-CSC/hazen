@@ -31,7 +31,7 @@ from hazenlib.protocols.engine import (
     TableRow,
 )
 from hazenlib.types import Measurement, Result
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, mock_detect_orientation
 
 LOGGER = "hazenlib.protocols.acr_remote"
 REMOTE_SESSION = TEST_DATA_DIR / "acr" / "Siemens_Aera_1.5T_Remote"
@@ -410,6 +410,8 @@ class TestRemoteRun(unittest.TestCase):
     """The engine runs Remote steps, with tasks mocked out."""
 
     def setUp(self) -> None:
+        # The synthetic series have no pixel spacing to detect it from
+        mock_detect_orientation(self)
         self.root = Path(tempfile.mkdtemp()).resolve()
         for n, plane in enumerate(("TRA", "SAG", "COR")):
             make_series(
@@ -553,6 +555,7 @@ class TestRemoteTable(unittest.TestCase):
     """Final measurements in one row per test and label, a column per role."""
 
     def setUp(self) -> None:
+        mock_detect_orientation(self)
         self.root = Path(tempfile.mkdtemp()).resolve()
         for n, plane in enumerate(("TRA", "SAG")):  # no COR
             make_series(
@@ -663,7 +666,7 @@ def image_init_task(
 
 
 def mock_tasks(test: Callable[..., None]) -> Callable[..., None]:
-    """Mock the tasks out and run them in-process."""
+    """Mock the tasks and orientation detection out and run in-process."""
     return patch(
         "hazenlib.protocols.engine.init_task",
         side_effect=fake_init_task,
@@ -671,7 +674,12 @@ def mock_tasks(test: Callable[..., None]) -> Callable[..., None]:
         patch(
             "hazenlib.protocols.engine.wait_on_parallel_results",
             side_effect=lambda f, args, debug=False: [f(*a) for a in args],
-        )(test),
+        )(
+            patch(
+                "hazenlib.protocols.engine.detect_orientation",
+                new=Mock(return_value=None),  # no extra test argument
+            )(test),
+        ),
     )
 
 
@@ -845,8 +853,11 @@ class TestRemoteSession(unittest.TestCase):
                 ).run()
                 self.assertEqual(o.result.measurements, expected.measurements)
 
-    def test_snr_reference(self) -> None:
-        for role, snr in {"TRA": 181.74, "SAG": 161.19, "COR": 195.08}.items():
+    def test_snr_values(self) -> None:
+        # Pinned hazen output. Reports made with hazen <= 2.0.0 gave
+        # TRA 181.74, SAG 161.19 and COR 195.08; #531's ROI geometry
+        # (20 mm squares at 40 mm) and float smoothing moved them.
+        for role, snr in {"TRA": 184.23, "SAG": 173.99, "COR": 200.08}.items():
             with self.subTest(role=role):
                 outcome = next(
                     o

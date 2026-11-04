@@ -26,6 +26,7 @@ from PIL import Image as PILImage
 # Local imports
 import hazenlib
 from hazenlib.orchestration import init_task
+from hazenlib.protocols import engine
 from hazenlib.protocols.acr_gstt import ROLES, ACRGSTTProtocol, match_role
 from hazenlib.protocols.engine import (
     Cell,
@@ -43,7 +44,7 @@ from hazenlib.protocols.outputs import (
 )
 from hazenlib.types import Measurement, Result
 from hazenlib.utils import wait_on_parallel_results
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, mock_detect_orientation
 
 SUPPORTED = ACRGSTTProtocol.supported_vendors
 
@@ -288,6 +289,7 @@ class TestRun(unittest.TestCase):
     """Staging, skipping and failure handling, with tasks mocked out."""
 
     def setUp(self) -> None:
+        self.detect = mock_detect_orientation(self)
         self.tmp = Path(tempfile.mkdtemp())
         self.root = make_session(
             self.tmp / "s",
@@ -347,6 +349,10 @@ class TestRun(unittest.TestCase):
             o for o in outcomes if o.step.role == role and o.step.test == test
         )
 
+    @staticmethod
+    def snr_call(init: Mock):  # noqa: ANN205
+        return next(c for c in init.call_args_list if c[0][0] == "acr_snr")
+
     def test_missing_roles_are_skipped(self, _init: Mock) -> None:
         _, outcomes = self.run_protocol()
         head = [o for o in outcomes if o.step.role.startswith("Head")]
@@ -360,7 +366,7 @@ class TestRun(unittest.TestCase):
 
     def test_snr_uses_measured_slice_width(self, init: Mock) -> None:
         _, outcomes = self.run_protocol()
-        snr_call = next(c for c in init.call_args_list if c[0][0] == "acr_snr")
+        snr_call = self.snr_call(init)
         self.assertEqual(snr_call.kwargs["measured_slice_width"], 4.6)
         self.assertEqual(
             Path(snr_call.kwargs["subtract"]),
@@ -384,7 +390,7 @@ class TestRun(unittest.TestCase):
         self.assertEqual(thickness.status, "failed")
         self.assertIn("RuntimeError: no ramps found", thickness.detail)
 
-        snr_call = next(c for c in init.call_args_list if c[0][0] == "acr_snr")
+        snr_call = self.snr_call(init)
         self.assertIsNone(snr_call.kwargs["measured_slice_width"])
         snr = self.outcome(outcomes, "Head_1", "snr")
         self.assertEqual(snr.status, "ok")
@@ -425,6 +431,77 @@ class TestRun(unittest.TestCase):
             "failed",
         )
 
+    def test_no_final_measurements_is_a_failure(self, init: Mock) -> None:
+        # Tasks log and swallow their own errors, returning a result
+        # with only intermediate measurements, or none at all
+        intermediate = Measurement(
+            "Uniformity",
+            1.0,
+            visibility="intermediate",
+        )
+        for name, measurements, status in (
+            ("intermediate only", (intermediate,), "failed"),
+            ("none", (), "failed"),
+            ("final and intermediate", (UNIFORMITY, intermediate), "ok"),
+        ):
+            result = fake_result("acr_uniformity", *measurements)
+
+            def swallows(task_name: str, files: list, **kwargs) -> Mock:
+                task = fake_init_task(task_name, files, **kwargs)
+                if task_name == "acr_uniformity":
+                    task.run.return_value = result  # noqa: B023
+                return task
+
+            init.side_effect = swallows
+            with self.subTest(name):
+                protocol, outcomes = self.run_protocol()
+                uniformity = self.outcome(outcomes, "Head_3", "uniformity")
+                self.assertEqual(uniformity.status, status)
+                # Kept, so its report images are still shown
+                self.assertIs(uniformity.result, result)
+                if status == "ok":
+                    continue
+                self.assertEqual(
+                    uniformity.detail,
+                    "no final measurements (see the log)",
+                )
+                rows = [
+                    r
+                    for r in protocol.table(outcomes).rows
+                    if r.test == "uniformity"
+                ]
+                self.assertEqual(
+                    rows[0].cells["Head TRA"],
+                    Cell(None, missing=True),
+                )
+                self.assertIn(
+                    "FAILED  Head_3      uniformity",
+                    protocol.summary(outcomes),
+                )
+
+    def test_orientation_detected_once_per_role(self, init: Mock) -> None:
+        def role_of(files: list) -> str:
+            return Path(files[0]).relative_to(self.root.resolve()).parts[0]
+
+        # A different correction per role, so each must reach its own steps
+        expected = {f"Head_{n}": (n, n % 2 == 0) for n in range(1, 6)}
+        self.detect.side_effect = lambda files: expected[role_of(files)]
+        self.run_protocol()
+
+        # Head_5 is in the session, but no Siemens step uses it
+        self.assertEqual(
+            sorted(role_of(c.args[0]) for c in self.detect.call_args_list),
+            ["Head_1", "Head_2", "Head_3", "Head_4"],
+        )
+        for c in init.call_args_list:
+            with self.subTest(task=c.args[0], role=role_of(c.args[1])):
+                self.assertEqual(
+                    c.kwargs["orientation"],
+                    expected[role_of(c.args[1])],
+                )
+        snr_call = self.snr_call(init)
+        self.assertEqual(snr_call.kwargs["orientation2"], expected["Head_2"])
+
     def test_report_dir_per_role(self, init: Mock) -> None:
         protocol = ACRGSTTProtocol(self.root, report_dir=self.tmp / "rep")
         protocol.run(debug=True)
@@ -435,6 +512,35 @@ class TestRun(unittest.TestCase):
             Path(uniformity.kwargs["report_dir"]),
             self.tmp / "rep" / "Head_3",
         )
+
+
+class TestDetectOrientation(unittest.TestCase):
+    """Stage 0 detection gives None, not an error, when it cannot run."""
+
+    def test_detect_orientation(self) -> None:
+        files = sorted(str(p) for p in SIEMENS_T1.glob("*.dcm"))
+        mirrored = sorted(
+            str(p) for p in (PHILIPS_SESSION / "Body_Sag_1").glob("*.dcm")
+        )
+        with tempfile.NamedTemporaryFile(suffix=".dcm") as junk:
+            for name, args, side_effect, expected in (
+                ("standard", files, None, (0, False)),
+                ("mirrored", mirrored, None, (0, True)),
+                ("unreadable", [junk.name], None, None),
+                ("exits", files, SystemExit, None),
+            ):
+                with (
+                    self.subTest(name),
+                    patch(
+                        "hazenlib.protocols.engine.ACRObject",
+                        side_effect=side_effect,
+                        wraps=engine.ACRObject,
+                    ),
+                ):
+                    self.assertEqual(
+                        engine.detect_orientation(args),
+                        expected,
+                    )
 
 
 @patch("hazenlib.protocols.engine.init_task", side_effect=fake_init_task)
@@ -449,6 +555,7 @@ class TestCliOutput(unittest.TestCase):
     """Where ``hazen acr_gstt`` writes its result rows."""
 
     def setUp(self) -> None:
+        mock_detect_orientation(self)
         self.tmp = Path(tempfile.mkdtemp()).resolve()
         self.root = make_session(
             self.tmp / "s",

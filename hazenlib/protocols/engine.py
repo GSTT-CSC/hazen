@@ -4,8 +4,9 @@ A protocol subclasses :class:`SessionProtocol` and supplies its role
 table, the vendors it covers and two hooks: :meth:`~SessionProtocol.discover`
 splits a session folder into roles and listed-only series, and
 :meth:`~SessionProtocol.build_steps` returns the tasks to run on those roles.
-The engine runs the steps, normalises subtraction SNR by the measured slice
-width and flattens the results into labelled rows.
+The engine detects each role's phantom orientation once, runs the steps,
+normalises subtraction SNR by the measured slice width and flattens the
+results into labelled rows.
 
 SNR mode is step data: a step with ``subtract`` and ``slice_width_from`` runs
 after the slice thickness steps as subtraction SNR, a step with neither runs
@@ -34,7 +35,9 @@ from pydicom.multival import MultiValue
 
 # Local imports
 from hazenlib._version import __version__
+from hazenlib.ACRObject import ACRObject
 from hazenlib.orchestration import init_task
+from hazenlib.orientation import describe_orientation
 from hazenlib.protocols.outputs import ImageGroup
 from hazenlib.utils import get_slice_thickness, wait_on_parallel_results
 
@@ -247,15 +250,36 @@ def _measurement_label(m: Measurement) -> str:
     return label
 
 
+def detect_orientation(files: list[str]) -> tuple[int, bool] | None:
+    """(k, flip) correction putting a series in the standard view.
+
+    Returns None if it cannot be determined, so each task tries again
+    and reports the error as its own failure.
+    """
+    try:
+        return ACRObject([pydicom.dcmread(f) for f in files]).orientation
+    # ACRObject calls sys.exit() on unexpected slice orientations
+    except (Exception, SystemExit):  # noqa: BLE001
+        logger.exception("Could not determine the phantom orientation")
+        return None
+
+
 def _execute(
     step: Step,
     files: list[str],
     kwargs: dict[str, Any],
 ) -> tuple[Status, str, Result | None]:
-    """Run one step, turning any error into a failed status."""
+    """Run one step, turning any error into a failed status.
+
+    Tasks log and swallow errors in their own analysis, so a result with
+    no final measurements is a failure too.
+    """
     try:
         task = init_task(step.task, files, **kwargs)
-        return "ok", "", task.run()
+        result = task.run()
+        if not any(m.final for m in result.measurements):
+            return "failed", "no final measurements (see the log)", result
+        return "ok", "", result
     # ACRObject calls sys.exit() on unexpected slice orientations, so
     # SystemExit is caught too or it would take down the whole run.
     except (Exception, SystemExit) as err:  # noqa: BLE001
@@ -348,11 +372,16 @@ class SessionProtocol:
             One outcome per step, in step order.
 
         """
+        orientations = self._orientations(debug=debug)
         first_stage = [s for s in self.steps if s.slice_width_from is None]
         outcomes = dict(
             zip(
                 first_stage,
-                self._run_stage([(s, {}) for s in first_stage], debug=debug),
+                self._run_stage(
+                    [(s, {}) for s in first_stage],
+                    orientations,
+                    debug=debug,
+                ),
                 strict=True,
             ),
         )
@@ -379,7 +408,7 @@ class SessionProtocol:
 
         for step, outcome in zip(
             snr_steps,
-            self._run_stage(snr_jobs, debug=debug),
+            self._run_stage(snr_jobs, orientations, debug=debug),
             strict=True,
         ):
             if outcome.status == "ok":
@@ -392,13 +421,47 @@ class SessionProtocol:
 
         return [outcomes[s] for s in self.steps]
 
+    def _orientations(
+        self,
+        *,
+        debug: bool,
+    ) -> dict[str, tuple[int, bool] | None]:
+        """Detect the orientation of every role a step uses, in parallel.
+
+        Done once per role rather than once per step, as every task on a
+        role would otherwise detect it from the same slice 1.
+        """
+        names = [
+            name
+            for name in self.session.roles
+            if any(name in (s.role, s.subtract) for s in self.steps)
+        ]
+        found = wait_on_parallel_results(
+            detect_orientation,
+            [(list(self.session.roles[n].files),) for n in names],
+            debug=debug,
+        )
+        for name, orientation in zip(names, found, strict=True):
+            if orientation is not None:
+                logger.info(
+                    "%s: %s",
+                    name,
+                    describe_orientation(*orientation),
+                )
+        return dict(zip(names, found, strict=True))
+
     def _run_stage(
         self,
         jobs: list[tuple[Step, dict[str, Any]]],
+        orientations: dict[str, tuple[int, bool] | None],
         *,
         debug: bool,
     ) -> list[StepOutcome]:
-        """Run steps in parallel, skipping those with missing roles."""
+        """Run steps in parallel, skipping those with missing roles.
+
+        Each task gets its role's orientation, and SNR by subtraction
+        the subtracted role's too; None lets the task detect it.
+        """
         outcomes: dict[Step, StepOutcome] = {}
         runnable = []
         for step, kwargs in jobs:
@@ -414,7 +477,14 @@ class SessionProtocol:
                     f"missing {', '.join(missing)}",
                 )
                 continue
-            runnable.append((step, kwargs))
+            if step.subtract is not None:
+                kwargs = {
+                    **kwargs,
+                    "orientation2": orientations[step.subtract],
+                }
+            runnable.append(
+                (step, {**kwargs, "orientation": orientations[step.role]}),
+            )
 
         args = [
             (

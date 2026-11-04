@@ -447,8 +447,9 @@ are all recognised. Two folders matching the same role (e.g. ``HEAD2`` and
    * - ``Body_Cor_1`` ... ``Body_Cor_4``
      - Body coil, coronal
 
-Sagittal and coronal images must already be rotated so the phantom appears as
-in a transverse acquisition, ``acr_gstt`` does not rotate images.
+Sagittal and coronal images do not need rotating first. A series rotated by a
+multiple of 90° or mirrored is detected from slice 1 and analysed (and
+reported) in the standard transverse view, as for the individual ACR tasks.
 
 Measurements
 """"""""""""
@@ -484,7 +485,8 @@ The slice width used is recorded under SNR as ``Slice width used``, or
 ``Slice width used (nominal)`` when the DICOM value was used.
 
 A test whose folders are missing is recorded as ``skipped``; a test that raises
-an error is recorded as ``failed`` and the rest still run. ``hazen`` exits with
+an error, or gives no report-ready measurement (its error is in the log), is
+recorded as ``failed`` and the rest still run. ``hazen`` exits with
 a non-zero status if anything failed. SNR is skipped, not measured with the
 single-image method, when the repeat series is missing.
 

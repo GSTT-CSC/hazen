@@ -24,8 +24,9 @@ SNR is measured by subtraction (series 1 - series 2) once the
 slice thickness of the matching distortion-corrected series is known,
 and that measured slice width is used to normalise the SNR.
 
-Sagittal and coronal series must already be rotated so the phantom
-appears as in a transverse acquisition. This protocol does not rotate anything.
+Series rotated by a multiple of 90 degrees or mirrored, as sagittal and
+coronal series often are, need no rotating first: the orientation of each
+role is detected once from slice 1 and every task on it is corrected.
 """
 
 from __future__ import annotations
