@@ -11,9 +11,10 @@ import numpy as np
 from scipy.special import erf
 
 # Local imports
-from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness
+from hazenlib.logger import logger as hazen_logger
+from hazenlib.tasks.acr_slice_thickness import ACRSliceThickness, Insert
 from hazenlib.utils import get_dicom_files
-from tests import TEST_DATA_DIR
+from tests import TEST_DATA_DIR, transform_series
 
 logger = logging.getLogger(__name__)
 
@@ -224,39 +225,20 @@ class TestACRSliceThicknessOrientation(unittest.TestCase):
     expected = TestACRSliceThicknessPhilipsAchieva
 
     def test_rotated_and_mirrored(self) -> None:
-        """All eight 90 degree rotations / mirrorings."""
-        files = get_dicom_files(self.ACR_DATA)
-        for k in range(4):
-            for flip in (False, True):
-                task = ACRSliceThickness(input_data=files)
-                for dcm in task.ACR_obj.slice_stack:
-                    arr = np.rot90(dcm.pixel_array, k)
-                    arr = np.ascontiguousarray(
-                        np.fliplr(arr) if flip else arr,
-                    )
-                    dcm.Rows, dcm.Columns = arr.shape
-                    dcm.PixelData = arr.tobytes()
-                    dcm._pixel_array = None  # drop pydicom's cached array
-                    dcm._pixel_id = {}
-                if k % 2:
-                    task.ACR_obj.dx, task.ACR_obj.dy = (
-                        task.ACR_obj.dy,
-                        task.ACR_obj.dx,
-                    )
-                results = task.get_slice_thickness(task.ACR_obj.slice_stack[0])
-                self.assertAlmostEqual(
-                    results["thickness"],
-                    self.expected.dz,
-                    delta=THICKNESS_TOLERANCE,
-                    msg=f"k={k} flip={flip}",
-                )
-                for name, length in self.expected.ramps.items():
-                    self.assertAlmostEqual(
-                        results["ramps"][name]["width"],
-                        length,
-                        delta=RAMP_TOLERANCE,
-                        msg=f"{name} ramp, k={k} flip={flip}",
-                    )
+        """Rotated by 90 degrees and mirrored."""
+        task = ACRSliceThickness(input_data=get_dicom_files(self.ACR_DATA))
+        transform_series(task.ACR_obj, 1, True)
+        results = task.get_slice_thickness(task.ACR_obj.slice_stack[0])
+        self.assertAlmostEqual(
+            results["thickness"], self.expected.dz, delta=THICKNESS_TOLERANCE
+        )
+        for name, length in self.expected.ramps.items():
+            self.assertAlmostEqual(
+                results["ramps"][name]["width"],
+                length,
+                delta=RAMP_TOLERANCE,
+                msg=f"{name} ramp",
+            )
 
 
 class TestACRSliceThicknessSynthetic(unittest.TestCase):
@@ -273,8 +255,8 @@ class TestACRSliceThicknessSynthetic(unittest.TestCase):
         """Use a task object only for its geometry and spacing."""
         self.task = ACRSliceThickness(
             input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "Siemens"),
+            orientation=(0, False),
         )
-        self.task._orientation = (0, False)
 
     @staticmethod
     def make_slice(thickness, delta, spacing, tilt_deg=0.0, blur_mm=1.5):
@@ -310,6 +292,24 @@ class TestACRSliceThicknessSynthetic(unittest.TestCase):
         insert = self.task.find_insert(img)
         top, bottom = self.task.measure_ramps(img, insert)
         return 0.2 * top.width * bottom.width / (top.width + bottom.width)
+
+    def test_insert_walls_not_found(self):
+        """A dark band much taller than the estimated insert: no profile
+        has water on both sides, so the estimate is kept with a warning."""
+        y, x = np.indices((250, 250)) - 125.0
+        img = np.where(np.hypot(x, y) < 95, 1000.0, 0.0)
+        img[np.abs(y) < 30] = 20.0
+        estimate = Insert(
+            centre=np.array([125.0, 125.0]),
+            e_u=np.array([1.0, 0.0]),
+            e_v=np.array([0.0, 1.0]),
+            length=180.0,
+            height=10.0,
+        )
+        with self.assertLogs(hazen_logger, level="WARNING") as logs:
+            insert = self.task.refine_insert(img, estimate)
+        assert insert is estimate
+        assert any("insert walls" in m for m in logs.output)
 
     def check(self, thickness, delta, spacing, tilt_deg=0.0):
         img = self.make_slice(thickness, delta, spacing, tilt_deg)

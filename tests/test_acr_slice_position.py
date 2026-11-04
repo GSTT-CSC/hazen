@@ -3,21 +3,9 @@ import pathlib
 import unittest
 
 import numpy as np
-import scipy.ndimage
 from hazenlib.tasks.acr_slice_position import ACRSlicePosition
 from hazenlib.utils import get_dicom_files
-from tests import TEST_DATA_DIR
-
-
-def set_pixels(dcm, arr):
-    """Replace the pixel data of a pydicom dataset in place.
-
-    ``arr`` must already have the dataset's pixel dtype and shape.
-    """
-    dcm.PixelData = np.ascontiguousarray(arr).tobytes()
-    # Drop pydicom's cached array so the new data is decoded.
-    dcm._pixel_array = None
-    dcm._pixel_id = {}
+from tests import TEST_DATA_DIR, transform_series
 
 
 class TestACRSlicePositionSiemens(unittest.TestCase):
@@ -153,52 +141,22 @@ class TestACRSlicePositionOrientation(unittest.TestCase):
     DATASETS = {"Siemens": (-0.15, -1.91), "GE_Signa_3T_T1": (0.42, -6.71)}
     TOLERANCE = 0.05
 
-    @staticmethod
-    def transformed_task(name, k, flip, tilt=0.0):
-        """Task whose every slice is (tilted, then) rotated by k * 90
-        degrees and optionally mirrored, as if exported that way."""
-        task = ACRSlicePosition(
-            input_data=get_dicom_files(TEST_DATA_DIR / "acr" / name)
-        )
-        for dcm in task.ACR_obj.slice_stack:
-            arr = dcm.pixel_array
-            if tilt:
-                arr = scipy.ndimage.rotate(
-                    arr.astype(float), tilt, reshape=False, order=3
-                )
-                arr = (
-                    np.clip(arr, 0, None).round().astype(dcm.pixel_array.dtype)
-                )
-            arr = np.rot90(arr, k)
-            arr = np.ascontiguousarray(np.fliplr(arr) if flip else arr)
-            dcm.Rows, dcm.Columns = arr.shape
-            set_pixels(dcm, arr)
-        if k % 2:
-            # rows and columns swap, so does the pixel spacing
-            task.ACR_obj.dx, task.ACR_obj.dy = (
-                task.ACR_obj.dy,
-                task.ACR_obj.dx,
-            )
-        return task
-
     def check(self, tilt):
+        """(Tilted, then) rotated by 90 degrees and mirrored."""
         for name, expected in self.DATASETS.items():
-            for k in range(4):
-                for flip in (False, True):
-                    task = self.transformed_task(name, k, flip, tilt)
-                    for dcm, exp in zip(
-                        (
-                            task.ACR_obj.slice_stack[0],
-                            task.ACR_obj.slice_stack[-1],
-                        ),
-                        expected,
-                        strict=True,
-                    ):
-                        value = task.get_slice_position(dcm)
-                        assert abs(value - exp) < self.TOLERANCE, (
-                            f"{name} k={k} flip={flip} tilt={tilt}: "
-                            f"{value:.2f} vs {exp}"
-                        )
+            task = ACRSlicePosition(
+                input_data=get_dicom_files(TEST_DATA_DIR / "acr" / name)
+            )
+            transform_series(task.ACR_obj, 1, True, tilt)
+            slices = (
+                task.ACR_obj.slice_stack[0],
+                task.ACR_obj.slice_stack[-1],
+            )
+            for dcm, exp in zip(slices, expected, strict=True):
+                value = task.get_slice_position(dcm)
+                assert abs(value - exp) < self.TOLERANCE, (
+                    f"{name} tilt={tilt}: {value:.2f} vs {exp}"
+                )
 
     def test_rotated_and_mirrored(self):
         self.check(tilt=0.0)

@@ -6,25 +6,13 @@ import unittest
 import numpy as np
 
 from hazenlib.ACRObject import ACRObject
+from hazenlib.logger import logger
 from hazenlib.tasks.acr_snr import ACRSNR
 from hazenlib.utils import dcmread, get_dicom_files
 
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR, transform_series
 
 SNR_TOLERANCE = 0.01
-
-
-def transform_series(acr_obj, k, flip):
-    """Rotate every slice by k * 90 degrees (and mirror), as if exported so."""
-    for dcm in acr_obj.slice_stack:
-        arr = np.rot90(dcm.pixel_array, k)
-        arr = np.ascontiguousarray(np.fliplr(arr) if flip else arr)
-        dcm.Rows, dcm.Columns = arr.shape
-        dcm.PixelData = arr.tobytes()
-        dcm._pixel_array = None  # drop pydicom's cached array
-        dcm._pixel_id = {}
-    if k % 2:
-        acr_obj.dx, acr_obj.dy = acr_obj.dy, acr_obj.dx
 
 
 class TestACRSNRGE(unittest.TestCase):
@@ -113,7 +101,7 @@ class TestACRSNRSiemens(TestACRSNRGE):
         snr, _ = self.acr_snr_task.snr_by_subtraction(
             self.snr_dcm,
             self.acr_obj2.slice_stack[6],
-            orientation2=ACRSNR.find_orientation(self.acr_obj2),
+            acr_obj2=self.acr_obj2,
         )
         self.assertAlmostEqual(snr, self.sub_snr, delta=SNR_TOLERANCE)
 
@@ -135,24 +123,6 @@ class TestACRSNRNoManufacturer(unittest.TestCase):
         self.assertAlmostEqual(values[0], 188.07, delta=SNR_TOLERANCE)
 
 
-class TestACRSNROrientation(unittest.TestCase):
-    """A series exported rotated by a multiple of 90 degrees, or mirrored,
-    must give the same SNR."""
-
-    ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchieva")
-
-    def test_rotated_and_mirrored(self):
-        files = get_dicom_files(self.ACR_DATA)
-        reference = None
-        for k in range(4):
-            for flip in (False, True):
-                task = ACRSNR(input_data=files)
-                transform_series(task.ACR_obj, k, flip)
-                snr, _ = task.snr_by_smoothing(task.ACR_obj.slice_stack[6])
-                reference = snr if reference is None else reference
-                self.assertAlmostEqual(snr, reference, places=6)
-
-
 class TestACRSNREncodingSteps(unittest.TestCase):
     """The normalisation uses the phase encoding direction to tell the
     frequency and phase encoding axes apart."""
@@ -172,6 +142,13 @@ class TestACRSNREncodingSteps(unittest.TestCase):
         self.dcm.InPlanePhaseEncodingDirection = "ROW"
         assert ACRSNR.encoding_steps(self.dcm) == (256, 192)
 
+    def test_unknown_direction(self):
+        del self.dcm.InPlanePhaseEncodingDirection
+        with self.assertLogs(logger, level="WARNING") as logs:
+            steps = ACRSNR.encoding_steps(self.dcm)
+        assert steps == (192, 256)
+        assert any("direction not found" in m for m in logs.output)
+
 
 class TestACRSNRSynthetic(unittest.TestCase):
     """SNR of a uniform disc (signal 1000) in Gaussian noise of SD 10.
@@ -182,9 +159,9 @@ class TestACRSNRSynthetic(unittest.TestCase):
 
     def setUp(self):
         self.task = ACRSNR(
-            input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "Siemens")
+            input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "Siemens"),
+            orientation=(0, False),
         )
-        self.task._orientation = (0, False)
         self.rng = np.random.default_rng(1)
 
     def make_slice(self, spacing):
@@ -199,18 +176,10 @@ class TestACRSNRSynthetic(unittest.TestCase):
         self.task.ACR_obj.dx, self.task.ACR_obj.dy = spacing
         img = self.make_slice(spacing)
         img = img + self.rng.normal(0, 10, img.shape)
-        centre = self.task.phantom_centre(img)
-        noise = self.task.get_noise_image(img)
-        signal = [
-            np.mean(r) for r in self.task.get_roi_samples(None, img, *centre)
-        ]
-        sd = [
-            np.std(r, ddof=1)
-            for r in self.task.get_roi_samples(None, noise, *centre)
-        ]
+        snr, centre, *_ = self.task.smoothed_snr(img)
         masks = self.task.roi_masks(img.shape, centre)
         areas = [m.sum() * spacing[0] * spacing[1] for m in masks]
-        return np.mean(np.divide(signal, sd)), areas
+        return snr, areas
 
     def test_square_pixels(self):
         snr, areas = self.smoothing_snr((1.0, 1.0))

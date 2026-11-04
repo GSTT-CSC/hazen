@@ -13,10 +13,11 @@ from typing import Any
 
 # Module imports
 import numpy as np
+import pytest
 from hazenlib.tasks.acr_low_contrast_object_detectability import (
     ACRLowContrastObjectDetectability,
 )
-from hazenlib.types import LCODTemplate, LowContrastObject, Spoke
+from hazenlib.types import LCODTemplate, LowContrastObject, Result, Spoke
 from hazenlib.utils import get_dicom_files
 
 # Local imports
@@ -294,9 +295,14 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
     SLICE_TOLERANCE: int = 1  # Accepted +- slice tolerance
     TOTAL_TOLERANCE: int = 2  # Accepted +- total tolerance
 
-    def setUp(self) -> None:
-        """Set up for the tests."""
-        input_files = get_dicom_files(self.ACR_DATA)
+    # set once per class in setUpClass
+    acr_object_detectability: ACRLowContrastObjectDetectability
+    results: Result
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Run the analysis once for all the tests in the class."""
+        input_files = get_dicom_files(cls.ACR_DATA)
 
         # Get report flag from environment (default: False)
         # To enable reports, you would run something like:
@@ -327,13 +333,14 @@ class TestACRLowContrastObjectDetectability(unittest.TestCase):
         report_env = os.getenv("HAZEN_REPORT", "false").lower()
         report = report_env in ("true", "1", "yes")
 
-        self.acr_object_detectability = ACRLowContrastObjectDetectability(
+        cls.acr_object_detectability = ACRLowContrastObjectDetectability(
             input_data=input_files,
             report_dir=Path(TEST_REPORT_DIR),
             report=report,
         )
-        self.results = self.acr_object_detectability.run()
+        cls.results = cls.acr_object_detectability.run()
 
+    @pytest.mark.slow  # re-runs the full LCOD analysis
     def test_result_reproducability(self) -> None:
         """Test the results are the same for each identical run."""
         results = self.acr_object_detectability.run()

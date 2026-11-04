@@ -65,13 +65,11 @@ import skimage.measure
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.tasks.acr_geometric_accuracy import (
+from hazenlib.orientation import (
     describe_orientation,
-    determine_phantom_orientation,
-    reorient,
-    reorient_spacing,
 )
 from hazenlib.types import Measurement, Result
+from hazenlib.utils import fit_circle
 
 
 @dataclass
@@ -110,7 +108,7 @@ class ACRSlicePosition(HazenTask):
     END_SEARCH = 6.0  # mm either side of the coarse end estimate
     MAX_REFINE_ITER = 5
 
-    def __init__(self, **kwargs):
+    def __init__(self, orientation=None, **kwargs):
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -118,45 +116,17 @@ class ACRSlicePosition(HazenTask):
             )
         super().__init__(**kwargs)
         # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
-        self._orientation = None
-
-    @property
-    def pixel_spacing(self):
-        """(row, column) spacing in mm as stored in the DICOM, before any
-        reorientation. ACRObject.dx/dy hold PixelSpacing[0]/[1]."""
-        return (self.ACR_obj.dx, self.ACR_obj.dy)
-
-    @property
-    def orientation(self):
-        """(k, flip) correction putting the phantom in its standard view.
-
-        Determined once from slice 1, which has strongly asymmetric
-        features, and applied to slices 1 and 11.
-        """
-        if self._orientation is None:
-            self._orientation = determine_phantom_orientation(
-                self.ACR_obj.slice_stack[0].pixel_array, self.pixel_spacing
-            )
-            if self._orientation == (0, False):
-                logger.info("Phantom is in the standard orientation")
-            else:
-                logger.warning(
-                    "Phantom orientation is non-standard; images %s for "
-                    "analysis",
-                    describe_orientation(*self._orientation),
-                )
-        return self._orientation
+        self.ACR_obj = ACRObject(self.dcm_list, orientation)
 
     @property
     def row_spacing(self):
         """Row spacing (mm) of the reoriented image."""
-        return reorient_spacing(self.pixel_spacing, self.orientation[0])[0]
+        return self.ACR_obj.spacing[0]
 
     @property
     def col_spacing(self):
         """Column spacing (mm) of the reoriented image."""
-        return reorient_spacing(self.pixel_spacing, self.orientation[0])[1]
+        return self.ACR_obj.spacing[1]
 
     def run(self) -> Result:
         """Main function for performing slice position measurement
@@ -282,12 +252,7 @@ class ACRSlicePosition(HazenTask):
 
         keep = np.ones(len(pts), dtype=bool)
         for _ in range(3):
-            # algebraic circle fit: x^2 + y^2 + D x + E y + F = 0
-            px, py = pts[keep, 0], pts[keep, 1]
-            A = np.column_stack([px, py, np.ones_like(px)])
-            D, E, F = np.linalg.lstsq(A, -(px**2 + py**2), rcond=None)[0]
-            xc, yc = -D / 2, -E / 2
-            rad = np.sqrt(xc**2 + yc**2 - F)
+            xc, yc, rad = fit_circle(pts[keep, 0], pts[keep, 1])
             resid = np.hypot(pts[:, 0] - xc, pts[:, 1] - yc) - rad
             keep = np.abs(resid) < 1.5
             if keep.sum() < 20:
@@ -646,12 +611,9 @@ class ACRSlicePosition(HazenTask):
         logger.info(
             f"Computing slice position for slice #{dcm.InstanceNumber}"
         )
-        _, rescaled, _ = self.ACR_obj.get_presentation_pixels(dcm)
         # Put the phantom in the standard view (wedges at the top, left and
         # right as seen in the ACR guidance).
-        img = np.ascontiguousarray(
-            reorient(np.asarray(rescaled, dtype=float), *self.orientation)
-        )
+        img = self.ACR_obj.standard_view(dcm)
         centre, radius_px = self.ACR_obj.find_phantom_center(
             img, self.row_spacing, self.col_spacing
         )
@@ -710,9 +672,9 @@ class ACRSlicePosition(HazenTask):
             )
             ax.plot(cols, rows, c=colours[name], lw=1.5)
         title = "Line profiles"
-        if self.orientation != (0, False):
+        if self.ACR_obj.orientation != (0, False):
             title += (
-                f"\n(image {describe_orientation(*self.orientation)} "
+                f"\n(image {describe_orientation(*self.ACR_obj.orientation)} "
                 "to standard view)"
             )
         ax.set_title(title)
