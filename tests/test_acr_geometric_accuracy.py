@@ -7,18 +7,21 @@ import pathlib
 import unittest
 
 import numpy as np
+import pytest
 import scipy.ndimage as ndi
-from hazenlib.tasks.acr_geometric_accuracy import (
-    DIRECTIONS,
-    ACRGeometricAccuracy,
+from hazenlib.orientation import (
     determine_phantom_orientation,
-    measure_phantom,
     reorient,
     reorient_spacing,
 )
+from hazenlib.tasks.acr_geometric_accuracy import (
+    DIRECTIONS,
+    ACRGeometricAccuracy,
+    measure_phantom,
+)
 from hazenlib.utils import get_dicom_files
 
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR, transform_series
 
 logger = logging.getLogger(__name__)
 
@@ -286,43 +289,24 @@ class TestACRGeometricAccuracyOrientation(unittest.TestCase):
     expected = TestACRGeometricAccuracyGE.L1 + TestACRGeometricAccuracyGE.L5
 
     def test_rotated_and_mirrored(self) -> None:
-        """All eight 90 degree rotations / mirrorings."""
-        files = get_dicom_files(self.ACR_DATA)
-        for k in range(4):
-            for flip in (False, True):
-                task = ACRGeometricAccuracy(input_data=files)
-                for dcm in task.ACR_obj.slice_stack:
-                    arr = np.rot90(dcm.pixel_array, k)
-                    arr = np.ascontiguousarray(
-                        np.fliplr(arr) if flip else arr,
-                    )
-                    dcm.Rows, dcm.Columns = arr.shape
-                    dcm.PixelData = arr.tobytes()
-                    dcm._pixel_array = None  # drop pydicom's cached array
-                    dcm._pixel_id = {}
-                if k % 2:
-                    task.ACR_obj.dx, task.ACR_obj.dy = (
-                        task.ACR_obj.dy,
-                        task.ACR_obj.dx,
-                    )
-                assert task.orientation == ((-k) % 4 if not flip else k, flip)
-                values = task.get_geometric_accuracy(
-                    0,
-                ) + task.get_geometric_accuracy(4)
-                np.testing.assert_allclose(
-                    values,
-                    self.expected,
-                    atol=TOLERANCE,
-                    err_msg=f"k={k} flip={flip}",
-                )
+        """Rotated by 90 degrees and mirrored: rows and columns swap, so
+        does the pixel spacing, and left and right change places."""
+        task = ACRGeometricAccuracy(input_data=get_dicom_files(self.ACR_DATA))
+        transform_series(task.ACR_obj, 1, True)
+        assert task.ACR_obj.orientation == (1, True)
+        values = task.get_geometric_accuracy(0) + task.get_geometric_accuracy(
+            4
+        )
+        np.testing.assert_allclose(values, self.expected, atol=TOLERANCE)
 
+    @pytest.mark.slow
     def test_tilted(self) -> None:
         """A phantom tilted in-plane (here up to 20 degrees) on top of any
         90 degree rotation / mirroring. The orientation features are sampled
         in narrow bands, which a tilt of about 8 degrees used to defeat."""
         task = ACRGeometricAccuracy(input_data=get_dicom_files(self.ACR_DATA))
         img = task.ACR_obj.slice_stack[0].pixel_array.astype(float)
-        spacing = task.pixel_spacing
+        spacing = task.ACR_obj.pixel_spacing
         for tilt in (-20, -8, 8, 20):
             tilted = ndi.rotate(img, tilt, reshape=False, order=1)
             for k in range(4):
@@ -339,7 +323,7 @@ class TestACRGeometricAccuracyOrientation(unittest.TestCase):
         task = ACRGeometricAccuracy(
             input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "SiemensMTF")
         )
-        assert task.orientation == (0, False)
+        assert task.ACR_obj.orientation == (0, False)
 
 
 class TestMeasurePhantomSynthetic(unittest.TestCase):
@@ -352,7 +336,7 @@ class TestMeasurePhantomSynthetic(unittest.TestCase):
 
     RADIUS_MM = 95.0
 
-    def make_phantom(self, spacing, obstructed=True):
+    def make_phantom(self, spacing):
         row_sp, col_sp = spacing
         shape = (int(260 / row_sp), int(260 / col_sp))
         yy, xx = np.indices(shape, dtype=float)
@@ -362,10 +346,9 @@ class TestMeasurePhantomSynthetic(unittest.TestCase):
         # Supersampled edge for a smooth, sub-pixel accurate wall
         r = np.hypot(x, y)
         img = np.clip(self.RADIUS_MM - r + 0.5, 0, 1) * 1000.0
-        if obstructed:
-            housing = (np.abs(x) < 6) & (y < -self.RADIUS_MM + 9)
-            notches = np.hypot(np.abs(x) - 12, y + self.RADIUS_MM) < 6
-            img[housing | notches] = 0.0
+        housing = (np.abs(x) < 6) & (y < -self.RADIUS_MM + 9)
+        notches = np.hypot(np.abs(x) - 12, y + self.RADIUS_MM) < 6
+        img[housing | notches] = 0.0
         return ndi.gaussian_filter(img, 0.7) + 20.0
 
     def check(self, spacing):

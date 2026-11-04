@@ -170,11 +170,8 @@ import scipy.ndimage as ndi
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.tasks.acr_geometric_accuracy import (
+from hazenlib.orientation import (
     describe_orientation,
-    determine_phantom_orientation,
-    reorient,
-    reorient_spacing,
 )
 from hazenlib.types import Measurement, Result
 
@@ -263,7 +260,7 @@ class ACRSliceThickness(HazenTask):
     MIN_EDGE_WINDOW = 1.5
     MIN_RAMP_CONTRAST = 3.0  # peak above background, in noise SDs
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, orientation=None, **kwargs) -> None:
         """Initialise the ACRSliceThickness object."""
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
@@ -272,42 +269,7 @@ class ACRSliceThickness(HazenTask):
             )
         super().__init__(**kwargs)
         # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
-        self._orientation = None
-
-    # ------------------------------------------------------------------
-    # Orientation and spacing
-    # ------------------------------------------------------------------
-    @property
-    def pixel_spacing(self) -> tuple:
-        """(row, column) spacing in mm as stored in the DICOM, before any
-        reorientation. ACRObject.dx/dy hold PixelSpacing[0]/[1]."""
-        return (self.ACR_obj.dx, self.ACR_obj.dy)
-
-    @property
-    def orientation(self) -> tuple:
-        """(k, flip) correction putting the phantom in its standard view.
-
-        Determined from slice 1, which has strongly asymmetric features.
-        """
-        if self._orientation is None:
-            self._orientation = determine_phantom_orientation(
-                self.ACR_obj.slice_stack[0].pixel_array, self.pixel_spacing
-            )
-            if self._orientation == (0, False):
-                logger.info("Phantom is in the standard orientation")
-            else:
-                logger.warning(
-                    "Phantom orientation is non-standard; images %s for "
-                    "analysis",
-                    describe_orientation(*self._orientation),
-                )
-        return self._orientation
-
-    @property
-    def spacing(self) -> tuple:
-        """(row, column) spacing in mm of the reoriented image."""
-        return reorient_spacing(self.pixel_spacing, self.orientation[0])
+        self.ACR_obj = ACRObject(self.dcm_list, orientation)
 
     # ------------------------------------------------------------------
     # Task
@@ -388,9 +350,7 @@ class ACRSliceThickness(HazenTask):
                   "bottom": {"width": mm}}``, the FWHM of each ramp.
 
         """
-        img = np.ascontiguousarray(
-            reorient(dcm.pixel_array.astype(float), *self.orientation)
-        )
+        img = self.ACR_obj.standard_view(dcm)
         insert = self.find_insert(img)
         ramps = self.measure_ramps(img, insert)
         top, bottom = ramps
@@ -422,7 +382,7 @@ class ACRSliceThickness(HazenTask):
         v = np.asarray(v, dtype=float)
         x = insert.centre[0] + u * insert.e_u[0] + v * insert.e_v[0]
         y = insert.centre[1] + u * insert.e_u[1] + v * insert.e_v[1]
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         return y / row_sp, x / col_sp
 
     def sample(self, img: np.ndarray, insert: Insert, u, v) -> np.ndarray:
@@ -450,7 +410,7 @@ class ACRSliceThickness(HazenTask):
             Insert: geometry of the insert.
 
         """
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         img_uint8 = cv2.normalize(img, None, 0, 255, cv2.NORM_MINMAX).astype(
             np.uint8,
         )
@@ -571,7 +531,13 @@ class ACRSliceThickness(HazenTask):
                 bottoms.append(v[k] + step * (p[k] - half) / (p[k] - p[k + 1]))
                 keep.append(u_pos[j])
             if len(keep) < 10:
-                return insert  # keep the bounding box estimate
+                logger.warning(
+                    "The insert walls were found on only %d of %d profiles;"
+                    " the insert position is not refined further",
+                    len(keep),
+                    len(u_pos),
+                )
+                return insert
             keep = np.array(keep)
             c_top = np.polyfit(keep, tops, 1)
             c_bot = np.polyfit(keep, bottoms, 1)
@@ -691,7 +657,7 @@ class ACRSliceThickness(HazenTask):
         i_peak = int(np.argmax(np.where(central, p, -np.inf)))
         peak = float(p[i_peak])
 
-        def crossing(level: float, direction: int) -> tuple:
+        def crossing(level: float, direction: int) -> float:
             """Walk from the peak until the profile drops below level."""
             i = i_peak
             while 0 <= i + direction < len(p) and p[i + direction] >= level:
@@ -705,13 +671,13 @@ class ACRSliceThickness(HazenTask):
                 raise ValueError(msg)
             # linear interpolation between samples i (>= level) and j
             frac = (p[i] - level) / (p[i] - p[j])
-            return float(u[i] + direction * frac * step), j
+            return float(u[i] + direction * frac * step)
 
         # First pass with a global background, to locate the ramp ends
         background0 = float(np.percentile(p, 5))
         half0 = 0.5 * (peak + background0)
-        left0, _ = crossing(half0, -1)
-        right0, _ = crossing(half0, +1)
+        left0 = crossing(half0, -1)
+        right0 = crossing(half0, +1)
 
         # Peak level: the maximum of a parabola fitted around the middle of
         # the ramp. On a flat-topped ramp this averages the plateau, so noise
@@ -762,8 +728,8 @@ class ACRSliceThickness(HazenTask):
             raise ValueError(msg)
 
         half = tuple(0.5 * (peak + b) for b in backgrounds)
-        left, _ = crossing(half[0], -1)
-        right, _ = crossing(half[1], +1)
+        left = crossing(half[0], -1)
+        right = crossing(half[1], +1)
 
         # Refine each crossing with a straight-line fit to the edge. Walking
         # out from the peak stops at the first noise dip below half maximum,
@@ -814,7 +780,7 @@ class ACRSliceThickness(HazenTask):
         ax_prof = [fig.add_subplot(grid[1, i]) for i in range(2)]
 
         # 1. Image in the standard view with the insert and ramp lines
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         ax_img.imshow(img, cmap="gray", aspect=row_sp / col_sp)
         half_l, half_h = insert.length / 2, insert.height / 2
         corners_u = np.array([-half_l, half_l, half_l, -half_l, -half_l])
@@ -825,9 +791,9 @@ class ACRSliceThickness(HazenTask):
             rows, cols = self.to_pixels(insert, np.array(r.ends), [r.v, r.v])
             ax_img.plot(cols, rows, c=colours[r.name], lw=1.5)
         title = "Slice 1 with insert and ramp lengths"
-        if self.orientation != (0, False):
+        if self.ACR_obj.orientation != (0, False):
             title += (
-                f"\n(image {describe_orientation(*self.orientation)} "
+                f"\n(image {describe_orientation(*self.ACR_obj.orientation)} "
                 "to standard view)"
             )
         ax_img.set_title(title)

@@ -53,6 +53,14 @@ hazenlib.logger
    :undoc-members:
    :show-inheritance:
 
+hazenlib.orientation
+---------------------
+
+.. automodule:: hazenlib.orientation
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 hazenlib.utils
 ---------------------
 

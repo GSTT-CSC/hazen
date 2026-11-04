@@ -55,13 +55,10 @@ import scipy.ndimage as ndi
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.tasks.acr_geometric_accuracy import (
+from hazenlib.orientation import (
     describe_orientation,
-    determine_phantom_orientation,
-    measure_phantom,
-    reorient,
-    reorient_spacing,
 )
+from hazenlib.tasks.acr_geometric_accuracy import measure_phantom
 from hazenlib.types import Measurement, Result
 
 
@@ -75,7 +72,7 @@ class ACRUniformity(HazenTask):
     DARK_FRACTION = 0.5  # of the median signal; darker pixels are excluded
     DARK_MARGIN = 2.0  # mm excluded around dark pixels (the notch edge)
 
-    def __init__(self, **kwargs):
+    def __init__(self, orientation=None, **kwargs):
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
@@ -84,44 +81,9 @@ class ACRUniformity(HazenTask):
         super().__init__(**kwargs)
 
         # Initialise ACR object
-        self.ACR_obj = ACRObject(self.dcm_list)
-        self._orientation = None
+        self.ACR_obj = ACRObject(self.dcm_list, orientation)
         self.r_large = float(np.sqrt(self.LARGE_ROI_AREA / np.pi))  # mm
         self.r_small = float(np.sqrt(self.SMALL_ROI_AREA / np.pi))  # mm
-
-    # ------------------------------------------------------------------
-    # Orientation and spacing
-    # ------------------------------------------------------------------
-    @property
-    def pixel_spacing(self):
-        """(row, column) spacing in mm as stored in the DICOM, before any
-        reorientation. ACRObject.dx/dy hold PixelSpacing[0]/[1]."""
-        return (self.ACR_obj.dx, self.ACR_obj.dy)
-
-    @property
-    def orientation(self):
-        """(k, flip) correction putting the phantom in its standard view.
-
-        Determined from slice 1, which has strongly asymmetric features.
-        """
-        if self._orientation is None:
-            self._orientation = determine_phantom_orientation(
-                self.ACR_obj.slice_stack[0].pixel_array, self.pixel_spacing
-            )
-            if self._orientation == (0, False):
-                logger.info("Phantom is in the standard orientation")
-            else:
-                logger.warning(
-                    "Phantom orientation is non-standard; images %s for "
-                    "analysis",
-                    describe_orientation(*self._orientation),
-                )
-        return self._orientation
-
-    @property
-    def spacing(self):
-        """(row, column) spacing in mm of the reoriented image."""
-        return reorient_spacing(self.pixel_spacing, self.orientation[0])
 
     # ------------------------------------------------------------------
     # Task
@@ -209,14 +171,14 @@ class ACRUniformity(HazenTask):
             img (np.ndarray): slice 7 in the standard view.
             centre (tuple): phantom centre (x, y) in pixels.
         """
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         rows, cols = np.ogrid[: img.shape[0], : img.shape[1]]
         x_mm = (cols - centre[0]) * col_sp
         y_mm = (rows - centre[1]) * row_sp - self.LARGE_ROI_OFFSET
         circle = x_mm**2 + y_mm**2 <= self.r_large**2
         dark = img < self.DARK_FRACTION * np.median(img[circle])
         near_dark = (
-            ndi.distance_transform_edt(~dark, sampling=self.spacing)
+            ndi.distance_transform_edt(~dark, sampling=self.ACR_obj.spacing)
             <= self.DARK_MARGIN
         )
         excluded = circle & near_dark
@@ -234,7 +196,7 @@ class ACRUniformity(HazenTask):
         Pixels whose centres lie within 5.64 mm of the kernel centre; for
         non-square pixels the kernel is elliptical in pixel units.
         """
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         half_rows = int(np.ceil(self.r_small / row_sp))
         half_cols = int(np.ceil(self.r_small / col_sp))
         rows, cols = np.ogrid[
@@ -330,12 +292,9 @@ class ACRUniformity(HazenTask):
         Returns:
             float: value of integral uniformity.
         """
-        _, rescaled, _ = self.ACR_obj.get_presentation_pixels(dcm)
-        img = np.ascontiguousarray(
-            reorient(np.asarray(rescaled, dtype=float), *self.orientation)
-        )
+        img = self.ACR_obj.standard_view(dcm)
         centre, phantom_mask, _ = measure_phantom(
-            img, self.spacing, ("Horizontal", "Vertical")
+            img, self.ACR_obj.spacing, ("Horizontal", "Vertical")
         )
         logger.info("Phantom centre (%.1f, %.1f)", *centre)
 
@@ -375,7 +334,7 @@ class ACRUniformity(HazenTask):
     def write_report(self, img, centre, piu, dcm):
         import matplotlib.pyplot as plt
 
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         cx, cy = centre
         theta = np.linspace(0, 2 * np.pi, 360)
 
@@ -419,9 +378,9 @@ class ACRUniformity(HazenTask):
             ax.axis("off")
 
         title = f"Percent Integral Uniformity = {piu:.2f}%"
-        if self.orientation != (0, False):
+        if self.ACR_obj.orientation != (0, False):
             title += (
-                f"\n(image {describe_orientation(*self.orientation)}"
+                f"\n(image {describe_orientation(*self.ACR_obj.orientation)}"
                 " to standard view)"
             )
         fig.suptitle(title)

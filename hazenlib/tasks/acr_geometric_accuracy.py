@@ -46,13 +46,15 @@ import traceback
 
 import numpy as np
 import scipy.ndimage as ndi
-import skimage.filters
-import skimage.measure
-import skimage.morphology
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
+from hazenlib.orientation import (
+    describe_orientation,
+    segment_phantom,
+)
 from hazenlib.types import Measurement, Result
+from hazenlib.utils import fit_circle
 
 NOMINAL_DIAMETER_MM = 190.0
 
@@ -68,13 +70,6 @@ MIN_WALL_INLIER_FRACTION = (
 )
 MIN_WALL_RADIUS_MM = 70.0  # plausible local radius of curvature of the wall
 MAX_WALL_RADIUS_MM = 140.0
-
-# Phantom tilts smaller than this are ignored when determining the orientation
-MIN_ORIENTATION_TILT_DEG = 2.0
-# Below these scores (in the best orientation) the slice-1 cues are too weak to
-# trust - e.g. slice 1 missing, a noise image - and no correction is applied.
-MIN_BAR_SCORE = 0.3
-MIN_INSERT_SCORE = 0.15
 
 # Unit vectors (x, y) in physical space. Image y increases downwards.
 DIRECTIONS = {
@@ -97,230 +92,6 @@ SLICE_5_DIRECTIONS = ("Horizontal", "Vertical", "Diagonal SW", "Diagonal SE")
 # --------------------------------------------------------------------------- #
 # Measurement helpers (module level so they can be tested without DICOM data)
 # --------------------------------------------------------------------------- #
-def segment_phantom(img, sigma=1.0):
-    """Return a lightly smoothed copy of the image and a rough phantom mask."""
-    smooth = ndi.gaussian_filter(img.astype(float), sigma)
-    mask = smooth > skimage.filters.threshold_otsu(smooth)
-    mask = ndi.binary_fill_holes(mask)
-
-    labels = skimage.measure.label(mask)
-    if labels.max() == 0:
-        raise ValueError("No phantom found in image")
-    largest = np.argmax(np.bincount(labels.ravel())[1:]) + 1
-    mask = skimage.morphology.convex_hull_image(labels == largest)
-    return smooth, mask
-
-
-def _orientation_mask(img, sigma=1.0):
-    """Rough phantom mask for orientation detection, robust to strong shading.
-
-    With head and surface coils the dimmest water can be far below the Otsu
-    threshold of the raw image, so `segment_phantom` cuts off part of the
-    phantom and its centroid moves. On a log scale even dim water is far
-    above the background noise, so the threshold is taken there instead.
-    """
-    smooth = ndi.gaussian_filter(img.astype(float), sigma)
-    log = np.log1p(np.clip(smooth, 0, None))
-    mask = ndi.binary_fill_holes(log > skimage.filters.threshold_otsu(log))
-    mask = ndi.binary_opening(mask, iterations=2)  # detach noise specks
-    labels = skimage.measure.label(mask)
-    if labels.max() == 0:
-        raise ValueError("No phantom found in image")
-    largest = np.argmax(np.bincount(labels.ravel())[1:]) + 1
-    return smooth, skimage.morphology.convex_hull_image(labels == largest)
-
-
-def reorient(img, k, flip):
-    """Rotate an image by k * 90 degrees anticlockwise (np.rot90), then optionally mirror left-right."""
-    out = np.rot90(img, k)
-    return np.fliplr(out) if flip else out
-
-
-def reorient_spacing(spacing, k):
-    """(row, column) pixel spacing after np.rot90 by k: odd k swaps rows and columns."""
-    return tuple(spacing[::-1]) if k % 2 else tuple(spacing)
-
-
-def describe_orientation(k, flip):
-    """Human-readable description of the correction applied by `reorient`."""
-    parts = []
-    if k % 4:
-        parts.append(
-            {
-                1: "rotated 90° anticlockwise",
-                2: "rotated 180°",
-                3: "rotated 90° clockwise",
-            }[k % 4]
-        )
-    if flip:
-        parts.append("mirrored left-right")
-    return " and ".join(parts) if parts else "no correction"
-
-
-def _dark_pixels(smooth, mask, spacing, inner_radius=85.0, sigma_mm=15.0):
-    """Pixels of the phantom interior that are dark relative to the *local* water signal.
-
-    Head and surface coils can give strong shading, with the water signal
-    varying by a factor of several across the phantom. A single threshold
-    (half the brightest water) then marks dim water as "dark" and the
-    orientation cues are lost. Instead the water level is estimated locally,
-    by normalised Gaussian smoothing over the water pixels only (so that the
-    dark structures themselves don't pull it down), and a pixel is dark when
-    it is below half of that local level.
-
-    Returns:
-        tuple: (dark, inner, y, x) - boolean dark mask, boolean mask of the
-        phantom interior within `inner_radius` mm of its centre, and the
-        physical y / x coordinates (mm, from the centre) of every pixel.
-    """
-    row_sp, col_sp = spacing
-    cy, cx = ndi.center_of_mass(mask)
-    yy, xx = np.indices(mask.shape, dtype=float)
-    y = (yy - cy) * row_sp
-    x = (xx - cx) * col_sp
-    # Stay away from the wall so its partial volume doesn't count as "dark"
-    inner = (np.hypot(x, y) < inner_radius) & mask
-
-    sigma = (sigma_mm / row_sp, sigma_mm / col_sp)
-    level = np.full(smooth.shape, np.percentile(smooth[inner], 90))
-    for _ in range(3):
-        water = (inner & (smooth > 0.6 * level)).astype(float)
-        num = ndi.gaussian_filter(smooth * water, sigma)
-        den = ndi.gaussian_filter(water, sigma)
-        level = np.where(den > 1e-3, num / np.maximum(den, 1e-12), level)
-    dark = inner & (smooth < 0.5 * level)
-    return dark, inner, y, x
-
-
-def _orientation_features(smooth, mask, spacing):
-    """Features of ACR slice 1 that are high when the phantom is in the standard view.
-
-    In the standard view slice 1 has: a long dark bar running horizontally
-    through the centre; the large resolution insert below the bar; and the
-    small ring insert in the upper-left quadrant.
-
-    Returns:
-        tuple: (bar, below, ring) scores, each in [-1, 1] and > 0 when standard.
-    """
-    dark, inner, _, _ = _dark_pixels(smooth, mask, spacing)
-    return _cue_scores(dark, inner, mask, spacing)
-
-
-def _cue_scores(dark, inner, mask, spacing):
-    """(bar, below, ring) scores from a dark-pixel mask; see _orientation_features."""
-    row_sp, col_sp = spacing
-    cy, cx = ndi.center_of_mass(mask)
-    yy, xx = np.indices(inner.shape, dtype=float)
-    y = (yy - cy) * row_sp
-    x = (xx - cx) * col_sp
-
-    def frac(region):
-        region = region & inner
-        return dark[region].mean() if region.any() else 0.0
-
-    bar = frac((np.abs(y) < 3) & (np.abs(x) < 70)) - frac(
-        (np.abs(x) < 3) & (np.abs(y) < 70)
-    )
-    below = frac((y > 10) & (np.abs(x) < 80)) - frac(
-        (y < -10) & (np.abs(x) < 80)
-    )
-    ring = frac((y < -15) & (x < -15)) - frac((y < -15) & (x > 15))
-    return bar, below, ring
-
-
-def _residual_tilt(smooth, mask, spacing):
-    """In-plane tilt of slice 1 away from the nearest multiple of 90 degrees.
-
-    The long dark bar through the centre of slice 1 is found as the line
-    through the phantom centre (at any angle) that crosses the most dark
-    pixels. Its angle is wrapped to [-45, 45) degrees, so the result is the
-    small tilt left over once the bar is horizontal or vertical.
-
-    Returns:
-        float: tilt in degrees in physical space (x to the right, y downwards),
-        positive when the bar runs down to the right.
-    """
-    dark, inner, y, x = _dark_pixels(smooth, mask, spacing)
-    x, y, dark = x[inner], y[inner], dark[inner]
-
-    def bar_score(angle):
-        c, s = np.cos(angle), np.sin(angle)
-        band = (np.abs(-x * s + y * c) < 3) & (np.abs(x * c + y * s) < 70)
-        return dark[band].mean() if band.any() else 0.0
-
-    # The bar is wider than the sampling band, so the score has a plateau
-    # a few degrees wide; take its centre (argmax would pick one end of it
-    # and report a tilt of 2-4 degrees on a straight phantom).
-    angles = np.deg2rad(np.arange(-90.0, 90.0, 0.25))
-    scores = np.array([bar_score(a) for a in angles])
-    near_best = angles[scores >= scores.max() - 0.02]
-    # mean of axial angles (theta and theta + 180 are the same line)
-    angle = 0.5 * np.rad2deg(
-        np.arctan2(np.sin(2 * near_best).mean(), np.cos(2 * near_best).mean())
-    )
-    return float((angle + 45.0) % 90.0 - 45.0)
-
-
-def determine_phantom_orientation(img, spacing):
-    """Find the 90-degree rotation (and mirroring) that puts slice 1 of the ACR
-    phantom into its standard view.
-
-    A small in-plane tilt of the phantom (up to 45 degrees) is measured first
-    and removed before the 90-degree candidates are scored; otherwise the
-    features, which are sampled in narrow bands, are missed when the phantom
-    is not square to the image axes.
-
-    Args:
-        img (np.ndarray): pixel array of slice 1.
-        spacing (tuple): (row_spacing, column_spacing) in mm.
-
-    Returns:
-        tuple: (k, flip) to pass to `reorient`.
-    """
-    smooth, mask = _orientation_mask(img)
-    tilt = _residual_tilt(smooth, mask, spacing)
-    if abs(tilt) > MIN_ORIENTATION_TILT_DEG:
-        # Untilt on an isotropic grid, so that the angle is the physical angle
-        iso = min(spacing)
-        zoom = (spacing[0] / iso, spacing[1] / iso)
-        smooth = ndi.rotate(ndi.zoom(smooth, zoom, order=1), tilt, order=1)
-        mask = (
-            ndi.rotate(
-                ndi.zoom(mask.astype(float), zoom, order=1), tilt, order=1
-            )
-            > 0.5
-        )
-        spacing = (iso, iso)
-    # Dark pixels don't depend on the candidate orientation: find them once
-    dark, inner, _, _ = _dark_pixels(smooth, mask, spacing)
-    best, best_key, best_feats = (0, False), None, None
-    for k in range(4):
-        for flip in (False, True):
-            feats = _cue_scores(
-                reorient(dark, k, flip),
-                reorient(inner, k, flip),
-                reorient(mask, k, flip),
-                reorient_spacing(spacing, k),
-            )
-            # Decide hierarchically: bar direction (strongest cue) first, then
-            # which side the resolution insert is on, then mirroring. Prefer
-            # no mirroring when the ring cue is ambiguous.
-            key = tuple(f > 0 for f in feats) + (not flip, sum(feats))
-            if best_key is None or key > best_key:
-                best, best_key, best_feats = (k, flip), key, feats
-    bar, below, _ = best_feats
-    if bar < MIN_BAR_SCORE or below < MIN_INSERT_SCORE:
-        logger.warning(
-            "Phantom orientation could not be determined reliably from slice 1"
-            " (bar score %.2f, insert score %.2f); no orientation correction"
-            " applied. Check that the series contains ACR slice 1.",
-            bar,
-            below,
-        )
-        return (0, False)
-    return best
-
-
 def _edge_position(s, grad, s_rough, inward, n_iter=2, search=10.0):
     """Locate one phantom edge on a profile at sub-sample precision.
 
@@ -377,14 +148,6 @@ def _edge_position(s, grad, s_rough, inward, n_iter=2, search=10.0):
     return edge
 
 
-def _fit_circle(t, s):
-    """Algebraic least-squares circle through points (t, s). Returns (tc, sc, r)."""
-    A = np.column_stack([t, s, np.ones_like(t)])
-    D, E, F = np.linalg.lstsq(A, -(t**2 + s**2), rcond=None)[0]
-    tc, sc = -D / 2, -E / 2
-    return tc, sc, np.sqrt(max(tc**2 + sc**2 - F, 0.0))
-
-
 def _robust_wall_fit(t, s, tol=WALL_FIT_TOLERANCE_MM, n_trials=400, seed=0):
     """Fit a circle to wall edge points, ignoring points on internal features.
 
@@ -402,23 +165,27 @@ def _robust_wall_fit(t, s, tol=WALL_FIT_TOLERANCE_MM, n_trials=400, seed=0):
     """
     rng = np.random.default_rng(seed)
     n = len(t)
-    best = None
-    for _ in range(n_trials):
-        idx = rng.choice(n, 3, replace=False)
-        try:
-            tc, sc, r = _fit_circle(t[idx], s[idx])
-        except np.linalg.LinAlgError:
-            continue
-        if not 0.5 * MIN_WALL_RADIUS_MM < r < 2 * MAX_WALL_RADIUS_MM:
-            continue
-        inl = np.abs(np.hypot(t - tc, s - sc) - r) < tol
-        if best is None or inl.sum() > best.sum():
-            best = inl
-    if best is None or best.sum() < 3:
+    # Circles through all the random triples at once: x^2 + y^2 + D x +
+    # E y + F = 0 through each triple's three points
+    idx = np.array([rng.choice(n, 3, replace=False) for _ in range(n_trials)])
+    A = np.stack([t[idx], s[idx], np.ones(idx.shape)], axis=-1)
+    ok = np.abs(np.linalg.det(A)) > 1e-12  # not collinear
+    b = -(t[idx[ok]] ** 2 + s[idx[ok]] ** 2)
+    D, E, F = np.linalg.solve(A[ok], b[..., None])[..., 0].T
+    tc, sc = -D / 2, -E / 2
+    r = np.sqrt(np.maximum(tc**2 + sc**2 - F, 0.0))
+    plausible = (0.5 * MIN_WALL_RADIUS_MM < r) & (r < 2 * MAX_WALL_RADIUS_MM)
+    if not plausible.any():
         return None
-    inl = best
+    tc, sc, r = tc[plausible], sc[plausible], r[plausible]
+    dist = np.hypot(t[None, :] - tc[:, None], s[None, :] - sc[:, None])
+    inliers = np.abs(dist - r[:, None]) < tol
+    # the first trial with the most inliers
+    inl = inliers[int(np.argmax(inliers.sum(axis=1)))]
+    if inl.sum() < 3:
+        return None
     for _ in range(3):
-        tc, sc, r = _fit_circle(t[inl], s[inl])
+        tc, sc, r = fit_circle(t[inl], s[inl])
         new = np.abs(np.hypot(t - tc, s - sc) - r) < tol
         if new.sum() < 3 or np.array_equal(new, inl):
             break
@@ -485,27 +252,30 @@ def measure_length(
             cy + (s_ * uy + t * py_) / row_sp,
         )
 
+    # All the parallel profiles at once: one row per offset
+    xs, ys = to_px(offsets[:, None], s[None, :])
+    coords = [ys.ravel(), xs.ravel()]
+    profs = ndi.map_coordinates(
+        smooth, coords, order=1, mode="constant", cval=0.0
+    ).reshape(xs.shape)
+    mprofs = ndi.map_coordinates(
+        mask.astype(float), coords, order=0, mode="constant", cval=0.0
+    ).reshape(xs.shape)
+    # Smooth over ~1 pixel before differentiating: bilinear interpolation makes
+    # the profile piecewise linear, so its raw derivative is stepwise and noisy.
+    # A symmetric kernel does not move the position of a step edge.
+    grads = (
+        ndi.gaussian_filter1d(profs, sigma=pixel_mm / step, order=1, axis=1)
+        / step
+    )
+
     edges = {+1: [], -1: []}
-    for t in offsets:
-        xs, ys = to_px(t, s)
-        coords = np.vstack([ys, xs])
-        prof = ndi.map_coordinates(
-            smooth, coords, order=1, mode="constant", cval=0.0
-        )
-        mprof = ndi.map_coordinates(
-            mask.astype(float), coords, order=0, mode="constant", cval=0.0
-        )
+    for grad, mprof in zip(grads, mprofs):
         inside = np.nonzero(mprof > 0.5)[0]
         if inside.size == 0:
             edges[+1].append(np.nan)
             edges[-1].append(np.nan)
             continue
-        # Smooth over ~1 pixel before differentiating: bilinear interpolation makes
-        # the profile piecewise linear, so its raw derivative is stepwise and noisy.
-        # A symmetric kernel does not move the position of a step edge.
-        grad = (
-            ndi.gaussian_filter1d(prof, sigma=pixel_mm / step, order=1) / step
-        )
         edges[+1].append(_edge_position(s, grad, s[inside[0]], +1))
         edges[-1].append(_edge_position(s, grad, s[inside[-1]], -1))
 
@@ -582,47 +352,14 @@ def measure_phantom(img, spacing, directions):
 class ACRGeometricAccuracy(HazenTask):
     """Geometric accuracy measurement class for DICOM images of the ACR phantom."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, orientation=None, **kwargs):
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
                 type(self).__name__,
             )
         super().__init__(**kwargs)
-        self.ACR_obj = ACRObject(self.dcm_list)
-        self._orientation = None
-
-    @property
-    def pixel_spacing(self):
-        """(row, column) spacing in mm as stored in the DICOM, before any reorientation.
-
-        ACRObject.dx/dy hold PixelSpacing[0]/[1], i.e. row then column spacing,
-        and also cover enhanced (multi-frame) DICOM.
-        """
-        return (self.ACR_obj.dx, self.ACR_obj.dy)
-
-    @property
-    def orientation(self):
-        """(k, flip) correction putting the phantom in its standard view.
-
-        Determined once from slice 1, which has strongly asymmetric features,
-        and applied to every slice so that labels such as "Horizontal" and
-        "Diagonal SW" always refer to the phantom itself, even if the series
-        was exported rotated by a multiple of 90 degrees.
-        """
-        if self._orientation is None:
-            self._orientation = determine_phantom_orientation(
-                self.ACR_obj.slice_stack[0].pixel_array, self.pixel_spacing
-            )
-            msg = describe_orientation(*self._orientation)
-            if self._orientation == (0, False):
-                logger.info("Phantom is in the standard orientation")
-            else:
-                logger.warning(
-                    "Phantom orientation is non-standard; images %s for analysis",
-                    msg,
-                )
-        return self._orientation
+        self.ACR_obj = ACRObject(self.dcm_list, orientation)
 
     def run(self) -> Result:
         """Main function for performing geometric accuracy measurement using the first and fifth slices from the ACR phantom image set.
@@ -716,9 +453,8 @@ class ACRGeometricAccuracy(HazenTask):
             diagonal distances for slice 5.
         """
         img_dcm = self.ACR_obj.slice_stack[slice_index]
-        k, flip = self.orientation
-        img = reorient(img_dcm.pixel_array, k, flip)
-        spacing = reorient_spacing(self.pixel_spacing, k)
+        img = self.ACR_obj.standard_view(img_dcm)
+        spacing = self.ACR_obj.spacing
         names = SLICE_5_DIRECTIONS if slice_index == 4 else SLICE_1_DIRECTIONS
 
         centre, mask, lengths = measure_phantom(img, spacing, names)
@@ -769,8 +505,8 @@ class ACRGeometricAccuracy(HazenTask):
         axes[2].legend()
         axes[2].axis("off")
         title = f"Geometric Accuracy for Slice {slice_index + 1}"
-        if self.orientation != (0, False):
-            title += f"\n(image {describe_orientation(*self.orientation)} to standard view)"
+        if self.ACR_obj.orientation != (0, False):
+            title += f"\n(image {describe_orientation(*self.ACR_obj.orientation)} to standard view)"
         axes[2].set_title(title)
 
         img_path = os.path.realpath(

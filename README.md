@@ -157,7 +157,8 @@ Check the unreleased changes below to decide whether you need them.
   and SNR place their ROIs from an edge-based phantom centre, and uniformity excludes the notch edge.
   Results are not directly comparable with 2.0.0.
 - **ACR: missing slices.** If images are missing from a series, the remaining slices keep their positions
-  (so e.g. uniformity still uses slice 7) and a warning names the missing slices.
+  (so e.g. uniformity still uses slice 7) and a warning names the missing slices. A task that needs a
+  missing slice stops with an error naming it (low contrast object detectability used to crash).
 
 ###### Installing the development version
 

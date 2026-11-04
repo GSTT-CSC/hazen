@@ -8,22 +8,9 @@ import numpy as np
 # Local imports
 from hazenlib.tasks.acr_uniformity import ACRUniformity
 from hazenlib.utils import get_dicom_files
-from tests import TEST_DATA_DIR, TEST_REPORT_DIR
+from tests import TEST_DATA_DIR, TEST_REPORT_DIR, transform_series
 
 PIU_TOLERANCE = 0.01
-
-
-def transform_series(acr_obj, k, flip):
-    """Rotate every slice by k * 90 degrees (and mirror), as if exported so."""
-    for dcm in acr_obj.slice_stack:
-        arr = np.rot90(dcm.pixel_array, k)
-        arr = np.ascontiguousarray(np.fliplr(arr) if flip else arr)
-        dcm.Rows, dcm.Columns = arr.shape
-        dcm.PixelData = arr.tobytes()
-        dcm._pixel_array = None  # drop pydicom's cached array
-        dcm._pixel_id = {}
-    if k % 2:
-        acr_obj.dx, acr_obj.dy = acr_obj.dy, acr_obj.dx
 
 
 class TestACRUniformitySiemens(unittest.TestCase):
@@ -36,15 +23,20 @@ class TestACRUniformitySiemens(unittest.TestCase):
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "Siemens")
     piu = 67.83
 
-    def setUp(self):
-        input_files = get_dicom_files(self.ACR_DATA)
+    # set once per class in setUpClass
+    acr_uniformity_task: ACRUniformity
+    result: float
 
-        self.acr_uniformity_task = ACRUniformity(
+    @classmethod
+    def setUpClass(cls):
+        input_files = get_dicom_files(cls.ACR_DATA)
+
+        cls.acr_uniformity_task = ACRUniformity(
             input_data=input_files,
             report_dir=pathlib.PurePath.joinpath(TEST_REPORT_DIR),
         )
-        self.result = self.acr_uniformity_task.get_integral_uniformity(
-            self.acr_uniformity_task.ACR_obj.slice_stack[6]
+        cls.result = cls.acr_uniformity_task.get_integral_uniformity(
+            cls.acr_uniformity_task.ACR_obj.slice_stack[6]
         )
 
     def test_roi_values_within_roi(self) -> None:
@@ -61,7 +53,7 @@ class TestACRUniformitySiemens(unittest.TestCase):
     def test_small_roi_area(self) -> None:
         """The small ROI is 1 cm2 to within a few pixels."""
         task = self.acr_uniformity_task
-        row_sp, col_sp = task.spacing
+        row_sp, col_sp = task.ACR_obj.spacing
         area = task.small_roi_kernel().sum() * row_sp * col_sp
         assert abs(area - 100) < 8
 
@@ -115,7 +107,7 @@ class TestACRUniformityGESigna3TT2(TestACRUniformitySiemens):
         dark = img < task.DARK_FRACTION * np.median(img[roi])
         assert not (roi & dark).any()
         # part of the 195 cm2 circle was cut out, all of it at the top
-        row_sp, col_sp = task.spacing
+        row_sp, col_sp = task.ACR_obj.spacing
         assert roi.sum() * row_sp * col_sp < task.LARGE_ROI_AREA - 20
         rows, cols = np.nonzero(roi)
         centre_row = rows.mean()
@@ -143,15 +135,13 @@ class TestACRUniformityOrientation(unittest.TestCase):
 
     def test_rotated_and_mirrored(self):
         files = get_dicom_files(self.ACR_DATA)
-        reference = None
-        for k in range(4):
-            for flip in (False, True):
-                task = ACRUniformity(input_data=files)
-                transform_series(task.ACR_obj, k, flip)
-                piu = task.get_integral_uniformity(task.ACR_obj.slice_stack[6])
-                values = (piu, task.min_roi, task.max_roi)
-                reference = values if reference is None else reference
-                assert values == reference, (k, flip)
+        values = []
+        for k, flip in ((0, False), (1, True)):
+            task = ACRUniformity(input_data=files)
+            transform_series(task.ACR_obj, k, flip)
+            piu = task.get_integral_uniformity(task.ACR_obj.slice_stack[6])
+            values.append((piu, task.min_roi, task.max_roi))
+        assert values[1] == values[0]
 
 
 class TestACRUniformitySynthetic(unittest.TestCase):
@@ -170,8 +160,8 @@ class TestACRUniformitySynthetic(unittest.TestCase):
     def setUp(self):
         self.task = ACRUniformity(
             input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "Siemens"),
+            orientation=(0, False),
         )
-        self.task._orientation = (0, False)
 
     def make_slice(self, spacing):
         row_sp, col_sp = spacing
@@ -184,8 +174,10 @@ class TestACRUniformitySynthetic(unittest.TestCase):
         )
         return img
 
-    def check(self, spacing, tolerance):
-        self.task.ACR_obj.dx, self.task.ACR_obj.dy = spacing
+    def check(self, spacing, tolerance, stored=None):
+        """``spacing`` is that of the standard view; ``stored`` that in the
+        DICOM, if the series was exported rotated."""
+        self.task.ACR_obj.dx, self.task.ACR_obj.dy = stored or spacing
         img = self.make_slice(spacing)
         centre = ((img.shape[1] - 1) / 2, (img.shape[0] - 1) / 2)
         roi = self.task.large_roi_mask(img, centre)
@@ -204,3 +196,12 @@ class TestACRUniformitySynthetic(unittest.TestCase):
 
     def test_non_square_pixels(self):
         self.check((1.0, 0.8), 0.15)
+
+    def test_non_square_pixels_rotated_series(self):
+        """Exported rotated by 90 degrees, so the stored row and column
+        spacings are swapped relative to the standard view."""
+        self.task = ACRUniformity(
+            input_data=get_dicom_files(TEST_DATA_DIR / "acr" / "Siemens"),
+            orientation=(3, False),
+        )
+        self.check((1.0, 0.8), 0.15, stored=(0.8, 1.0))

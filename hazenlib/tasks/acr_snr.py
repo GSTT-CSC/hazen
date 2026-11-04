@@ -68,13 +68,10 @@ import hazenlib.utils
 from hazenlib.ACRObject import ACRObject
 from hazenlib.HazenTask import HazenTask
 from hazenlib.logger import logger
-from hazenlib.tasks.acr_geometric_accuracy import (
+from hazenlib.orientation import (
     describe_orientation,
-    determine_phantom_orientation,
-    measure_phantom,
-    reorient,
-    reorient_spacing,
 )
+from hazenlib.tasks.acr_geometric_accuracy import measure_phantom
 from hazenlib.types import Measurement, Result
 from hazenlib.utils import dcmread, get_dicom_files
 
@@ -91,17 +88,24 @@ class ACRSNR(HazenTask):
         self,
         subtract: Path | str | None = None,
         measured_slice_width: float | None = None,
+        orientation: tuple[int, bool] | None = None,
+        orientation2: tuple[int, bool] | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initialise the Hazen ACR SNR Object."""
+        """Initialise the Hazen ACR SNR Object.
+
+        ``orientation`` and ``orientation2`` are the (k, flip) corrections
+        for the series and for the ``subtract`` series, if already known;
+        otherwise each is determined from its own slice 1.
+        """
         if kwargs.pop("verbose", None) is not None:
             logger.warning(
                 "verbose is not a supported argument for %s",
                 type(self).__name__,
             )
         super().__init__(**kwargs)
-        self.ACR_obj = ACRObject(self.dcm_list)
-        self._orientation = None
+        self.ACR_obj = ACRObject(self.dcm_list, orientation)
+        self.orientation2 = orientation2
 
         # measured slice width is expected to be a floating point number
         self.measured_slice_width = measured_slice_width
@@ -116,50 +120,6 @@ class ACRSNR(HazenTask):
         else:
             if not self.subtract.is_dir():
                 self.subtract = None
-
-    # ------------------------------------------------------------------
-    # Orientation and spacing
-    # ------------------------------------------------------------------
-    @property
-    def pixel_spacing(self):
-        """(row, column) spacing in mm as stored in the DICOM, before any
-        reorientation. ACRObject.dx/dy hold PixelSpacing[0]/[1]."""
-        return (self.ACR_obj.dx, self.ACR_obj.dy)
-
-    @property
-    def orientation(self):
-        """(k, flip) correction putting the phantom in its standard view."""
-        if self._orientation is None:
-            self._orientation = self.find_orientation(self.ACR_obj)
-        return self._orientation
-
-    @staticmethod
-    def find_orientation(acr_obj):
-        """Orientation correction for a series, from its slice 1."""
-        orientation = determine_phantom_orientation(
-            acr_obj.slice_stack[0].pixel_array, (acr_obj.dx, acr_obj.dy)
-        )
-        if orientation == (0, False):
-            logger.info("Phantom is in the standard orientation")
-        else:
-            logger.warning(
-                "Phantom orientation is non-standard; images %s for analysis",
-                describe_orientation(*orientation),
-            )
-        return orientation
-
-    @property
-    def spacing(self):
-        """(row, column) spacing in mm of the reoriented image."""
-        return reorient_spacing(self.pixel_spacing, self.orientation[0])
-
-    def standard_view(self, dcm, orientation=None):
-        """Rescaled pixel values of a slice, in the standard view."""
-        _, rescaled, _ = self.ACR_obj.get_presentation_pixels(dcm)
-        k, flip = self.orientation if orientation is None else orientation
-        return np.ascontiguousarray(
-            reorient(np.asarray(rescaled, dtype=float), k, flip)
-        )
 
     # ------------------------------------------------------------------
     # Task
@@ -219,7 +179,9 @@ class ACRSNR(HazenTask):
         else:
             # Use the shared helper to get all DICOM files from the directory provided
             filepaths = get_dicom_files(Path(self.subtract))
-            acr_obj2 = ACRObject([dcmread(dicom) for dicom in filepaths])
+            acr_obj2 = ACRObject(
+                [dcmread(dicom) for dicom in filepaths], self.orientation2
+            )
             snr_dcm2 = acr_obj2.slice_stack[self.SLICE_INDEX]
 
             logger.debug(
@@ -234,7 +196,7 @@ class ACRSNR(HazenTask):
                     snr_dcm,
                     snr_dcm2,
                     self.measured_slice_width,
-                    orientation2=self.find_orientation(acr_obj2),
+                    acr_obj2=acr_obj2,
                 )
 
                 results.add_measurement(
@@ -315,7 +277,7 @@ class ACRSNR(HazenTask):
         """
         # Pixel spacing as read by ACRObject (also covers enhanced DICOM and
         # does not depend on the Manufacturer tag being present)
-        dx, dy = self.pixel_spacing
+        dx, dy = self.ACR_obj.pixel_spacing
         bandwidth = hazenlib.utils.get_bandwidth(dcm)
         TR = hazenlib.utils.get_TR(dcm)
         n_frequency, n_phase = self.encoding_steps(dcm)
@@ -394,7 +356,7 @@ class ACRSNR(HazenTask):
         Returns:
             list of np.ndarray: one mask per ROI.
         """
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         rows, cols = np.ogrid[: shape[0], : shape[1]]
         x_mm = (cols - centre[0]) * col_sp
         y_mm = (rows - centre[1]) * row_sp
@@ -424,7 +386,7 @@ class ACRSNR(HazenTask):
         if ax is not None:
             from matplotlib.patches import Rectangle
 
-            row_sp, col_sp = self.spacing
+            row_sp, col_sp = self.ACR_obj.spacing
             half = self.ROI_SIZE / 2
             for rx, ry in self.roi_centres():
                 ax.add_patch(
@@ -444,13 +406,37 @@ class ACRSNR(HazenTask):
     def phantom_centre(self, img):
         """Phantom centre (x, y) in pixels, from its edges."""
         centre, _, _ = measure_phantom(
-            img, self.spacing, ("Horizontal", "Vertical")
+            img, self.ACR_obj.spacing, ("Horizontal", "Vertical")
         )
         return centre
 
     # ------------------------------------------------------------------
     # SNR
     # ------------------------------------------------------------------
+    def smoothed_snr(self, img: np.ndarray) -> tuple:
+        """SNR of an image in the standard view by the smoothing method.
+
+        The noise image is the image minus its moving average; the SNR is
+        the mean over the ROIs of signal mean / noise SD.
+
+        Returns:
+            tuple: (snr, centre, noise image, signal means, noise SDs).
+        """
+        centre = self.phantom_centre(img)
+        noise_img = self.get_noise_image(img)
+
+        signal = [
+            np.mean(roi) for roi in self.get_roi_samples(None, img, *centre)
+        ]
+        noise = [
+            np.std(roi, ddof=1)
+            for roi in self.get_roi_samples(None, noise_img, *centre)
+        ]
+        # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and
+        # McCann 2013
+        snr = float(np.mean(np.divide(signal, noise)))
+        return snr, centre, noise_img, signal, noise
+
     def snr_by_smoothing(
         self, dcm: pydicom.Dataset, measured_slice_width=None
     ) -> tuple:
@@ -466,20 +452,8 @@ class ACRSNR(HazenTask):
         Returns:
             tuple of float: snr, normalised_snr.
         """
-        img = self.standard_view(dcm)
-        centre = self.phantom_centre(img)
-        noise_img = self.get_noise_image(img)
-
-        signal = [
-            np.mean(roi) for roi in self.get_roi_samples(None, img, *centre)
-        ]
-        noise = [
-            np.std(roi, ddof=1)
-            for roi in self.get_roi_samples(None, noise_img, *centre)
-        ]
-        # note no root_2 factor in noise for smoothed subtraction (one image) method, replicating Matlab approach and
-        # McCann 2013
-        snr = float(np.mean(np.divide(signal, noise)))
+        img = self.ACR_obj.standard_view(dcm)
+        snr, centre, noise_img, signal, noise = self.smoothed_snr(img)
 
         normalised_snr = snr * self.get_normalised_snr_factor(
             dcm, measured_slice_width
@@ -505,7 +479,7 @@ class ACRSNR(HazenTask):
         dcm1: pydicom.Dataset,
         dcm2: pydicom.Dataset,
         measured_slice_width=None,
-        orientation2=None,
+        acr_obj2=None,
     ) -> tuple:
         """Calculates signal to noise ratio using the two image subtraction method. Obtains a noise image by subtracting
         the two pixel arrays. Obtains ROIs within the phantom region of the pixel arrays. Calculates the mean within
@@ -516,14 +490,14 @@ class ACRSNR(HazenTask):
             dcm1 (pydicom.Dataset): DICOM image object to calculate signal.
             dcm2 (pydicom.Dataset): DICOM image object to calculate noise.
             measured_slice_width (float, optional): Provide the true slice width for the set of images. Defaults to None.
-            orientation2 (tuple, optional): orientation correction (k, flip)
-                for the second series; defaults to that of the first.
+            acr_obj2 (ACRObject, optional): the second series, whose own
+                orientation is used for dcm2; defaults to the first series.
 
         Returns:
             tuple of float: snr, normalised_snr.
         """
-        img1 = self.standard_view(dcm1)
-        img2 = self.standard_view(dcm2, orientation2)
+        img1 = self.ACR_obj.standard_view(dcm1)
+        img2 = (acr_obj2 or self.ACR_obj).standard_view(dcm2)
         if img1.shape != img2.shape:
             msg = (
                 "The two series have different matrix sizes"
@@ -572,7 +546,7 @@ class ACRSNR(HazenTask):
     ):
         import matplotlib.pyplot as plt
 
-        row_sp, col_sp = self.spacing
+        row_sp, col_sp = self.ACR_obj.spacing
         fig, axes = plt.subplots(1, 2, figsize=(16, 8.5), layout="constrained")
 
         axes[0].imshow(img, cmap="gray", aspect=row_sp / col_sp)
@@ -589,9 +563,9 @@ class ACRSNR(HazenTask):
                 bbox=dict(facecolor="white", alpha=0.7, lw=0),
             )
         title = "Slice 7 with SNR ROIs"
-        if self.orientation != (0, False):
+        if self.ACR_obj.orientation != (0, False):
             title += (
-                f"\n(image {describe_orientation(*self.orientation)}"
+                f"\n(image {describe_orientation(*self.ACR_obj.orientation)}"
                 " to standard view)"
             )
         axes[0].set_title(title)

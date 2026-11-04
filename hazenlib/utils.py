@@ -801,6 +801,20 @@ def expand_data_range(
     return (((data - lower) / (upper - lower)) * dtype_max).astype(target_type)
 
 
+def fit_circle(x, y):
+    """Algebraic least-squares circle through points (x, y).
+
+    Fits x^2 + y^2 + D x + E y + F = 0.
+
+    Returns:
+        tuple: (xc, yc, r) centre and radius, in the units of x and y.
+    """
+    A = np.column_stack([x, y, np.ones_like(x)])
+    D, E, F = np.linalg.lstsq(A, -(x**2 + y**2), rcond=None)[0]
+    xc, yc = -D / 2, -E / 2
+    return xc, yc, np.sqrt(max(xc**2 + yc**2 - F, 0.0))
+
+
 def detect_circle(img, dx):
     normalised_img = cv.normalize(
         src=img,

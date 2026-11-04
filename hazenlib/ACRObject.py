@@ -15,6 +15,13 @@ import scipy
 import skimage
 
 from hazenlib.logger import logger
+from hazenlib.orientation import (
+    describe_orientation,
+    determine_phantom_orientation,
+    is_slice_1,
+    reorient,
+    reorient_spacing,
+)
 from hazenlib.utils import (
     detect_centroid,
     detect_circle,
@@ -44,10 +51,14 @@ class SliceStack(list):
 
     def __getitem__(self, index):
         item = super().__getitem__(index)
-        if item is None:
-            number = range(len(self))[index] + 1
-            msg = f"ACR slice {number} is missing from this series"
-            raise ValueError(msg)
+        if isinstance(index, slice):
+            numbers, items = range(1, len(self) + 1)[index], item
+        else:
+            numbers, items = [range(1, len(self) + 1)[index]], [item]
+        for number, dcm in zip(numbers, items):
+            if dcm is None:
+                msg = f"ACR slice {number} is missing from this series"
+                raise ValueError(msg)
         return item
 
     def present(self):
@@ -64,14 +75,22 @@ class ACRObject:
     acquired following the ACR Large phantom guidelines
     """
 
-    def __init__(self, dcm_list: list[pydicom.FileDataset]) -> None:
+    def __init__(
+        self,
+        dcm_list: list[pydicom.FileDataset],
+        orientation: tuple[int, bool] | None = None,
+    ) -> None:
         """Initialise an ACR object instance.
 
         Args:
             dcm_list (list): list of pydicom.Dataset objects
                 - DICOM files loaded
+            orientation (tuple, optional): (k, flip) correction putting the
+                phantom in its standard view, if already known. Otherwise it
+                is determined from slice 1 when first needed.
 
         """
+        self._orientation = orientation
         # First, need to determine if input DICOMs are
         # enhanced or normal, single or multi-frame
         # may be 11 in 1 or 11 separate DCM objects
@@ -104,6 +123,47 @@ class ACRObject:
                 str(sl.InstanceNumber) if sl is not None else "missing"
                 for sl in list.__iter__(self.slice_stack)
             ],
+        )
+
+    @property
+    def pixel_spacing(self) -> tuple[float, float]:
+        """(row, column) spacing in mm as stored in the DICOM, before any
+        reorientation. dx/dy hold PixelSpacing[0]/[1]."""
+        return (self.dx, self.dy)
+
+    @property
+    def orientation(self) -> tuple[int, bool]:
+        """(k, flip) correction putting the phantom in its standard view.
+
+        Determined once from slice 1, which has strongly asymmetric features,
+        and applied to every slice, so that labels such as "top" or
+        "Horizontal" refer to the phantom itself even if the series was
+        exported rotated by a multiple of 90 degrees or mirrored.
+        """
+        if self._orientation is None:
+            self._orientation = determine_phantom_orientation(
+                self.slice_stack[0].pixel_array, self.pixel_spacing
+            )
+            if self._orientation == (0, False):
+                logger.info("Phantom is in the standard orientation")
+            else:
+                logger.warning(
+                    "Phantom orientation is non-standard; images %s for"
+                    " analysis",
+                    describe_orientation(*self._orientation),
+                )
+        return self._orientation
+
+    @property
+    def spacing(self) -> tuple[float, float]:
+        """(row, column) spacing in mm of the image in the standard view."""
+        return reorient_spacing(self.pixel_spacing, self.orientation[0])
+
+    def standard_view(self, dcm) -> np.ndarray:
+        """Rescaled pixel values of a slice, in the standard view."""
+        _, rescaled, _ = self.get_presentation_pixels(dcm)
+        return np.ascontiguousarray(
+            reorient(np.asarray(rescaled, dtype=float), *self.orientation)
         )
 
     def acquisition_type(self, *, strict: bool = True) -> str:
@@ -247,26 +307,8 @@ class ACRObject:
         (The small circle used to order the slices is also in slice 2, so it
         cannot tell whether slice 1 itself is missing.)
         """
-        # Imported here: the task module imports this one
-        from hazenlib.tasks import acr_geometric_accuracy as ga
-
         try:
-            spacing = (self.dx, self.dy)
-            smooth, mask = ga._orientation_mask(dcm.pixel_array)
-            dark, inner, _, _ = ga._dark_pixels(smooth, mask, spacing)
-            for k in range(4):
-                for flip in (False, True):
-                    bar, below, _ = ga._cue_scores(
-                        ga.reorient(dark, k, flip),
-                        ga.reorient(inner, k, flip),
-                        ga.reorient(mask, k, flip),
-                        ga.reorient_spacing(spacing, k),
-                    )
-                    if (
-                        bar >= ga.MIN_BAR_SCORE
-                        and below >= ga.MIN_INSERT_SCORE
-                    ):
-                        return True
+            return is_slice_1(dcm.pixel_array, (self.dx, self.dy))
         except Exception as e:  # noqa: BLE001
             logger.debug("Slice 1 check failed: %s", e)
         return False
@@ -317,8 +359,7 @@ class ACRObject:
         pitch = float(np.min(gaps)) if len(gaps) else 0.0
         slots = offset / pitch if pitch > 0 else offset
         if (
-            pitch <= 0
-            or np.any(gaps <= 0)
+            pitch <= 0  # repeated or out-of-order positions
             or np.any(
                 np.abs(slots - np.round(slots)) > SLICE_POSITION_TOLERANCE
             )
