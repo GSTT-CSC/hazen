@@ -76,6 +76,30 @@ def make_series(folder: Path, n_files: int = 2, **tags: object) -> Path:
     return folder
 
 
+def make_dicomdir(folder: Path, series: dict[str, list[str]]) -> Path:
+    """Write a DICOMDIR listing *series* (description -> image file IDs)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    records = []
+    for description, file_ids in series.items():
+        record = pydicom.Dataset()
+        record.DirectoryRecordType = "SERIES"
+        record.SeriesDescription = description
+        records.append(record)
+        for file_id in file_ids:
+            record = pydicom.Dataset()
+            record.DirectoryRecordType = "IMAGE"
+            record.ReferencedFileID = file_id.split("/")
+            records.append(record)
+    ds = pydicom.Dataset()
+    ds.file_meta = FileMetaDataset()
+    ds.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    ds.file_meta.MediaStorageSOPClassUID = "1.2.840.10008.1.3.10"
+    ds.file_meta.MediaStorageSOPInstanceUID = generate_uid()
+    ds.DirectoryRecordSequence = records
+    ds.save_as(folder / "DICOMDIR", enforce_file_format=True)
+    return folder
+
+
 VISUAL_CHECK_TOKENS = (
     "noise",
     "field_map",
@@ -363,6 +387,31 @@ class TestRemoteDiscover(unittest.TestCase):
         session = ACRRemoteProtocol.discover(root)
         self.assertEqual(list(session.roles), ["TRA"])
         self.assertEqual(session.listed, ())
+
+    def test_dicomdir_images_missing_from_disk_warn(self) -> None:
+        # The site's export had a DICOMDIR per plane but no SAG/TRA images
+        # File IDs of one component are read back as a str, not a list.
+        # Only existence is checked, so the listed images can be empty.
+        tra = make_series(self.root / "tra" / "DICOM" / "1")
+        make_dicomdir(tra.parents[1], {"ACR_TRA": ["DICOM/1/IM1", "IM2"]})
+        (tra / "IM1").write_bytes(b"")
+        (tra.parents[1] / "IM2").write_bytes(b"")
+        make_dicomdir(
+            self.root / "site" / "sag",
+            {
+                "ACR_SAG": ["DICOM/2/IM1", "IM2"],
+                "ACR_SAG_ND": ["DICOM/3/IM1"],
+            },
+        )
+        with self.assertLogs(LOGGER, "WARNING") as logs:
+            session = ACRRemoteProtocol.discover(self.root)
+        self.assertEqual(list(session.roles), ["TRA"])
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn(
+            "DICOMDIR in site/sag lists 3 images that are not on disk"
+            " ('ACR_SAG', 'ACR_SAG_ND')",
+            logs.output[0],
+        )
 
     def test_missing_session_raises(self) -> None:
         with self.assertRaises(NotADirectoryError):

@@ -184,11 +184,42 @@ def _vendor(dcm: pydicom.Dataset) -> str | None:
         return None
 
 
+def _check_dicomdir(file: Path, dcm: pydicom.Dataset, path: Path) -> None:
+    """Warn when a DICOMDIR lists images that are not on disk.
+
+    A site export can carry a plane's DICOMDIR without its images, which
+    otherwise only shows up as a missing role.
+    """
+    missing = 0
+    series: list[str] = []
+    description = ""
+    for record in dcm.get("DirectoryRecordSequence", ()):
+        if record.get("DirectoryRecordType") == "SERIES":
+            description = str(record.get("SeriesDescription", ""))
+        file_id = record.get("ReferencedFileID")
+        if file_id is None:
+            continue
+        parts = [file_id] if isinstance(file_id, str) else list(file_id)
+        if not file.parent.joinpath(*parts).is_file():
+            missing += 1
+            if description not in series:
+                series.append(description)
+    if missing:
+        logger.warning(
+            "DICOMDIR in %s lists %d images that are not on disk (%s) -"
+            " ask the site to export them again",
+            file.parent.relative_to(path).as_posix(),
+            missing,
+            ", ".join(repr(s) for s in series),
+        )
+
+
 def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
     """Group the DICOM files under *path* by SeriesInstanceUID.
 
     Report folders, non-DICOM files and DICOM files without a series
-    (e.g. DICOMDIR) are skipped.
+    (e.g. DICOMDIR) are skipped. A DICOMDIR listing images that are not
+    on disk is warned about.
 
     Returns:
         The first file's header and the files of each series.
@@ -207,6 +238,7 @@ def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
             continue
         uid = dcm.get("SeriesInstanceUID")
         if uid is None:
+            _check_dicomdir(file, dcm, path)
             continue
         series.setdefault(str(uid), (dcm, []))[1].append(str(file))
     return list(series.values())

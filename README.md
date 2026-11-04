@@ -179,7 +179,9 @@ Check the unreleased changes below to decide whether you need them.
   (`ACR_TRA`, `ACR Axial`, `acr-coronal`, ...), not folder names. SNR, uniformity, ghosting, slice thickness, slice
   position and geometric accuracy are measured on the distortion-corrected series of each plane (single-image SNR),
   with uncorrected, visual-check (RF noise, field map, NONSUP/FATSUP) and unknown series listed in the summary.
-  Results are written to `hazen_results.xlsx` as for `acr_gstt`, with one column per plane. See the
+  Results are written to `hazen_results.xlsx` as for `acr_gstt`, with one column per plane. If an export's
+  `DICOMDIR` lists images that are not in the folder, `acr_remote` warns and names the series, so an incomplete
+  export is not mistaken for a missing plane. See the
   [getting started guide](https://hazen.readthedocs.io/en/latest/gettingstarted.html) for the matching rules.
 - **`acr_gstt` and `acr_remote`: orientation, failures and values.** Each series' orientation is detected once and
   every test on it is corrected, so rotated or mirrored sagittal and coronal series need no rotating first. A test
