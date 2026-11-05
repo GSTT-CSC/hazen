@@ -37,6 +37,30 @@ hazenlib.HazenTask
    :undoc-members:
    :show-inheritance:
 
+hazenlib.protocols.acr_gstt
+----------------------------
+
+.. automodule:: hazenlib.protocols.acr_gstt
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+hazenlib.protocols.acr_remote
+------------------------------
+
+.. automodule:: hazenlib.protocols.acr_remote
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+hazenlib.protocols.engine
+--------------------------
+
+.. automodule:: hazenlib.protocols.engine
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 hazenlib.exceptions
 --------------------------
 

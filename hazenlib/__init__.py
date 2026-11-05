@@ -15,6 +15,16 @@ Note that the acr_all task requires 3 directories as arguments
 a single positional directory argument. That is:
 
 hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser
+
+The acr_gstt command runs the GSTT ACR QA protocol on a single session
+folder whose subfolders are named by role (Head_1 ... Body_Cor_4):
+
+hazen acr_gstt /path/to/session
+
+The acr_remote command runs the Remote ACR QA protocol on a site's
+export, matching series on their DICOM headers (ACR_TRA, ACR_SAG, ACR_COR):
+
+hazen acr_remote /path/to/export
 """
 
 import argparse
@@ -36,7 +46,21 @@ from hazenlib.orchestration import (
     BatchConfig,
     init_task,
 )
+from hazenlib.protocols.acr_gstt import ACRGSTTProtocol
+from hazenlib.protocols.acr_remote import ACRRemoteProtocol
+from hazenlib.protocols.engine import SessionProtocol
+from hazenlib.protocols.outputs import (
+    table_records,
+    write_records,
+    write_workbook,
+)
 from hazenlib.utils import get_dicom_files
+
+# Protocols run over one session folder, by CLI command
+PROTOCOLS: dict[str, type[SessionProtocol]] = {
+    "acr_gstt": ACRGSTTProtocol,
+    "acr_remote": ACRRemoteProtocol,
+}
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -277,7 +301,118 @@ def get_parser() -> argparse.ArgumentParser:
             nargs="+",
         )
 
+    ########################
+    # Session protocols    #
+    ########################
+
+    session_parser = argparse.ArgumentParser(add_help=False)
+    session_parser.add_argument(
+        "session",
+        help="Session folder (see the command description for the layout)",
+    )
+    session_parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Folder for report images (default: <session>/hazen_report)",
+    )
+    session_parser.add_argument(
+        "--report",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Whether to generate report images (enabled by default)",
+    )
+    session_parser.add_argument(
+        "--result",
+        type=str,
+        default=None,
+        help=(
+            'Result rows path ("-" for stdout,'
+            " default: <session>/hazen_results.<format>)"
+        ),
+    )
+    session_parser.add_argument(
+        "--format",
+        type=str,
+        default="xlsx",
+        choices=["xlsx", "json", "csv", "tsv"],
+        help=(
+            "Format of the results (default: xlsx, with report images on"
+            " one sheet per test)"
+        ),
+    )
+
+    gstt_parser = subparsers.add_parser(
+        "acr_gstt",
+        help="Run the GSTT ACR QA protocol on a session folder.",
+        description=(
+            "Run the GSTT ACR QA protocol on a session folder containing"
+            " one subfolder per acquisition, named by role: Head_1 ..."
+            " Head_5, Body_Tra_1 ... Body_Cor_4."
+        ),
+        parents=[common_parser, session_parser],
+    )
+    gstt_parser.add_argument(
+        "--vendor",
+        type=str,
+        default=None,
+        choices=list(ACRGSTTProtocol.supported_vendors),
+        help="Vendor rules to apply (default: read from the DICOM headers)",
+    )
+
+    subparsers.add_parser(
+        "acr_remote",
+        help="Run the Remote ACR QA protocol on an exported session folder.",
+        description=(
+            "Run the Remote ACR QA protocol on a site's export. Series are"
+            " matched on their DICOM headers (ACR + plane, e.g. ACR_TRA)"
+            " and only the distortion-corrected series are analysed."
+        ),
+        parents=[common_parser, session_parser],
+    )
+
     return parser
+
+
+def run_protocol(
+    cls: type[SessionProtocol],
+    args: argparse.Namespace,
+) -> int:
+    """Run a session protocol from parsed arguments.
+
+    Returns:
+        Exit code: 1 if any step failed, otherwise 0.
+
+    Raises:
+        ValueError: If xlsx is asked for on stdout, or the session
+            cannot be run.
+
+    """
+    if args.format == "xlsx" and args.result == "-":
+        msg = "xlsx results cannot go to stdout; use --format csv, tsv or json"
+        raise ValueError(msg)
+    protocol = cls(
+        args.session,
+        vendor=getattr(args, "vendor", None),
+        report=args.report,
+        report_dir=args.output,
+    )
+    outcomes = protocol.run()
+    table = protocol.table(outcomes)
+    result = args.result or (
+        protocol.session.path / f"hazen_results.{args.format}"
+    )
+    if args.format == "xlsx":
+        write_workbook(table, protocol.images(outcomes), result)
+    else:
+        write_records(table_records(table), args.format, result)
+
+    print(protocol.summary(outcomes))  # noqa: T201
+    if result != "-":
+        print(f"Results: {result}")  # noqa: T201
+    if args.report:
+        print(f"Images:  {protocol.report_dir}")  # noqa: T201
+    return int(any(o.status == "failed" for o in outcomes))
 
 
 def main() -> None:
@@ -376,6 +511,15 @@ def main() -> None:
             "Batch job successfully run!"
             f" Current batch file copied to {conf_bak} as a backup.",
         )
+        return
+
+    if args.command in PROTOCOLS:
+        try:
+            exit_code = run_protocol(PROTOCOLS[args.command], args)
+        except (NotADirectoryError, ValueError) as err:
+            parser.error(str(err))
+        if exit_code:
+            raise SystemExit(exit_code)
         return
 
     #############################
