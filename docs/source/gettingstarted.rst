@@ -532,6 +532,11 @@ its headers:
 - On Siemens, only the distortion-corrected series (``DIS2D`` in
   ``ImageType``) of each plane is analysed. ``ImageType`` wins over an ``_ND``
   suffix in the name; a mismatch is warned about.
+  Enhanced (multi-frame) exports are read too: their ``ImageType`` has
+  neither marker, so the per-frame Siemens private copy of it is used.
+- Objects that are not images (presentation states, reports) and second
+  copies of an image (the same series exported into two folders) are
+  skipped.
 
 Everything else is listed in the summary but not analysed:
 
@@ -548,7 +553,8 @@ Everything else is listed in the summary but not analysed:
      - RF noise, B0 field map and breast NONSUP / FATSUP series, kept for a
        physicist to view (description contains ``noise``, ``field_map``,
        ``fieldmap``, ``b0_map``, ``b0map``, ``nonsup``, ``nosup``,
-       ``non_sup``, ``fatsup``, ``fat_sup`` or ``fat sup``)
+       ``non_sup``, ``fatsup``, ``fat_sup``, ``fat sup`` or ``suppress``, or
+       ``sup`` on its own as in ``SUP`` and ``NO_SUP``)
    * - unknown
      - Anything else, with a warning naming the series
    * - ignored

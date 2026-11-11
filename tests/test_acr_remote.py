@@ -53,6 +53,7 @@ def make_series(folder: Path, n_files: int = 2, **tags: object) -> Path:
         "SeriesNumber": 1,
         "ProtocolName": "",
         "ImageType": list(DIS2D),
+        "Rows": 256,
         "Manufacturer": "SIEMENS",
         "DeviceSerialNumber": "1234",
         "StationName": "AWP1",
@@ -69,11 +70,42 @@ def make_series(folder: Path, n_files: int = 2, **tags: object) -> Path:
         for keyword, value in tags.items():
             if value is not None:
                 setattr(ds, keyword, value)
+            elif keyword in ds:
+                delattr(ds, keyword)
+        ds.file_meta.MediaStorageSOPInstanceUID = ds.get(
+            "SOPInstanceUID", generate_uid()
+        )
         ds.save_as(
             folder / f"{tags['SeriesNumber']}_{i}.dcm",
             enforce_file_format=True,
         )
     return folder
+
+
+SIEMENS_FRAME_CREATOR = "SIEMENS MR SDI 02"
+
+
+def enhanced(image_type: tuple[str, ...], *, block: int = 0x10) -> dict:
+    """Tags of a Siemens enhanced (multi-frame) series for make_series.
+
+    The classic ImageType is only in a private per-frame element, whose
+    private block number differs between series of one export.
+    """
+    frame, item = pydicom.Dataset(), pydicom.Dataset()
+    for ds in (frame, item):
+        if block != 0x10:
+            ds.private_block(0x0021, "OTHER CREATOR", create=True)
+        ds.private_block(0x0021, SIEMENS_FRAME_CREATOR, create=True)
+    item.private_block(0x0021, SIEMENS_FRAME_CREATOR).add_new(
+        0x75, "CS", list(image_type)
+    )
+    frame.private_block(0x0021, SIEMENS_FRAME_CREATOR).add_new(
+        0xFE, "SQ", [item]
+    )
+    return {
+        "ImageType": ["ORIGINAL", "PRIMARY", "M", "NONE"],
+        "PerFrameFunctionalGroupsSequence": [frame],
+    }
 
 
 def make_dicomdir(folder: Path, series: dict[str, list[str]]) -> Path:
@@ -112,6 +144,7 @@ VISUAL_CHECK_TOKENS = (
     "fatsup",
     "fat_sup",
     "fat sup",
+    "suppress",
 )
 
 
@@ -137,6 +170,10 @@ class TestClassifySeries(unittest.TestCase):
             ("ACR_COR_ND", "", DIS2D, SIEMENS, "COR", None, ("_ND",)),
             ("ACR_COR", "", ND, SIEMENS, None, UNCORRECTED, ("_ND",)),
             ("ACR_TRA", "", NO_MARKER, SIEMENS, None, UNKNOWN, ("DIS2D",)),
+            ("SUP", "SUP", DIS2D, SIEMENS, None, "visual_check", ()),
+            ("NO_SUP", "", DIS2D, SIEMENS, None, "visual_check", ()),
+            ("ACR_SAG_supine", "", DIS2D, SIEMENS, "SAG", None, ()),
+            ("ACR_COR_presup", "", DIS2D, SIEMENS, "COR", None, ()),
             ("t1_localiser", "", DIS2D, SIEMENS, None, UNKNOWN, ("ACR",)),
             ("ACR_corrected", "", DIS2D, SIEMENS, None, UNKNOWN, ("ACR",)),
             ("XACR_TRA", "", DIS2D, SIEMENS, None, UNKNOWN, ("ACR",)),
@@ -252,6 +289,77 @@ class TestRemoteDiscover(unittest.TestCase):
         self.assertEqual(len(logs.output), 1)  # only the unknown series
         self.assertIn("series 9 'loc' in c/d", logs.output[0])
 
+    def test_siemens_enhanced_series(self) -> None:
+        # Enhanced objects carry DIS2D / ND per frame, not in ImageType
+        make_series(self.root / "1", n_files=1, **enhanced(DIS2D))
+        make_series(
+            self.root / "2",
+            n_files=1,
+            SeriesDescription="ACR_SAG_90",
+            **enhanced(DIS2D, block=0x11),
+        )
+        make_series(
+            self.root / "3",
+            n_files=1,
+            SeriesDescription="ACR_TRA_ND",
+            **enhanced(ND),
+        )
+        with self.assertNoLogs(LOGGER, "WARNING"):
+            session = ACRRemoteProtocol.discover(self.root)
+        self.assertEqual(
+            {name: rs.path.name for name, rs in session.roles.items()},
+            {"TRA": "1", "SAG": "2"},
+        )
+        self.assertEqual([ls.kind for ls in session.listed], ["uncorrected"])
+
+    def test_enhanced_series_without_marker_is_unknown(self) -> None:
+        tags = enhanced(DIS2D)
+        del tags["PerFrameFunctionalGroupsSequence"][0][0x0021, 0x10FE]
+        make_series(self.root / "1", n_files=1, **tags)
+        with self.assertLogs(LOGGER, "WARNING") as logs:
+            session = ACRRemoteProtocol.discover(self.root)
+        self.assertEqual(session.roles, {})
+        self.assertIn("neither DIS2D nor ND", logs.output[0])
+
+    def test_skips_non_image_objects_and_duplicate_images(self) -> None:
+        # An export can hold a presentation state named like the series
+        # it annotates, a report with no scanner serial number, and a
+        # second copy of a series in another folder
+        uid = generate_uid()
+        make_series(self.root / "a", n_files=3, SeriesInstanceUID=uid)
+        shutil.copytree(self.root / "a", self.root / "b")
+        make_series(
+            self.root / "c",
+            SeriesNumber=1015,
+            SeriesDescription="ACR_TRA_90",
+            Modality="PR",
+            ImageType=None,
+            Rows=None,
+        )
+        make_series(
+            self.root / "c",
+            SeriesNumber=99,
+            SeriesDescription="PhoenixZIPReport",
+            Modality="SR",
+            DeviceSerialNumber=None,
+            StationName="OTHER",
+            Rows=None,
+        )
+        # Images without a SOPInstanceUID are not copies of each other
+        make_series(
+            self.root / "d",
+            SeriesDescription="ACR_SAG",
+            SOPInstanceUID=None,
+        )
+        with self.assertNoLogs(LOGGER, "WARNING"):
+            session = ACRRemoteProtocol.discover(self.root)
+        self.assertEqual(len(session.roles["SAG"].files), 2)
+        tra = session.roles["TRA"]
+        self.assertEqual(
+            [Path(f).parent.name for f in tra.files], ["a", "a", "a"]
+        )
+        self.assertEqual(session.listed, ())
+
     def test_uncorrected_only_plane_warns(self) -> None:
         # The plane may come from ProtocolName only
         for description, protocol in (
@@ -328,6 +436,10 @@ class TestRemoteDiscover(unittest.TestCase):
             ((None, None), ("AWP1", "AWP2"), True),
             (("1", "1"), ("AWP1", "AWP2"), False),
             (("1", None), ("AWP1", None), False),
+            # A series without a serial is only a second scanner if its
+            # station is not that of a series with one
+            (("1", None), ("AWP1", "AWP1"), False),
+            (("1", None), ("AWP1", "AWP2"), True),
         ]
         for serials, stations, raises in cases:
             with self.subTest(serials=serials, stations=stations):

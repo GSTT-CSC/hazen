@@ -68,13 +68,21 @@ VISUAL_CHECK = (
     "fatsup",
     "fat_sup",
     "fat sup",
+    "suppress",
 )
+# SUP on its own (SUP, NO_SUP), but not inside a word such as supine
+_SUP = re.compile(r"(?<![a-z])sup(?![a-z])", re.IGNORECASE)
 
 _ACR_PLANE = re.compile(
     rf"(?<![a-z0-9])acr[\W_]*(?P<plane>{PLANE_PATTERN})(?![a-z])",
     re.IGNORECASE,
 )
 _ND_SUFFIX = re.compile(r"[\W_]nd(?![a-z0-9])", re.IGNORECASE)
+
+# Private creator of the per-frame elements in Siemens enhanced objects;
+# its sequence xxFE holds the classic ImageType in element xx75
+_SIEMENS_FRAME_CREATOR = "SIEMENS MR SDI 02"
+_SIEMENS_GROUP = 0x0021
 
 
 def _plane(text: str) -> str | None:
@@ -94,14 +102,15 @@ def classify_series(
 
     In order: a visual-check marker in the description, then the plane
     from the description (ProtocolName as fallback), then for Siemens
-    ``ImageType`` DIS2D (the plane's role) or ND (uncorrected). Other
+    ``ImageType`` DIS2D (the plane's role) or ND (uncorrected); see
+    :func:`_image_type` for enhanced (multi-frame) series. Other
     vendors have no such marker, so every ACR series of a plane is a
     candidate for its role.
 
     Args:
         series_description: DICOM SeriesDescription.
         protocol_name: DICOM ProtocolName.
-        image_type: DICOM ImageType values.
+        image_type: DICOM ImageType values, as read by ``_image_type``.
         vendor: Manufacturer as returned by ``get_manufacturer``.
         label: Names the series in warnings.
 
@@ -111,7 +120,9 @@ def classify_series(
     """
     label = label or repr(series_description)
     lowered = series_description.lower()
-    if any(token in lowered for token in VISUAL_CHECK):
+    if any(token in lowered for token in VISUAL_CHECK) or _SUP.search(
+        series_description
+    ):
         return None, "visual_check"
 
     from_description = _plane(series_description)
@@ -177,6 +188,29 @@ def classify_series(
     return None, "unknown"
 
 
+def _image_type(dcm: pydicom.Dataset) -> tuple[str, ...]:
+    """ImageType values, including the per-frame ones of enhanced objects.
+
+    A Siemens enhanced (multi-frame) object has no DIS2D or ND in its
+    ``ImageType``: the classic values are in a private element of each
+    frame, so the first frame's are added.
+    """
+    values = [str(v) for v in dcm.get("ImageType", ())]
+    for frame in dcm.get("PerFrameFunctionalGroupsSequence", ())[:1]:
+        try:
+            items = frame.private_block(
+                _SIEMENS_GROUP, _SIEMENS_FRAME_CREATOR
+            )[0xFE].value
+            for item in items:
+                classic = item.private_block(
+                    _SIEMENS_GROUP, _SIEMENS_FRAME_CREATOR
+                )[0x75].value
+                values.extend(str(v) for v in classic)
+        except KeyError:  # no such private block or element
+            continue
+    return tuple(values)
+
+
 def _vendor(dcm: pydicom.Dataset) -> str | None:
     try:
         return get_manufacturer(dcm)
@@ -217,15 +251,17 @@ def _check_dicomdir(file: Path, dcm: pydicom.Dataset, path: Path) -> None:
 def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
     """Group the DICOM files under *path* by SeriesInstanceUID.
 
-    Report folders, non-DICOM files and DICOM files without a series
-    (e.g. DICOMDIR) are skipped. A DICOMDIR listing images that are not
-    on disk is warned about.
+    Report folders, non-DICOM files, DICOM files without a series (e.g.
+    DICOMDIR), objects that are not images (presentation states,
+    reports) and second copies of an image are skipped. A DICOMDIR listing images that are not on disk is warned
+    about.
 
     Returns:
         The first file's header and the files of each series.
 
     """
     series: dict[str, tuple[pydicom.Dataset, list[str]]] = {}
+    seen: set[str] = set()
     for file in sorted(path.rglob("*")):
         if (
             not file.is_file()
@@ -240,6 +276,13 @@ def _read_series(path: Path) -> list[tuple[pydicom.Dataset, list[str]]]:
         if uid is None:
             _check_dicomdir(file, dcm, path)
             continue
+        if "Rows" not in dcm:  # not an image: presentation state, report
+            continue
+        instance = dcm.get("SOPInstanceUID")
+        if instance is not None:
+            if str(instance) in seen:
+                continue
+            seen.add(str(instance))
         series.setdefault(str(uid), (dcm, []))[1].append(str(file))
     return list(series.values())
 
@@ -266,10 +309,18 @@ def _check_one_scanner(headers: list[pydicom.Dataset]) -> None:
         ValueError: If the series come from more than one scanner.
 
     """
-    scanners = {
-        str(dcm.get("DeviceSerialNumber") or dcm.get("StationName") or "")
-        for dcm in headers
-    } - {""}
+    serials: set[str] = set()
+    stations: set[str] = set()  # of the series with a serial number
+    unidentified: set[str] = set()  # stations of the series without one
+    for dcm in headers:
+        serial = str(dcm.get("DeviceSerialNumber") or "")
+        station = str(dcm.get("StationName") or "")
+        if serial:
+            serials.add(serial)
+            stations.add(station)
+        else:
+            unidentified.add(station)
+    scanners = serials | (unidentified - stations - {""})
     if len(scanners) > 1:
         msg = (
             "The session holds series from more than one scanner"
@@ -343,7 +394,7 @@ class ACRRemoteProtocol(SessionProtocol):
             role, kind = classify_series(
                 description,
                 protocol_name,
-                tuple(str(v) for v in dcm.get("ImageType", ())),
+                _image_type(dcm),
                 vendor,
                 label=label,
             )
