@@ -188,6 +188,15 @@ Check the unreleased changes below to decide whether you need them.
   that runs but gives no result (the reason is in the log) is shown as failed, not left blank, and `hazen` exits
   with a non-zero status if any test failed. Because of the ACR method changes above, results differ from reports
   made with hazen 2.0.0 (SNR most of all), so start new trend baselines at the upgrade.
+- **Report images open automatically after single tasks.** When a single task (e.g. `hazen acr_uniformity`) finishes,
+  its report images open in your default image viewer so you can check them visually. Add `--no-show` to stop this.
+  `acr_all` does not open images unless you pass `--show`, and `hazen batch` never opens them. Nothing is opened when
+  the `CI` environment variable is set or on Linux without a display.
+- **`acr_gstt` and `acr_remote`: one montage for a visual check.** Each run writes `hazen_report/montage.png` and opens
+  it when it finishes (`--no-show` to stop this); the individual report images are not opened. The montage has one row
+  per coil and plane and one tile per report image, showing only the phantom with its ROIs and lines, captioned with
+  the result (e.g. `HEAD_TRA: Slice Thickness = 4.98mm`). Skipped or failed tests are grey tiles. The ACR tasks also
+  save each tile next to its report image as `*_overlay.png`.
 
 ###### Installing the development version
 

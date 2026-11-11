@@ -16,11 +16,13 @@ import io
 import json
 import math
 import sys
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 # Module imports
+from matplotlib.figure import Figure
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -38,6 +40,12 @@ _IMAGE_GAP = 20
 _ROW_HEIGHT = 20  # px, Excel's default row height
 # Images are stored at twice their displayed width to stay sharp on zoom
 _IMAGE_STORED_WIDTH = 2 * _IMAGE_WIDTH
+
+# Montage cells: a caption strip above a square tile (px)
+_TILE_SIZE = 400
+_CAPTION_HEIGHT = 50
+_CAPTION_CHARS = 54  # that fit across a tile
+_MONTAGE_DPI = 100
 
 
 @dataclass(frozen=True)
@@ -149,6 +157,63 @@ def _downscaled(path: str) -> Image:
     flat.save(buffer, format="jpeg", quality=85)
     # openpyxl reads the bytes back from the image's file at save time
     return Image(PILImage.open(buffer))
+
+
+@dataclass(frozen=True)
+class Tile:
+    """One cell of a montage.
+
+    Attributes:
+        row: Montage row, e.g. ``HEAD_TRA``.
+        column: Montage column, shared by the same figure on every row.
+        caption: Text written above the tile.
+        path: Image file, or None for a failed or skipped step.
+
+    """
+
+    row: str
+    column: str
+    caption: str
+    path: str | None
+
+
+def make_montage(tiles: Sequence[Tile], path: str | Path) -> None:
+    """Save *tiles* as one image for a visual check of a whole session.
+
+    Rows and columns are in order of first appearance. A tile with no
+    image is drawn grey, and a cell with no tile is left empty.
+    """
+    rows = list(dict.fromkeys(t.row for t in tiles))
+    columns = list(dict.fromkeys(t.column for t in tiles))
+    cell_height = _TILE_SIZE + _CAPTION_HEIGHT
+    width, height = len(columns) * _TILE_SIZE, len(rows) * cell_height
+    fig = Figure(
+        figsize=(width / _MONTAGE_DPI, height / _MONTAGE_DPI),
+        dpi=_MONTAGE_DPI,
+    )
+    for tile in tiles:
+        left = columns.index(tile.column) * _TILE_SIZE / width
+        bottom = 1 - (rows.index(tile.row) + 1) * cell_height / height
+        ax = fig.add_axes(
+            (left, bottom, _TILE_SIZE / width, _TILE_SIZE / height),
+        )
+        ax.set(xticks=[], yticks=[], frame_on=False)
+        if tile.path is None:
+            ax.set(facecolor="lightgrey", frame_on=True)
+            ax.spines[:].set_visible(False)
+        else:
+            with PILImage.open(tile.path) as image:
+                ax.imshow(image.convert("RGB"), interpolation="lanczos")
+        fig.text(
+            left + _TILE_SIZE / width / 2,
+            bottom + (_TILE_SIZE + _CAPTION_HEIGHT / 2) / height,
+            textwrap.fill(tile.caption, _CAPTION_CHARS),
+            ha="center",
+            va="center",
+            fontsize=9,
+        )
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(path)
 
 
 def table_records(table: Table) -> list[Record]:

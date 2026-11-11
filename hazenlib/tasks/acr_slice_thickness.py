@@ -334,6 +334,7 @@ class ACRSliceThickness(HazenTask):
         # only return reports if requested
         if self.report:
             results.add_report_image(self.report_files)
+            results.overlays = self.overlays
 
         return results
 
@@ -859,6 +860,7 @@ class ACRSliceThickness(HazenTask):
             / f"{self.img_desc(dcm)}_slice_thickness.png",
         )
         fig.savefig(img_path, dpi=100)
+        self.save_overlay(fig, ax_img, img_path)
         plt.close(fig)
         self.report_files.append(img_path)
         return img_path

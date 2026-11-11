@@ -138,6 +138,7 @@ class ACRUniformity(HazenTask):
         # only return reports if requested
         if self.report:
             results.add_report_image(self.report_files)
+            results.overlays = self.overlays
 
         return results
 
@@ -389,6 +390,7 @@ class ACRUniformity(HazenTask):
             os.path.join(self.report_path, f"{self.img_desc(dcm)}.png")
         )
         fig.savefig(img_path, dpi=80)
+        self.save_overlay(fig, axes[0], img_path)
         plt.close(fig)
         self.report_files.append(img_path)
         return img_path

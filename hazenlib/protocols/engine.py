@@ -38,7 +38,7 @@ from hazenlib._version import __version__
 from hazenlib.ACRObject import ACRObject
 from hazenlib.orchestration import init_task
 from hazenlib.orientation import describe_orientation
-from hazenlib.protocols.outputs import ImageGroup
+from hazenlib.protocols.outputs import ImageGroup, Tile
 from hazenlib.utils import get_slice_thickness, wait_on_parallel_results
 
 logger = logging.getLogger(__name__)
@@ -248,6 +248,55 @@ def _measurement_label(m: Measurement) -> str:
     if found and not label.lower().startswith("slice"):
         label += f" ({found[0].lower()})"
     return label
+
+
+# Slices of the figures of the tasks that save more than one, and so
+# of their montage tiles
+_FIGURE_SLICES = {
+    "acr_slice_position": (1, 11),
+    "acr_geometric_accuracy": (1, 5),
+}
+# Short names for the values of a tile with several
+_SHORT_LABELS = {
+    "Horizontal": "H",
+    "Vertical": "V",
+    "Diagonal SW": "SW",
+    "Diagonal SE": "SE",
+}
+
+
+def _tile_value(result: Result, slice_number: int | None) -> str:
+    """Final measurement(s) of one figure, e.g. ``4.98mm``.
+
+    Several values are named, e.g. ``H 190.10, V 189.80 mm``.
+    """
+    finals = [m for m in result.measurements if m.final]
+    if slice_number is not None:
+        of_slice = re.compile(rf"slice {slice_number}\b", re.IGNORECASE)
+        finals = [m for m in finals if of_slice.search(_measurement_label(m))]
+    # SNR by subtraction is the protocol's value when both methods ran
+    finals = [m for m in finals if m.subtype == "subtraction"] or finals
+    if not finals:
+        return "failed"
+
+    def number(m: Measurement) -> str:
+        # + 0.0 so a small negative value is never "-0.00"
+        return f"{round(float(m.value), 2) + 0.0:.2f}"
+
+    if len(finals) == 1:
+        return f"{number(finals[0])}{finals[0].unit or ''}"
+    values = []
+    for m in finals:
+        label = re.sub(
+            r"\(?slice \d+\)?| distance",
+            "",
+            _measurement_label(m),
+            flags=re.IGNORECASE,
+        ).strip()
+        values.append(f"{_SHORT_LABELS.get(label, label)} {number(m)}")
+    units = {m.unit for m in finals if m.unit}
+    unit = f" {units.pop()}" if len(units) == 1 else ""
+    return ", ".join(values) + unit
 
 
 def detect_orientation(files: list[str]) -> tuple[int, bool] | None:
@@ -620,6 +669,29 @@ class SessionProtocol:
                 ImageGroup(title, tuple(o.result.report_images)),
             )
         return groups
+
+    def tiles(self, outcomes: list[StepOutcome]) -> list[Tile]:
+        """Montage tiles: one per figure of every step, by table column.
+
+        Each is captioned e.g. ``HEAD_TRA: Slice Thickness = 4.98mm``.
+        A skipped or failed step keeps its tiles, captioned with its
+        status and with no image unless the task still saved one.
+        """
+        roles = {r.name: r for r in self.roles}
+        tiles = []
+        for o in outcomes:
+            row = self.column(roles[o.step.role]).upper().replace(" ", "_")
+            test = o.step.test.replace("_", " ").title().replace("Snr", "SNR")
+            for n in _FIGURE_SLICES.get(o.step.task, (None,)):
+                title = test if n is None else f"{test} (slice {n})"
+                value: str = o.status
+                if o.status == "ok" and o.result is not None:
+                    value = _tile_value(o.result, n)
+                path = o.result.overlays.get(n) if o.result else None
+                tiles.append(
+                    Tile(row, title, f"{row}: {title} = {value}", path),
+                )
+        return tiles
 
     def session_info(self) -> dict[str, Any]:
         """Scanner and run details, read from the first role."""

@@ -9,6 +9,8 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     import pydicom
+    from matplotlib.axes import Axes
+    from matplotlib.figure import Figure
 
 # Python imports
 from pathlib import Path
@@ -70,6 +72,7 @@ class HazenTask:
 
         self.report_path.mkdir(parents=True, exist_ok=True)
         self.report_files: Sequence[str] = []
+        self.overlays: dict[int | None, str] = {}
 
     def init_result_dict(self, desc: str = "") -> Result:
         """Initialise measurement results holder and input description.
@@ -83,6 +86,38 @@ class HazenTask:
             desc=desc,
             files=[p.as_posix() for p in self._data_paths],
         )
+
+    def save_overlay(
+        self,
+        fig: Figure,
+        ax: Axes,
+        img_path: str | Path,
+        slice_number: int | None = None,
+    ) -> None:
+        """Save one panel of a saved report figure, without title or legend.
+
+        The panel showing the phantom with its annotations is what a
+        protocol montage shows for a visual check. Call this after the
+        figure itself has been saved, as it removes the panel's title and
+        legend.
+
+        Args:
+            fig: The report figure.
+            ax: The panel to save.
+            img_path: Where the figure was saved; the overlay goes next
+                to it with an ``_overlay`` suffix.
+            slice_number: Slice shown, for tasks with several figures.
+
+        """
+        ax.set_title("")
+        if ax.get_legend() is not None:
+            ax.get_legend().remove()
+        fig.canvas.draw()
+        bbox = ax.get_tightbbox().transformed(fig.dpi_scale_trans.inverted())
+        path = Path(img_path)
+        path = path.with_name(f"{path.stem}_overlay.png")
+        fig.savefig(path, bbox_inches=bbox, dpi=100)
+        self.overlays[slice_number] = str(path)
 
     def img_desc(
         self,

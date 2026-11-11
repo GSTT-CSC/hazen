@@ -1,5 +1,6 @@
 import unittest
 import os
+from unittest import mock
 
 import numpy as np
 
@@ -443,6 +444,49 @@ class TestSplitDicom(unittest.TestCase):
             self.assertEqual(frame_dcm.InstanceNumber, i)
             # Each should be 2D (original is 3D)
             self.assertEqual(len(frame_dcm.pixel_array.shape), 2)
+
+
+class TestOpenReportImages(unittest.TestCase):
+    paths = ["a.png", "b.png"]
+
+    def open_on(
+        self, platform, env, paths=paths, target="subprocess.Popen", **kw
+    ):
+        """Run open_report_images on a mocked platform; return the opener."""
+        module, name = target.split(".")
+        with (
+            mock.patch.dict(os.environ, env, clear=True),
+            mock.patch.object(hazen_tools.sys, "platform", platform),
+            mock.patch.object(
+                getattr(hazen_tools, module), name, create=True, **kw
+            ) as opener,
+        ):
+            hazen_tools.open_report_images(paths)
+        return opener.call_args_list
+
+    def test_opens_per_platform(self):
+        xdg_open = [mock.call(["xdg-open", p]) for p in self.paths]
+        self.assertEqual(
+            self.open_on("darwin", {}), [mock.call(["open", *self.paths])]
+        )
+        self.assertEqual(self.open_on("linux", {"DISPLAY": ":0"}), xdg_open)
+        self.assertEqual(
+            self.open_on("linux", {"WAYLAND_DISPLAY": "w"}), xdg_open
+        )
+        self.assertEqual(
+            self.open_on("win32", {}, target="os.startfile"),
+            [mock.call(p) for p in self.paths],
+        )
+
+    def test_does_not_open(self):
+        self.assertEqual(self.open_on("darwin", {"CI": "true"}), [])
+        self.assertEqual(self.open_on("linux", {}), [])
+        self.assertEqual(self.open_on("darwin", {}, paths=[]), [])
+
+    def test_viewer_failure_only_warns(self):
+        with self.assertLogs(level="WARNING") as logs:
+            self.open_on("darwin", {}, side_effect=OSError)
+        self.assertIn("Could not open report images", logs.output[0])
 
 
 if __name__ == "__main__":

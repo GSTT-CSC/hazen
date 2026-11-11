@@ -230,6 +230,7 @@ class ACRSNR(HazenTask):
         # only return reports if requested
         if self.report:
             results.add_report_image(self.report_files)
+            results.overlays = self.overlays
 
         return results
 
@@ -591,6 +592,9 @@ class ACRSNR(HazenTask):
             os.path.join(self.report_path, f"{self.img_desc(dcm)}{suffix}.png")
         )
         fig.savefig(img_path, dpi=80)
+        # The ROIs are the same for both methods, so one overlay
+        overlay_path = os.path.join(self.report_path, self.img_desc(dcm))
+        self.save_overlay(fig, axes[0], overlay_path + ".png")
         plt.close(fig)
         self.report_files.append(img_path)
         return img_path

@@ -127,41 +127,41 @@ format-check: ## Check code formatting without making changes
 
 .PHONY: acr-snr
 acr-snr:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA)
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --no-show
 
 .PHONY: acr-uniformity
 acr-uniformity:
-	$(VENV_CMD) hazen acr_uniformity $(ACR_DATA)
+	$(VENV_CMD) hazen acr_uniformity $(ACR_DATA) --no-show
 
 .PHONY: acr-ghosting
 acr-ghosting:
-	$(VENV_CMD) hazen acr_ghosting $(ACR_DATA)
+	$(VENV_CMD) hazen acr_ghosting $(ACR_DATA) --no-show
 
 .PHONY: acr-slice-position
 acr-slice-position:
-	$(VENV_CMD) hazen acr_slice_position $(ACR_DATA)
+	$(VENV_CMD) hazen acr_slice_position $(ACR_DATA) --no-show
 
 .PHONY: acr-slice-thickness
 acr-slice-thickness:
-	$(VENV_CMD) hazen acr_slice_thickness $(ACR_DATA)
+	$(VENV_CMD) hazen acr_slice_thickness $(ACR_DATA) --no-show
 
 .PHONY: acr-geometric-accuracy
 acr-geometric-accuracy:
-	$(VENV_CMD) hazen acr_geometric_accuracy $(ACR_DATA)
+	$(VENV_CMD) hazen acr_geometric_accuracy $(ACR_DATA) --no-show
 
 .PHONY: acr-spatial-resolution
 acr-spatial-resolution:
-	$(VENV_CMD) hazen acr_spatial_resolution $(ACR_DATA)
+	$(VENV_CMD) hazen acr_spatial_resolution $(ACR_DATA) --no-show
 
 .PHONY: acr-low-contrast-object-detectability
 acr-low-contrast-object-detectability:
 	$(VENV_CMD) hazen \
-	acr_low_contrast_object_detectability  $(ACR_DATA)
+	acr_low_contrast_object_detectability  $(ACR_DATA) --no-show
 
 .PHONY: acr-object-detectability
 acr-object-detectability:
 	$(VENV_CMD) hazen \
-	acr_object_detectability  $(ACR_DATA)
+	acr_object_detectability  $(ACR_DATA) --no-show
 
 .PHONY: acr-large-phantom-all
 acr-large-phantom-all:
@@ -190,38 +190,38 @@ cli-acr: cli-acr-all	## Run the ACR CLI tests
 .PHONY: magnet-snr
 magnet-snr:
 	$(VENV_CMD) hazen snr \
-	--measured_slice_width 5.0012 tests/data/snr/Siemens
+	--measured_slice_width 5.0012 tests/data/snr/Siemens --no-show
 
 .PHONY: magnet-uniformity
 magnet-uniformity:
-	$(VENV_CMD) hazen uniformity tests/data/uniformity
+	$(VENV_CMD) hazen uniformity tests/data/uniformity --no-show
 
 .PHONY: magnet-ghosting
 magnet-ghosting:
-	$(VENV_CMD) hazen ghosting tests/data/ghosting/GHOSTING
+	$(VENV_CMD) hazen ghosting tests/data/ghosting/GHOSTING --no-show
 
 .PHONY: magnet-slice-position
 magnet-slice-position:
 	$(VENV_CMD) hazen slice_position \
-	tests/data/slicepos/SLICEPOSITION
+	tests/data/slicepos/SLICEPOSITION --no-show
 
 .PHONY: magnet-slice-width
 magnet-slice-thickness:
 	$(VENV_CMD) hazen slice_width \
-	tests/data/slicewidth/512_matrix
+	tests/data/slicewidth/512_matrix --no-show
 
 .PHONY: magnet-geometric-accuracy
 magnet-geometric-accuracy:
-	$(VENV_CMD) hazen geometric_accuracy
+	$(VENV_CMD) hazen geometric_accuracy --no-show
 
 .PHONY: magnet-spatial-resolution
 magnet-spatial-resolution:
 	$(VENV_CMD) hazen spatial_resolution \
-	tests/data/resolution/RESOLUTION/
+	tests/data/resolution/RESOLUTION/ --no-show
 
 .PHONY: magnet-snr-map
 magnet-snr-map:
-	$(VENV_CMD) hazen snr_map tests/data/snr/Siemens
+	$(VENV_CMD) hazen snr_map tests/data/snr/Siemens --no-show
 
 .PHONY: cli-magnet-all
 cli-magnet-all: magnet-snr \
@@ -241,13 +241,13 @@ cli-magnet: cli-magnet-all	## Run the MagNET CLI tests
 relaxometry-T1:
 	$(VENV_CMD) hazen relaxometry \
 	tests/data/relaxometry/T1/site1_20200218/plate5 \
-	--calc T1 --plate_number=5
+	--calc T1 --plate_number=5 --no-show
 
 .PHONY: relaxometry-T2
 relaxometry-T2:
 	$(VENV_CMD) hazen relaxometry \
 	tests/data/relaxometry/T2/site3_ge/plate4 \
-	--calc T2 --plate_number=4
+	--calc T2 --plate_number=4 --no-show
 
 .PHONY: caliber-relaxometry
 caliber-relaxometry: relaxometry-T1 relaxometry-T2
@@ -278,27 +278,27 @@ cli-batch: cli-batch-dry-run cli-batch-wet-run cli-batch-init
 # CLI Flags #
 .PHONY: flags-profile
 flags-profile:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --profile
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --profile --no-show
 
 .PHONY: flags-report
 flags-report:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --report
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --report --no-show
 
 .PHONY: flags-output
 flags-output:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --output .cache
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --output .cache --no-show
 
 .PHONY: flags-verbose
 flags-verbose:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --verbose
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --verbose --no-show
 
 .PHONY: flags-format
 flags-format:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --format csv
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --format csv --no-show
 
 .PHONY: flags-result
 flags-result:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --result .makefile_result_output.json
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --result .makefile_result_output.json --no-show
 
 .PHONY: flags-version
 flags-version:
@@ -306,9 +306,9 @@ flags-version:
 
 .PHONY: flags-level
 flags-level:
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=final
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=intermediate
-	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=all
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=final --no-show
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=intermediate --no-show
+	$(VENV_CMD) hazen acr_snr $(ACR_DATA) --level=all --no-show
 
 .PHONY: flags-combined
 flags-combined:
@@ -319,7 +319,7 @@ flags-combined:
 	--verbose \
 	--format csv \
 	--level=final \
-	--log debug
+	--log debug --no-show
 
 .PHONY: cli-flags	## Run the CI with
 cli-flags: flags-profile flags-report flags-output flags-verbose \

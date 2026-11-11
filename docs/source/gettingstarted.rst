@@ -165,6 +165,17 @@ The ``--report`` option provides additional information for some of the function
 
    hazen snr tests/data/snr/Philips --report
 
+After a single task finishes, its report images open in your default image
+viewer so you can check them visually. Use ``--no-show`` to stop this. For
+``acr_all`` the images are only opened if you pass ``--show``, and
+``hazen batch`` never opens them. ``acr_gstt`` and ``acr_remote`` open a
+single montage instead (see their outputs below):
+
+.. code-block:: bash
+
+   hazen acr_uniformity tests/data/acr/GE_Artist_1.5T_T1 --no-show
+   hazen acr_all /path/to/T1 /path/to/T2 /path/to/SagittalLocaliser --show
+
 Task-Specific Arguments
 ^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -504,6 +515,13 @@ Outputs
   value (``-`` writes it to stdout).
 - ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
   ``--no-report`` to disable).
+- ``<session>/hazen_report/montage.png`` one image for a visual check of the
+  whole session, opened in your default image viewer when the run finishes
+  (``--no-show`` to stop this; the individual report images are never opened).
+  It has one row per coil and plane and one tile per report image, showing
+  only the phantom with its ROIs and lines, captioned with the result, e.g.
+  ``HEAD_TRA: Slice Thickness = 4.98mm``. A skipped or failed test is a grey
+  tile. Each tile is also saved next to its report image as ``*_overlay.png``.
 
 Remote ACR Protocol (acr_remote)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -599,7 +617,9 @@ As for ``acr_gstt``: ``<session>/hazen_results.xlsx`` (``--result`` and
 ``--format`` to change), with one column per plane (``TRA``, ``SAG``,
 ``COR``) and image sheets labelled e.g. ``COR_SlicePosition``, and
 ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to
-change, ``--no-report`` to disable). There is no ``--vendor`` option.
+change, ``--no-report`` to disable), and the
+``<session>/hazen_report/montage.png`` visual check opened at the end
+(``--no-show`` to stop this). There is no ``--vendor`` option.
 
 Web interface
 ^^^^^^^^^^^^^

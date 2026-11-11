@@ -3,6 +3,7 @@ import logging
 import sys
 import tomllib
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import hazenlib
@@ -165,3 +166,59 @@ class TestCliParser(unittest.TestCase):
             result.get_measurement(name="Relaxometry")[0].value,
             4,
         )
+
+
+class TestShowOption(unittest.TestCase):
+    """Check when main() opens the report images."""
+
+    def setUp(self):
+        self.result = Result(task="Task", _load_metadata=False)
+        self.result.add_report_image(["a.png", "b.png"])
+        task = mock.Mock()
+        task.run.return_value = self.result
+
+        protocol = mock.Mock()
+        protocol.run.return_value.results = [self.result, self.result]
+
+        patches = [
+            mock.patch("hazenlib.get_dicom_files", return_value=["f1", "f2"]),
+            mock.patch("hazenlib.init_task", return_value=task),
+            mock.patch(
+                "hazenlib.ACRLargePhantomProtocol", return_value=protocol
+            ),
+            mock.patch("hazenlib.write_result"),
+        ]
+        for p in patches:
+            p.start()
+            self.addCleanup(p.stop)
+        opener = mock.patch("hazenlib.open_report_images")
+        self.open_report_images = opener.start()
+        self.addCleanup(opener.stop)
+
+    def run_main(self, *argv):
+        with mock.patch.object(sys, "argv", ["hazen", *argv]):
+            hazenlib.main()
+
+    def test_show(self):
+        image_pair = ["a.png", "b.png"]
+        cases = {
+            ("acr_uniformity", "f"): [image_pair],
+            ("acr_uniformity", "f", "--no-show"): [],
+            ("acr_uniformity", "f", "--no-report"): [],
+            ("acr_all", "t1", "t2", "sag"): [],
+            ("acr_all", "t1", "t2", "sag", "--show"): [image_pair * 2],
+        }
+        for argv, expected in cases.items():
+            with self.subTest(argv=argv):
+                self.open_report_images.reset_mock()
+                self.run_main(*argv)
+                opened = [
+                    list(c.args[0])
+                    for c in self.open_report_images.call_args_list
+                ]
+                self.assertEqual(opened, expected)
+
+    def test_show_with_no_report_warns(self):
+        with self.assertLogs(level="WARNING") as logs:
+            self.run_main("acr_uniformity", "f", "--no-report", "--show")
+        self.assertTrue(any("--no-report" in m for m in logs.output))

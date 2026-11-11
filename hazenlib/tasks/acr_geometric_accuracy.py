@@ -439,6 +439,7 @@ class ACRGeometricAccuracy(HazenTask):
 
         if self.report:
             results.add_report_image(self.report_files)
+            results.overlays = self.overlays
 
         return results
 
@@ -513,6 +514,7 @@ class ACRGeometricAccuracy(HazenTask):
             os.path.join(self.report_path, f"{self.img_desc(img_dcm)}.png")
         )
         fig.savefig(img_path)
+        self.save_overlay(fig, axes[2], img_path, slice_index + 1)
         plt.close(fig)
         self.report_files.append(img_path)
 

@@ -50,11 +50,12 @@ from hazenlib.protocols.acr_gstt import ACRGSTTProtocol
 from hazenlib.protocols.acr_remote import ACRRemoteProtocol
 from hazenlib.protocols.engine import SessionProtocol
 from hazenlib.protocols.outputs import (
+    make_montage,
     table_records,
     write_records,
     write_workbook,
 )
-from hazenlib.utils import get_dicom_files
+from hazenlib.utils import get_dicom_files, open_report_images
 
 # Protocols run over one session folder, by CLI command
 PROTOCOLS: dict[str, type[SessionProtocol]] = {
@@ -127,6 +128,15 @@ def get_parser() -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="Whether to generate visualisation of the measurement steps (enabled by default)",
+    )
+    task_options_parser.add_argument(
+        "--show",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Whether to open the report images in the default image viewer"
+            " after the run (default: on for single tasks, off for acr_all)"
+        ),
     )
     task_options_parser.add_argument(
         "--report-docx",
@@ -323,6 +333,15 @@ def get_parser() -> argparse.ArgumentParser:
         help="Whether to generate report images (enabled by default)",
     )
     session_parser.add_argument(
+        "--show",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Whether to open the montage of report images in the default"
+            " image viewer after the run (enabled by default)"
+        ),
+    )
+    session_parser.add_argument(
         "--result",
         type=str,
         default=None,
@@ -412,6 +431,16 @@ def run_protocol(
         print(f"Results: {result}")  # noqa: T201
     if args.report:
         print(f"Images:  {protocol.report_dir}")  # noqa: T201
+        # One image of every test's annotated phantom, for a visual check
+        montage = protocol.report_dir / "montage.png"
+        make_montage(protocol.tiles(outcomes), montage)
+        print(f"Montage: {montage}")  # noqa: T201
+        if args.show is not False:
+            open_report_images([montage])
+    elif args.show:
+        logger.warning(
+            "--show has no effect with --no-report: no report images are made",
+        )
     return int(any(o.status == "failed" for o in outcomes))
 
 
@@ -536,6 +565,14 @@ def main() -> None:
     # Parse the task and optional arguments:
     selected_task = args.command.lower()
 
+    # Report images are opened by default for single tasks only
+    show = args.show if args.show is not None else selected_task != "acr_all"
+    if args.show and not report:
+        logger.warning(
+            "--show has no effect with --no-report: no report images are made",
+        )
+    show = show and report
+
     #################################
     # Special Case the ACR ALL Task #
     #################################
@@ -555,8 +592,12 @@ def main() -> None:
             )
             doc.save(args.report_docx)
 
+        report_images: list[str] = []
         for result in protocol.results:
             write_result(result, fmt=fmt, path=result_file, level=level)
+            report_images.extend(result.report_images)
+        if show:
+            open_report_images(report_images)
         return
     if len(args.folder) != 1:
         parser.error(
@@ -619,10 +660,14 @@ def main() -> None:
         if selected_task in single_image_tasks:
             # Ghosting, Uniformity, Spatial resolution, SNR map, Slice width
             # for now these are most likely not enhanced, single-frame
+            report_images = []
             for f in files:
                 task = init_task(selected_task, [f], report, report_dir)
                 result = execution_wrapper(task.run)
                 write_result(result, fmt=fmt, path=result_file, level=level)
+                report_images.extend(result.report_images)
+            if show:
+                open_report_images(report_images)
             return
         # Slice Position task, all ACR tasks except SNR
         # may be enhanced, may be multi-frame
@@ -637,10 +682,9 @@ def main() -> None:
         )
         result = execution_wrapper(task.run)
 
-        write_result(result, fmt=fmt, path=result_file, level=level)
-        return
-
     write_result(result, fmt=fmt, path=result_file, level=level)
+    if show:
+        open_report_images(result.report_images)
 
 
 if __name__ == "__main__":
