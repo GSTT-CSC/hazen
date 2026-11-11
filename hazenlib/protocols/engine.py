@@ -280,7 +280,8 @@ def _tile_value(result: Result, slice_number: int | None) -> str:
         return "failed"
 
     def number(m: Measurement) -> str:
-        return f"{round(float(m.value), 2) + 0.0:.2f}"  # + 0.0 so never "-0.00"
+        # + 0.0 so a small negative value is never "-0.00"
+        return f"{round(float(m.value), 2) + 0.0:.2f}"
 
     if len(finals) == 1:
         return f"{number(finals[0])}{finals[0].unit or ''}"
