@@ -297,7 +297,7 @@ class ACRObject:
             logger.info("Performing slice order inversion.")
             return dcm_list[::-1]
 
-        logger.debug("Neither slices had a circle detected")
+        logger.warning("Neither first nor last slice had a circle detected. Slice order cannot be verified - returning slices in original order.")
         return dcm_list
 
     def looks_like_slice_1(self, dcm):
