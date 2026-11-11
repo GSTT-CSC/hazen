@@ -273,11 +273,11 @@ class TestProtocolTiles(unittest.TestCase):
         # Each tile shows the overlay of its own slice and role
         self.assertEqual(
             head["Slice Position (slice 11)"].path,
-            f"{tmp}/out/Head_4/acr_slice_position_11.png",
+            str(tmp / "out" / "Head_4" / "acr_slice_position_11.png"),
         )
         self.assertEqual(
             head["Ghosting"].path,
-            f"{tmp}/out/Head_1/acr_ghosting_None.png",
+            str(tmp / "out" / "Head_1" / "acr_ghosting_None.png"),
         )
 
         # Rows are the results table's columns, in the same order, and
