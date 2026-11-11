@@ -168,7 +168,8 @@ The ``--report`` option provides additional information for some of the function
 After a single task finishes, its report images open in your default image
 viewer so you can check them visually. Use ``--no-show`` to stop this. For
 ``acr_all`` the images are only opened if you pass ``--show``, and
-``hazen batch`` never opens them:
+``hazen batch`` never opens them. ``acr_gstt`` and ``acr_remote`` open a
+single montage instead (see their outputs below):
 
 .. code-block:: bash
 
@@ -412,6 +413,213 @@ Process a full ACR Large Phantom protocol in one command:
          - "./data/acr/T2"
          - "./data/acr/sag_localiser"
 
+
+GSTT ACR Protocol (acr_gstt)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``acr_gstt`` runs every measurement in the GSTT ACR QA work instruction on one
+session folder and writes the results to a single workbook. Unlike
+``acr_all`` (T1, T2 and sagittal localiser), all GSTT acquisitions use the same
+T1 sequence and differ only by coil, plane and reconstruction filters, so each
+acquisition is identified by the name of its folder.
+
+.. code-block:: bash
+
+   hazen acr_gstt /path/to/session
+
+Folder Naming
+"""""""""""""
+Place each acquisition in a subfolder of the session folder named after its
+role. Names are matched ignoring case and separators (``HEAD1``, ``head-1`` and
+``Head_1`` are equivalent). The plane can come before or after the number, with
+``ax`` or ``axial`` accepted for ``Tra``, and anything after a trailing
+separator is ignored, so ``BODY1_ax``, ``BODY4_sag_rotMAT`` and ``Body_Sag_4``
+are all recognised. Two folders matching the same role (e.g. ``HEAD2`` and
+``HEAD2_rep``) stop the run, so rename or move the one not to use. Other folders
+(e.g. RF noise) are listed and ignored.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Folder
+     - Acquisition
+   * - ``Head_1``, ``Head_2``
+     - Head coil, no filters (repeat pair)
+   * - ``Head_3``
+     - Head coil, intensity correction / normalisation on
+   * - ``Head_4``
+     - Head coil, 2D distortion correction on
+   * - ``Head_5``
+     - Head coil, Philips CLASSIC reconstruction (Philips only)
+   * - ``Body_Tra_1`` ... ``Body_Tra_4``
+     - Body coil, transverse; series 1-4 as for the head coil
+   * - ``Body_Sag_1`` ... ``Body_Sag_4``
+     - Body coil, sagittal
+   * - ``Body_Cor_1`` ... ``Body_Cor_4``
+     - Body coil, coronal
+
+Sagittal and coronal images do not need rotating first. A series rotated by a
+multiple of 90° or mirrored is detected from slice 1 and analysed (and
+reported) in the standard transverse view, as for the individual ACR tasks.
+
+Measurements
+""""""""""""
+For each coil and plane:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 40 30 30
+
+   * - Test
+     - Siemens / Philips
+     - GE
+   * - Slice thickness, slice position, geometric accuracy
+     - series 4
+     - series 1
+   * - Uniformity
+     - series 3
+     - series 3 (head), series 1 (body)
+   * - SNR (subtraction, series 1 minus series 2)
+     - series 1, 2
+     - series 1, 2
+   * - Ghosting (head only)
+     - ``Head_1`` (Philips: ``Head_5``)
+     - ``Head_1``
+
+The vendor is read from the DICOM ``Manufacturer`` tag; use ``--vendor`` to
+override it. Other manufacturers are not supported.
+
+SNR is normalised using the slice thickness measured on the same coil and
+plane's slice thickness series (series 4, or series 1 for GE). If that is
+unavailable the nominal DICOM slice thickness is used and a warning is logged.
+The slice width used is recorded under SNR as ``Slice width used``, or
+``Slice width used (nominal)`` when the DICOM value was used.
+
+A test whose folders are missing is recorded as ``skipped``; a test that raises
+an error, or gives no report-ready measurement (its error is in the log), is
+recorded as ``failed`` and the rest still run. ``hazen`` exits with
+a non-zero status if anything failed. SNR is skipped, not measured with the
+single-image method, when the repeat series is missing.
+
+Outputs
+"""""""
+- ``<session>/hazen_results.xlsx``. The *Results* sheet has one row per test
+  and report-ready measurement (e.g. ``uniformity`` / ``Integral uniformity``)
+  and one column per coil and plane (``Head TRA``, ``Body TRA``, ``Body SAG``,
+  ``Body COR``). Values stay numeric with their unit shown in the cell format.
+  A cell is filled red when its test was skipped or failed there; the reason
+  is in the summary printed at the end. Each test then has its own sheet of
+  report images, labelled by role and task, e.g. ``Body_Sag_4_SlicePosition``.
+- ``--result PATH`` writes the results elsewhere and ``--format csv|tsv|json``
+  writes the same table as text, without images and with units after each
+  value (``-`` writes it to stdout).
+- ``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to change,
+  ``--no-report`` to disable).
+- ``<session>/hazen_report/montage.png`` one image for a visual check of the
+  whole session, opened in your default image viewer when the run finishes
+  (``--no-show`` to stop this; the individual report images are never opened).
+  It has one row per coil and plane and one tile per report image, showing
+  only the phantom with its ROIs and lines, captioned with the result, e.g.
+  ``HEAD_TRA: Slice Thickness = 4.98mm``. A skipped or failed test is a grey
+  tile. Each tile is also saved next to its report image as ``*_overlay.png``.
+
+Remote ACR Protocol (acr_remote)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+``acr_remote`` runs the ACR measurements of the NHSBSP breast-screening MRI QA
+on a session acquired by a site and sent to us: one T1 acquisition per plane,
+transverse on the head/neck coil and sagittal and coronal on the body and spine
+coils. Results go to the same workbook layout as ``acr_gstt``.
+
+.. code-block:: bash
+
+   hazen acr_remote /path/to/export
+
+Series Matching
+"""""""""""""""
+Pass the whole export as it arrives; folder names are ignored. Every DICOM file
+under the session folder is read (``hazen_report``, ``DICOMDIR`` and non-DICOM
+files are skipped), grouped into series by ``SeriesInstanceUID`` and matched on
+its headers:
+
+- The plane is ``ACR`` followed by a plane name in the ``SeriesDescription``,
+  ignoring case and separators: ``tra``, ``ax``, ``axial`` or ``transverse``;
+  ``sag`` or ``sagittal``; ``cor`` or ``coronal``. So ``ACR_TRA``,
+  ``ACR Axial`` and ``acr-coronal`` all match. ``ProtocolName`` is used when the
+  description names no plane; if both name a plane and disagree, the
+  description wins and a warning is logged.
+- On Siemens, only the distortion-corrected series (``DIS2D`` in
+  ``ImageType``) of each plane is analysed. ``ImageType`` wins over an ``_ND``
+  suffix in the name; a mismatch is warned about.
+
+Everything else is listed in the summary but not analysed:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 75
+
+   * - Listed as
+     - Series
+   * - uncorrected
+     - The same acquisition without distortion correction (``ND`` in
+       ``ImageType``, "unfiltered images")
+   * - visual check
+     - RF noise, B0 field map and breast NONSUP / FATSUP series, kept for a
+       physicist to view (description contains ``noise``, ``field_map``,
+       ``fieldmap``, ``b0_map``, ``b0map``, ``nonsup``, ``nosup``,
+       ``non_sup``, ``fatsup``, ``fat_sup`` or ``fat sup``)
+   * - unknown
+     - Anything else, with a warning naming the series
+   * - ignored
+     - An older distortion-corrected series of a plane that has a newer one
+
+Other manufacturers have no ``DIS2D`` / ``ND`` marker, so every ACR series of a
+plane is a candidate and a warning says the correction status could not be
+read. Export only the distortion-corrected series for each plane.
+
+Measurements
+""""""""""""
+Each plane's distortion-corrected series gets every test:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 20 60
+
+   * - Role
+     - Coil
+     - Tests
+   * - ``TRA``
+     - head
+     - SNR, uniformity, ghosting, slice thickness, slice position,
+       geometric accuracy
+   * - ``SAG``
+     - body
+     - as for ``TRA``
+   * - ``COR``
+     - body
+     - as for ``TRA``
+
+SNR uses the single-image method on the distortion-corrected series (there is
+no repeat acquisition to subtract), so it has no ``Slice width used`` row.
+
+A plane with no series, or with only an uncorrected series, has its tests
+recorded as ``skipped``; the second case also warns that the series should be
+reconstructed again with distortion correction. If two distortion-corrected
+series match the same plane (a repeat, or a copy rotated on the scanner), the
+newest is used (latest ``SeriesDate`` / ``SeriesTime``, then highest
+``SeriesNumber``) and the other is listed as ignored, with a warning naming
+both. Series from more than one scanner (``DeviceSerialNumber``, else
+``StationName``) stop the run: send one scanner's export at a time. A session
+spread over several study dates from one scanner is allowed, with a warning.
+
+Outputs
+"""""""
+As for ``acr_gstt``: ``<session>/hazen_results.xlsx`` (``--result`` and
+``--format`` to change), with one column per plane (``TRA``, ``SAG``,
+``COR``) and image sheets labelled e.g. ``COR_SlicePosition``, and
+``<session>/hazen_report/<Role>/<Task>/`` report images (``--output`` to
+change, ``--no-report`` to disable), and the
+``<session>/hazen_report/montage.png`` visual check opened at the end
+(``--no-show`` to stop this). There is no ``--vendor`` option.
 
 Web interface
 ^^^^^^^^^^^^^

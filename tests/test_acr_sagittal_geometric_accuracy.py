@@ -21,7 +21,7 @@ class TestACRSagittalGeometricAccuracySiemens(unittest.TestCase):
     """Base test class for the Siemens Sagittal Localizer Geometric Accuracy."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "SiemensSolaFitLocalizer")
-    L1 = 149.41
+    L1 = 150.39
 
     def setUp(self) -> None:
         """Set up the test case."""
@@ -56,7 +56,7 @@ class TestACRSagittalGeometricAccuracyPhilipsAchieva(
     """Base test class for the Philips Sagittal Localizer Geometric Accuracy."""
 
     ACR_DATA = pathlib.Path(TEST_DATA_DIR / "acr" / "PhilipsAchievaLocalizer")
-    L1 = 146.48
+    L1 = 147.66
 
 
 class TestACRSagittalGeometricAccuracyGESigna(
@@ -69,4 +69,4 @@ class TestACRSagittalGeometricAccuracyGESigna(
         / "acr"
         / "GE_Signa_1.5T_Sagittal_Localizer"
     )
-    L1 = 150.0
+    L1 = 151.37

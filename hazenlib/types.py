@@ -256,6 +256,9 @@ class Result(JsonSerializableMixin):
         """Initialize the measurements, report_images and metadata."""
         self._measurements: list[Measurement] = []
         self._report_images: list[str] = []
+        # Annotated phantom panels for protocol montages, by the slice
+        # shown (None when the task has a single figure)
+        self.overlays: dict[int | None, str] = {}
 
         if _load_metadata:
             self.metadata = Metadata(files=self.files)
